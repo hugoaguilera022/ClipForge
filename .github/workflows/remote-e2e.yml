@@ -54,7 +54,7 @@ jobs:
           set -euo pipefail
           python -m pip install --disable-pip-version-check pytest
           python -m py_compile server.py clipforge.py channel_monitor.py diarization.py job_store.py project_store.py worker.py
-          PYTHONPATH=. pytest -q
+          PYTHONPATH=. pytest -q tests/
           node --check static/app.js
           node --check static/editor.js
 
