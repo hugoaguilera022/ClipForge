@@ -1,0 +1,81 @@
+name: ClipForge quality checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clipforge-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Python, JavaScript and media smoke tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python with dependency cache
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          ffmpeg -version
+          ffprobe -version
+
+      - name: Install development tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+
+      - name: Compile Python modules
+        run: |
+          python -m compileall -q             server.py clipforge.py channel_monitor.py diarization.py             job_store.py project_store.py worker.py
+
+      - name: Check critical Python errors
+        run: ruff check --select E9,F63,F7,F82 --output-format=github .
+
+      - name: Run automated tests with coverage
+        env:
+          PYTHONPATH: .
+        run: |
+          pytest -q tests/ --cov=clipforge --cov=server --cov-report=term-missing --cov-report=xml
+
+      - name: Validate JavaScript syntax
+        run: |
+          node --check static/app.js
+          node --check static/editor.js
+          node --check static/sw.js
+
+      - name: Generate and inspect a real media fixture
+        run: |
+          set -euo pipefail
+          mkdir -p test-output
+          ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc2=size=320x568:rate=24 -f lavfi -i sine=frequency=440:duration=2 -t 2 -c:v libx264 -pix_fmt yuv420p -c:a aac test-output/smoke.mp4
+          ffprobe -v error -show_entries format=duration:stream=codec_type,width,height -of json test-output/smoke.mp4
+          test "$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of csv=p=0 test-output/smoke.mp4)" = "h264"
+          test "$(ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of csv=p=0 test-output/smoke.mp4)" = "aac"
+
+      - name: Upload test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clipforge-quality-evidence
+          path: |
+            coverage.xml
+            test-output/
+          if-no-files-found: warn
+          retention-days: 7
