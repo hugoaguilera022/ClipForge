@@ -43,7 +43,8 @@ jobs:
           set -euo pipefail
           cp -a /tmp/clipforge-import/ClipForge/. .
           if [ -f /tmp/clipforge-import/ClipForge/.github/workflows/mlx-macos.yml ]; then
-            cp /tmp/clipforge-import/ClipForge/.github/workflows/mlx-macos.yml .github/workflows/mlx-macos-v172.yml
+            mkdir -p source-package-workflows
+            cp /tmp/clipforge-import/ClipForge/.github/workflows/mlx-macos.yml source-package-workflows/mlx-macos-v172.yml
           fi
           test -f server.py
           test -f static/index.html
