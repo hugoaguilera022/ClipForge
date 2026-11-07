@@ -50,6 +50,17 @@ if [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "arm64" ]; then
   # Users can override this with CLIPFORGE_MLX_MODEL before launching.
   export CLIPFORGE_MLX_MODEL="${CLIPFORGE_MLX_MODEL:-large-v3-turbo}"
   echo "Modelo MLX predeterminado: $CLIPFORGE_MLX_MODEL"
+  # Keep Faster-Whisper available as a local fallback if MLX/model loading fails.
+  if ! "$PY" -c 'import faster_whisper' >/dev/null 2>&1; then
+    echo 'Instalando Faster-Whisper como motor de respaldo…'
+    "$PY" -m pip install -r requirements.txt || echo 'AVISO: Faster-Whisper no está disponible; MLX sigue siendo el motor principal.'
+  fi
+fi
+
+# Install optional OpenCV face detection/tracking for better portrait reframing.
+if ! "$PY" -c 'import cv2' >/dev/null 2>&1; then
+  echo 'Instalando OpenCV para seguimiento visual…'
+  "$PY" -m pip install 'opencv-python-headless>=4.9' || echo 'AVISO: OpenCV no está disponible; ClipForge usará encuadre alternativo.'
 fi
 
 if [ "$(uname -s)" = "Darwin" ] && command -v brew >/dev/null 2>&1; then
