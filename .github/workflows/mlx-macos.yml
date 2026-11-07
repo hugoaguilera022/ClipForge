@@ -1,0 +1,84 @@
+name: MLX Whisper macOS ARM64
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/mlx-macos.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  mlx-whisper:
+    runs-on: macos-14
+    timeout-minutes: 45
+    steps:
+      - name: Verify Apple Silicon runner
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = "arm64"
+          system_profiler SPHardwareDataType | grep -E "Chip|Processor Name" || true
+          python3 --version
+
+      - name: Install MLX Whisper
+        run: |
+          python3 -m venv .venv
+          source .venv/bin/activate
+          python -m pip install --upgrade pip
+          python -m pip install mlx-whisper soundfile
+          python -c "import mlx.core as mx; import mlx_whisper; print('MLX device:', mx.default_device())"
+
+      - name: Generate Spanish speech fixture
+        run: |
+          set -euo pipefail
+          mkdir -p test-output
+          VOICE="$(say -v '?' | awk 'tolower($0) ~ /spanish|español/ {print $1; exit}')"
+          if [ -z "$VOICE" ]; then
+            echo "No Spanish system voice is available on this runner." >&2
+            say -v '?' | head -40
+            exit 1
+          fi
+          echo "Using voice: $VOICE"
+          say -v "$VOICE" -o test-output/spanish.aiff "Esta es una prueba de transcripción en español para ClipForge."
+          afconvert test-output/spanish.aiff -f WAVE -d LEI16@16000 test-output/spanish.wav
+
+      - name: Transcribe with Whisper large-v3-turbo on Apple Silicon
+        run: |
+          set -euo pipefail
+          source .venv/bin/activate
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import mlx.core as mx
+          import mlx_whisper
+
+          result = mlx_whisper.transcribe(
+              "test-output/spanish.wav",
+              path_or_hf_repo="mlx-community/whisper-large-v3-turbo",
+              language="es",
+              word_timestamps=True,
+          )
+          text = result.get("text", "").strip()
+          segments = result.get("segments", [])
+          words = [w for s in segments for w in s.get("words", [])]
+          assert text, "Whisper returned empty transcription"
+          assert segments, "Whisper returned no segments"
+          assert words, "Whisper returned no word timestamps"
+          assert "prueba" in text.lower() or "transcrip" in text.lower(), text
+          Path("test-output/transcript.json").write_text(
+              json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8"
+          )
+          print("MLX device:", mx.default_device())
+          print("Transcript:", text)
+          print("Segments:", len(segments), "word timestamps:", len(words))
+          PY
+
+      - name: Upload transcription evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mlx-whisper-macos-arm64-evidence
+          path: test-output/
+          if-no-files-found: warn
+          retention-days: 7
