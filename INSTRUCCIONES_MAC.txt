@@ -1,0 +1,29 @@
+CLIPFORGE 1.50.0 — INSTRUCCIONES PARA macOS
+
+1. Abre Iniciar_ClipForge.command.
+2. La primera vez crea un entorno Python privado e instala Faster-Whisper si hay conexión a Internet.
+3. Abre http://127.0.0.1:8765.
+4. Selecciona un vídeo, idioma y modelo. Recomendación: Faster-Whisper Small para español.
+5. En el primer trabajo se descarga el modelo seleccionado. Después puede transcribir sin conexión.
+
+RECONOCIMIENTO
+- Faster-Whisper es el motor principal; whisper.cpp es la alternativa nativa independiente y acelerada por Metal en Apple Silicon. Funciona en macOS, Windows y Linux y no depende de Swift, Xcode ni Apple Speech.
+- El audio se procesa localmente; no se envía a una API.
+- CPU INT8 es la configuración portable. Apple Silicon funciona por CPU en esta versión.
+- Apple Speech se conserva como último fallback heredado en Mac si los motores Whisper no están disponibles.
+- Si no hay conexión para instalar el paquete o descargar el modelo, la web puede abrir, pero la transcripción automática no funcionará hasta completar esa descarga. Puedes importar un SRT/VTT ya existente como alternativa.
+
+MODELOS
+- Base: menor consumo y descarga.
+- Small: recomendado, equilibrio entre calidad y recursos.
+- Medium: mayor precisión potencial, más memoria y tiempo.
+
+VÍDEOS Y DERECHOS
+- Solo procesa material que tengas derecho a editar.
+- La casilla de prueba privada no concede derechos de publicación.
+- El servidor local no debe exponerse directamente a Internet.
+
+DIAGNÓSTICO
+- La etiqueta superior informa si Faster-Whisper está instalado.
+- Si falla la transcripción, conserva abierta Terminal y copia el error completo.
+- No instales WhisperX ni MediaPipe para el flujo básico: son extras opcionales y pesados.

@@ -1,0 +1,15 @@
+{
+  "rights_confirmed": false,
+  "rights_holder": "",
+  "permission_reference": "",
+  "language": "es",
+  "model": "tiny",
+  "clips": 5,
+  "min_seconds": 20,
+  "max_seconds": 45,
+  "resolution": "1080x1920",
+  "crop": "face",
+  "fps": 30,
+  "quality": "high",
+  "burn_captions": true
+}

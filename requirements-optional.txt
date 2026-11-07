@@ -1,0 +1,9 @@
+# Optional visual tracking; keep separate from core so unsupported Python/platform
+# combinations can still use the complete transcription and rendering pipeline.
+opencv-python-headless>=4.9
+# Optional improved face landmarks / tracking (Python wheel availability is platform-specific).
+mediapipe>=0.10.14; python_version < "3.13"
+# Optional speaker diarization/alignment; heavyweight and not needed for baseline word timestamps.
+whisperx>=3.8; python_version < "3.14"
+# Acoustic diarization. Requires Hugging Face model access; see README.
+pyannote.audio>=4.0,<5

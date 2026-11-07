@@ -1,0 +1,3 @@
+# Apple Silicon accelerated local speech recognition (macOS arm64 only).
+# Install inside ClipForge's private virtual environment.
+mlx-whisper>=0.4.2

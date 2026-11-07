@@ -1,0 +1,137 @@
+const statusEl = document.querySelector('#editorStatus');
+const timelineEl = document.querySelector('#editorTimeline');
+const projectSelect = document.querySelector('#savedProjectList');
+const say = message => { if (statusEl) statusEl.textContent = message; };
+let tracks = [];
+let activeProjectId = null;
+let clips = [];
+let transcript = null;
+let source = '';
+const undoStack = []; const redoStack = []; const HISTORY_LIMIT = 80;
+function snapshot(){ return JSON.stringify({tracks,clips,transcript,source}); }
+function remember(){ const current=snapshot(); if(undoStack.at(-1)!==current) undoStack.push(current); if(undoStack.length>HISTORY_LIMIT) undoStack.shift(); redoStack.length=0; updateHistoryButtons(); }
+function restore(raw){ const state=JSON.parse(raw); tracks=state.tracks||[]; clips=state.clips||[]; transcript=state.transcript||null; source=state.source||''; window.clipforgeEditorBridge?.setClips(clips); render(); updateHistoryButtons(); }
+function updateHistoryButtons(){ const u=document.querySelector('#editorUndo'),r=document.querySelector('#editorRedo'); if(u)u.disabled=!undoStack.length; if(r)r.disabled=!redoStack.length; }
+function undo(){ if(!undoStack.length)return; redoStack.push(snapshot()); restore(undoStack.pop()); say('Último cambio deshecho.'); }
+function redo(){ if(!redoStack.length)return; undoStack.push(snapshot()); restore(redoStack.pop()); say('Cambio restaurado.'); }
+
+const TYPES = {
+  video: 'Vídeo',
+  audio: 'Audio',
+  subtitles: 'Subtítulos',
+  text: 'Texto',
+  image: 'Imagen'
+};
+
+function bridgeProject() {
+  const bridge = window.clipforgeEditorBridge;
+  if (bridge?.getProject) {
+    const p = bridge.getProject();
+    clips = p.clips || [];
+    transcript = p.transcript || null;
+    source = p.source || '';
+  }
+}
+function makeDefaultTracks() {
+  const subtitleItems = (transcript?.segments || []).map((s, i) => ({
+    id: `subtitle-${i+1}`, start:Number(s.start), end:Number(s.end), text:String(s.text || '')
+  })).filter(x => Number.isFinite(x.start) && Number.isFinite(x.end) && x.end > x.start);
+  return [
+    {id:'track-video-1', type:'video', name:'Clips de vídeo', items:clips.map(c=>({id:c.id,start:c.start,end:c.end,text:c.title || c.text || 'Clip'}))},
+    {id:'track-subtitles-1', type:'subtitles', name:'Subtítulos', items:subtitleItems},
+    {id:'track-text-1', type:'text', name:'Textos y títulos', items:[]}
+  ];
+}
+function render() {
+  if (!timelineEl) return;
+  timelineEl.replaceChildren();
+  if (!tracks.length) tracks = makeDefaultTracks();
+  tracks.forEach((track, trackIndex) => {
+    const section = document.createElement('section'); section.className='editor-track';
+    const head = document.createElement('div'); head.className='editor-track-head';
+    const title = document.createElement('strong'); title.textContent = `${TYPES[track.type] || track.type} · ${track.name || `Pista ${trackIndex+1}`}`;
+    const count = document.createElement('small'); count.className='muted'; count.textContent=`${track.items.length} elementos`;
+    head.append(title,count); section.append(head);
+    const items = document.createElement('div'); items.className='editor-track-items';
+    if (!track.items.length) {
+      const empty = document.createElement('div'); empty.className='editor-empty muted'; empty.textContent='Pista vacía. Puedes añadir elementos desde los clips o transcripción.'; items.append(empty);
+    }
+    track.items.forEach((item,itemIndex) => {
+      const row = document.createElement('div'); row.className='editor-clip';
+      const start = document.createElement('input'); start.type='number'; start.min='0'; start.step='.01'; start.value=Number(item.start).toFixed(2); start.setAttribute('aria-label','Inicio del elemento');
+      const end = document.createElement('input'); end.type='number'; end.min='0'; end.step='.01'; end.value=Number(item.end).toFixed(2); end.setAttribute('aria-label','Final del elemento');
+      const text = document.createElement('input'); text.type='text'; text.value=String(item.text || ''); text.setAttribute('aria-label','Contenido del elemento');
+      const apply = document.createElement('button'); apply.type='button'; apply.className='secondary'; apply.textContent='Aplicar';
+      apply.addEventListener('click',()=>{
+        const a=Number(start.value), b=Number(end.value);
+        if (!Number.isFinite(a)||!Number.isFinite(b)||a<0||b<=a) { say('Intervalo inválido: el final debe ser posterior al inicio.'); return; }
+        remember(); Object.assign(item,{start:a,end:b,text:text.value});
+        if (track.type==='video') {
+          const clip=clips.find(c=>String(c.id)===String(item.id));
+          if (clip) Object.assign(clip,{start:a,end:b,text:text.value});
+          window.clipforgeEditorBridge?.setClips(clips);
+        }
+        say('Cambios aplicados a la línea de tiempo. Guarda el proyecto para conservarlos.');
+        render();
+      });
+      row.append(start,end,text,apply); items.append(row);
+    });
+    section.append(items); timelineEl.append(section);
+  });
+}
+async function refreshProjects() {
+  try {
+    const r=await fetch('/api/projects');
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data=await r.json();
+    projectSelect.replaceChildren(new Option('Nuevo proyecto',''));
+    (data.projects || []).forEach(p=>projectSelect.add(new Option(`${p.source || 'Proyecto'} · ${p.clip_count} clips`,p.id)));
+  } catch(e) { say(`No se pudo cargar la lista de proyectos: ${e.message}`); }
+}
+document.querySelector('#editorUndo')?.addEventListener('click',undo);
+document.querySelector('#editorRedo')?.addEventListener('click',redo);
+document.addEventListener('keydown',ev=>{ if((ev.metaKey||ev.ctrlKey)&&ev.key.toLowerCase()==='z'){ev.preventDefault(); ev.shiftKey?redo():undo();} });
+document.querySelector('#addEditorTrack')?.addEventListener('click',()=>{
+  remember(); const type=document.querySelector('#editorTrackType')?.value || 'video';
+  tracks.push({id:`track-${crypto.randomUUID()}`,type,name:`${TYPES[type]} ${tracks.filter(t=>t.type===type).length+1}`,items:[]});
+  render(); say(`Pista ${TYPES[type]} añadida.`);
+});
+document.querySelector('#saveSavedProject')?.addEventListener('click',async()=>{
+  bridgeProject();
+  if (!clips.length) { say('Primero genera o importa clips desde el motor de transcripción.'); return; }
+  const project={schema:'clipforge-project-v2',source,transcript,clips,tracks};
+  try {
+    const r=await fetch('/api/projects',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:activeProjectId || undefined,...project})});
+    const data=await r.json();
+    if(!r.ok) throw new Error(data.message || data.error || `HTTP ${r.status}`);
+    activeProjectId=data.id; await refreshProjects(); projectSelect.value=activeProjectId;
+    say(`Proyecto guardado localmente (${data.clip_count} clips, ${data.track_count} pistas).`);
+  } catch(e) { say(`Error al guardar el proyecto: ${e.message}`); }
+});
+document.querySelector('#loadSavedProject')?.addEventListener('click',async()=>{
+  const id=projectSelect.value;
+  if(!id){ say('Selecciona un proyecto guardado.'); return; }
+  try {
+    const r=await fetch(`/api/projects/${encodeURIComponent(id)}`);
+    const project=await r.json();
+    if(!r.ok) throw new Error(project.message || project.error || `HTTP ${r.status}`);
+    activeProjectId=id; undoStack.length=0; redoStack.length=0; clips=project.clips || []; tracks=project.tracks || [];
+    transcript=project.transcript || null; source=project.source || '';
+    window.clipforgeEditorBridge?.setClips(clips);
+    render(); updateHistoryButtons(); say(`Proyecto ${id} abierto. ${clips.length} clips y ${tracks.length} pistas recuperados.`);
+  } catch(e) { say(`No se pudo abrir el proyecto: ${e.message}`); }
+});
+window.addEventListener('clipforge:editor-ready',()=>{
+  bridgeProject(); if(clips.length){tracks=makeDefaultTracks();render();say(`${clips.length} clips disponibles para editar.`);}
+});
+document.querySelector('#browserTranscribe')?.addEventListener('click',()=>{});
+refreshProjects(); updateHistoryButtons();
+
+window.addEventListener('clipforge:clips-updated',()=>{
+  bridgeProject();
+  if (!tracks.length) tracks=makeDefaultTracks();
+  const videoTrack=tracks.find(track=>track.type==='video');
+  if (videoTrack) videoTrack.items=clips.map(c=>({id:c.id,start:c.start,end:c.end,text:c.title || c.text || 'Clip'}));
+  render();
+  say(`${clips.length} clips sincronizados con el editor.`);
+});
