@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """ClipForge Web local-first server. Standard library only; no paid API."""
 from __future__ import annotations
-import math
+import math, platform
 import json, os, re, subprocess, sys, threading, uuid, shutil, zipfile, io, importlib.util, time, queue, selectors, codecs
 from email.parser import BytesParser
 from email.policy import default
