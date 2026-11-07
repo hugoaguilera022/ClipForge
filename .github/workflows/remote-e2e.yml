@@ -41,7 +41,7 @@ jobs:
       - name: Import all application source files without overwriting repository automation
         run: |
           set -euo pipefail
-          cp -a /tmp/clipforge-import/ClipForge/. .
+          rsync -a --exclude='.github' /tmp/clipforge-import/ClipForge/ ./
           if [ -f /tmp/clipforge-import/ClipForge/.github/workflows/mlx-macos.yml ]; then
             mkdir -p source-package-workflows
             cp /tmp/clipforge-import/ClipForge/.github/workflows/mlx-macos.yml source-package-workflows/mlx-macos-v172.yml
