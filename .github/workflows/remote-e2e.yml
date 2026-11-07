@@ -1,50 +1,74 @@
-name: ClipForge remote transcription and render proof
+name: Import ClipForge 1.72 and verify source
 
 on:
   push:
     paths:
-      - "cloud/**"
       - ".github/workflows/remote-e2e.yml"
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
-  group: clipforge-remote-e2e
+  group: clipforge-v172-import
   cancel-in-progress: false
 
 jobs:
-  transcribe-render-validate:
-    # Public repository: standard GitHub-hosted Linux runners are free.
+  import-and-test:
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - name: Install media tools and Python dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
-          python -m pip install --upgrade pip
-          python -m pip install "faster-whisper>=1.1,<2"
-      - name: Download canonical public reference video (first 213.34 seconds)
-        run: |
-          python -m pip install yt-dlp
-          yt-dlp --no-playlist --download-sections "*0-213.34" --force-keyframes-at-cuts             -f "bv*[height<=1080]+ba/b[height<=1080]"             --merge-output-format mp4             -o input.%(ext)s             "https://www.youtube.com/watch?v=85d_IyE56SA"
-          test -s input.mp4
-          ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 input.mp4
-      - name: Real Spanish transcription, highlight extraction and subtitle render
-        env:
-          VIDEO_PATH: input.mp4
-          WHISPER_MODEL: large-v3-turbo
-          MAX_CLIPS: "3"
-          OMP_NUM_THREADS: "4"
-        run: python cloud/remote_e2e.py
-      - name: Upload proof (transcript, word timings, clips and validation)
-        if: always()
-        uses: actions/upload-artifact@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
-          name: clipforge-la-resistencia-remote-e2e
-          path: cloud-output/
-          if-no-files-found: error
-          retention-days: 7
+          fetch-depth: 0
+
+      - name: Download and verify the exact ClipForge 1.72 archive
+        env:
+          ARCHIVE_URL: "https://d2ol7oe51mr4n9.cloudfront.net/user_3LToalXIeRhotwt73mILMowhr27/bd143594-5f3e-4814-aaa5-702c24900bae.zip"
+          EXPECTED_SHA256: "fd6310aab4870e702a110a9477d4b87ee31d87a55aa7ff731deeb8d113f44e34"
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/clipforge-import dist
+          curl --fail --location --retry 3 --retry-delay 2 "$ARCHIVE_URL" -o /tmp/ClipForge_v172_mlx_turbo_2.zip
+          echo "$EXPECTED_SHA256  /tmp/ClipForge_v172_mlx_turbo_2.zip" | sha256sum --check
+          unzip -q /tmp/ClipForge_v172_mlx_turbo_2.zip -d /tmp/clipforge-import
+          test -f /tmp/clipforge-import/ClipForge/server.py
+          test -f /tmp/clipforge-import/ClipForge/clipforge.py
+          test -f /tmp/clipforge-import/ClipForge/README.md
+          cp /tmp/ClipForge_v172_mlx_turbo_2.zip dist/ClipForge_v172_mlx_turbo_2.zip
+
+      - name: Import all application source files without overwriting repository automation
+        run: |
+          set -euo pipefail
+          cp -a /tmp/clipforge-import/ClipForge/. .
+          if [ -f /tmp/clipforge-import/ClipForge/.github/workflows/mlx-macos.yml ]; then
+            cp /tmp/clipforge-import/ClipForge/.github/workflows/mlx-macos.yml .github/workflows/mlx-macos-v172.yml
+          fi
+          test -f server.py
+          test -f static/index.html
+          test -f tests/test_web.py
+
+      - name: Run source and syntax checks
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check pytest
+          python -m py_compile server.py clipforge.py channel_monitor.py diarization.py job_store.py project_store.py worker.py
+          PYTHONPATH=. pytest -q
+          node --check static/app.js
+          node --check static/editor.js
+
+      - name: Commit complete source and original archive
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No source changes to commit"
+            exit 0
+          fi
+          git commit -m "Import complete ClipForge 1.72 source and archive"
+          git push origin HEAD:main
