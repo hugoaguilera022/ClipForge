@@ -121,3 +121,20 @@ API de proyectos:
 El guardado valida IDs, intervalos temporales, tipos de pista y límites de tamaño. El editor permite modificar los tiempos y el contenido de elementos de pista y recuperar los proyectos guardados.
 
 **Alcance actual:** este editor constituye una base funcional de organización y persistencia de pistas. No debe confundirse con un NLE profesional completo: aún no incorpora reproducción multipista sincronizada, waveform interactiva, keyframes, mezclador avanzado ni previsualización en tiempo real de todas las capas.
+
+
+## Desarrollo y control de calidad
+
+Las herramientas de desarrollo están separadas de las dependencias necesarias para ejecutar ClipForge:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements-dev.txt
+ruff check --select E9,F63,F7,F82 .
+PYTHONPATH=. pytest -q tests/ --cov=clipforge --cov=server
+```
+
+GitHub Actions ejecuta estas comprobaciones automáticamente en cada push y pull request. El flujo valida sintaxis Python y JavaScript, errores críticos de Python, pruebas automatizadas, cobertura y generación/inspección de un MP4 real con FFmpeg. La caché de dependencias evita reinstalaciones innecesarias.
+
+La batería de CI usa modelos simulados para que sea rápida y gratuita; no sustituye la prueba acústica real de Whisper ni la prueba acelerada en Apple Silicon. Estas se mantienen como validaciones separadas porque requieren descargar modelos y usar hardware compatible.
