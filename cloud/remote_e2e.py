@@ -72,7 +72,7 @@ def main():
     selected = []
     for item in sorted(candidates, reverse=True):
         _, start, end, *_ = item
-        if all(end <= old[2] or start >= old[3] for old in selected):
+        if all(end <= old[1] or start >= old[2] for old in selected):
             selected.append((item[0], start, end, item[3], item[4]))
         if len(selected) >= MAX_CLIPS:
             break
