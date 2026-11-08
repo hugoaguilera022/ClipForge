@@ -182,7 +182,7 @@ def run_streaming_command(cmd:list[str], jid:str, stage:str, timeout:int, worker
           if worker_id:
            if not job_store_for_registry().update_claim(JOBS[jid],worker_id):
             raise LeaseLostError("El worker perdió la concesión del trabajo; se detiene para evitar resultados duplicados.")
-          else: persist_jobs_locked()
+          else: job_store_for_registry().upsert(JOBS[jid])
     elif proc.poll() is not None: break
    elif proc.poll() is not None: break
   tail=decoder.decode(b"",final=True)+pending
@@ -203,7 +203,7 @@ def persist_job_locked(jid:str, worker_id:str|None=None)->None:
   if not job_store_for_registry().update_claim(JOBS[jid],worker_id):
    raise LeaseLostError("El worker ya no posee la concesión de este trabajo.")
  else:
-  persist_jobs_locked()
+  job_store_for_registry().upsert(JOBS[jid])
 
 class Handler(BaseHTTPRequestHandler):
  def log_message(self, fmt, *args): print('[web]',fmt%args)
@@ -596,7 +596,7 @@ class Handler(BaseHTTPRequestHandler):
      if not lease_lost:
       job_store_for_registry().finish_claim(JOBS[jid],worker_id)
     else:
-     persist_jobs_locked()
+     job_store_for_registry().upsert(JOBS[jid])
 
 def resume_pending_jobs()->int:
  """Count queued jobs; the independent worker process owns execution."""
