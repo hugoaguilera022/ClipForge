@@ -84,8 +84,8 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
   // This avoids unnecessary lossy re-encoding and does not require an AAC encoder.
   const output=new Output({format:new Mp4OutputFormat(),target:new BufferTarget()});
   const cues=buildCaptionCues(segments);
-  let canvas=null,ctx=null,sourceCanvas=null,sourceCtx=null,faceLandmarker=null;
-  let lastFaceCenter=null,frameNumber=0,faceSamples=0,trackingMode='sin seguimiento';
+  let canvas=null,ctx=null,sourceCanvas=null,sourceCtx=null,faceLandmarker=null,poseLandmarker=null;
+  let lastFaceCenter=null,frameNumber=0,faceSamples=0,poseSamples=0,trackingMode='sin seguimiento';
   const speakerTracks=[];
   let activeSpeakerTrack=null;
   const sourceTrack=await input.getPrimaryVideoTrack();
@@ -102,7 +102,13 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
         baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task'},
         runningMode:'VIDEO',numFaces:5,outputFaceBlendshapes:false,outputFacialTransformationMatrixes:false
       });
-      trackingMode='seguimiento facial y estimación visual de hablante';
+      // A distant face can be too small to detect in a wide studio shot.
+      // Fall back to a free pose model so the crop still follows the person.
+      poseLandmarker=await vision.PoseLandmarker.createFromOptions(fileset,{
+        baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task'},
+        runningMode:'VIDEO',numPoses:4
+      });
+      trackingMode='seguimiento facial con respaldo corporal';
     }catch(error){console.warn('Face/mouth tracking unavailable; using safe blurred background:',error);faceLandmarker=null;}
   }
   const conversion=await Conversion.init({
@@ -132,7 +138,6 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
           if(frameNumber%6===1||lastFaceCenter===null){
             const result=faceLandmarker.detectForVideo(sourceCanvas,Math.max(0,Math.round(stamp*1000)));
             const faces=result?.faceLandmarks||[];
-            if(faces.length)faceSamples++;
             const seen=[];
             for(const landmarks of faces){
               if(!landmarks?.length)continue;
@@ -140,6 +145,10 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
               const ys=landmarks.map(p=>Number(p.y)).filter(Number.isFinite);
               if(!xs.length||!ys.length)continue;
               const minX=Math.min(...xs),maxX=Math.max(...xs),faceHeight=Math.max(.001,Math.max(...ys)-Math.min(...ys));
+              const faceWidth=maxX-minX;
+              // Ignore tiny faces on posters/screens and background artwork;
+              // otherwise the crop can lock onto a picture instead of a person.
+              if(faceHeight<.085||faceWidth<.04)continue;
               const center=(minX+maxX)/2;
               const upper=landmarks[13],lower=landmarks[14];
               const mouthOpen=upper&&lower?Math.abs(Number(lower.y)-Number(upper.y))/faceHeight:0;
@@ -151,6 +160,7 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
               track.previousMouth=mouthOpen;track.samples++;track.lastSeen=frameNumber;
               seen.push(track);
             }
+            if(seen.length)faceSamples++;
             for(let i=speakerTracks.length-1;i>=0;i--)if(frameNumber-speakerTracks[i].lastSeen>45)speakerTracks.splice(i,1);
             if(seen.length===1){
               activeSpeakerTrack=seen[0];
@@ -164,6 +174,23 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
               const active=seen.includes(activeSpeakerTrack)?activeSpeakerTrack:leader;
               const desired=active.center*sourceWidth;
               lastFaceCenter=lastFaceCenter===null?desired:lastFaceCenter*.78+desired*.22;
+            }else if(!faces.length&&poseLandmarker){
+              const poseResult=poseLandmarker.detectForVideo(sourceCanvas,Math.max(0,Math.round(stamp*1000)));
+              const poses=poseResult?.landmarks||[];
+              const candidates=poses.map(points=>{
+                const nose=points[0],left=points[11],right=points[12];
+                const valid= nose&&left&&right&&nose.visibility>.5&&left.visibility>.5&&right.visibility>.5;
+                const center=valid?(left.x+right.x)/2:NaN;
+                const visibility=valid?left.visibility+right.visibility+nose.visibility:0;
+                return {center,visibility};
+              }).filter(x=>Number.isFinite(x.center)).sort((a,b)=>b.visibility-a.visibility);
+              if(candidates.length){
+                const desired=candidates[0].center*sourceWidth;
+                lastFaceCenter=lastFaceCenter===null?desired:lastFaceCenter*.72+desired*.28;
+                poseSamples++;
+              }else if(frameNumber-(Math.max(0,...speakerTracks.map(t=>t.lastSeen)))>18){
+                lastFaceCenter=null;activeSpeakerTrack=null;
+              }
             }else if(!faces.length&&frameNumber-(Math.max(0,...speakerTracks.map(t=>t.lastSeen)))>18){
               lastFaceCenter=null;activeSpeakerTrack=null;
             }
@@ -202,11 +229,11 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
     throw new Error(`El navegador no puede codificar todas las pistas MP4 de este vídeo (${reasons||'códec no compatible'}).`);
   }
   conversion.onProgress=p=>sayExport(`Clip ${index+1}/${total}: renderizando ${Math.round(p*100)}%…`);
-  try{await conversion.execute();}finally{faceLandmarker?.close?.();}
+  try{await conversion.execute();}finally{faceLandmarker?.close?.();poseLandmarker?.close?.();}
   const buffer=output.target.buffer;
   if(!buffer||buffer.byteLength<1024)throw new Error('El render terminó sin generar un MP4 válido.');
   const blob=new Blob([buffer],{type:'video/mp4'});
-  return {blob,bytes:blob.size,duration:clip.end-clip.start,trackingMode,faceSamples,name:`clipforge-${String(index+1).padStart(2,'0')}.mp4`};
+  return {blob,bytes:blob.size,duration:clip.end-clip.start,trackingMode,faceSamples,poseSamples,name:`clipforge-${String(index+1).padStart(2,'0')}.mp4`};
 }
 
 exportButton?.addEventListener('click',async()=>{
@@ -253,7 +280,7 @@ exportButton?.addEventListener('click',async()=>{
     document.body.append(a);a.click();a.remove();
     setTimeout(()=>URL.revokeObjectURL(url),60000);
     const totalBytes=results.reduce((n,x)=>n+x.bytes,0);
-    sayExport(`Exportación terminada: ${results.length} MP4 en un ZIP · 1080×1920 · 30 fps · H.264 + audio original · ${results.some(x=>x.faceSamples)?'seguimiento facial':'encuadre seguro'} · ${(totalBytes/1024/1024).toFixed(1)} MB de vídeo.`);
+    sayExport(`Exportación terminada: ${results.length} MP4 en un ZIP · 1080×1920 · 30 fps · H.264 + audio original · ${results.some(x=>x.faceSamples)?'seguimiento facial':results.some(x=>x.poseSamples)?'seguimiento corporal':'encuadre seguro'} · ${(totalBytes/1024/1024).toFixed(1)} MB de vídeo.`);
   }catch(error){console.error(error);sayExport(`Exportación detenida: ${error.message}. No se ha enviado el vídeo a ningún servidor.`);}
   finally{exportButton.disabled=false;}
 });
