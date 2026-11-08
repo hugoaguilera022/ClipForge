@@ -95,6 +95,13 @@ function render() {
           const clip=clips.find(c=>String(c.id)===String(item.id));
           if (clip) Object.assign(clip,{start:a,end:b,text:text.value});
           window.clipforgeEditorBridge?.setClips(clips);
+        } else if (track.type==='subtitles') {
+          const match=String(item.id).match(/^subtitle-(\\d+)$/);
+          const segment=match ? transcript?.segments?.[Number(match[1])-1] : null;
+          if (segment) {
+            Object.assign(segment,{start:a,end:b,text:text.value});
+            window.clipforgeEditorBridge?.setTranscript(transcript);
+          }
         }
         say('Cambios aplicados a la línea de tiempo. Guarda el proyecto para conservarlos.');
         render();
@@ -163,6 +170,7 @@ document.querySelector('#loadSavedProject')?.addEventListener('click',async()=>{
     activeProjectId=id;undoStack.length=0;redoStack.length=0;clips=project.clips||[];tracks=project.tracks||[];
     transcript=project.transcript||null;source=project.source||'';
     window.clipforgeEditorBridge?.setClips(clips);
+    if (transcript) window.clipforgeEditorBridge?.setTranscript(transcript);
     render();updateHistoryButtons();say(`Proyecto ${id} abierto. ${clips.length} clips y ${tracks.length} pistas recuperados.`);
   }catch(e){say(`No se pudo abrir el proyecto: ${e.message}`);}
 });
