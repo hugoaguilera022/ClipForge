@@ -87,6 +87,7 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
   let canvas=null,ctx=null,sourceCanvas=null,sourceCtx=null,faceLandmarker=null;
   let lastFaceCenter=null,frameNumber=0,faceSamples=0,trackingMode='sin seguimiento';
   const speakerTracks=[];
+  let activeSpeakerTrack=null;
   const sourceTrack=await input.getPrimaryVideoTrack();
   const sourceWidth=Number(sourceTrack?.displayWidth||sourceTrack?.width||1920);
   const sourceHeight=Number(sourceTrack?.displayHeight||sourceTrack?.height||1080);
@@ -151,11 +152,21 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
               seen.push(track);
             }
             for(let i=speakerTracks.length-1;i>=0;i--)if(frameNumber-speakerTracks[i].lastSeen>45)speakerTracks.splice(i,1);
-            if(faces.length===1&&seen.length===1)lastFaceCenter=seen[0].center*sourceWidth;
-            else if(seen.length>1){
-              const active=[...seen].filter(t=>t.samples>=2).sort((x,y)=>y.activity-x.activity)[0]||seen[0];
-              lastFaceCenter=active.center*sourceWidth;
-            }else if(!faces.length)lastFaceCenter=null;
+            if(seen.length===1){
+              activeSpeakerTrack=seen[0];
+              const desired=seen[0].center*sourceWidth;
+              lastFaceCenter=lastFaceCenter===null?desired:lastFaceCenter*.78+desired*.22;
+            }else if(seen.length>1){
+              const leader=[...seen].filter(t=>t.samples>=2).sort((x,y)=>y.activity-x.activity)[0]||seen[0];
+              // Hysteresis prevents the crop jumping between faces on every
+              // frame when both people move or the mouth signal is ambiguous.
+              if(!activeSpeakerTrack||!seen.includes(activeSpeakerTrack)||leader===activeSpeakerTrack||leader.activity>activeSpeakerTrack.activity*1.18+.015)activeSpeakerTrack=leader;
+              const active=seen.includes(activeSpeakerTrack)?activeSpeakerTrack:leader;
+              const desired=active.center*sourceWidth;
+              lastFaceCenter=lastFaceCenter===null?desired:lastFaceCenter*.78+desired*.22;
+            }else if(!faces.length&&frameNumber-(Math.max(0,...speakerTracks.map(t=>t.lastSeen)))>18){
+              lastFaceCenter=null;activeSpeakerTrack=null;
+            }
           }
         }
         if(settings.cropMode==='center'&&sourceCanvas){
