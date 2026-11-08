@@ -1,7 +1,7 @@
 // Invalidates legacy cache versions including clipforge-web-v144.
 // Replaces clipforge-web-v144 with the fixed native macOS speech callback handling.
 // Replaces clipforge-web-v144 and v127 with updated animated-caption fallback.
-const CACHE='clipforge-web-v175';
+const CACHE='clipforge-web-v176';
 const FILES=['/','/styles.css','/app.js','/browser-whisper.js','/editor.js','/browser-export.js','/browser-url.js','/manifest.webmanifest'];
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(FILES)).then(()=>self.skipWaiting()));
