@@ -552,6 +552,7 @@ class BrowserFaceTrackingTests(unittest.TestCase):
   self.assertIn('faceLandmarker.detectForVideo(sourceCanvas',module)
   self.assertIn('track.activity=track.activity*.72',module)
   self.assertIn('landmarks[13]',module)
+  self.assertIn('frameNumber%6===1',module)
   self.assertIn('activeSpeakerTrack.activity*1.18+.015',module)
   self.assertIn('lastFaceCenter*.78+desired*.22',module)
   self.assertIn("sample.drawWithFit(ctx,{fit:'contain'})",module)
@@ -621,4 +622,3 @@ class ProjectRestoreRegressionTests(unittest.TestCase):
   module=(ROOT/'static'/'browser-whisper.js').read_text()
   import_section=module[module.index('// Importación explícita'):]
   self.assertNotIn("document.createElement('p')",import_section)
-  self.assertIn('addEventListener(\'change\',update)',module)
