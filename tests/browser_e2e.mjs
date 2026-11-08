@@ -34,7 +34,8 @@ try {
   await page.locator('#browserCandidates').waitFor({state:'visible', timeout:10000});
   const projectState = await page.locator('#browserWhisperStatus').innerText();
   if (!projectState.includes('Proyecto recuperado')) throw new Error('Browser project import did not complete: '+projectState);
-  const downloadPromise = page.waitForEvent('download', { timeout: 180000 });
+  // Attach rejection handling immediately: an unhandled Playwright timeout can terminate Node while the render is still running.
+  const downloadPromise = page.waitForEvent('download', { timeout: 300000 }).then(download => ({download}), error => ({error}));
   await page.locator('#browserExportClips').click();
   const status = page.locator('#browserExportStatus');
   await status.waitFor({ state:'visible' });
@@ -46,15 +47,11 @@ try {
   if (!exportMessage.includes('Exportación terminada:')) {
     throw new Error(exportMessage + (errors.length ? ' | Page errors: '+errors.join('; ') : '') + (browserLogs.length ? ' | Console: '+browserLogs.join('; ') : ''));
   }
-  let download;
-  try {
-    download = await Promise.race([
-      downloadPromise,
-      new Promise((_, reject) => setTimeout(() => reject(new Error('El MP4/ZIP se generó pero Chromium no notificó la descarga.')), 15000))
-    ]);
-  } catch (error) {
-    throw new Error(error.message + ' | Estado: ' + exportMessage + (browserLogs.length ? ' | Console: '+browserLogs.join('; ') : ''));
+  const outcome = await downloadPromise;
+  if (outcome.error) {
+    throw new Error('La exportación terminó, pero Playwright no detectó la descarga: ' + outcome.error.message + ' | Estado: ' + exportMessage + (browserLogs.length ? ' | Console: '+browserLogs.join('; ') : ''));
   }
+  const download = outcome.download;
   await download.saveAs('test-output/browser-export.zip');
   const inspect = spawnSync('python', ['-c', "import zipfile; z=zipfile.ZipFile('test-output/browser-export.zip'); names=z.namelist(); assert len(names)==4, names; [z.extract(n,'test-output/exported') for n in names]; print(names)"], {encoding:'utf8'});
   if (inspect.status !== 0) throw new Error(inspect.stderr || inspect.stdout);
