@@ -244,7 +244,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
   const minLen = 18, maxLen = 38, targetLen = 27;
   const sentenceEnd = /[.!?…][”’"')\]]?$/;
   const strongHook = /\b(¿qué|quién|cómo|por qué|qué pasa|no me digas|madre mía|increíble|imagina|resulta que|la verdad|nunca|jamás|te juro|no sabía|de repente|en serio|qué fuerte|qué locura|qué dices|what|who|how|why|guess what|you will not believe|unbelievable|imagine|turns out|never|suddenly|seriously|that is crazy|no way)\b/i;
-  const payoff = /\b(al final|resulta que|y entonces|por eso|exactamente|efectivamente|claro|no|sí|eso|ahí|pues|ya está|lo consiguió|lo he hecho|no puede ser|in the end|turns out|that is why|exactly|actually|that is it|he did it|I did it|cannot believe|there it is)\b/i;
+  const payoff = /\b(al final|resulta que|y entonces|por eso|exactamente|efectivamente|claro|ya te avisaremos|te avisaremos|no|sí|eso|ahí|pues|ya está|lo consiguió|lo he hecho|no puede ser|in the end|turns out|that is why|exactly|actually|that is it|he did it|I did it|cannot believe|there it is)\b/i;
   const emotional = /\b(risa|risas|riendo|llor|miedo|vergüenza|sorpresa|increíble|brutal|absurdo|ridículo|flipante|hostia|joder|buah|ostras|madre mía|qué fuerte|dios|ja ja|jajaja|puf|potencia|a huevo|bolas|laugh|laughing|cry|scared|embarrassed|surprised|insane|crazy|ridiculous|awesome|damn|wow|oh my god|no way)\b/i;
   const filler = /\b(este|esto|eh|em|mmm|pues|vale|bueno|a ver|en plan|o sea|uh|um|erm|like|you know|I mean|well)\b/gi;
   const reactionWord = /\b(puf|potencia|dios|bolas|a huevo|jaj+a+|risas?|hostia|buah|ostras|flipante|brutal|wow|damn|no way|oh my god|insane|awesome|laughing)\b/gi;
@@ -274,7 +274,11 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     const possible=[];
     for(let j=si;j<clean.length && clean[j].end-start<=maxLen;j++){
       const dur=clean[j].end-start;
-      if(dur>=minLen && (sentenceEnd.test(clean[j].text) || j===clean.length-1 || (j+1<clean.length && clean[j+1].start-clean[j].end>0.72))) possible.push(j);
+      const endpointText=clean.slice(si,j+1).map(w=>w.text).join(' ');
+      const endpointTail=clean.slice(Math.max(si,j-13),j+1).map(w=>w.text).join(' ');
+      const completeAnswer=/[¿?]/.test(endpointText)&&/\b(claro|efectivamente|exactamente|ya te avisaremos|te avisaremos|te lo digo|así es|eso es|that is why|exactly|there it is|turns out)\b/i.test(endpointTail);
+      const validBoundary=sentenceEnd.test(clean[j].text)||j===clean.length-1||(j+1<clean.length&&clean[j+1].start-clean[j].end>0.72);
+      if((dur>=minLen||dur>=16&&completeAnswer)&&validBoundary)possible.push(j);
     }
     if(!possible.length) continue;
     // Prefer a natural endpoint around 24–30 seconds, but let a complete
@@ -284,8 +288,9 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
       const whole=clean.slice(si,index+1).map(w=>w.text).join(' ');
       const hasQuestion=/[¿?]/.test(whole);
       const answered=/\b(claro|efectivamente|exactamente|ya te avisaremos|te avisaremos|te lo digo|así es|eso es|that is why|exactly|there it is|turns out)\b/i.test(ending);
+      const payoffAtBoundary=/\b(ya te avisaremos|te avisaremos|te lo digo|así es|eso es|there it is|turns out)\s*[.!?]?$/i.test(ending);
       const complete=sentenceEnd.test(clean[index].text);
-      const semanticBonus=hasQuestion&&answered?12:answered?5:0;
+      const semanticBonus=(hasQuestion&&answered?12:answered?5:0)+(payoffAtBoundary?10:0);
       return Math.abs((clean[index].end-start)-targetLen)-semanticBonus-(complete?1.5:0);
     };
     endIndex=possible.sort((x,y)=>endpointCost(x)-endpointCost(y))[0];
@@ -308,6 +313,8 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     const hookAtStart=strongHook.test(openingTokens);
     const questionAtStart=/[¿?]/.test(openingTokens);
     const payoffAtEnd=payoff.test(closingTokens);
+    const questionAnswered=/[¿?]/.test(text)&&/\b(claro|efectivamente|exactamente|ya te avisaremos|te avisaremos|te lo digo|así es|eso es|there it is|turns out)\b/i.test(text);
+    const answerClosedAtEnd=/\b(avisaremos|te lo digo|así es|eso es|there it is|turns out)\s*[.!?]?$/i.test(closingTokens);
     const hasSetup=/\b(pero|porque|cuando|si|aunque|resulta que|me dijo|y entonces|imagina|una vez)\b/i.test(text);
     const hasTurn=/\b(pero|aunque|sin embargo|de repente|entonces|al final|resulta que|y va|me dijo|y me dice)\b/i.test(text);
     const fillerCount=(text.match(filler)||[]).length;
@@ -327,7 +334,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     const rawScore = 15 + durationScore*10 + paceScore*12 + lexicalScore*8 +
       (hookAtStart?12:0) + (questionAtStart?6:0) + Math.min(6,questionCount*1.5) + Math.min(10,exclamationCount*2.5) + turnScore +
       Math.min(14,laughCount*7) + Math.min(18,reactionCount*4) + (pivot?8:0) + (hasSetup?6:0) + (hasTurn?6:0) +
-      (payoffAtEnd?8:0) + (completeEnd?7:0) + acousticScore - Math.min(12,fillerCount*.8) -
+      (payoffAtEnd?8:0) + (questionAnswered?10:0) + (answerClosedAtEnd?12:0) + (completeEnd?7:0) + acousticScore - Math.min(12,fillerCount*.8) -
       (abruptStart?8:0) - (wordsPerSecond<1.1?8:0);
     // Compress the raw weighted sum to avoid the previous ceiling effect where
     // several very different moments all received 100/100.
@@ -340,6 +347,8 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     if(exclamationCount||laughCount||reactionCount)reasons.push('reacción emocional');
     if(pivot)reasons.push('cambio de situación o remate');
     if(hasSetup&&payoffAtEnd)reasons.push('planteamiento y remate');
+    if(questionAnswered)reasons.push('pregunta y respuesta');
+    if(answerClosedAtEnd)reasons.push('remate completo al final');
     if(completeEnd)reasons.push('cierre natural');
     if(energy.length && acousticScore >= 8)reasons.push('energía y dinámica de audio');
     candidates.push({start,end,duration,score,text,reasons:[...new Set(reasons)].slice(0,3)});
@@ -642,11 +651,3 @@ window.clipforgeEditorBridge = {
   },
   setTracks(value) { editorTracks = Array.isArray(value) ? JSON.parse(JSON.stringify(value)) : []; },
   setTranscript(value) {
-    if (!value || !Array.isArray(value.segments)) return;
-    transcriptData = JSON.parse(JSON.stringify(value));
-    if (output) output.value = transcriptData.segments.map(s => `[${Number(s.start).toFixed(2)}–${Number(s.end).toFixed(2)}] ${String(s.text || '')}`).join('\n');
-    if (download) download.disabled = false;
-    if (saveProjectButton) saveProjectButton.disabled = false;
-  }
-};
-window.dispatchEvent(new CustomEvent('clipforge:editor-ready'));
