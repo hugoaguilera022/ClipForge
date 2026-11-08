@@ -172,3 +172,24 @@ def test_explicit_upsert_can_requeue_failed_job_for_retry(tmp_path):
     retry = {'id': 'retry', 'status': 'queued', 'created': 1, 'log': 'retry requested'}
     store.upsert(retry)
     assert store.get('retry') == retry
+
+
+def test_bulk_snapshot_cannot_requeue_a_processing_job_or_clear_its_lease(tmp_path):
+    store = JobStore(tmp_path / 'jobs.sqlite3')
+    store.upsert({'id': 'active', 'status': 'queued', 'created': 1, 'log': 'queued'})
+    claimed = store.claim_next('worker-a', lease_seconds=600)
+    assert claimed and claimed['worker_id'] == 'worker-a'
+
+    # Simulate the HTTP server enqueueing a second job with its old in-memory copy.
+    store.save_many({
+        'active': {'id': 'active', 'status': 'queued', 'created': 1, 'log': 'stale queued snapshot'},
+        'new': {'id': 'new', 'status': 'queued', 'created': 2, 'log': 'new upload'},
+    })
+    current = store.get('active')
+    assert current['status'] == 'processing'
+    assert current['worker_id'] == 'worker-a'
+    with store._connect() as db:
+        row = db.execute('SELECT lease_owner, lease_until FROM jobs WHERE id=?', ('active',)).fetchone()
+    assert row['lease_owner'] == 'worker-a'
+    assert row['lease_until'] == claimed['lease_until']
+    assert store.get('new')['status'] == 'queued'
