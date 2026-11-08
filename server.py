@@ -380,7 +380,9 @@ class Handler(BaseHTTPRequestHandler):
       del args[ti:ti+2]
       job['args']=args
     job['status']='queued'; job['log']='Reintento solicitado; esperando turno de procesamiento.'
-    persist_jobs_locked()
+    # Retry is an intentional single-job state transition; do not bulk-write
+    # the server's potentially stale snapshot over jobs owned by the worker.
+    job_store_for_registry().upsert(job)
    return self.json(202,{'ok':True,'id':jid,'status':'queued'})
   if path.startswith('/api/re-render/'):
    parts=path.strip('/').split('/')
