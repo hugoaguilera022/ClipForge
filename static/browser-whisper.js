@@ -345,7 +345,7 @@ runButton?.addEventListener('click', async () => {
     env.allowLocalModels = false;
     env.useBrowserCache = true;
     const model = document.querySelector('#browserWhisperModel')?.value || 'whisper-base';
-    const modelId = ({ 'whisper-tiny': 'onnx-community/whisper-tiny_timestamped', 'whisper-base': 'onnx-community/whisper-base_timestamped' })[model];
+    const modelId = ({ 'whisper-tiny': 'onnx-community/whisper-tiny_timestamped', 'whisper-base': 'onnx-community/whisper-base_timestamped', 'whisper-small': 'onnx-community/whisper-small_timestamped' })[model];
     if (!modelId) throw new Error('El modelo seleccionado todavía no tiene soporte verificado para marcas de tiempo por palabra.');
     if (!asr) asr = await pipeline('automatic-speech-recognition', modelId, {
       dtype: 'q8',
@@ -433,117 +433,4 @@ document.querySelector('#video')?.addEventListener('change', async () => {
       return;
     }
     importedProjectPendingSource=false;
-    transcriptData=null; editableCandidates=[];
-    if(field)field.value=''; if(panel)panel.hidden=true; if(transcript)transcript.value='';
-    say(`El archivo seleccionado (${file.name}) no coincide con el vídeo del proyecto (${expected}). Se han descartado los cortes y la transcripción para evitar exportar segmentos incorrectos.`);
-    return;
-  }
-  if (field) field.value=''; editableCandidates=[]; if(panel)panel.hidden=true; transcriptData=null; if(transcript)transcript.value='';
-  say(`Vídeo seleccionado: ${file.name} · ${(file.size / 1024 / 1024).toFixed(1)} MB.`);
-});
-
-
-
-// Apply manual transcript corrections without inventing new timestamps.
-function applyTranscriptEdits() {
-  if (!transcriptData?.segments?.length || !output) return;
-  const lines = output.value.split(/\r?\n/).filter(line => line.trim());
-  const parsed = lines.map(line => {
-    const match = line.match(/^\s*\[\s*(\d+(?:\.\d+)?)\s*[–-]\s*(\d+(?:\.\d+)?)\s*\]\s*(.*)$/);
-    return match ? { start: Number(match[1]), end: Number(match[2]), text: match[3].trim() } : null;
-  });
-  if (parsed.length !== transcriptData.segments.length || parsed.some((x,i) => !x || !Number.isFinite(x.start) || !Number.isFinite(x.end) || x.end <= x.start || !x.text)) {
-    say('No se aplicaron los cambios: conserva una línea por segmento y el formato [inicio–fin] texto.');
-    return;
-  }
-  transcriptData.segments = parsed;
-  transcriptData.text = parsed.map(x => x.text).join(' ');
-  attachTranscriptToJobForm(makeVtt(parsed));
-  say('Correcciones de transcripción aplicadas. Se usarán al incrustar los subtítulos en el MP4.');
-}
-output?.addEventListener('change', applyTranscriptEdits);
-
-saveProjectButton?.addEventListener('click', () => {
-  if (!transcriptData?.segments?.length || !editableCandidates.length) {
-    say('Primero transcribe el vídeo y genera la selección de momentos.');
-    return;
-  }
-  const project = {
-    schema: 'clipforge-browser-project-v1',
-    saved_at: new Date().toISOString(),
-    source: transcriptData.source || document.querySelector('#video')?.files?.[0]?.name || '',
-    transcript: transcriptData,
-    clips: editableCandidates.map((clip, i) => ({ ...clip, id: String(clip.id || `clip-${i+1}`) }))
-  };
-  const blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'clipforge-proyecto.json'; a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-  say('Proyecto editable guardado. Incluye transcripción y cortes; conserva también el vídeo original.');
-});
-
-// Importación explícita de proyectos JSON guardados anteriormente.
-document.querySelector('#browserProjectImport')?.addEventListener('change', async (event) => {
-  const file=event.target.files?.[0]; if(!file) return;
-  try {
-    const project=JSON.parse(await file.text());
-    if(project?.schema!=='clipforge-browser-project-v1' || !Array.isArray(project.clips)) throw new Error('Formato de proyecto no reconocido.');
-    if(project.clips.length<1 || project.clips.length>10) throw new Error('El proyecto contiene demasiados clips.');
-    if(project.clips.some(c=>!Number.isFinite(Number(c.start)) || !Number.isFinite(Number(c.end)) || Number(c.start)<0 || Number(c.end)<=Number(c.start))) throw new Error('Hay tiempos de clip inválidos.');
-    editableCandidates=project.clips.map((c,i)=>({...c,id:String(c.id||`clip-${i+1}`)}));
-    transcriptData=project.transcript || null;
-    const sourceFile=document.querySelector('#video')?.files?.[0];
-    importedProjectPendingSource=Boolean(transcriptData?.segments?.length && !sourceFile);
-    if(Array.isArray(transcriptData?.segments) && transcriptData.segments.length) {
-      const segments=transcriptData.segments.map(c=>({start:Number(c.start),end:Number(c.end),text:String(c.text||'')})).filter(c=>Number.isFinite(c.start)&&Number.isFinite(c.end)&&c.end>c.start&&c.text);
-      if(segments.length) {
-        transcriptData.segments=segments;
-        output.value=segments.map(c=>`[${c.start.toFixed(2)}–${c.end.toFixed(2)}] ${c.text}`).join('\n');
-        if (!sourceFile || String(transcriptData.source || '').split(/[\\/]/).pop() === sourceFile.name) {
-          attachTranscriptToJobForm(makeVtt(segments));
-        } else {
-          importedProjectPendingSource=false;
-          say(`Proyecto importado, pero el vídeo seleccionado no coincide con ${transcriptData.source}. Selecciona el original antes de renderizar.`);
-        }
-        if(download) download.disabled=false;
-        if(saveProjectButton) saveProjectButton.disabled=false;
-      }
-    }
-    const duration=Math.max(0,...editableCandidates.map(c=>Number(c.end)));
-    showClipCandidates([],duration,editableCandidates);
-    localStorage.setItem('clipforge.browser.project.v1',JSON.stringify(project));
-    say(`Proyecto recuperado: ${editableCandidates.length} clips${transcriptData?.segments?.length ? ' y transcripción' : ''}. Selecciona el vídeo original y podrás continuar editando.`);
-  } catch(error) { say(`No se pudo abrir el proyecto: ${error.message}`); }
-  finally { event.target.value=''; }
-});
-
-
-// Public, read-only bridge for the separate project editor module.
-window.clipforgeEditorBridge = {
-  getProject() {
-    return {
-      schema: 'clipforge-project-v2',
-      source: transcriptData?.source || document.querySelector('#video')?.files?.[0]?.name || '',
-      transcript: transcriptData ? JSON.parse(JSON.stringify(transcriptData)) : null,
-      clips: editableCandidates.map((clip, i) => ({...clip, id:String(clip.id || `clip-${i+1}`)})),
-      tracks: JSON.parse(JSON.stringify(editorTracks))
-    };
-  },
-  setClips(clips) {
-    editableCandidates = Array.isArray(clips) ? clips.map((clip, i) => ({...clip, id:String(clip.id || `clip-${i+1}`)})) : [];
-    const duration = Math.max(0, ...editableCandidates.map(clip => Number(clip.end) || 0));
-    showClipCandidates([], duration, editableCandidates);
-    const field = document.querySelector('[name="selected_clip_ranges"]');
-    if (field) field.value = JSON.stringify(editableCandidates);
-  },
-  setTracks(value) { editorTracks = Array.isArray(value) ? JSON.parse(JSON.stringify(value)) : []; },
-  setTranscript(value) {
-    if (!value || !Array.isArray(value.segments)) return;
-    transcriptData = JSON.parse(JSON.stringify(value));
-    if (output) output.value = transcriptData.segments.map(s => `[${Number(s.start).toFixed(2)}–${Number(s.end).toFixed(2)}] ${String(s.text || '')}`).join('\n');
-    if (download) download.disabled = false;
-    if (saveProjectButton) saveProjectButton.disabled = false;
-  }
-};
-window.dispatchEvent(new CustomEvent('clipforge:editor-ready'));
+ 
