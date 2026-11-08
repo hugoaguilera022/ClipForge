@@ -14,6 +14,14 @@ async function loadHealth(){
    upload.querySelector('.tag').textContent='Procesamiento en tu navegador';
    const note=document.createElement('p');note.className='browser-only-note';note.textContent='Selecciona aquí el vídeo que quieres analizar. Después, baja al Motor 01 para transcribirlo, elegir cuatro momentos y exportarlos en vertical. No se necesita instalar nada ni subir el vídeo a un servidor.';
    upload.querySelector('.section-head').after(note);
+   // This Render deployment is intentionally browser-only. Do not leave a
+   // YouTube-page URL form visible when no server-side yt-dlp resolver exists.
+   const youtubeField=upload.querySelector('.url-source');
+   if(youtubeField)youtubeField.hidden=true;
+   const serverSubmit=upload.querySelector('#submit');
+   if(serverSubmit)serverSubmit.hidden=true;
+   const directUrl=document.querySelector('.browser-url-import');
+   if(directUrl)directUrl.hidden=false;
   }
   window.clipforgeModeReady=true;
   window.dispatchEvent(new Event('clipforge:mode-ready'));
