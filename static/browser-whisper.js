@@ -177,7 +177,8 @@ async function transcribeAudioInChunks(asr, audio, onProgress = () => {}) {
       // Deduplicate matching words by timestamp rather than discarding the overlap.
       const normalized = text.toLocaleLowerCase('es').replace(/\s+/g, ' ').trim();
       const duplicate = allChunks.some(previous =>
-        Math.abs(previous.start - absoluteStart) < 0.45 &&        previous.text.toLocaleLowerCase('es').replace(/\s+/g, ' ').trim() === normalized
+        Math.abs(previous.start - absoluteStart) < 0.45 &&
+        previous.text.toLocaleLowerCase('es').replace(/\s+/g, ' ').trim() === normalized
       );
       if (!duplicate) allChunks.push({ start: absoluteStart, end: absoluteEnd, text });
     }
@@ -188,6 +189,7 @@ async function transcribeAudioInChunks(asr, audio, onProgress = () => {}) {
   allChunks.sort((a, b) => a.start - b.start);
   return { text: (allChunks.length ? allChunks.map(chunk => chunk.text).join(' ') : fullText.join(' ')).replace(/\s+/g, ' ').trim(), chunks: allChunks };
 }
+
 function makeVtt(segments) {
   // Build readable cues at natural pauses and sentence boundaries, not at
   // arbitrary fixed five-word intervals. Keep timing from Whisper unchanged.
@@ -217,6 +219,8 @@ function makeVtt(segments) {
 }
 
 // Editorial ranking: balanced hooks, coherent setup/payoff, dialogue, pace and clean boundaries.
+// Las puntuaciones heurísticas no equivalen a una predicción de viralidad.
+// It is a transparent local editorial score, not a promise of virality or a copy of OpusClip's model.
 function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRate = 16000) {
   // Lightweight acoustic profile from the already-decoded audio. It adds a
   // free, on-device signal for energetic moments and avoids sending media away.
@@ -236,13 +240,15 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
   const quantile = q => sortedRms.length ? sortedRms[Math.min(sortedRms.length-1, Math.floor((sortedRms.length-1)*q))] : 0;
   const energyFloor = quantile(.2), energyMedian = quantile(.5), energyTop = quantile(.9);
   const energySpan = Math.max(1e-5, energyTop - energyFloor);
+
   const minLen = 18, maxLen = 38, targetLen = 27;
   const sentenceEnd = /[.!?…][”’"')\]]?$/;
-  const strongHook = /\b(¿qué|quién|cómo|por qué|qué pasa|no me digas|madre mía|increíble|imagina|resulta que|la verdad|nunca|jamás|te juro|no sabía|de repente|en serio|qué fuerte|qué locura|qué dices)\b/i;
-  const payoff = /\b(al final|resulta que|y entonces|por eso|exactamente|efectivamente|claro|no|sí|eso|ahí|pues|ya está|lo consiguió|lo he hecho|no puede ser)\b/i;
-  const filler = /\b(este|esto|eh|em|mmm|pues|vale|bueno|a ver|en plan|o sea)\b/gi;
-  const reactionWord = /\b(puf|potencia|dios|bolas|a huevo|jaj+a+|risas?|hostia|buah|ostras|flipante|brutal)\b/gi;
-  const storyPivot = /\b(se acabó|lo más importante|tienes que saber|para acabar|una preguntita|esto es|y entonces|ahora)\b/i;
+  const strongHook = /\b(¿qué|quién|cómo|por qué|qué pasa|no me digas|madre mía|increíble|imagina|resulta que|la verdad|nunca|jamás|te juro|no sabía|de repente|en serio|qué fuerte|qué locura|qué dices|what|who|how|why|guess what|you will not believe|unbelievable|imagine|turns out|never|suddenly|seriously|that is crazy|no way)\b/i;
+  const payoff = /\b(al final|resulta que|y entonces|por eso|exactamente|efectivamente|claro|no|sí|eso|ahí|pues|ya está|lo consiguió|lo he hecho|no puede ser|in the end|turns out|that is why|exactly|actually|that is it|he did it|I did it|cannot believe|there it is)\b/i;
+  const emotional = /\b(risa|risas|riendo|llor|miedo|vergüenza|sorpresa|increíble|brutal|absurdo|ridículo|flipante|hostia|joder|buah|ostras|madre mía|qué fuerte|dios|ja ja|jajaja|puf|potencia|a huevo|bolas|laugh|laughing|cry|scared|embarrassed|surprised|insane|crazy|ridiculous|awesome|damn|wow|oh my god|no way)\b/i;
+  const filler = /\b(este|esto|eh|em|mmm|pues|vale|bueno|a ver|en plan|o sea|uh|um|erm|like|you know|I mean|well)\b/gi;
+  const reactionWord = /\b(puf|potencia|dios|bolas|a huevo|jaj+a+|risas?|hostia|buah|ostras|flipante|brutal|wow|damn|no way|oh my god|insane|awesome|laughing)\b/gi;
+  const storyPivot = /\b(se acabó|lo más importante|tienes que saber|para acabar|una preguntita|esto es|y entonces|ahora|here is the thing|the point is|what happened next|and then|but then|long story short|here is why)\b/i;
   const clean = words.filter(w => Number.isFinite(w.start) && Number.isFinite(w.end) && w.end > w.start && String(w.text||'').trim())
     .map(w=>({start:Number(w.start),end:Number(w.end),text:String(w.text).trim()})).sort((a,b)=>a.start-b.start);
   if (!clean.length) return [];
@@ -251,36 +257,42 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
   let nextStart=clean[0].start;
   for(let i=0;i<clean.length;i++){
     if(clean[i].start+0.05<nextStart) continue;
+    // Snap to a sentence/turn opening near the sampled point.
     let si=i;
     for(let p=i;p>=0 && clean[i].start-clean[p].start<=2.2;p--){
       if(p===0 || sentenceEnd.test(clean[p-1].text) || clean[p].start-clean[p-1].end>0.72){si=p;break;}
     }
     const start=clean[si].start;
     if(start>videoDuration-minLen) break;
+    let endIndex=-1;
     const possible=[];
     for(let j=si;j<clean.length && clean[j].end-start<=maxLen;j++){
       const dur=clean[j].end-start;
       if(dur>=minLen && (sentenceEnd.test(clean[j].text) || j===clean.length-1 || (j+1<clean.length && clean[j+1].start-clean[j].end>0.72))) possible.push(j);
     }
     if(!possible.length) continue;
-    const endIndex=possible.sort((x,y)=>Math.abs((clean[x].end-start)-targetLen)-Math.abs((clean[y].end-start)-targetLen))[0];
+    // Prefer a natural endpoint around 24–30 seconds, but retain complete thoughts.
+    endIndex=possible.sort((x,y)=>Math.abs((clean[x].end-start)-targetLen)-Math.abs((clean[y].end-start)-targetLen))[0];
     const group=clean.slice(si,endIndex+1), end=group[group.length-1].end, duration=end-start;
     const text=group.map(w=>w.text).join(' '), lower=text.toLocaleLowerCase('es');
     const tokens=lower.match(/[a-záéíóúüñ]{2,}/g)||[];
     const uniqueRatio=new Set(tokens).size/Math.max(1,tokens.length);
     const wordsPerSecond=tokens.length/Math.max(1,duration);
     const questionCount=(text.match(/[¿?]/g)||[]).length;
+    const turnCount=group.slice(1).filter((w,i)=>w.start-group[i].end>.55).length;
+    const turnScore=Math.min(10,turnCount*1.25);
     const exclamationCount=(text.match(/[¡!]/g)||[]).length;
     const laughCount=(text.match(/\b(risas?|jaj+a+|ja ja|carcajadas?|puf|¡dios!|mira,? mira|a huevo|bolas)\b/gi)||[]).length;
     const reactionCount=(text.match(reactionWord)||[]).length;
+    const pivot=storyPivot.test(text);
     const hookAtStart=strongHook.test(group.slice(0,Math.min(18,group.length)).map(w=>w.text).join(' '));
     const payoffAtEnd=payoff.test(group.slice(-Math.min(16,group.length)).map(w=>w.text).join(' '));
     const hasSetup=/\b(pero|porque|cuando|si|aunque|resulta que|me dijo|y entonces|imagina|una vez)\b/i.test(text);
     const hasTurn=/\b(pero|aunque|sin embargo|de repente|entonces|al final|resulta que|y va|me dijo|y me dice)\b/i.test(text);
     const fillerCount=(text.match(filler)||[]).length;
     const abruptStart=/^(y|pero|porque|que|cuando|si|aunque|entonces|de)\b/i.test(text.trim());
-    const completeEnd=sentenceEnd.test(group[group.length-1].text);
-    const pivot=storyPivot.test(text);
+    const last=group[group.length-1].text;
+    const completeEnd=sentenceEnd.test(last);
     const durationScore=Math.max(0,1-Math.abs(duration-targetLen)/19);
     const acoustic = energy.filter(x => x.t >= start && x.t < end);
     const activeRatio = acoustic.length ? acoustic.filter(x => x.rms > Math.max(energyFloor * 1.35, energyMedian * .42)).length / acoustic.length : 0;
@@ -292,16 +304,17 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     const paceScore=Math.max(0,Math.min(1,(wordsPerSecond-1.15)/2.1));
     const lexicalScore=Math.max(0,Math.min(1,(uniqueRatio-.28)/.42));
     const rawScore = 15 + durationScore*10 + paceScore*12 + lexicalScore*8 +
-      (hookAtStart?12:0) + Math.min(6,questionCount*1.5) + Math.min(10,exclamationCount*2.5) +
-      Math.min(14,laughCount*7) + Math.min(18,reactionCount*4) + (pivot?8:0) +
-      (hasSetup?6:0) + (hasTurn?6:0) + (payoffAtEnd?8:0) + (completeEnd?7:0) + acousticScore -
-      Math.min(12,fillerCount*.8) - (abruptStart?8:0) - (wordsPerSecond<1.1?8:0);
+      (hookAtStart?12:0) + Math.min(6,questionCount*1.5) + Math.min(10,exclamationCount*2.5) + turnScore +
+      Math.min(14,laughCount*7) + Math.min(18,reactionCount*4) + (pivot?8:0) + (hasSetup?6:0) + (hasTurn?6:0) +
+      (payoffAtEnd?8:0) + (completeEnd?7:0) + acousticScore - Math.min(12,fillerCount*.8) -
+      (abruptStart?8:0) - (wordsPerSecond<1.1?8:0);
     // Compress the raw weighted sum to avoid the previous ceiling effect where
     // several very different moments all received 100/100.
     const score = Math.max(0, Math.min(100, Math.round(rawScore / 1.5)));
     const reasons=[];
     if(hookAtStart)reasons.push('inicio que despierta curiosidad');
     if(questionCount)reasons.push('pregunta o interacción');
+    if(turnCount>=5)reasons.push('diálogo dinámico');
     if(exclamationCount||laughCount||reactionCount)reasons.push('reacción emocional');
     if(pivot)reasons.push('cambio de situación o remate');
     if(hasSetup&&payoffAtEnd)reasons.push('planteamiento y remate');
@@ -310,6 +323,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     candidates.push({start,end,duration,score,text,reasons:[...new Set(reasons)].slice(0,3)});
     nextStart=start+stepSeconds;
   }
+  // Greedy diversity: select high-scoring complete moments without near-duplicates.
   candidates.sort((a,b)=>b.score-a.score);
   const chosen=[];
   for(const c of candidates){
@@ -318,6 +332,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
   }
   return chosen.sort((a,b)=>a.start-b.start).map((c,i)=>({...c,title:`Momento ${i+1}`}));
 }
+
 let editableCandidates=[];
 function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=null) {
  const panel=document.querySelector('#browserCandidates'),list=document.querySelector('#browserCandidateList');
@@ -398,13 +413,15 @@ runButton?.addEventListener('click', async () => {
     say('Transcribiendo en fragmentos para reducir memoria y evitar límites de 30 segundos…');
     const result = await transcribeAudioInChunks(asr, audio, (percent, current, total) => {
       say(`Transcribiendo entrevista: ${percent}% · fragmento ${current}/${total}`);
-    });    const chunks = result.chunks || [];
+    });
+    const chunks = result.chunks || [];
     transcriptData = {
       source: file.name, model: modelId, language: 'es',
       generated_at: new Date().toISOString(), text: result.text || '',
       // transcribeAudioInChunks already converts model-local timestamps to
       // absolute source-video seconds and returns {start, end, text} objects.
-      // Do not read c.timestamp here: that field belongs to raw Transformers.js      // chunks and would silently reset every saved caption to 0 seconds.
+      // Do not read c.timestamp here: that field belongs to raw Transformers.js
+      // chunks and would silently reset every saved caption to 0 seconds.
       segments: chunks.map(c => ({
         start: Number(c.start),
         end: Number(c.end),
@@ -576,7 +593,8 @@ window.clipforgeEditorBridge = {
     const field = document.querySelector('[name="selected_clip_ranges"]');
     if (field) field.value = JSON.stringify(editableCandidates);
   },
-  setTracks(value) { editorTracks = Array.isArray(value) ? JSON.parse(JSON.stringify(value)) : []; },  setTranscript(value) {
+  setTracks(value) { editorTracks = Array.isArray(value) ? JSON.parse(JSON.stringify(value)) : []; },
+  setTranscript(value) {
     if (!value || !Array.isArray(value.segments)) return;
     transcriptData = JSON.parse(JSON.stringify(value));
     if (output) output.value = transcriptData.segments.map(s => `[${Number(s.start).toFixed(2)}–${Number(s.end).toFixed(2)}] ${String(s.text || '')}`).join('\n');
@@ -584,3 +602,4 @@ window.clipforgeEditorBridge = {
     if (saveProjectButton) saveProjectButton.disabled = false;
   }
 };
+window.dispatchEvent(new CustomEvent('clipforge:editor-ready'));
