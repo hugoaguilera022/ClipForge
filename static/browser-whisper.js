@@ -294,7 +294,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
       // Don't cut immediately after an answer if the speaker continues the
       // same beat in the next breath; keep the follow-up reaction together.
       const unfinishedFollowup=payoffAtBoundary&&index+1<clean.length&&clean[index+1].start-clean[index].end<.72;
-      return Math.abs((clean[index].end-start)-targetLen)-semanticBonus-(complete?1.5:0)+(unfinishedFollowup?7:0);
+      return Math.abs((clean[index].end-start)-targetLen)-semanticBonus-(complete?1.5:0)+(unfinishedFollowup?12:0);
     };
     endIndex=possible.sort((x,y)=>endpointCost(x)-endpointCost(y))[0];
     const group=clean.slice(si,endIndex+1), end=group[group.length-1].end, duration=end-start;
@@ -365,17 +365,20 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     const overlap=Math.max(0,Math.min(a.end,b.end)-Math.max(a.start,b.start));
     return overlap/Math.max(.001,Math.min(a.duration,b.duration));
   };
-  const ranked=candidates.map(c=>({
-    clip:c,
-    selectionScore:c.score+(candidates.some(other=>
-      other.start>c.start&&other.start-c.start<=8&&overlapRatio(c,other)>=.55&&other.score>=c.score&&other.score<=c.score+6
-    )?12:0)
-  })).sort((a,b)=>b.selectionScore-a.selectionScore);
+  const ranked=candidates.map(c=>{
+    const laterNearDuplicate=candidates.some(other=>
+      other.start>c.start&&other.start-c.start<=18&&overlapRatio(c,other)>=.5&&other.score>=c.score&&other.score<=c.score+6
+    );
+    const preservesContext=candidates.some(other=>
+      other.start>c.start&&other.start-c.start<=18&&overlapRatio(c,other)>=.5&&c.duration>=other.duration+5
+    );
+    return {clip:c,selectionScore:c.score+(laterNearDuplicate?12:0)+(preservesContext?3:0)};
+  }).sort((a,b)=>b.selectionScore-a.selectionScore);
   const firstStart=clean[0].start;
   const lastEnd=clean[clean.length-1].end;
   const quarter=(lastEnd-firstStart)/4;
   const chosen=[];
-  const fits=c=>chosen.every(x=>c.end<=x.start-10||c.start>=x.end+10);
+  const fits=c=>chosen.every(x=>c.end<=x.start-2.5||c.start>=x.end+2.5);
   for(let bucket=0;bucket<4;bucket++){
     const low=firstStart+quarter*bucket;
     const high=bucket===3?lastEnd+0.001:low+quarter;
@@ -656,6 +659,3 @@ window.clipforgeEditorBridge = {
   setTranscript(value) {
     if (!value || !Array.isArray(value.segments)) return;
     transcriptData = JSON.parse(JSON.stringify(value));
-    if (output) output.value = transcriptData.segments.map(s => `[${Number(s.start).toFixed(2)}–${Number(s.end).toFixed(2)}] ${String(s.text || '')}`).join('\n');
-    if (download) download.disabled = false;
-    if (saveProjectButton) saveProjectButton.disabled = false;
