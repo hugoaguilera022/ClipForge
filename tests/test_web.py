@@ -623,3 +623,15 @@ class ProjectRestoreRegressionTests(unittest.TestCase):
   import_section=module[module.index('// Importación explícita'):]
   self.assertNotIn("document.createElement('p')",import_section)
   self.assertIn('addEventListener(\'change\',update)',module)
+
+
+class BrowserEditorPreviewTests(unittest.TestCase):
+ def test_editor_has_local_source_preview_and_clip_range_playback(self):
+  html=(ROOT/'static'/'index.html').read_text()
+  module=(ROOT/'static'/'editor.js').read_text()
+  self.assertIn('id="editorPreviewVideo"',html)
+  self.assertIn('function previewClip(clip)',module)
+  self.assertIn("previewVideo?.addEventListener('timeupdate'",module)
+  self.assertIn('previewVideo.currentTime=start',module)
+  self.assertIn("className='secondary preview-clip'",module)
+  self.assertIn('URL.createObjectURL(file)',module)
