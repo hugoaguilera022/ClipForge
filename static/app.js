@@ -5,7 +5,17 @@ async function loadHealth(){
   const r=await fetch('/api/health');const d=await r.json();
   $('#health').textContent=d.ffmpeg&&d.ffprobe?(d.faster_whisper?'Faster-Whisper local disponible':(d.whisper_cpp?'whisper.cpp local disponible':(d.native_speech?'Apple Speech disponible como alternativa local':(d.whisper?'Whisper clásico disponible':'Se instalará whisper.cpp como alternativa local'))))+(d.yt_dlp?' · URL YouTube activa':' · falta yt-dlp para URLs'):'Falta FFmpeg/FFprobe';
   $('#health').classList.toggle('ok',d.ffmpeg&&d.ffprobe);
- }catch{$('#health').textContent='Modo navegador · sin servidor';document.body.dataset.browserOnly='true';}
+ }catch{
+  $('#health').textContent='Modo navegador · gratuito';
+  document.body.dataset.browserOnly='true';
+  const upload=document.querySelector('.upload');
+  if(upload){
+   upload.querySelector('h2').textContent='Vídeo de origen';
+   upload.querySelector('.tag').textContent='Procesamiento en tu navegador';
+   const note=document.createElement('p');note.className='browser-only-note';note.textContent='Selecciona aquí el vídeo que quieres analizar. Después, baja al Motor 01 para transcribirlo, elegir cuatro momentos y exportarlos en vertical. No se necesita instalar nada ni subir el vídeo a un servidor.';
+   upload.querySelector('.section-head').after(note);
+  }
+ }
 }
 async function loadPlatforms(){
  try{

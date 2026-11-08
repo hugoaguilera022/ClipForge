@@ -62,3 +62,19 @@ body[data-browser-only="true"] .hero .eyebrow:after{content:" · PROCESAMIENTO E
 #browserExportStatus{margin-top:12px}
 
 body[data-browser-only="true"] .browser-auto-generate{display:none!important}
+
+/* Static free-hosted build: clearly expose only the browser-capable workflow. */
+body[data-browser-only="true"] .publish,
+body[data-browser-only="true"] .channel-panel,
+body[data-browser-only="true"] .inbox-panel,
+body[data-browser-only="true"] .history-panel,
+body[data-browser-only="true"] .workflow,
+body[data-browser-only="true"] .url-source,
+body[data-browser-only="true"] .source-divider,
+body[data-browser-only="true"] .transcript-drop,
+body[data-browser-only="true"] .form-grid,
+body[data-browser-only="true"] .upload form > .check,
+body[data-browser-only="true"] #submit,
+body[data-browser-only="true"] .upload form > .hint { display:none !important; }
+body[data-browser-only="true"] .browser-only-note { color:var(--muted); line-height:1.55; margin:1rem 0 0; }
+body[data-browser-only="true"] .upload .drop { margin-top:1rem; }
