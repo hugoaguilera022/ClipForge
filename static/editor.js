@@ -10,7 +10,7 @@ let source = '';
 const undoStack = []; const redoStack = []; const HISTORY_LIMIT = 80;
 function snapshot(){ return JSON.stringify({tracks,clips,transcript,source}); }
 function remember(){ const current=snapshot(); if(undoStack.at(-1)!==current) undoStack.push(current); if(undoStack.length>HISTORY_LIMIT) undoStack.shift(); redoStack.length=0; updateHistoryButtons(); }
-function restore(raw){ const state=JSON.parse(raw); tracks=state.tracks||[]; clips=state.clips||[]; transcript=state.transcript||null; source=state.source||''; window.clipforgeEditorBridge?.setClips(clips); if(transcript)window.clipforgeEditorBridge?.setTranscript(transcript); render(); updateHistoryButtons(); }
+function restore(raw){ const state=JSON.parse(raw); tracks=state.tracks||[]; clips=state.clips||[]; transcript=state.transcript||null; source=state.source||''; window.clipforgeEditorBridge?.setClips(clips); if(transcript)window.clipforgeEditorBridge?.setTranscript(transcript); window.clipforgeEditorBridge?.setTracks(tracks); render(); updateHistoryButtons(); }
 function updateHistoryButtons(){ const u=document.querySelector('#editorUndo'),r=document.querySelector('#editorRedo'); if(u)u.disabled=!undoStack.length; if(r)r.disabled=!redoStack.length; }
 function undo(){ if(!undoStack.length)return; redoStack.push(snapshot()); restore(undoStack.pop()); say('Último cambio deshecho.'); }
 function redo(){ if(!redoStack.length)return; undoStack.push(snapshot()); restore(redoStack.pop()); say('Cambio restaurado.'); }
@@ -71,6 +71,7 @@ function render() {
   if (!timelineEl) return;
   timelineEl.replaceChildren();
   if (!tracks.length) tracks = makeDefaultTracks();
+  window.clipforgeEditorBridge?.setTracks(tracks);
   tracks.forEach((track, trackIndex) => {
     const section = document.createElement('section'); section.className='editor-track';
     const head = document.createElement('div'); head.className='editor-track-head';
@@ -83,7 +84,7 @@ function render() {
       actions.append(add);
     }
     const removeTrack=document.createElement('button');removeTrack.type='button';removeTrack.className='secondary';removeTrack.textContent='Eliminar pista';
-    removeTrack.addEventListener('click',()=>{remember();tracks=tracks.filter(t=>t.id!==track.id);render();say('Pista eliminada.');});
+    removeTrack.addEventListener('click',()=>{remember();tracks=tracks.filter(t=>t.id!==track.id);window.clipforgeEditorBridge?.setTracks(tracks);render();say('Pista eliminada.');});
     actions.append(removeTrack);head.append(title,count,actions); section.append(head);
     const items = document.createElement('div'); items.className='editor-track-items';
     if (!track.items.length) {
@@ -111,11 +112,12 @@ function render() {
             window.clipforgeEditorBridge?.setTranscript(transcript);
           }
         }
+        window.clipforgeEditorBridge?.setTracks(tracks);
         say('Cambios aplicados a la línea de tiempo. Guarda el proyecto para conservarlos.');
         render();
       });
       const remove=document.createElement('button');remove.type='button';remove.className='secondary';remove.textContent='Quitar';
-      remove.addEventListener('click',()=>{remember();track.items=track.items.filter(x=>x!==item);render();say('Elemento eliminado de la pista.');});
+      remove.addEventListener('click',()=>{remember();track.items=track.items.filter(x=>x!==item);window.clipforgeEditorBridge?.setTracks(tracks);render();say('Elemento eliminado de la pista.');});
       row.append(start,end,text,apply,remove); items.append(row);
     });
     section.append(items); timelineEl.append(section);
@@ -187,7 +189,7 @@ document.querySelector('#loadSavedProject')?.addEventListener('click',async()=>{
   }catch(e){say(`No se pudo abrir el proyecto: ${e.message}`);}
 });
 window.addEventListener('clipforge:editor-ready',()=>{
-  bridgeProject(); if(clips.length){tracks=makeDefaultTracks();render();say(`${clips.length} clips disponibles para editar.`);}
+  bridgeProject(); if(clips.length){tracks=makeDefaultTracks();window.clipforgeEditorBridge?.setTracks(tracks);render();say(`${clips.length} clips disponibles para editar.`);}
 });
 document.querySelector('#browserTranscribe')?.addEventListener('click',()=>{});
 refreshProjects(); updateHistoryButtons();
