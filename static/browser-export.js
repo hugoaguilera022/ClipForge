@@ -118,9 +118,11 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
         }
         ctx.clearRect(0,0,canvas.width,canvas.height);
         const stamp=Number(sample.timestamp)||0;
-        if(faceDetector&&sourceCanvas){
+        if(sourceCanvas){
           sourceCtx.clearRect(0,0,sourceCanvas.width,sourceCanvas.height);
           sample.drawWithFit(sourceCtx,{fit:'contain'});
+        }
+        if(faceDetector&&sourceCanvas){
           frameNumber++;
           if(frameNumber%6===1||lastFaceCenter===null){
             const detections=faceDetector.detectForVideo(sourceCanvas,Math.max(0,Math.round(stamp*1000)));
@@ -134,7 +136,11 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
             }else if(faces.length===0){lastFaceCenter=null;}
           }
         }
-        if(settings.cropMode==='center'&&sourceCanvas){\n          const cropWidth=Math.min(sourceCanvas.width,sourceCanvas.height*9/16);\n          const left=Math.max(0,(sourceCanvas.width-cropWidth)/2);\n          ctx.drawImage(sourceCanvas,left,0,cropWidth,sourceCanvas.height,0,0,1080,1920);\n        }else if(faceDetector&&sourceCanvas&&lastFaceCenter!==null&&!multiFace){
+        if(settings.cropMode==='center'&&sourceCanvas){
+          const cropWidth=Math.min(sourceCanvas.width,sourceCanvas.height*9/16);
+          const left=Math.max(0,(sourceCanvas.width-cropWidth)/2);
+          ctx.drawImage(sourceCanvas,left,0,cropWidth,sourceCanvas.height,0,0,1080,1920);
+        }else if(faceDetector&&sourceCanvas&&lastFaceCenter!==null&&!multiFace){
           const cropWidth=Math.min(sourceCanvas.width,sourceCanvas.height*9/16);
           const center=lastFaceCenter*sourceCanvas.width/sourceWidth;
           const left=Math.max(0,Math.min(sourceCanvas.width-cropWidth,center-cropWidth/2));
