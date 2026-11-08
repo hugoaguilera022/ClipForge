@@ -42,8 +42,7 @@ async function captureAudioFromVideo(file) {
     const audioStream = new MediaStream(audioTracks);
     const mime = ['audio/webm;codecs=opus', 'audio/webm'].find(x =
 …[1 chars truncated — re-run with head/grep/tail for full output]…
-    const text = group.map(w => w.text).join(' ');
-    const lexical = text.toLowerCase().match(/[a-záéíóúüñ]{3,}/g) || [];
+text.toLowerCase().match(/[a-záéíóúüñ]{3,}/g) || [];
     const uniqueRatio = new Set(lexical).size / Math.max(1, lexical.length);
     const hookCount = (text.match(/\b(por qué|cómo|qué pasa|no me digas|madre mía|increíble|imagina|resulta que|la verdad|nunca|siempre|pero|entonces|porque|jaj|risas|hostia|ostras|buah|flipante|brutal|vergüenza|miedo|problema|secreto|historia)\b/gi) || []).length;
     const questions = (text.match(/[¿?]/g) || []).length;
@@ -128,7 +127,8 @@ runButton?.addEventListener('click', async () => {
     env.allowLocalModels = false;
     env.useBrowserCache = true;
     const model = document.querySelector('#browserWhisperModel')?.value || 'whisper-base';
-    const modelId = ({ 'whisper-tiny': 'onnx-community/whisper-tiny_timestamped', 'whisper-base': 'onnx-community/whisper-base_timestamped', 'whisper-small': 'onnx-community/whisper-small_timestamped' })[model];
+    const modelId = ({ 'whisper-tiny': 'onnx-community/whisper-tiny_timestamped', 'whisper-base': 'onnx-community/whisper-base_timestamped' })[model];
+    if (!modelId) throw new Error('El modelo seleccionado todavía no tiene soporte verificado para marcas de tiempo por palabra.');
     if (!asr) asr = await pipeline('automatic-speech-recognition', modelId, {
       dtype: 'q8',
       progress_callback: p => {
