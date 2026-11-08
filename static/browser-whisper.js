@@ -350,6 +350,7 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
   const card=document.createElement('article');card.className='candidate-card';
   const heading=document.createElement('strong');heading.textContent=`${c.title} · potencial editorial (heurístico) ${c.score}/100`;
   const rationale=document.createElement('small');rationale.className='candidate-rationale';rationale.textContent=(c.reasons||[]).join(' · ')||'Conversación con cierre natural';
+  const preview=document.createElement('button');preview.type='button';preview.className='secondary preview-clip-candidate';preview.textContent='Vista previa';preview.addEventListener('click',()=>window.clipforgeEditorBridge?.previewClip?.(c));
   const selectLabel=document.createElement('label');selectLabel.className='candidate-select';
   const select=document.createElement('input');select.type='checkbox';select.checked=c.selected!==false;
   select.setAttribute('aria-label','Incluir clip en exportación');
@@ -361,7 +362,7 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
   const note=document.createElement('textarea');note.value=String(c.text || '');note.rows=3;note.setAttribute('aria-label','Texto del clip');
   const update=()=>{const x=Number(a.value),y=Number(b.value);if(a.value.trim()===''||b.value.trim()===''||!Number.isFinite(x)||!Number.isFinite(y)||x<0||y<=x||y>duration){card.classList.add('candidate-invalid');return;}card.classList.remove('candidate-invalid');editableCandidates[i]={...editableCandidates[i],start:x,end:y,duration:y-x,text:note.value};sync();};
   a.addEventListener('change',update);b.addEventListener('change',update);note.addEventListener('input',update);
-  row.append(a,b);card.append(heading,rationale,selectLabel,row,note);list.append(card);
+  row.append(a,b);card.append(heading,rationale,preview,selectLabel,row,note);list.append(card);
  });
  const info=document.createElement('p');info.textContent='Selección local basada en transcripción, coherencia, interacción, ritmo, energía de audio y cierre. Revisa los cuatro momentos: la puntuación orienta, no predice viralidad.';list.append(info);sync();
  window.dispatchEvent(new CustomEvent('clipforge:clips-updated'));
