@@ -185,6 +185,13 @@ exportButton?.addEventListener('click',async()=>{
   if(!('VideoEncoder'in window)||!('OffscreenCanvas'in window)){sayExport('Este navegador no ofrece WebCodecs/OffscreenCanvas. Usa Chrome o Edge actualizado.');return;}
   exportButton.disabled=true;
   const results=[];
+  const settings={
+    captionPosition:document.querySelector('#captionPosition')?.value||'bottom',
+    captionColor:document.querySelector('#captionColor')?.value||'yellow',
+    captionBackground:document.querySelector('#captionBackground')?.value||'dark',
+    captionSize:document.querySelector('#captionSize')?.value||'5.2',
+    cropMode:document.querySelector('#browserCropMode')?.value||'face'
+  };
   try{
     for(let i=0;i<clips.length;i++){
       const clip={start:Number(clips[i].start),end:Number(clips[i].end)};
