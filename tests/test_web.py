@@ -390,7 +390,7 @@ class PersistentJobRegistryTests(unittest.TestCase):
      with urllib.request.urlopen(base+f'/api/jobs/{jid}',timeout=5) as response:
       public=json.loads(response.read())
      self.assertNotIn('args',public); self.assertNotIn('transcript_path',public); self.assertNotIn('video_url',public)
-     self.assertEqual(json.loads(registry.read_text())[jid]['status'],'queued')
+     self.assertEqual(server.job_store_for_registry().get(jid)['status'],'queued')
     finally:
      httpd.shutdown(); httpd.server_close()
   server.JOBS=original_jobs

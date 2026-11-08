@@ -38,8 +38,8 @@ def load_job_registry()->dict:
   except (OSError,ValueError):
    jobs={}
  # Resume interrupted jobs when their original source and command are still available.
- recovered=False
- for job in jobs.values():
+ recovered_ids=[]
+ for job_id,job in jobs.items():
   if not isinstance(job,dict) or job.get('status') not in {'queued','processing'}:
    continue
   if job.get('status')=='processing' and float(job.get('lease_until') or 0)>time.time():
@@ -64,9 +64,12 @@ def load_job_registry()->dict:
   else:
    job['status']='failed'
    job['log']=(str(job.get('log') or '')+'\nEl proceso se interrumpió y el archivo original ya no está disponible. Vuelve a importar el vídeo.').strip()
-  recovered=True
- if recovered:
-  store.save_many(jobs)
+  recovered_ids.append(str(job_id))
+ if recovered_ids:
+  # save_many is insert-only by design; persist intentional recovery transitions
+  # individually so existing SQLite rows are not left in a stale processing state.
+  for job_id in recovered_ids:
+   store.upsert(jobs[job_id])
   tmp=JOBS_FILE.with_suffix('.tmp'); tmp.write_text(json.dumps(jobs,ensure_ascii=False,indent=2),encoding='utf-8'); tmp.replace(JOBS_FILE)
  return jobs
 
@@ -182,7 +185,7 @@ def run_streaming_command(cmd:list[str], jid:str, stage:str, timeout:int, worker
           if worker_id:
            if not job_store_for_registry().update_claim(JOBS[jid],worker_id):
             raise LeaseLostError("El worker perdió la concesión del trabajo; se detiene para evitar resultados duplicados.")
-          else: persist_jobs_locked()
+          else: job_store_for_registry().upsert(JOBS[jid])
     elif proc.poll() is not None: break
    elif proc.poll() is not None: break
   tail=decoder.decode(b"",final=True)+pending
@@ -203,7 +206,7 @@ def persist_job_locked(jid:str, worker_id:str|None=None)->None:
   if not job_store_for_registry().update_claim(JOBS[jid],worker_id):
    raise LeaseLostError("El worker ya no posee la concesión de este trabajo.")
  else:
-  persist_jobs_locked()
+  job_store_for_registry().upsert(JOBS[jid])
 
 class Handler(BaseHTTPRequestHandler):
  def log_message(self, fmt, *args): print('[web]',fmt%args)
@@ -380,7 +383,9 @@ class Handler(BaseHTTPRequestHandler):
       del args[ti:ti+2]
       job['args']=args
     job['status']='queued'; job['log']='Reintento solicitado; esperando turno de procesamiento.'
-    persist_jobs_locked()
+    # Retry is an intentional single-job state transition; do not bulk-write
+    # the server's potentially stale snapshot over jobs owned by the worker.
+    job_store_for_registry().upsert(job)
    return self.json(202,{'ok':True,'id':jid,'status':'queued'})
   if path.startswith('/api/re-render/'):
    parts=path.strip('/').split('/')
@@ -594,7 +599,7 @@ class Handler(BaseHTTPRequestHandler):
      if not lease_lost:
       job_store_for_registry().finish_claim(JOBS[jid],worker_id)
     else:
-     persist_jobs_locked()
+     job_store_for_registry().upsert(JOBS[jid])
 
 def resume_pending_jobs()->int:
  """Count queued jobs; the independent worker process owns execution."""

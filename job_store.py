@@ -59,9 +59,13 @@ class JobStore:
         selected = active + done[:max(0, limit-len(active))]
         with self._lock, self._connect() as db:
             db.execute("BEGIN IMMEDIATE")
+            # This is a bulk snapshot from the HTTP server and may be stale while
+            # the independent worker is changing jobs. It may create missing rows,
+            # but must never overwrite an existing row. Explicit single-job changes
+            # (for example retry) use upsert(); worker changes use update_claim().
             db.executemany(
                 "INSERT INTO jobs(id,status,created,payload,updated_at) VALUES(?,?,?,?,CURRENT_TIMESTAMP) "
-                "ON CONFLICT(id) DO UPDATE SET status=excluded.status,created=excluded.created,payload=excluded.payload,updated_at=CURRENT_TIMESTAMP",
+                "ON CONFLICT(id) DO NOTHING",
                 [(str(k), str(v.get("status") or "unknown"), float(v.get("created") or 0), json.dumps(v, ensure_ascii=False)) for k,v in selected]
             )
             # Do not delete rows absent from this caller's snapshot. Another
