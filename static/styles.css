@@ -58,3 +58,5 @@ body[data-browser-only="true"] .hero .eyebrow:after{content:" · PROCESAMIENTO E
 .browser-export{margin-top:22px;padding:18px;border:1px solid var(--line);border-radius:14px;background:#0d141e}
 .browser-export h3{margin:3px 0;font-size:18px}
 #browserExportStatus{margin-top:12px}
+
+body[data-browser-only="true"] .browser-auto-generate{display:none!important}
