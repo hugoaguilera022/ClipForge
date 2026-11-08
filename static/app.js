@@ -5,7 +5,7 @@ async function loadHealth(){
   const r=await fetch('/api/health');const d=await r.json();
   $('#health').textContent=d.ffmpeg&&d.ffprobe?(d.faster_whisper?'Faster-Whisper local disponible':(d.whisper_cpp?'whisper.cpp local disponible':(d.native_speech?'Apple Speech disponible como alternativa local':(d.whisper?'Whisper clásico disponible':'Se instalará whisper.cpp como alternativa local'))))+(d.yt_dlp?' · URL YouTube activa':' · falta yt-dlp para URLs'):'Falta FFmpeg/FFprobe';
   $('#health').classList.toggle('ok',d.ffmpeg&&d.ffprobe);
- }catch{$('#health').textContent='Servidor desconectado'}
+ }catch{$('#health').textContent='Modo navegador · sin servidor';document.body.dataset.browserOnly='true';}
 }
 async function loadPlatforms(){
  try{
@@ -16,7 +16,7 @@ async function loadPlatforms(){
 $('#video').addEventListener('change',e=>$('#filename').textContent=e.target.files[0]?.name||'MP4, MOV, MKV o WEBM · máximo 512 MB');
 $('#transcript').addEventListener('change',e=>$('#transcriptname').textContent=e.target.files[0]?.name||'SRT o VTT · permite trabajar sin instalar Whisper');
 $('#jobForm').addEventListener('submit',async e=>{
- e.preventDefault();const form=e.currentTarget;const file=$('#video').files[0];const url=$('#video_url').value.trim();if(!file&&!url){alert('Pega una URL de YouTube o selecciona un vídeo.');return;}
+ e.preventDefault();if(document.body.dataset.browserOnly==='true'){const out=$('#jobResult');out.classList.remove('hidden');out.textContent='Estás usando ClipForge en modo navegador independiente. No se necesita el servidor Python: utiliza “Transcribir archivo seleccionado” y después “Exportar clips MP4 en este navegador”.';document.querySelector('#browserEngine')?.scrollIntoView({behavior:'smooth',block:'start'});return;}const form=e.currentTarget;const file=$('#video').files[0];const url=$('#video_url').value.trim();if(!file&&!url){alert('Pega una URL de YouTube o selecciona un vídeo.');return;}
  if(file&&file.size>512*1024*1024){alert('El vídeo supera el límite de 512 MB.');return;}const button=$('#submit'),out=$('#jobResult');button.disabled=true;button.textContent=url?'Analizando URL…':'Subiendo vídeo…';out.classList.remove('hidden');out.textContent='Preparando trabajo…';
  const data=new FormData(form);
  try{

@@ -2,7 +2,7 @@ name: ClipForge quality checks
 
 on:
   push:
-    branches: [main]
+    branches: [main, browser-only-migration]
   pull_request:
   workflow_dispatch:
 
@@ -11,7 +11,7 @@ permissions:
 
 concurrency:
   group: clipforge-quality-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   quality:
@@ -43,7 +43,9 @@ jobs:
 
       - name: Compile Python modules
         run: |
-          python -m compileall -q             server.py clipforge.py channel_monitor.py diarization.py             job_store.py project_store.py worker.py
+          python -m compileall -q \
+            server.py clipforge.py channel_monitor.py diarization.py \
+            job_store.py project_store.py worker.py
 
       - name: Check critical Python errors
         run: ruff check --select E9,F63,F7,F82 --output-format=github .
@@ -57,6 +59,9 @@ jobs:
       - name: Validate JavaScript syntax
         run: |
           node --check static/app.js
+          node --check static/browser-whisper.js
+          node --check static/browser-export.js
+          node --check static/browser-url.js
           node --check static/editor.js
           node --check static/sw.js
 

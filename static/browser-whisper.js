@@ -6,6 +6,7 @@ const saveProjectButton = document.querySelector('#saveBrowserProject');
 let transcriptData = null;
 let asr = null;
 let importedProjectPendingSource = false;
+let editorTracks = [];
 const say = (message) => { if (status) status.textContent = message; };
 
 function timeVtt(seconds) {
@@ -48,8 +49,9 @@ async function captureAudioFromVideo(file) {
       recorder.onerror = () => reject(new Error('Falló la extracción de audio.'));
       recorder.onstop = () => resolve(new Blob(chunks, { type: mime }));
     });
-    await video.play();
+    // Start recording before playback so the first audio samples are not lost.
     recorder.start(1000);
+    await video.play();
     await new Promise((resolve, reject) => {
       video.onended = resolve;
       video.onerror = () => reject(new Error('El vídeo falló durante la extracción de audio.'));
@@ -85,16 +87,18 @@ async function extractAudioWithMediabunny(file) {
     try {
       const buffer = sample.toAudioBuffer();
       const offset = Math.max(0, Math.round(sample.timestamp * 16000));
-      const frames = Math.min(buffer.length, mono.length - offset);
-      if (frames <= 0) continue;
-      // Linear interpolation converts each source block to 16 kHz while
+      const sourceFrames = buffer.length;
+      if (sourceFrames <= 0 || offset >= mono.length) continue;
+      // Linear interpolation converts the FULL source block to 16 kHz while
       // retaining its original media timestamp (including small gaps).
+      // Do not cap sourceFrames by the 16 kHz destination buffer: for 44.1 kHz
+      // audio that truncates most of every block before resampling.
       const sourceRate = buffer.sampleRate;
-      const targetFrames = Math.min(Math.ceil(frames * 16000 / sourceRate), mono.length - offset);
+      const targetFrames = Math.min(Math.ceil(sourceFrames * 16000 / sourceRate), mono.length - offset);
       for (let j = 0; j < targetFrames; j++) {
         const sourcePos = j * sourceRate / 16000;
-        const lo = Math.min(Math.floor(sourcePos), frames - 1);
-        const hi = Math.min(lo + 1, frames - 1);
+        const lo = Math.min(Math.floor(sourcePos), sourceFrames - 1);
+        const hi = Math.min(lo + 1, sourceFrames - 1);
         const frac = sourcePos - lo;
         let interpolated = 0;
         for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
@@ -255,7 +259,7 @@ let editableCandidates=[];
 function showClipCandidates(words,duration,restoredCandidates=null) {
  const panel=document.querySelector('#browserCandidates'),list=document.querySelector('#browserCandidateList');
  if(!panel||!list)return;
- editableCandidates=(restoredCandidates || rankClipCandidates(words,duration)).map((c,i)=>({...c,title:c.title||`Clip ${i+1}`}));
+ editableCandidates=(restoredCandidates || rankClipCandidates(words,duration)).map((c,i)=>({...c,title:c.title||`Clip ${i+1}`,selected:c.selected!==false}));
  panel.hidden=false;list.replaceChildren();
  if(!editableCandidates.length){list.textContent='No hay suficientes marcas de tiempo.';const field=document.querySelector('[name="selected_clip_ranges"]');if(field)field.value='';return;}
  const sync=()=>{
@@ -267,13 +271,18 @@ function showClipCandidates(words,duration,restoredCandidates=null) {
  editableCandidates.forEach((c,i)=>{
   const card=document.createElement('article');card.className='candidate-card';
   const heading=document.createElement('strong');heading.textContent=`${c.title} · ${c.score}/100 (heurístico)`;
+  const selectLabel=document.createElement('label');selectLabel.className='candidate-select';
+  const select=document.createElement('input');select.type='checkbox';select.checked=c.selected!==false;
+  select.setAttribute('aria-label','Incluir clip en exportación');
+  select.addEventListener('change',()=>{editableCandidates[i]={...editableCandidates[i],selected:select.checked};sync();});
+  selectLabel.append(select,document.createTextNode(' Incluir en exportación'));
   const row=document.createElement('div');row.className='candidate-edit-grid';
   const a=document.createElement('input');a.type='number';a.min='0';a.step='.1';a.value=Number(c.start).toFixed(2);a.setAttribute('aria-label','Inicio en segundos');
   const b=document.createElement('input');b.type='number';b.min='0';b.step='.1';b.value=Number(c.end).toFixed(2);b.setAttribute('aria-label','Final en segundos');
   const note=document.createElement('textarea');note.value=String(c.text || '');note.rows=3;note.setAttribute('aria-label','Texto del clip');
   const update=()=>{const x=Number(a.value),y=Number(b.value);if(a.value.trim()===''||b.value.trim()===''||!Number.isFinite(x)||!Number.isFinite(y)||x<0||y<=x||y>duration){card.classList.add('candidate-invalid');return;}card.classList.remove('candidate-invalid');editableCandidates[i]={...editableCandidates[i],start:x,end:y,duration:y-x,text:note.value};sync();};
   a.addEventListener('change',update);b.addEventListener('change',update);note.addEventListener('input',update);
-  row.append(a,b);card.append(heading,row,note);list.append(card);
+  row.append(a,b);card.append(heading,selectLabel,row,note);list.append(card);
  });
  const info=document.createElement('p');info.textContent='Los cortes editados se enviarán al renderizador al crear el trabajo. Puntuación orientativa, no predicción de viralidad.';list.append(info);sync();
  window.dispatchEvent(new CustomEvent('clipforge:clips-updated'));
@@ -494,7 +503,7 @@ window.clipforgeEditorBridge = {
       source: transcriptData?.source || document.querySelector('#video')?.files?.[0]?.name || '',
       transcript: transcriptData ? JSON.parse(JSON.stringify(transcriptData)) : null,
       clips: editableCandidates.map((clip, i) => ({...clip, id:String(clip.id || `clip-${i+1}`)})),
-      tracks: []
+      tracks: JSON.parse(JSON.stringify(editorTracks))
     };
   },
   setClips(clips) {
@@ -503,6 +512,14 @@ window.clipforgeEditorBridge = {
     showClipCandidates([], duration, editableCandidates);
     const field = document.querySelector('[name="selected_clip_ranges"]');
     if (field) field.value = JSON.stringify(editableCandidates);
+  },
+  setTracks(value) { editorTracks = Array.isArray(value) ? JSON.parse(JSON.stringify(value)) : []; },
+  setTranscript(value) {
+    if (!value || !Array.isArray(value.segments)) return;
+    transcriptData = JSON.parse(JSON.stringify(value));
+    if (output) output.value = transcriptData.segments.map(s => `[${Number(s.start).toFixed(2)}–${Number(s.end).toFixed(2)}] ${String(s.text || '')}`).join('\n');
+    if (download) download.disabled = false;
+    if (saveProjectButton) saveProjectButton.disabled = false;
   }
 };
 window.dispatchEvent(new CustomEvent('clipforge:editor-ready'));
