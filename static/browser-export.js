@@ -66,7 +66,8 @@ async function exportOne(file,clip,segments,index,total){
         ctx.clearRect(0,0,canvas.width,canvas.height);
         sample.draw(ctx,0,0);
         const stamp=Number(sample.timestamp)||0;
-        const local=stamp>=clip.start-.5?stamp-clip.start:stamp;
+        // Mediabunny normalizes timestamps to zero after trim; captions keep source-video times.
+        const local=clip.start+stamp;
         drawKaraokeCaption(ctx,cues,local,canvas.width,canvas.height);
         return canvas;
       },
