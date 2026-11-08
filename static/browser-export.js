@@ -25,7 +25,7 @@ function drawTextLayers(ctx,tracks,sourceTime,width,height){
     const fontSize=Math.round(width*.052),text=String(item.text).trim().slice(0,180);
     ctx.font=`800 ${fontSize}px system-ui,sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
     const maxWidth=width*.86,lines=[];let line='';
-    for(const word of text.split(/\\s+/)){
+    for(const word of text.split(/\s+/)){
       const next=line?line+' '+word:word;
       if(line&&ctx.measureText(next).width>maxWidth){lines.push(line);line=word;}else line=next;
     }
@@ -72,7 +72,7 @@ function drawKaraokeCaption(ctx,cues,sourceTime,width,height){
   ctx.restore();
 }
 
-async function exportOne(file,clip,segments,index,total){
+async function exportOne(file,clip,segments,tracks,index,total){
   const {Input,Output,Conversion,ALL_FORMATS,BlobSource,Mp4OutputFormat,BufferTarget,Quality}=await import('https://esm.sh/mediabunny@1.65.2');
   const input=new Input({source:new BlobSource(file),formats:ALL_FORMATS});
   const sourceDuration=await input.getDurationFromMetadata();
@@ -138,7 +138,7 @@ exportButton?.addEventListener('click',async()=>{
     for(let i=0;i<clips.length;i++){
       const clip={start:Number(clips[i].start),end:Number(clips[i].end)};
       if(clip.end>36000)throw new Error('Un corte supera el límite de seguridad de 10 horas.');
-      results.push(await exportOne(file,clip,segments,i,clips.length));
+      results.push(await exportOne(file,clip,segments,tracks,i,clips.length));
     }
     if(results.length===1){
       const url=URL.createObjectURL(results[0].blob),a=document.createElement('a');
