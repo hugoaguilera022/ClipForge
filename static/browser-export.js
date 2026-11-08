@@ -33,7 +33,7 @@ function drawKaraokeCaption(ctx,cues,sourceTime,width,height){
   ctx.fillStyle='rgba(0,0,0,.66)';ctx.beginPath();
   const boxW=Math.min(maxWidth+pad*2,width*.94),boxH=blockHeight+pad*2;
   const x=(width-boxW)/2,y=y0-pad,r=Math.round(fontSize*.22);
-  ctx.roundRect(x,y,boxW,boxH,r);ctx.fill();
+  if(typeof ctx.roundRect==='function'){ctx.roundRect(x,y,boxW,boxH,r);ctx.fill();}else{ctx.fillRect(x,y,boxW,boxH);}
   visible.forEach((words,index)=>{
     const total=words.reduce((n,w)=>n+ctx.measureText(w.text+' ').width,0);
     let xPos=width/2-total/2;
