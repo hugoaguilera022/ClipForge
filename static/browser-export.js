@@ -84,7 +84,22 @@ async function exportOne(file,clip,segments,tracks,index,total){
   // This avoids unnecessary lossy re-encoding and does not require an AAC encoder.
   const output=new Output({format:new Mp4OutputFormat(),target:new BufferTarget()});
   const cues=buildCaptionCues(segments);
-  let canvas=null,ctx=null;
+  let canvas=null,ctx=null,sourceCanvas=null,sourceCtx=null,faceDetector=null;
+  let lastFaceCenter=null,frameNumber=0,multiFace=false,faceSamples=0,trackingMode='sin seguimiento';
+  const sourceTrack=await input.getPrimaryVideoTrack();
+  const sourceWidth=Number(sourceTrack?.displayWidth||sourceTrack?.width||1920);
+  const sourceHeight=Number(sourceTrack?.displayHeight||sourceTrack?.height||1080);
+  const portraitCropWidth=sourceHeight*9/16;
+  const trackingPossible=sourceWidth>portraitCropWidth*1.05;
+  if(trackingPossible){
+    try{
+      sayExport(`Clip ${index+1}/${total}: cargando detector facial gratuito…`);
+      const vision=await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.2/vision_bundle.mjs');
+      const fileset=await vision.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.2/wasm');
+      faceDetector=await vision.FaceDetector.createFromOptions(fileset,{baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite'},runningMode:'VIDEO',minDetectionConfidence:.48});
+      trackingMode='detector facial activo';
+    }catch(error){console.warn('Face tracking unavailable; using safe blurred background:',error);faceDetector=null;}
+  }
   const conversion=await Conversion.init({
     input,output,tracks:'primary',
     trim:{start:clip.start,end:clip.end},
@@ -95,12 +110,41 @@ async function exportOne(file,clip,segments,tracks,index,total){
         // The returned canvas MUST have the same 9:16 dimensions advertised
         // by processedWidth/processedHeight. Drawing at source dimensions here
         // caused a landscape canvas to be passed to a portrait encoder.
-        if(!canvas){canvas=new OffscreenCanvas(1080,1920);ctx=canvas.getContext('2d',{alpha:false});}
+        if(!canvas){
+          canvas=new OffscreenCanvas(1080,1920);ctx=canvas.getContext('2d',{alpha:false});
+          const detectorWidth=Math.min(640,Math.round(sourceWidth));
+          const detectorHeight=Math.max(1,Math.round(detectorWidth*sourceHeight/sourceWidth));
+          sourceCanvas=new OffscreenCanvas(detectorWidth,detectorHeight);sourceCtx=sourceCanvas.getContext('2d',{willReadFrequently:true});
+        }
         ctx.clearRect(0,0,canvas.width,canvas.height);
-        // Mediabunny applies the sample's rotation/flip and crops to fill the
-        // portrait canvas without stretching the source aspect ratio.
-        sample.drawWithFit(ctx,{fit:'cover'});
         const stamp=Number(sample.timestamp)||0;
+        if(faceDetector&&sourceCanvas){
+          sourceCtx.clearRect(0,0,sourceCanvas.width,sourceCanvas.height);
+          sample.drawWithFit(sourceCtx,{fit:'contain'});
+          frameNumber++;
+          if(frameNumber%6===1||lastFaceCenter===null){
+            const detections=faceDetector.detectForVideo(sourceCanvas,Math.max(0,Math.round(stamp*1000)));
+            const faces=detections?.detections||[];
+            if(faces.length)faceSamples++;
+            multiFace=faces.length>1;
+            if(faces.length===1){
+              const box=faces[0].boundingBox;
+              const center=(Number(box.originX)+Number(box.width)/2)*sourceWidth/sourceCanvas.width;
+              lastFaceCenter=lastFaceCenter===null?center:lastFaceCenter*.68+center*.32;
+            }else if(faces.length===0){lastFaceCenter=null;}
+          }
+        }
+        if(faceDetector&&sourceCanvas&&lastFaceCenter!==null&&!multiFace){
+          const cropWidth=Math.min(sourceCanvas.width,sourceCanvas.height*9/16);
+          const center=lastFaceCenter*sourceCanvas.width/sourceWidth;
+          const left=Math.max(0,Math.min(sourceCanvas.width-cropWidth,center-cropWidth/2));
+          ctx.drawImage(sourceCanvas,left,0,cropWidth,sourceCanvas.height,0,0,1080,1920);
+        }else{
+          // When dialogue has multiple faces or tracking is unavailable, retain
+          // the complete shot over a blurred fill instead of cutting a speaker off.
+          ctx.save();ctx.filter='blur(24px)';sample.drawWithFit(ctx,{fit:'cover'});ctx.restore();
+          sample.drawWithFit(ctx,{fit:'contain'});
+        }
         // Mediabunny normalizes timestamps to zero after trim; captions keep source-video times.
         const local=clip.start+stamp;
         drawTextLayers(ctx,tracks,local,canvas.width,canvas.height);
@@ -115,11 +159,11 @@ async function exportOne(file,clip,segments,tracks,index,total){
     throw new Error(`El navegador no puede codificar todas las pistas MP4 de este vídeo (${reasons||'códec no compatible'}).`);
   }
   conversion.onProgress=p=>sayExport(`Clip ${index+1}/${total}: renderizando ${Math.round(p*100)}%…`);
-  await conversion.execute();
+  try{await conversion.execute();}finally{faceDetector?.close?.();}
   const buffer=output.target.buffer;
   if(!buffer||buffer.byteLength<1024)throw new Error('El render terminó sin generar un MP4 válido.');
   const blob=new Blob([buffer],{type:'video/mp4'});
-  return {blob,bytes:blob.size,duration:clip.end-clip.start,name:`clipforge-${String(index+1).padStart(2,'0')}.mp4`};
+  return {blob,bytes:blob.size,duration:clip.end-clip.start,trackingMode,faceSamples,name:`clipforge-${String(index+1).padStart(2,'0')}.mp4`};
 }
 
 exportButton?.addEventListener('click',async()=>{
@@ -146,7 +190,7 @@ exportButton?.addEventListener('click',async()=>{
       a.href=url;a.download=results[0].name;
       document.body.append(a);a.click();a.remove();
       setTimeout(()=>URL.revokeObjectURL(url),60000);
-      sayExport(`Exportación terminada: 1 MP4 individual · 1080×1920 · 30 fps · H.264 + audio original · ${(results[0].bytes/1024/1024).toFixed(1)} MB.`);
+      sayExport(`Exportación terminada: 1 MP4 individual · 1080×1920 · 30 fps · H.264 + audio original · ${results[0].trackingMode}${results[0].faceSamples?' · rostro detectado':' · encuadre seguro sin rostro detectado'} · ${(results[0].bytes/1024/1024).toFixed(1)} MB.`);
       return;
     }
     sayExport('Preparando paquete ZIP con los MP4…');
@@ -159,7 +203,7 @@ exportButton?.addEventListener('click',async()=>{
     document.body.append(a);a.click();a.remove();
     setTimeout(()=>URL.revokeObjectURL(url),60000);
     const totalBytes=results.reduce((n,x)=>n+x.bytes,0);
-    sayExport(`Exportación terminada: ${results.length} MP4 en un ZIP · 1080×1920 · 30 fps · H.264 + audio original · ${(totalBytes/1024/1024).toFixed(1)} MB de vídeo.`);
+    sayExport(`Exportación terminada: ${results.length} MP4 en un ZIP · 1080×1920 · 30 fps · H.264 + audio original · ${results.some(x=>x.faceSamples)?'seguimiento facial':'encuadre seguro'} · ${(totalBytes/1024/1024).toFixed(1)} MB de vídeo.`);
   }catch(error){console.error(error);sayExport(`Exportación detenida: ${error.message}. No se ha enviado el vídeo a ningún servidor.`);}
   finally{exportButton.disabled=false;}
 });

@@ -32,495 +32,225 @@ async function captureAudioFromVideo(file) {
     video.src = objectUrl;
     await new Promise((resolve, reject) => {
       video.onloadedmetadata = resolve;
-      video.onerror = () => reject(new Error('El navegador no pudo abrir el vÃ­deo.'));
-    });
-    const capture = video.captureStream || video.mozCaptureStream;
-    if (!capture) throw new Error('Este navegador no permite extraer audio local. Prueba Chrome o Edge actualizado.');
-    stream = capture.call(video);
-    const audioTracks = stream.getAudioTracks();
-    if (!audioTracks.length) throw new Error('El vÃ­deo no contiene una pista de audio reconocible.');
-    const audioStream = new MediaStream(audioTracks);
-    const mime = ['audio/webm;codecs=opus', 'audio/webm'].find(x => MediaRecorder.isTypeSupported(x));
-    if (!mime) throw new Error('MediaRecorder no admite un formato de audio compatible.');
-    recorder = new MediaRecorder(audioStream, { mimeType: mime });
-    const chunks = [];
-    const done = new Promise((resolve, reject) => {
-      recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
-      recorder.onerror = () => reject(new Error('FallÃ³ la extracciÃ³n de audio.'));
-      recorder.onstop = () => resolve(new Blob(chunks, { type: mime }));
-    });
-    // Start recording before playback so the first audio samples are not lost.
-    recorder.start(1000);
-    await video.play();
-    await new Promise((resolve, reject) => {
-      video.onended = resolve;
-      video.onerror = () => reject(new Error('El vÃ­deo fallÃ³ durante la extracciÃ³n de audio.'));
-    });
-    if (recorder.state !== 'inactive') recorder.stop();
-    return await done;
-  } finally {
-    try { if (recorder && recorder.state !== 'inactive') recorder.stop(); } catch {}
-    try { stream?.getTracks().forEach(t => t.stop()); } catch {}
-    video.pause();
-    video.removeAttribute('src');
-    URL.revokeObjectURL(objectUrl);
-  }
-}
+      video.onerror = () => reject(new Error('El navegador no pudo abrir el vÃ­deo.'))ÕÈZ®Ëkºwµçkz»§Â+a…æş
+Ş§ûZŠWè­û¥–‹­¦ëJ	ØÛXÚÉË\Ş[˜È
 
-async function extractAudioWithMediabunny(file) {
-  // Mediabunny demuxes the MP4 audio track without decoding the video stream
-  // or forcing the user to play the whole source in real time.
-  const { Input, BlobSource, ALL_FORMATS, AudioSampleSink } =
-    await import('https://esm.sh/mediabunny@1.65.2');
-  const input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS });
-  const track = await input.getPrimaryAudioTrack();
-  if (!track) throw new Error('El MP4 no contiene una pista de audio.');
-  if (!(await track.canDecode())) throw new Error('El navegador no puede decodificar el cÃ³dec de audio de este MP4.');
-  const duration = await input.getDurationFromMetadata();
-  if (!Number.isFinite(duration) || duration <= 0 || duration > 6 * 60 * 60) {
-    throw new Error('La duraciÃ³n del audio del MP4 no es vÃ¡lida.');
-  }
-  const mono = new Float32Array(Math.ceil(duration * 16000));
-  const sink = new AudioSampleSink(track);
-  let samples = 0;
-  for await (const sample of sink.samples()) {
-    try {
-      const buffer = sample.toAudioBuffer();
-      const offset = Math.max(0, Math.round(sample.timestamp * 16000));
-      const sourceFrames = buffer.length;
-      if (sourceFrames <= 0 || offset >= mono.length) continue;
-      // Linear interpolation converts the FULL source block to 16 kHz while
-      // retaining its original media timestamp (including small gaps).
-      // Do not cap sourceFrames by the 16 kHz destination buffer: for 44.1 kHz
-      // audio that truncates most of every block before resampling.
-      const sourceRate = buffer.sampleRate;
-      const targetFrames = Math.min(Math.ceil(sourceFrames * 16000 / sourceRate), mono.length - offset);
-      for (let j = 0; j < targetFrames; j++) {
-        const sourcePos = j * sourceRate / 16000;
-        const lo = Math.min(Math.floor(sourcePos), sourceFrames - 1);
-        const hi = Math.min(lo + 1, sourceFrames - 1);
-        const frac = sourcePos - lo;
-        let interpolated = 0;
-        for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
-          const channel = buffer.getChannelData(ch);
-          interpolated += (channel[lo] * (1 - frac) + channel[hi] * frac) / buffer.numberOfChannels;
-        }
-        mono[offset + j] = interpolated;
-      }
-      samples++;
-    } finally { sample.close(); }
-  }
-  if (!samples || !mono.some(value => Math.abs(value) > 1e-7)) {
-    throw new Error('No se pudieron extraer muestras de audio del MP4.');
-  }
-  return mono;
-}
+HOˆÂˆÛÛœİš[HHØİ[Y[œ]Y\TÙ[XİÜŠ	ÈİšY[ÉÊOË™š[\ÏË–ÌNÂˆYˆ
+Yš[JHÈØ^J	ÔÙ[XØÚ[Û˜Hš[Y\›È[ˆ°ëY[È[ˆ[›Ü›][\š[ÈH›ÙXØÚpìÛ‹‰ÊNÈ™]\›ÈBˆ[]Û‹™\ØX›YHYNÂˆYˆ
+İÛ›ØY
+HİÛ›ØY™\ØX›YHYNÂˆYˆ
+İ]]
+Hİ]]˜[YHH	ÉÎÂˆHÂˆ]]Y[ÎÂˆHÂˆØ^J^˜^Y[™ÈH\İHPPËÓTÈ[TÚ[ˆ™\›ÙXÚ\ˆ[°ëY[È
+	ÓX]œ›İ[™
+š[KœÚ^™HÈLÈL
+_HPŠx )˜
+NÂˆ]Y[ÈH]ØZ]^˜Xİ]Y[ÕÚ]YYXX[›Jš[JNÂˆØ^J]Y[È^˜pëYÎˆ	Ê]Y[Ë›[™İÈMŒ
+KÑš^Y
+J_HÙYİ[™ÜËˆ™\\˜[™ÈÚ\Ü\¸ )˜
+NÂˆHØ]Ú
+[]^\œ›ÜŠHÂˆÛÛœÛÛKØ\›Š	Ñ[][\^YËÙXÛÙYšXØXÚpìÛˆÜˆYYXX[›H›È\ÜÛšX›NÈ\Ø[™ÈØ\\˜HH™\›ÙXØÚpìÛˆÛÛ[È[\›˜]]˜K‰Ë[]^\œ›ÜŠNÂˆØ^J	Ñ\İH˜]™YØYÜˆÈğìÙXÈ›ÈYZ]H^˜XØÚpìÛˆ\™XİKˆ\Ø[™È™\›ÙXØÚpìÛˆØØ[ÛÛ[È[\›˜]]˜NÈYYH\™\ˆÈZ\Û[È]YH[°ëY[ø )‰ÊNÂˆÛÛœİ]Y[Ğ›ØˆH]ØZ]Ø\\™P]Y[Ñœ›ÛUšY[Êš[JNÂˆ]Y[ÈH]ØZ]Ó[Û›ÌMšÊ]Y[Ğ›ØŠNÂˆBˆØ^J	ĞØ\™Ø[™È˜[œÙ›Ü›Y\œËšœÈH[[Ù[ÈÚ\Ü\ˆXšY\ËˆHš[Y\˜H\ØØ\™ØHYYH\™\‹‰ÊNÂˆÛÛœİÈ\[[™K[ˆHH]ØZ][\Ü
+	ÚÎ‹ËÙ\ÛKœÚĞYÙÚ[™Ù˜XÙKİ˜[œÙ›Ü›Y\œĞËËŒ‰ÊNÂˆ[‹˜[İÓØØ[[Ù[ÈH˜[ÙNÂˆ[‹\ÙPœ›İÜÙ\ØXÚHHYNÂˆÛÛœİ[Ù[HØİ[Y[œ]Y\TÙ[XİÜŠ	ÈØœ›İÜÙ\•Ú\Ü\“[Ù[	ÊOË˜[YH	İÚ\Ü\‹X˜\ÙIÎÂˆÛÛœİ[Ù[YH
+È	İÚ\Ü\‹][IÎˆ	ÛÛ›XÛÛ[][š]KİÚ\Ü\‹][Wİ[Y\İ[\Y	Ë	İÚ\Ü\‹X˜\ÙIÎˆ	ÛÛ›XÛÛ[][š]KİÚ\Ü\‹X˜\ÙWİ[Y\İ[\Y	ÈJVÛ[Ù[NÂˆYˆ
+[[Ù[Y
+H›İÈ™]È\œ›ÜŠ	Ñ[[Ù[ÈÙ[XØÚ[Û˜YÈÙ]°ëXH›ÈY[™HÛÜÜH™\šYšXØYÈ\˜HX\˜Ø\ÈHY[\ÈÜˆ[Xœ˜K‰ÊNÂˆYˆ
+X\ÜŠH\ÜˆH]ØZ]\[[™J	Ø]]ÛX]XË\ÜYXÚ\™XÛÙÛš][Û‰Ë[Ù[YÂˆ\Nˆ	ÜN	Ëˆ›ÙÜ™\Ü×ØØ[˜XÚÎˆOˆÂˆYˆ
+œİ]\ÈOOH	Ü›ÙÜ™\ÜÉÊHØ^J\ØØ\™Ø[™È[Ù[È	Ü™š[H	ÉßNˆ	ÓX]œ›İ[™
+œ›ÙÜ™\ÜÈ
+_IX
+NÂˆ[ÙHYˆ
+œİ]\ÊHØ^J[Ù[ÈÚ\Ü\ˆ	Üœİ]\ßX
+NÂˆBˆJNÂˆØ^J	Õ˜[œØÜšXšY[™È[ˆœ˜YÛY[ÜÈ\˜H™YXÚ\ˆY[[ÜšXHH]š]\ˆ0ë[Z]\ÈHÌÙYİ[™Üø )‰ÊNÂˆÛÛœİ™\İ[H]ØZ]˜[œØÜšX™P]Y[Ò[Ú[šÜÊ\Ü‹]Y[Ë
+\˜Ù[İ\œ™[İ[
+HOˆÂˆØ^J˜[œØÜšXšY[™È[™]š\İNˆ	Ü\˜Ù[IH0­Èœ˜YÛY[È	Øİ\œ™[KÉİİ[X
+NÂˆJNÂˆÛÛœİÚ[šÜÈH™\İ[˜Ú[šÜÈ×NÂˆ˜[œØÜš\]HHÂˆÛİ\˜ÙNˆš[K›˜[YK[Ù[ˆ[Ù[Y[™İXYÙNˆ	Ù\ÉËˆÙ[™\˜]YØ]ˆ™]È]J
+KÒTÓÔİš[™Ê
+K^ˆ™\İ[^	ÉËˆËÈ˜[œØÜšX™P]Y[Ò[Ú[šÜÈ[™XYHÛÛ™\È[Ù[[ØØ[[Y\İ[\ÈÂˆËÈXœÛÛ]HÛİ\˜ÙK]šY[ÈÙXÛÛ™È[™™]\›œÈÜİ\[™^HØš™XİË‚ˆËÈÈ›İ™XYË[Y\İ[\\™Nˆ]šY[™[Û™ÜÈÈ˜]È˜[œÙ›Ü›Y\œËšœÂˆËÈÚ[šÜÈ[™Ûİ[Ú[[H™\Ù]]™\HØ]™YØ\[ÛˆÈÙXÛÛ™Ë‚ˆÙYÛY[ÎˆÚ[šÜË›X\
+ÈOˆ
+Âˆİ\ˆ[X™\ŠËœİ\
+Kˆ[™ˆ[X™\ŠË™[™
+Kˆ^ˆİš[™ÊË^	ÉÊKš[J
+BˆJJK™š[\ŠÈOˆ[X™\‹š\Ñš[š]JËœİ\
+H	‰ˆ[X™\‹š\Ñš[š]JË™[™
+H	‰ˆË™[™ˆËœİ\	‰ˆË^
+BˆNÂˆİ]]˜[YHH˜[œØÜš\]KœÙYÛY[Ë›[™İˆÈ˜[œØÜš\]KœÙYÛY[Ë›X\
+ÈOˆÉÜËœİ\Ñš^Y
+Š_x $ÉÜË™[™Ñš^Y
+Š_WH	ÜË^X
+Kš›Ú[Š	×‰ÊBˆˆ
+™\İ[^	Ñ[[Ù[È›È]›ÛšpìÈ^È[\Üš^˜YË‰ÊNÂˆYˆ
+˜[œØÜš\]KœÙYÛY[Ë›[™İ
+HÂˆÚİĞÛ\Ø[™Y]\Ê˜[œØÜš\]KœÙYÛY[Ë]Y[Ë›[™İÈMŒ
+NÂˆÛÛœİHXZÙU
+˜[œØÜš\]KœÙYÛY[ÊNÂˆÛÛœİ]XÚYH]XÚ˜[œØÜš\Ò›Ø‘›Ü›J
+NÂˆØ^J˜[œØÜš\ÚpìÛˆ\İNˆ	İ˜[œØÜš\]KœÙYÛY[Ë›[™İHœ˜YÛY[ÜÈ[\Üš^˜YÜËˆ	Ø]XÚYÈ	ÔİX0ë][ÜÈHÛÜ\ÈÙ[XØÚ[Û˜YÜÈÛÛ™XİYÜÈ[›Ü›][\š[ÈH›ÙXØÚpìÛ‹‰Èˆ	Ñ\ØØ\™ØH[”ÓÓˆ\˜HÛÛœÙ\˜\›K‰ßHÚ\Ü\ˆ›ÈY[YšXØHX›[\Ë˜
+NÂˆÛÛœİ]]ÑÙ[™\˜]HHØİ[Y[œ]Y\TÙ[XİÜŠ	ÈØ]]ÑÙ[™\˜]PY\•˜[œØÜš\[Û‰ÊOË˜ÚXÚÙYÂˆÛÛœİ›Ü›HHØİ[Y[œ]Y\TÙ[XİÜŠ	ÈÚ›Ø‘›Ü›IÊNÂˆÛÛœİšYÚÈH›Ü›OËœ]Y\TÙ[XİÜŠ	ÖÛ˜[YOHœšYÚ×ØÛÛ™š\›YY—IÊNÂˆYˆ
+]]ÑÙ[™\˜]H	‰ˆ]XÚY	‰ˆš[H	‰ˆ›Ü›JHÂˆYˆ
+šYÚÏË˜ÚXÚÙY
+HÂˆØ^J	Õ˜[œØÜš\ÚpìÛˆHÛÜ\È\İÜËˆ[šX[™ÈZÜ˜H[Z\Û[È°ëY[È[™[™\š^˜YÜ¸ )‰ÊNÂˆ›Ü›Kœ™\]Y\İİX›Z]
 
-async function resampleDecodedAudio(decoded) {
-  const length = Math.ceil(decoded.duration * 16000);
-  const mono = new Float32Array(length);
-  for (let ch = 0; ch < decoded.numberOfChannels; ch++) {
-    const input = decoded.getChannelData(ch);
-    for (let i = 0; i < length; i++) {
-      const pos = i * decoded.sampleRate / 16000;
-      const lo = Math.floor(pos), hi = Math.min(lo + 1, input.length - 1);
-      const frac = pos - lo;
-      mono[i] += (input[lo] * (1 - frac) + input[hi] * frac) / decoded.numberOfChannels;
-    }
-  }
-  return mono;
-}
+NÂˆH[ÙHÂˆØ^J	Õ˜[œØÜš\ÚpìÛˆHÛÜ\È\İÜÈHY[YÜËˆ\˜H[šXÚX\ˆ[™[™\‹X\˜ØHš[Y\›ÈHÛÛ™š\›XXÚpìÛˆH\™XÚÜÈ[ˆ[›Ü›][\š[ÈH[ØH0ªĞ[˜[^˜\ˆHÙ[™\˜\ˆÛ\ğ®Ë‰ÊNÂˆØİ[Y[œ]Y\TÙ[XİÜŠ	ÈÚ›Ø‘›Ü›IÊOËœØÜ›Û[ÕšY]ÊØ™Z]š[Ü‰ÜÛ[Ûİ	Ë›ØÚÎ‰ØÙ[\‰ßJNÂˆBˆBˆH[ÙHÂˆØ^J	ÕÚ\Ü\ˆ]›ÛšpìÈ^ÈÚ[ˆX\˜Ø\ÈHY[\È][^˜X›\Ëˆ›ÈÙHHY[YÈ[˜H˜[œØÜš\ÚpìÛˆ˜XğëXK‰ÊNÂˆBˆYˆ
+İÛ›ØY
+HİÛ›ØY™\ØX›YH\™\İ[^ÂˆYˆ
+Ø]™T›Ú™Xİ]ÛŠHØ]™T›Ú™Xİ]Û‹™\ØX›YH]˜[œØÜš\]OËœÙYÛY[ÏË›[™İÂˆHØ]Ú
+\œ›ÜŠHÂˆÛÛœÛÛK™\œ›ÜŠ\œ›ÜŠNÂˆØ^J\œ›ÜˆH˜[œØÜš\ÚpìÛˆ	Ù\œ›ÜË›Y\ÜØYÙH\œ›ÜŸKˆYX˜HÚ›ÛYKÑYÙHXİX[^˜YÈH[[Ù[È[K˜
+NÂˆHš[˜[HÈ[]Û‹™\ØX›YH˜[ÙNÈBŸJNÂ‚™İÛ›ØYË˜Y]™[\İ[™\Š	ØÛXÚÉË
 
-async function toMono16k(blob) {
-  const AudioCtx = window.AudioContext || window.webkitAudioContext;
-  if (!AudioCtx) throw new Error('Web Audio no estÃ¡ disponible en este navegador.');
-  const ctx = new AudioCtx();
-  try { return await resampleDecodedAudio(await ctx.decodeAudioData(await blob.arrayBuffer())); }
-  finally { await ctx.close(); }
-}
-
-// Whisper has a 30-second audio context limit. Process the full source in
-// bounded windows so long interviews do not require one huge inference buffer.
-// A 2-second overlap protects words at boundaries; duplicate words are removed
-// by their absolute timestamps and normalized text.
-async function transcribeAudioInChunks(asr, audio, onProgress = () => {}) {
-  const sampleRate = 16000;
-  const windowSeconds = 28;
-  const overlapSeconds = 2;
-  const windowSamples = windowSeconds * sampleRate;
-  const stepSamples = (windowSeconds - overlapSeconds) * sampleRate;
-  const totalSeconds = audio.length / sampleRate;
-  const allChunks = [];
-  const fullText = [];
-  const totalParts = Math.max(1, Math.ceil(Math.max(0, audio.length - windowSamples) / stepSamples) + 1);
-
-  for (let startSample = 0, part = 0; startSample < audio.length; startSample += stepSamples, part++) {
-    const endSample = Math.min(audio.length, startSample + windowSamples);
-    const result = await asr(audio.subarray(startSample, endSample), {
-      language: 'spanish',
-      task: 'transcribe',
-      return_timestamps: 'word'
-    });
-    const offset = startSample / sampleRate;
-    const chunkText = String(result.text || '').trim();
-    if (chunkText) fullText.push(chunkText);
-
-    for (const chunk of (result.chunks || [])) {
-      const localStart = Number(chunk.timestamp?.[0]);
-      const localEnd = Number(chunk.timestamp?.[1]);
-      const text = String(chunk.text || '').trim();
-      if (!text || !Number.isFinite(localStart) || !Number.isFinite(localEnd)) continue;
-      const absoluteStart = Math.max(0, offset + localStart);
-      const absoluteEnd = Math.min(totalSeconds, offset + Math.max(localStart, localEnd));
-      if (absoluteEnd <= absoluteStart) continue;
-      // Keep words recognized only in the next window's overlap.
-      // Deduplicate matching words by timestamp rather than discarding the overlap.
-      const normalized = text.toLocaleLowerCase('es').replace(/\s+/g, ' ').trim();
-      const duplicate = allChunks.some(previous =>
-        Math.abs(previous.start - absoluteStart) < 0.45 &&
-        previous.text.toLocaleLowerCase('es').replace(/\s+/g, ' ').trim() === normalized
-      );
-      if (!duplicate) allChunks.push({ start: absoluteStart, end: absoluteEnd, text });
-    }
-    onProgress(Math.min(100, Math.round(endSample / audio.length * 100)), part + 1, totalParts);
-    if (endSample === audio.length) break;
-  }
-
-  allChunks.sort((a, b) => a.start - b.start);
-  return { text: (allChunks.length ? allChunks.map(chunk => chunk.text).join(' ') : fullText.join(' ')).replace(/\s+/g, ' ').trim(), chunks: allChunks };
-}
-
-function makeVtt(segments) {
-  // Build readable cues at natural pauses and sentence boundaries, not at
-  // arbitrary fixed five-word intervals. Keep timing from Whisper unchanged.
-  const words = segments
-    .filter(s => Number.isFinite(s.start) && Number.isFinite(s.end) && s.end > s.start && String(s.text || '').trim())
-    .map(s => ({ start: Number(s.start), end: Number(s.end), text: String(s.text).trim() }))
-    .sort((a, b) => a.start - b.start);
-  const groups = [];
-  let group = [];
-  const flush = () => { if (group.length) groups.push(group); group = []; };
-  for (const word of words) {
-    const previous = group[group.length - 1];
-    const proposedText = group.map(x => x.text).concat(word.text).join(' ');
-    const gap = previous ? word.start - previous.end : 0;
-    const sentenceEnd = previous && /[.!?â€¦][â€â€™"')\]]?$/.test(previous.text);
-    if (group.length && (group.length >= 5 || gap > 0.42 || word.end - group[0].start > 2.25 || proposedText.length > 42 || sentenceEnd)) flush();
-    group.push(word);
-    if (/[.!?â€¦][â€â€™"')\]]?$/.test(word.text)) flush();
-  }
-  flush();
-  const cues = groups.map(items => {
-    const start = Math.max(0, items[0].start);
-    const end = Math.max(start + 0.15, items[items.length - 1].end);
-    return `${timeVtt(start)} --> ${timeVtt(end)}\n${items.map(w => w.text).join(' ').trim()}`;
-  });
-  return `WEBVTT\n\n${cues.join('\n\n')}\n`;
-}
-
-// Las puntuaciones heurÃ­sticas no equivalen a una predicciÃ³n de viralidad.
-function rankClipCandidates(words, videoDuration) {
-  const minLen = 18, maxLen = 45, candidates = [];
-  const hooks = /\b(por quÃ©|cÃ³mo|quÃ© pasa|no me digas|madre mÃ­a|increÃ­ble|imagina|resulta que|la verdad|nunca|siempre|pero|entonces|porque|Â¿|jaj|risas|hostia|ostras|buah|flipante|brutal|vergÃ¼enza|miedo|problema|secreto|historia)\b/i;
-  const starts = words.filter(w => Number.isFinite(w.start) && w.text);
-  if (!starts.length) return [];
-  const step = 4;
-  for (let i = 0; i < starts.length; i += step) {
-    const start = starts[i].start;
-    if (start > videoDuration - minLen) break;
-    let j = i;
-    while (j < starts.length && starts[j].end - start < minLen) j++;
-    if (j >= starts.length) continue;
-    let k = j;
-    while (k + 1 < starts.length && starts[k + 1].end - start <= maxLen) k++;
-    const group = starts.slice(i, k + 1);
-    const duration = group[group.length - 1].end - start;
-    if (duration < minLen || duration > maxLen) continue;
-    const text = group.map(w => w.text).join(' ');
-    const lexical = text.toLowerCase().match(/[a-zÃ¡Ã©Ã­Ã³ÃºÃ¼Ã±]{3,}/g) || [];
-    const uniqueRatio = new Set(lexical).size / Math.max(1, lexical.length);
-    const hookCount = (text.match(/\b(por quÃ©|cÃ³mo|quÃ© pasa|no me digas|madre mÃ­a|increÃ­ble|imagina|resulta que|la verdad|nunca|siempre|pero|entonces|porque|jaj|risas|hostia|ostras|buah|flipante|brutal|vergÃ¼enza|miedo|problema|secreto|historia)\b/gi) || []).length;
-    const questions = (text.match(/[Â¿?]/g) || []).length;
-    const endings = /[.!?â€¦]["')\]]?$/.test(text.trim()) ? 1 : 0;
-    const speechDensity = group.length / Math.max(1, duration);
-    const score = Math.min(100, 22 + hookCount * 7 + questions * 5 + uniqueRatio * 16 + endings * 9 + Math.min(12, speechDensity * 7));
-    candidates.push({ start, end: group[group.length - 1].end, duration, score: Math.round(score), text });
-  }
-  candidates.sort((a,b)=>b.score-a.score);
-  const chosen=[];
-  for (const c of candidates) {
-    if (chosen.every(x => c.end <= x.start + 3 || c.start >= x.end - 3)) chosen.push(c);
-    if (chosen.length === 4) break;
-  }
-  return chosen.sort((a,b)=>a.start-b.start);
-}
-
-let editableCandidates=[];
-function showClipCandidates(words,duration,restoredCandidates=null) {
- const panel=document.querySelector('#browserCandidates'),list=document.querySelector('#browserCandidateList');
- if(!panel||!list)return;
- editableCandidates=(restoredCandidates || rankClipCandidates(words,duration)).map((c,i)=>({...c,title:c.title||`Clip ${i+1}`,selected:c.selected!==false}));
- panel.hidden=false;list.replaceChildren();
- if(!editableCandidates.length){list.textContent='No hay suficientes marcas de tiempo.';const field=document.querySelector('[name="selected_clip_ranges"]');if(field)field.value='';return;}
- const sync=()=>{
-  let field=document.querySelector('[name="selected_clip_ranges"]');
-  const form=document.querySelector('#video')?.form;
-  if(!field&&form){field=document.createElement('input');field.type='hidden';field.name='selected_clip_ranges';form.append(field);}
-  if(field)field.value=JSON.stringify(editableCandidates);
- };
- editableCandidates.forEach((c,i)=>{
-  const card=document.createElement('article');card.className='candidate-card';
-  const heading=document.createElement('strong');heading.textContent=`${c.title} Â· ${c.score}/100 (heurÃ­stico)`;
-  const selectLabel=document.createElement('label');selectLabel.className='candidate-select';
-  const select=document.createElement('input');select.type='checkbox';select.checked=c.selected!==false;
-  select.setAttribute('aria-label','Incluir clip en exportaciÃ³n');
-  select.addEventListener('change',()=>{editableCandidates[i]={...editableCandidates[i],selected:select.checked};sync();});
-  selectLabel.append(select,document.createTextNode(' Incluir en exportaciÃ³n'));
-  const row=document.createElement('div');row.className='candidate-edit-grid';
-  const a=document.createElement('input');a.type='number';a.min='0';a.step='.1';a.value=Number(c.start).toFixed(2);a.setAttribute('aria-label','Inicio en segundos');
-  const b=document.createElement('input');b.type='number';b.min='0';b.step='.1';b.value=Number(c.end).toFixed(2);b.setAttribute('aria-label','Final en segundos');
-  const note=document.createElement('textarea');note.value=String(c.text || '');note.rows=3;note.setAttribute('aria-label','Texto del clip');
-  const update=()=>{const x=Number(a.value),y=Number(b.value);if(a.value.trim()===''||b.value.trim()===''||!Number.isFinite(x)||!Number.isFinite(y)||x<0||y<=x||y>duration){card.classList.add('candidate-invalid');return;}card.classList.remove('candidate-invalid');editableCandidates[i]={...editableCandidates[i],start:x,end:y,duration:y-x,text:note.value};sync();};
-  a.addEventListener('change',update);b.addEventListener('change',update);note.addEventListener('input',update);
-  row.append(a,b);card.append(heading,selectLabel,row,note);list.append(card);
- });
- const info=document.createElement('p');info.textContent='Los cortes editados se enviarÃ¡n al renderizador al crear el trabajo. PuntuaciÃ³n orientativa, no predicciÃ³n de viralidad.';list.append(info);sync();
- window.dispatchEvent(new CustomEvent('clipforge:clips-updated'));
-}
-
-function attachTranscriptToJobForm(vtt) {
-  const input = document.querySelector('#transcript');
-  if (!input) return false;
-  const file = new File([vtt], 'clipforge-transcripcion.vtt', { type: 'text/vtt' });
-  const transfer = new DataTransfer();
-  transfer.items.add(file);
-  input.files = transfer.files;
-  input.dispatchEvent(new Event('change', { bubbles: true }));
-  return true;
-}
-
-runButton?.addEventListener('click', async () => {
-  const file = document.querySelector('#video')?.files?.[0];
-  if (!file) { say('Selecciona primero un vÃ­deo en el formulario de producciÃ³n.'); return; }
-  runButton.disabled = true;
-  if (download) download.disabled = true;
-  if (output) output.value = '';
-  try {
-    let audio;
-    try {
-      say(`Extrayendo la pista AAC/MP3 del MP4 sin reproducir el vÃ­deo (${Math.round(file.size / 1024 / 1024)} MB)â€¦`);
-      audio = await extractAudioWithMediabunny(file);
-      say(`Audio extraÃ­do: ${(audio.length / 16000).toFixed(1)} segundos. Preparando Whisperâ€¦`);
-    } catch (demuxError) {
-      console.warn('Demultiplexado/decodificaciÃ³n por Mediabunny no disponible; usando captura de reproducciÃ³n como alternativa.', demuxError);
-      say('Este navegador o cÃ³dec no admite extracciÃ³n directa. Usando reproducciÃ³n local como alternativa; puede tardar lo mismo que el vÃ­deoâ€¦');
-      const audioBlob = await captureAudioFromVideo(file);
-      audio = await toMono16k(audioBlob);
-    }
-    say('Cargando Transformers.js y el modelo Whisper abierto. La primera descarga puede tardar.');
-    const { pipeline, env } = await import('https://esm.sh/@huggingface/transformers@3.7.2');
-    env.allowLocalModels = false;
-    env.useBrowserCache = true;
-    const model = document.querySelector('#browserWhisperModel')?.value || 'whisper-base';
-    const modelId = ({ 'whisper-tiny': 'onnx-community/whisper-tiny_timestamped', 'whisper-base': 'onnx-community/whisper-base_timestamped' })[model];
-    if (!modelId) throw new Error('El modelo seleccionado todavÃ­a no tiene soporte verificado para marcas de tiempo por palabra.');
-    if (!asr) asr = await pipeline('automatic-speech-recognition', modelId, {
-      dtype: 'q8',
-      progress_callback: p => {
-        if (p.status === 'progress') say(`Descargando modelo ${p.file || ''}: ${Math.round(p.progress || 0)}%`);
-        else if (p.status) say(`Modelo Whisper: ${p.status}`);
-      }
-    });
-    say('Transcribiendo en fragmentos para reducir memoria y evitar lÃ­mites de 30 segundosâ€¦');
-    const result = await transcribeAudioInChunks(asr, audio, (percent, current, total) => {
-      say(`Transcribiendo entrevista: ${percent}% Â· fragmento ${current}/${total}`);
-    });
-    const chunks = result.chunks || [];
-    transcriptData = {
-      source: file.name, model: modelId, language: 'es',
-      generated_at: new Date().toISOString(), text: result.text || '',
-      // transcribeAudioInChunks already converts model-local timestamps to
-      // absolute source-video seconds and returns {start, end, text} objects.
-      // Do not read c.timestamp here: that field belongs to raw Transformers.js
-      // chunks and would silently reset every saved caption to 0 seconds.
-      segments: chunks.map(c => ({
-        start: Number(c.start),
-        end: Number(c.end),
-        text: String(c.text || '').trim()
-      })).filter(c => Number.isFinite(c.start) && Number.isFinite(c.end) && c.end > c.start && c.text)
-    };
-    output.value = transcriptData.segments.length
-      ? transcriptData.segments.map(s => `[${s.start.toFixed(2)}â€“${s.end.toFixed(2)}] ${s.text}`).join('\n')
-      : (result.text || 'El modelo no devolviÃ³ texto temporizado.');
-    if (transcriptData.segments.length) {
-      showClipCandidates(transcriptData.segments, audio.length / 16000);
-      const vtt = makeVtt(transcriptData.segments);
-      const attached = attachTranscriptToJobForm(vtt);
-      say(`TranscripciÃ³n lista: ${transcriptData.segments.length} fragmentos temporizados. ${attached ? 'SubtÃ­tulos y cortes seleccionados conectados al formulario de producciÃ³n.' : 'Descarga el JSON para conservarla.'} Whisper no identifica hablantes.`);
-      const autoGenerate = document.querySelector('#autoGenerateAfterTranscription')?.checked;
-      const form = document.querySelector('#jobForm');
-      const rights = form?.querySelector('[name="rights_confirmed"]');
-      if (autoGenerate && attached && file && form) {
-        if (rights?.checked) {
-          say('TranscripciÃ³n y cortes listos. Enviando ahora el mismo vÃ­deo al renderizadorâ€¦');
-          form.requestSubmit();
-        } else {
-          say('TranscripciÃ³n y cortes listos y adjuntados. Para iniciar el render, marca primero la confirmaciÃ³n de derechos en el formulario y pulsa Â«Analizar y generar clipsÂ».');
-          document.querySelector('#jobForm')?.scrollIntoView({behavior:'smooth',block:'center'});
-        }
-      }
-    } else {
-      say('Whisper devolviÃ³ texto sin marcas de tiempo utilizables. No se ha adjuntado una transcripciÃ³n vacÃ­a.');
-    }
-    if (download) download.disabled = !result.text;
-    if (saveProjectButton) saveProjectButton.disabled = !transcriptData?.segments?.length;
-  } catch (error) {
-    console.error(error);
-    say(`Error de transcripciÃ³n: ${error?.message || error}. Prueba Chrome/Edge actualizado y el modelo Tiny.`);
-  } finally { runButton.disabled = false; }
-});
-
-download?.addEventListener('click', () => {
-  if (!transcriptData) return;
-  const blob = new Blob([JSON.stringify(transcriptData, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'clipforge-transcripcion.json'; a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-});
-
-document.querySelector('#video')?.addEventListener('change', async () => {
-  const input = document.querySelector('#video');
-  const file = input?.files?.[0];
-  if (!file) return;
-  const field=document.querySelector('[name="selected_clip_ranges"]');
-  const panel=document.querySelector('#browserCandidates');
-  const transcript=document.querySelector('#transcript');
-  if (importedProjectPendingSource && transcriptData?.segments?.length) {
-    const expected = String(transcriptData.source || '').split(/[\\/]/).pop();
-    if (!expected || expected === file.name) {
-      if (transcript) attachTranscriptToJobForm(makeVtt(transcriptData.segments));
-      const metadataUrl=URL.createObjectURL(file);
-      const probe=document.createElement('video'); probe.preload='metadata'; probe.src=metadataUrl;
-      const duration=await new Promise(resolve=>{probe.onloadedmetadata=()=>resolve(probe.duration);probe.onerror=()=>resolve(Math.max(0,...editableCandidates.map(c=>Number(c.end))));});
-      URL.revokeObjectURL(metadataUrl);
-      showClipCandidates([], Number.isFinite(duration)?duration:Math.max(0,...editableCandidates.map(c=>Number(c.end))), editableCandidates);
-      importedProjectPendingSource=false;
-      say(`VÃ­deo original vinculado al proyecto: ${file.name}. Se han conservado ${editableCandidates.length} cortes y la transcripciÃ³n.`);
-      return;
-    }
-    importedProjectPendingSource=false;
-    transcriptData=null; editableCandidates=[];
-    if(field)field.value=''; if(panel)panel.hidden=true; if(transcript)transcript.value='';
-    say(`El archivo seleccionado (${file.name}) no coincide con el vÃ­deo del proyecto (${expected}). Se han descartado los cortes y la transcripciÃ³n para evitar exportar segmentos incorrectos.`);
-    return;
-  }
-  if (field) field.value=''; editableCandidates=[]; if(panel)panel.hidden=true; transcriptData=null; if(transcript)transcript.value='';
-  say(`VÃ­deo seleccionado: ${file.name} Â· ${(file.size / 1024 / 1024).toFixed(1)} MB.`);
-});
+HOˆÂˆYˆ
+]˜[œØÜš\]JH™]\›ÂˆÛÛœİ›ØˆH™]È›ØŠÒ”ÓÓ‹œİš[™ÚYJ˜[œØÜš\]K[ŠWKÈ\Nˆ	Ø\XØ][Û‹ÚœÛÛ‰ÈJNÂˆÛÛœİ\›HT“˜Ü™X]SØš™XİT“
+›ØŠNÂˆÛÛœİHHØİ[Y[˜Ü™X]Q[[Y[
+	ØIÊNÂˆKš™YˆH\›ÈK™İÛ›ØYH	ØÛ\›Ü™ÙK]˜[œØÜš\Ú[Û‹šœÛÛ‰ÎÈK˜ÛXÚÊ
+NÂˆÙ][Y[İ]
 
 
+HOˆT“œ™]›ÚÙSØš™XİT“
+\›
+KL
+NÂŸJNÂ‚™Øİ[Y[œ]Y\TÙ[XİÜŠ	ÈİšY[ÉÊOË˜Y]™[\İ[™\Š	ØÚ[™ÙIË\Ş[˜È
 
-// Apply manual transcript corrections without inventing new timestamps.
-function applyTranscriptEdits() {
-  if (!transcriptData?.segments?.length || !output) return;
-  const lines = output.value.split(/\r?\n/).filter(line => line.trim());
-  const parsed = lines.map(line => {
-    const match = line.match(/^\s*\[\s*(\d+(?:\.\d+)?)\s*[â€“-]\s*(\d+(?:\.\d+)?)\s*\]\s*(.*)$/);
-    return match ? { start: Number(match[1]), end: Number(match[2]), text: match[3].trim() } : null;
-  });
-  if (parsed.length !== transcriptData.segments.length || parsed.some((x,i) => !x || !Number.isFinite(x.start) || !Number.isFinite(x.end) || x.end <= x.start || !x.text)) {
-    say('No se aplicaron los cambios: conserva una lÃ­nea por segmento y el formato [inicioâ€“fin] texto.');
-    return;
-  }
-  transcriptData.segments = parsed;
-  transcriptData.text = parsed.map(x => x.text).join(' ');
-  attachTranscriptToJobForm(makeVtt(parsed));
-  say('Correcciones de transcripciÃ³n aplicadas. Se usarÃ¡n al incrustar los subtÃ­tulos en el MP4.');
-}
-output?.addEventListener('change', applyTranscriptEdits);
+HOˆÂˆÛÛœİ[œ]HØİ[Y[œ]Y\TÙ[XİÜŠ	ÈİšY[ÉÊNÂˆÛÛœİš[HH[œ]Ë™š[\ÏË–ÌNÂˆYˆ
+Yš[JH™]\›ÂˆÛÛœİšY[YØİ[Y[œ]Y\TÙ[XİÜŠ	ÖÛ˜[YOHœÙ[XİYØÛ\Ü˜[™Ù\È—IÊNÂˆÛÛœİ[™[YØİ[Y[œ]Y\TÙ[XİÜŠ	ÈØœ›İÜÙ\Ø[™Y]\ÉÊNÂˆÛÛœİ˜[œØÜš\YØİ[Y[œ]Y\TÙ[XİÜŠ	Èİ˜[œØÜš\	ÊNÂˆYˆ
+[\ÜY›Ú™Xİ[™[™ÔÛİ\˜ÙH	‰ˆ˜[œØÜš\]OËœÙYÛY[ÏË›[™İ
+HÂˆÛÛœİ^XİYHİš[™Ê˜[œØÜš\]KœÛİ\˜ÙH	ÉÊKœÜ]
+Ö××KÊKœÜ
 
-saveProjectButton?.addEventListener('click', () => {
-  if (!transcriptData?.segments?.length || !editableCandidates.length) {
-    say('Primero transcribe el vÃ­deo y genera la selecciÃ³n de momentos.');
-    return;
-  }
-  const project = {
-    schema: 'clipforge-browser-project-v1',
-    saved_at: new Date().toISOString(),
-    source: transcriptData.source || document.querySelector('#video')?.files?.[0]?.name || '',
-    transcript: transcriptData,
-    clips: editableCandidates.map((clip, i) => ({ ...clip, id: String(clip.id || `clip-${i+1}`) }))
-  };
-  const blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'clipforge-proyecto.json'; a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-  say('Proyecto editable guardado. Incluye transcripciÃ³n y cortes; conserva tambiÃ©n el vÃ­deo original.');
-});
+NÂˆYˆ
+Y^XİY^XİYOOHš[K›˜[YJHÂˆYˆ
+˜[œØÜš\
+H]XÚ˜[œØÜš\Ò›Ø‘›Ü›JXZÙU
+˜[œØÜš\]KœÙYÛY[ÊJNÂˆÛÛœİY]Y]U\›UT“˜Ü™X]SØš™XİT“
+š[JNÂˆÛÛœİ›Ø™OYØİ[Y[˜Ü™X]Q[[Y[
+	İšY[ÉÊNÈ›Ø™Kœ™[ØYIÛY]Y]IÎÈ›Ø™KœÜ˜Ï[Y]Y]U\›ÂˆÛÛœİ\˜][ÛX]ØZ]™]È›ÛZ\ÙJ™\ÛÛ™OOÜ›Ø™K›Û›ØYYY]Y]OJ
+OOœ™\ÛÛ™J›Ø™K™\˜][ÛŠNÜ›Ø™K›Û™\œ›ÜJ
+OOœ™\ÛÛ™JX]›X^
+‹‹™Y]X›PØ[™Y]\Ë›X\
+ÏO“[X™\ŠË™[™
+JJJNßJNÂˆT“œ™]›ÚÙSØš™XİT“
+Y]Y]U\›
+NÂˆÚİĞÛ\Ø[™Y]\Ê×K[X™\‹š\Ñš[š]J\˜][ÛŠOÙ\˜][Û“X]›X^
+‹‹™Y]X›PØ[™Y]\Ë›X\
+ÏO“[X™\ŠË™[™
+JJKY]X›PØ[™Y]\ÊNÂˆ[\ÜY›Ú™Xİ[™[™ÔÛİ\˜ÙOY˜[ÙNÂˆØ^J°ëY[ÈÜšYÚ[˜[š[˜İ[YÈ[›ŞYXİÎˆ	Ùš[K›˜[Y_KˆÙH[ˆÛÛœÙ\˜YÈ	ÙY]X›PØ[™Y]\Ë›[™İHÛÜ\ÈHH˜[œØÜš\ÚpìÛ‹˜
+NÂˆ™]\›ÂˆBˆ[\ÜY›Ú™Xİ[™[™ÔÛİ\˜ÙOY˜[ÙNÂˆ˜[œØÜš\]O[[ÈY]X›PØ[™Y]\ÏV×NÂˆYŠšY[
+YšY[˜[YOIÉÎÈYŠ[™[
+\[™[šY[]YNÈYŠ˜[œØÜš\
+]˜[œØÜš\˜[YOIÉÎÂˆØ^J[\˜Ú]›ÈÙ[XØÚ[Û˜YÈ
+	Ùš[K›˜[Y_JH›ÈÛÚ[˜ÚYHÛÛˆ[°ëY[È[›ŞYXİÈ
+	Ù^XİYJKˆÙH[ˆ\ØØ\YÈÜÈÛÜ\ÈHH˜[œØÜš\ÚpìÛˆ\˜H]š]\ˆ^Ü\ˆÙYÛY[ÜÈ[˜ÛÜœ™XİÜË˜
+NÂˆ™]\›ÂˆBˆYˆ
+šY[
+HšY[˜[YOIÉÎÈY]X›PØ[™Y]\ÏV×NÈYŠ[™[
+\[™[šY[]YNÈ˜[œØÜš\]O[[ÈYŠ˜[œØÜš\
+]˜[œØÜš\˜[YOIÉÎÂˆØ^J°ëY[ÈÙ[XØÚ[Û˜YÎˆ	Ùš[K›˜[Y_H0­È	Êš[KœÚ^™HÈLÈL
+KÑš^Y
+J_HP‹˜
+NÂŸJNÂ‚‚‚‹ËÈ\HX[X[˜[œØÜš\ÛÜœ™Xİ[ÛœÈÚ]İ][™[[™È™]È[Y\İ[\Ë‚™[˜İ[Ûˆ\U˜[œØÜš\Y]Ê
+HÂˆYˆ
+]˜[œØÜš\]OËœÙYÛY[ÏË›[™İ[İ]]
+H™]\›ÂˆÛÛœİ[™\ÈHİ]]˜[YKœÜ]
+××‹ÊK™š[\Š[™HOˆ[™Kš[J
+JNÂˆÛÛœİ\œÙYH[™\Ë›X\
+[™HOˆÂˆÛÛœİX]ÚH[™K›X]Ú
+×—Ê—×ÊŠ
+ÊÎ——
+ÊOÊWÊ–ø $ËWWÊŠ
+ÊÎ——
+ÊOÊWÊ—WÊŠŠŠIÊNÂˆ™]\›ˆX]ÚÈÈİ\ˆ[X™\ŠX]ÚÌWJK[™ˆ[X™\ŠX]ÚÌ—JK^ˆX]ÚÌ×Kš[J
+HHˆ[ÂˆJNÂˆYˆ
+\œÙY›[™İOOH˜[œØÜš\]KœÙYÛY[Ë›[™İ\œÙYœÛÛYJ
+JHOˆ^S[X™\‹š\Ñš[š]Jœİ\
+HS[X™\‹š\Ñš[š]J™[™
+H™[™Hœİ\^^
+JHÂˆØ^J	Ó›ÈÙH\XØ\›ÛˆÜÈØ[Xš[ÜÎˆÛÛœÙ\˜H[˜H0ë[™XHÜˆÙYÛY[ÈH[›Ü›X]ÈÚ[šXÚ[ø $Ùš[—H^Ë‰ÊNÂˆ™]\›ÂˆBˆ˜[œØÜš\]KœÙYÛY[ÈH\œÙYÂˆ˜[œØÜš\]K^H\œÙY›X\
+Oˆ^
+Kš›Ú[Š	È	ÊNÂˆ]XÚ˜[œØÜš\Ò›Ø‘›Ü›JXZÙU
+\œÙY
+JNÂˆØ^J	ĞÛÜœ™XØÚ[Û™\ÈH˜[œØÜš\ÚpìÛˆ\XØY\ËˆÙH\Ø\°è[ˆ[[˜Ü\İ\ˆÜÈİX0ë][ÜÈ[ˆ[T‰ÊNÂŸB›İ]]Ë˜Y]™[\İ[™\Š	ØÚ[™ÙIË\U˜[œØÜš\Y]ÊNÂ‚œØ]™T›Ú™Xİ]ÛË˜Y]™[\İ[™\Š	ØÛXÚÉË
 
-// ImportaciÃ³n explÃ­cita de proyectos JSON guardados anteriormente.
-document.querySelector('#browserProjectImport')?.addEventListener('change', async (event) => {
-  const file=event.target.files?.[0]; if(!file) return;
-  try {
-    const project=JSON.parse(await file.text());
-    if(project?.schema!=='clipforge-browser-project-v1' || !Array.isArray(project.clips)) throw new Error('Formato de proyecto no reconocido.');
-    if(project.clips.length<1 || project.clips.length>10) throw new Error('El proyecto contiene demasiados clips.');
-    if(project.clips.some(c=>!Number.isFinite(Number(c.start)) || !Number.isFinite(Number(c.end)) || Number(c.start)<0 || Number(c.end)<=Number(c.start))) throw new Error('Hay tiempos de clip invÃ¡lidos.');
-    editableCandidates=project.clips.map((c,i)=>({...c,id:String(c.id||`clip-${i+1}`)}));
-    transcriptData=project.transcript || null;
-    const sourceFile=document.querySelector('#video')?.files?.[0];
-    importedProjectPendingSource=Boolean(transcriptData?.segments?.length && !sourceFile);
-    if(Array.isArray(transcriptData?.segments) && transcriptData.segments.length) {
-      const segments=transcriptData.segments.map(c=>({start:Number(c.start),end:Number(c.end),text:String(c.text||'')})).filter(c=>Number.isFinite(c.start)&&Number.isFinite(c.end)&&c.end>c.start&&c.text);
-      if(segments.length) {
-        transcriptData.segments=segments;
-        output.value=segments.map(c=>`[${c.start.toFixed(2)}â€“${c.end.toFixed(2)}] ${c.text}`).join('\n');
-        if (!sourceFile || String(transcriptData.source || '').split(/[\\/]/).pop() === sourceFile.name) {
-          attachTranscriptToJobForm(makeVtt(segments));
-        } else {
-          importedProjectPendingSource=false;
-          say(`Proyecto importado, pero el vÃ­deo seleccionado no coincide con ${transcriptData.source}. Selecciona el original antes de renderizar.`);
-        }
-        if(download) download.disabled=false;
-        if(saveProjectButton) saveProjectButton.disabled=false;
-      }
-    }
-    const duration=Math.max(0,...editableCandidates.map(c=>Number(c.end)));
-    showClipCandidates([],duration,editableCandidates);
-    localStorage.setItem('clipforge.browser.project.v1',JSON.stringify(project));
-    say(`Proyecto recuperado: ${editableCandidates.length} clips${transcriptData?.segments?.length ? ' y transcripciÃ³n' : ''}. Selecciona el vÃ­deo original y podrÃ¡s continuar editando.`);
-  } catch(error) { say(`No se pudo abrir el proyecto: ${error.message}`); }
-  finally { event.target.value=''; }
-});
+HOˆÂˆYˆ
+]˜[œØÜš\]OËœÙYÛY[ÏË›[™İYY]X›PØ[™Y]\Ë›[™İ
+HÂˆØ^J	Ôš[Y\›È˜[œØÜšX™H[°ëY[ÈHÙ[™\˜HHÙ[XØÚpìÛˆH[ÛY[ÜË‰ÊNÂˆ™]\›ÂˆBˆÛÛœİ›Ú™XİHÂˆØÚ[XNˆ	ØÛ\›Ü™ÙKXœ›İÜÙ\‹\›Ú™Xİ]ŒIËˆØ]™YØ]ˆ™]È]J
+KÒTÓÔİš[™Ê
+KˆÛİ\˜ÙNˆ˜[œØÜš\]KœÛİ\˜ÙHØİ[Y[œ]Y\TÙ[XİÜŠ	ÈİšY[ÉÊOË™š[\ÏË–ÌOË›˜[YH	ÉËˆ˜[œØÜš\ˆ˜[œØÜš\]KˆÛ\ÎˆY]X›PØ[™Y]\Ë›X\
+
+Û\JHOˆ
+È‹‹˜Û\Yˆİš[™ÊÛ\šYÛ\IÚJÌ_X
+HJJBˆNÂˆÛÛœİ›ØˆH™]È›ØŠÒ”ÓÓ‹œİš[™ÚYJ›Ú™Xİ[ŠWKÈ\Nˆ	Ø\XØ][Û‹ÚœÛÛ‰ÈJNÂˆÛÛœİ\›HT“˜Ü™X]SØš™XİT“
+›ØŠNÂˆÛÛœİHHØİ[Y[˜Ü™X]Q[[Y[
+	ØIÊNÂˆKš™YˆH\›ÈK™İÛ›ØYH	ØÛ\›Ü™ÙK\›ŞYXİËšœÛÛ‰ÎÈK˜ÛXÚÊ
+NÂˆÙ][Y[İ]
 
 
-// Public, read-only bridge for the separate project editor module.
-window.clipforgeEditorBridge = {
-  getProject() {
-    return {
-      schema: 'clipforge-project-v2',
-      source: transcriptData?.source || document.querySelector('#video')?.files?.[0]?.name || '',
-      transcript: transcriptData ? JSON.parse(JSON.stringify(transcriptData)) : null,
-      clips: editableCandidates.map((clip, i) => ({...clip, id:String(clip.id || `clip-${i+1}`)})),
-      tracks: JSON.parse(JSON.stringify(editorTracks))
-    };
-  },
-  setClips(clips) {
-    editableCandidates = Array.isArray(clips) ? clips.map((clip, i) => ({...clip, id:String(clip.id || `clip-${i+1}`)})) : [];
-    const duration = Math.max(0, ...editableCandidates.map(clip => Number(clip.end) || 0));
-    showClipCandidates([], duration, editableCandidates);
-    const field = document.querySelector('[name="selected_clip_ranges"]');
-    if (field) field.value = JSON.stringify(editableCandidates);
-  },
-  setTracks(value) { editorTracks = Array.isArray(value) ? JSON.parse(JSON.stringify(value)) : []; },
-  setTranscript(value) {
-    if (!value || !Array.isArray(value.segments)) return;
-    transcriptData = JSON.parse(JSON.stringify(value));
-    if (output) output.value = transcriptData.segments.map(s => `[${Number(s.start).toFixed(2)}â€“${Number(s.end).toFixed(2)}] ${String(s.text || '')}`).join('\n');
-    if (download) download.disabled = false;
-    if (saveProjectButton) saveProjectButton.disabled = false;
-  }
-};
-window.dispatchEvent(new CustomEvent('clipforge:editor-ready'));
+HOˆT“œ™]›ÚÙSØš™XİT“
+\›
+KL
+NÂˆØ^J	Ô›ŞYXİÈY]X›HİX\™YËˆ[˜Û^YH˜[œØÜš\ÚpìÛˆHÛÜ\ÎÈÛÛœÙ\˜H[Xšpê[ˆ[°ëY[ÈÜšYÚ[˜[‰ÊNÂŸJNÂ‚‹ËÈ[\ÜXÚpìÛˆ^0ëXÚ]HH›ŞYXİÜÈ”ÓÓˆİX\™YÜÈ[\š[Ü›Y[K‚™Øİ[Y[œ]Y\TÙ[XİÜŠ	ÈØœ›İÜÙ\”›Ú™Xİ[\Ü	ÊOË˜Y]™[\İ[™\Š	ØÚ[™ÙIË\Ş[˜È
+]™[
+HOˆÂˆÛÛœİš[OY]™[\™Ù]™š[\ÏË–ÌNÈYŠYš[JH™]\›ÂˆHÂˆÛÛœİ›Ú™XİR”ÓÓ‹œ\œÙJ]ØZ]š[K^
+
+JNÂˆYŠ›Ú™XİËœØÚ[XHOOIØÛ\›Ü™ÙKXœ›İÜÙ\‹\›Ú™Xİ]ŒIÈP\œ˜^Kš\Ğ\œ˜^J›Ú™Xİ˜Û\ÊJH›İÈ™]È\œ›ÜŠ	Ñ›Ü›X]ÈH›ŞYXİÈ›È™XÛÛ›ØÚYË‰ÊNÂˆYŠ›Ú™Xİ˜Û\Ë›[™İH›Ú™Xİ˜Û\Ë›[™İŒL
+H›İÈ™]È\œ›ÜŠ	Ñ[›ŞYXİÈÛÛY[™H[X\ÚXYÜÈÛ\Ë‰ÊNÂˆYŠ›Ú™Xİ˜Û\ËœÛÛYJÏOˆS[X™\‹š\Ñš[š]J[X™\ŠËœİ\
+JHS[X™\‹š\Ñš[š]J[X™\ŠË™[™
+JH[X™\ŠËœİ\
+O[X™\ŠË™[™
+OS[X™\ŠËœİ\
+JJH›İÈ™]È\œ›ÜŠ	Ò^HY[\ÜÈHÛ\[°è[YÜË‰ÊNÂˆY]X›PØ[™Y]\Ï\›Ú™Xİ˜Û\Ë›X\
+
+ËJOOŠË‹‹˜ËY”İš[™ÊËšYÛ\IÚJÌ_X
+_JJNÂˆ˜[œØÜš\]O\›Ú™Xİ˜[œØÜš\[ÂˆÛÛœİÛİ\˜ÙQš[OYØİ[Y[œ]Y\TÙ[XİÜŠ	ÈİšY[ÉÊOË™š[\ÏË–ÌNÂˆ[\ÜY›Ú™Xİ[™[™ÔÛİ\˜ÙOP›ÛÛX[Š˜[œØÜš\]OËœÙYÛY[ÏË›[™İ	‰ˆ\Ûİ\˜ÙQš[JNÂˆYŠ\œ˜^Kš\Ğ\œ˜^J˜[œØÜš\]OËœÙYÛY[ÊH	‰ˆ˜[œØÜš\]KœÙYÛY[Ë›[™İ
+HÂˆÛÛœİÙYÛY[Ï]˜[œØÜš\]KœÙYÛY[Ë›X\
+ÏOŠÜİ\“[X™\ŠËœİ\
+K[™“[X™\ŠË™[™
+K^”İš[™ÊË^	ÉÊ_JJK™š[\ŠÏO“[X™\‹š\Ñš[š]JËœİ\
+I‰“[X™\‹š\Ñš[š]JË™[™
+I‰˜Ë™[™˜Ëœİ\	‰˜Ë^
+NÂˆYŠÙYÛY[Ë›[™İ
+HÂˆ˜[œØÜš\]KœÙYÛY[Ï\ÙYÛY[ÎÂˆİ]]˜[YO\ÙYÛY[Ë›X\
+ÏO˜ÉØËœİ\Ñš^Y
+Š_x $ÉØË™[™Ñš^Y
+Š_WH	ØË^X
+Kš›Ú[Š	×‰ÊNÂˆYˆ
+\Ûİ\˜ÙQš[Hİš[™Ê˜[œØÜš\]KœÛİ\˜ÙH	ÉÊKœÜ]
+Ö××KÊKœÜ
+
+HOOHÛİ\˜ÙQš[K›˜[YJHÂˆ]XÚ˜[œØÜš\Ò›Ø‘›Ü›JXZÙU
+ÙYÛY[ÊJNÂˆH[ÙHÂˆ[\ÜY›Ú™Xİ[™[™ÔÛİ\˜ÙOY˜[ÙNÂˆØ^J›ŞYXİÈ[\ÜYË\›È[°ëY[ÈÙ[XØÚ[Û˜YÈ›ÈÛÚ[˜ÚYHÛÛˆ	İ˜[œØÜš\]KœÛİ\˜Ù_KˆÙ[XØÚ[Û˜H[ÜšYÚ[˜[[\ÈH™[™\š^˜\‹˜
+NÂˆBˆYŠİÛ›ØY
+HİÛ›ØY™\ØX›YY˜[ÙNÂˆYŠØ]™T›Ú™Xİ]ÛŠHØ]™T›Ú™Xİ]Û‹™\ØX›YY˜[ÙNÂˆBˆBˆÛÛœİ\˜][ÛSX]›X^
+‹‹™Y]X›PØ[™Y]\Ë›X\
+ÏO“[X™\ŠË™[™
+JJNÂˆÚİĞÛ\Ø[™Y]\Ê×K\˜][Û‹Y]X›PØ[™Y]\ÊNÂˆØØ[İÜ˜YÙKœÙ]][J	ØÛ\›Ü™ÙK˜œ›İÜÙ\‹œ›Ú™XİŒIË”ÓÓ‹œİš[™ÚYJ›Ú™Xİ
+JNÂˆØ^J›ŞYXİÈ™Xİ\\˜YÎˆ	ÙY]X›PØ[™Y]\Ë›[™İHÛ\Éİ˜[œØÜš\]OËœÙYÛY[ÏË›[™İÈ	ÈH˜[œØÜš\ÚpìÛ‰Èˆ	ÉßKˆÙ[XØÚ[Û˜H[°ëY[ÈÜšYÚ[˜[HÙ°è\ÈÛÛ[X\ˆY][™Ë˜
+NÂˆHØ]Ú
+\œ›ÜŠHÈØ^J›ÈÙHYÈXœš\ˆ[›ŞYXİÎˆ	Ù\œ›Ü‹›Y\ÜØYÙ_X
+NÈBˆš[˜[HÈ]™[\™Ù]˜[YOIÉÎÈBŸJNÂ‚‚‹ËÈX›XË™XY[Û›HœšYÙH›ÜˆHÙ\\˜]H›Ú™XİY]Üˆ[Ù[K‚Ú[™İË˜Û\›Ü™ÙQY]ÜœšYÙHHÂˆÙ]›Ú™Xİ
+
+HÂˆ™]\›ˆÂˆØÚ[XNˆ	ØÛ\›Ü™ÙK\›Ú™Xİ]Œ‰ËˆÛİ\˜ÙNˆ˜[œØÜš\]OËœÛİ\˜ÙHØİ[Y[œ]Y\TÙ[XİÜŠ	ÈİšY[ÉÊOË™š[\ÏË–ÌOË›˜[YH	ÉËˆ˜[œØÜš\ˆ˜[œØÜš\]HÈ”ÓÓ‹œ\œÙJ”ÓÓ‹œİš[™ÚYJ˜[œØÜš\]JJHˆ[ˆÛ\ÎˆY]X›PØ[™Y]\Ë›X\
+
+Û\JHOˆ
+Ë‹‹˜Û\Y”İš[™ÊÛ\šYÛ\IÚJÌ_X
+_JJKˆ˜XÚÜÎˆ”ÓÓ‹œ\œÙJ”ÓÓ‹œİš[™ÚYJY]Ü•˜XÚÜÊJBˆNÂˆKˆÙ]Û\ÊÛ\ÊHÂˆY]X›PØ[™Y]\ÈH\œ˜^Kš\Ğ\œ˜^JÛ\ÊHÈÛ\Ë›X\
+
+Û\JHOˆ
+Ë‹‹˜Û\Y”İš[™ÊÛ\šYÛ\IÚJÌ_X
+_JJHˆ×NÂˆÛÛœİ\˜][ÛˆHX]›X^
+‹‹™Y]X›PØ[™Y]\Ë›X\
+Û\Oˆ[X™\ŠÛ\™[™
+H
+JNÂˆÚİĞÛ\Ø[™Y]\Ê×K\˜][Û‹Y]X›PØ[™Y]\ÊNÂˆÛÛœİšY[HØİ[Y[œ]Y\TÙ[XİÜŠ	ÖÛ˜[YOHœÙ[XİYØÛ\Ü˜[™Ù\È—IÊNÂˆYˆ
+šY[
+HšY[˜[YHH”ÓÓ‹œİš[™ÚYJY]X›PØ[™Y]\ÊNÂˆKˆÙ]˜XÚÜÊ˜[YJHÈY]Ü•˜XÚÜÈH\œ˜^Kš\Ğ\œ˜^J˜[YJHÈ”ÓÓ‹œ\œÙJ”ÓÓ‹œİš[™ÚYJ˜[YJJHˆ×NÈKˆÙ]˜[œØÜš\
+˜[YJHÂˆYˆ
+]˜[YHP\œ˜^Kš\Ğ\œ˜^J˜[YKœÙYÛY[ÊJH™]\›Âˆ˜[œØÜš\]HH”ÓÓ‹œ\œÙJ”ÓÓ‹œİš[™ÚYJ˜[YJJNÂˆYˆ
+İ]]
+Hİ]]˜[YHH˜[œØÜš\]KœÙYÛY[Ë›X\
+ÈOˆÉÓ[X™\ŠËœİ\
+KÑš^Y
+Š_x $ÉÓ[X™\ŠË™[™
+KÑš^Y
+Š_WH	Ôİš[™ÊË^	ÉÊ_X
+Kš›Ú[Š	×‰ÊNÂˆYˆ
+İÛ›ØY
+HİÛ›ØY™\ØX›YH˜[ÙNÂˆYˆ
+Ø]™T›Ú™Xİ]ÛŠHØ]™T›Ú™Xİ]Û‹™\ØX›YH˜[ÙNÂˆBŸNÂÚ[™İË™\Ü]Ú]™[
+™]Èİ\İÛQ]™[
+	ØÛ\›Ü™ÙN™Y]Ü‹\™XYIÊJNÂ
