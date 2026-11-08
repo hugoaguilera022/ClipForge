@@ -85,16 +85,18 @@ async function extractAudioWithMediabunny(file) {
     try {
       const buffer = sample.toAudioBuffer();
       const offset = Math.max(0, Math.round(sample.timestamp * 16000));
-      const frames = Math.min(buffer.length, mono.length - offset);
-      if (frames <= 0) continue;
-      // Linear interpolation converts each source block to 16 kHz while
+      const sourceFrames = buffer.length;
+      if (sourceFrames <= 0 || offset >= mono.length) continue;
+      // Linear interpolation converts the FULL source block to 16 kHz while
       // retaining its original media timestamp (including small gaps).
+      // Do not cap sourceFrames by the 16 kHz destination buffer: for 44.1 kHz
+      // audio that truncates most of every block before resampling.
       const sourceRate = buffer.sampleRate;
-      const targetFrames = Math.min(Math.ceil(frames * 16000 / sourceRate), mono.length - offset);
+      const targetFrames = Math.min(Math.ceil(sourceFrames * 16000 / sourceRate), mono.length - offset);
       for (let j = 0; j < targetFrames; j++) {
         const sourcePos = j * sourceRate / 16000;
-        const lo = Math.min(Math.floor(sourcePos), frames - 1);
-        const hi = Math.min(lo + 1, frames - 1);
+        const lo = Math.min(Math.floor(sourcePos), sourceFrames - 1);
+        const hi = Math.min(lo + 1, sourceFrames - 1);
         const frac = sourcePos - lo;
         let interpolated = 0;
         for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
