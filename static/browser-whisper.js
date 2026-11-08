@@ -515,7 +515,7 @@ window.clipforgeEditorBridge = {
   setTranscript(value) {
     if (!value || !Array.isArray(value.segments)) return;
     transcriptData = JSON.parse(JSON.stringify(value));
-    if (output) output.value = transcriptData.text || '';
+    if (output) output.value = transcriptData.segments.map(s => `[${Number(s.start).toFixed(2)}–${Number(s.end).toFixed(2)}] ${String(s.text || '')}`).join('\n');
     if (download) download.disabled = false;
     if (saveProjectButton) saveProjectButton.disabled = false;
   }
