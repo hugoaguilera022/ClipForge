@@ -67,9 +67,14 @@ async function exportOne(file,clip,segments,index,total){
       width:1080,height:1920,fit:'cover',frameRate:30,codec:'avc',
       quality:new Quality('high'),hardwareAcceleration:'prefer-hardware',
       process:sample=>{
-        if(!canvas){canvas=new OffscreenCanvas(sample.displayWidth,sample.displayHeight);ctx=canvas.getContext('2d',{alpha:false});}
+        // The returned canvas MUST have the same 9:16 dimensions advertised
+        // by processedWidth/processedHeight. Drawing at source dimensions here
+        // caused a landscape canvas to be passed to a portrait encoder.
+        if(!canvas){canvas=new OffscreenCanvas(1080,1920);ctx=canvas.getContext('2d',{alpha:false});}
         ctx.clearRect(0,0,canvas.width,canvas.height);
-        sample.draw(ctx,0,0);
+        // Mediabunny applies the sample's rotation/flip and crops to fill the
+        // portrait canvas without stretching the source aspect ratio.
+        sample.drawWithFit(ctx,{fit:'cover'});
         const stamp=Number(sample.timestamp)||0;
         // Mediabunny normalizes timestamps to zero after trim; captions keep source-video times.
         const local=clip.start+stamp;
