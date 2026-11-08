@@ -33,3 +33,11 @@ def test_browser_export_returns_true_portrait_canvas():
     assert 'new OffscreenCanvas(1080,1920)' in js
     assert "sample.drawWithFit(ctx,{fit:'cover'})" in js
     assert 'processedWidth:1080,processedHeight:1920' in js
+ 
+def test_editor_subtitle_edits_update_export_transcript():
+    editor = (ROOT / 'static/editor.js').read_text(encoding='utf-8')
+    whisper = (ROOT / 'static/browser-whisper.js').read_text(encoding='utf-8')
+    assert "track.type==='subtitles'" in editor
+    assert "setTranscript(transcript)" in editor
+    assert 'setTranscript(value)' in whisper
+    assert 'transcriptData = JSON.parse(JSON.stringify(value))' in whisper
