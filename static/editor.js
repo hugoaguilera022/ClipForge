@@ -2,6 +2,30 @@ const statusEl = document.querySelector('#editorStatus');
 const timelineEl = document.querySelector('#editorTimeline');
 const projectSelect = document.querySelector('#savedProjectList');
 const say = message => { if (statusEl) statusEl.textContent = message; };
+const previewVideo=document.querySelector('#editorPreviewVideo');
+let previewObjectUrl=null,previewSourceKey='',previewEnd=null;
+function syncPreviewSource(){
+  const file=document.querySelector('#video')?.files?.[0];
+  if(!file||!previewVideo)return false;
+  const key=`${file.name}:${file.size}:${file.lastModified}`;
+  if(key!==previewSourceKey){
+    if(previewObjectUrl)URL.revokeObjectURL(previewObjectUrl);
+    previewObjectUrl=URL.createObjectURL(file);previewSourceKey=key;
+    previewVideo.src=previewObjectUrl;previewVideo.load();
+  }
+  return true;
+}
+function previewClip(clip){
+  if(!syncPreviewSource()){say('Selecciona primero el vídeo original para previsualizar este corte.');return;}
+  const start=Number(clip.start),end=Number(clip.end);
+  if(!Number.isFinite(start)||!Number.isFinite(end)||start<0||end<=start){say('El intervalo de este clip no es válido.');return;}
+  previewEnd=end;
+  const seek=()=>{let started=false;const play=()=>{if(started)return;started=true;previewVideo.play().catch(()=>say('Pulsa reproducir en el visor para iniciar la vista previa.'));};previewVideo.addEventListener('seeked',play,{once:true});previewVideo.currentTime=start;if(Math.abs(previewVideo.currentTime-start)<.01&&previewVideo.readyState>=2)play();};
+  if(previewVideo.readyState>=1)seek();else previewVideo.addEventListener('loadedmetadata',seek,{once:true});
+  say(`Previsualizando ${start.toFixed(2)}–${end.toFixed(2)} s del vídeo original.`);
+}
+previewVideo?.addEventListener('timeupdate',()=>{if(previewEnd!==null&&previewVideo.currentTime>=previewEnd){previewVideo.pause();previewVideo.currentTime=previewEnd;previewEnd=null;}});
+document.querySelector('#video')?.addEventListener('change',()=>{previewEnd=null;syncPreviewSource();});
 let tracks = [];
 let activeProjectId = null;
 let clips = [];
@@ -95,6 +119,7 @@ function render() {
       const start = document.createElement('input'); start.type='number'; start.min='0'; start.step='.01'; start.value=Number(item.start).toFixed(2); start.setAttribute('aria-label','Inicio del elemento');
       const end = document.createElement('input'); end.type='number'; end.min='0'; end.step='.01'; end.value=Number(item.end).toFixed(2); end.setAttribute('aria-label','Final del elemento');
       const text = document.createElement('input'); text.type='text'; text.value=String(item.text || ''); text.setAttribute('aria-label','Contenido del elemento');
+      let previewButton=null;if(track.type==='video'){previewButton=document.createElement('button');previewButton.type='button';previewButton.className='secondary preview-clip';previewButton.textContent='Vista previa';previewButton.addEventListener('click',()=>previewClip(item));}
       const apply = document.createElement('button'); apply.type='button'; apply.className='secondary'; apply.textContent='Aplicar';
       apply.addEventListener('click',()=>{
         const a=Number(start.value), b=Number(end.value);
@@ -118,7 +143,7 @@ function render() {
       });
       const remove=document.createElement('button');remove.type='button';remove.className='secondary';remove.textContent='Quitar';
       remove.addEventListener('click',()=>{remember();track.items=track.items.filter(x=>x!==item);window.clipforgeEditorBridge?.setTracks(tracks);render();say('Elemento eliminado de la pista.');});
-      row.append(start,end,text,apply,remove); items.append(row);
+      row.append(start,end,text);if(previewButton)row.append(previewButton);row.append(apply,remove);items.append(row);
     });
     section.append(items); timelineEl.append(section);
   });
