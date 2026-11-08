@@ -21,3 +21,9 @@ def test_legacy_server_submission_is_opt_in_and_requires_rights_confirmation():
     assert 'confirmación de derechos' in js
     assert 'if (rights?.checked)' in js
     assert 'form.requestSubmit()' in js
+
+def test_browser_audio_fallback_starts_recording_before_video_playback():
+    js = (ROOT / 'static/browser-whisper.js').read_text(encoding='utf-8')
+    recorder_start = js.index('recorder.start(1000);')
+    video_play = js.index('await video.play();')
+    assert recorder_start < video_play
