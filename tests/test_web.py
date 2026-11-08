@@ -565,6 +565,13 @@ class BrowserClipCandidateTests(unittest.TestCase):
   self.assertIn('c.end<=x.start-10 || c.start>=x.end+10',module)
   self.assertIn('showClipCandidates(transcriptData.segments, audio.length / 16000, null, audio)',module)
 
+ def test_candidate_ranker_supports_english_hooks_and_dialogue_turns(self):
+  module=(ROOT/'static'/'browser-whisper.js').read_text()
+  self.assertIn('guess what|you will not believe',module)
+  self.assertIn('here is the thing|the point is',module)
+  self.assertIn('turnCount>=5',module)
+  self.assertIn('turnScore=Math.min(10,turnCount*1.25)',module)
+
  def test_candidate_ui_labels_heuristic_scores_honestly(self):
   html=(ROOT/'static'/'index.html').read_text()
   module=(ROOT/'static'/'browser-whisper.js').read_text()
