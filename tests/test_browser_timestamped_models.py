@@ -9,6 +9,6 @@ def test_browser_whisper_uses_onnx_models_with_word_timestamp_attentions():
     assert "'whisper-base': 'onnx-community/whisper-base_timestamped'" in js
     assert "return_timestamps: 'word'" in js
     assert 'onnx-community/whisper-base\'' not in js
-    assert 'const minLen = 18, maxLen = 45, candidates = [];' in js
+    assert 'const minLen = 18, maxLen = 38, targetLen = 27;' in js
     html = (ROOT / 'static/index.html').read_text()
     assert 'whisper-small' not in html
