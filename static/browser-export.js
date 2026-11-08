@@ -84,8 +84,9 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
   // This avoids unnecessary lossy re-encoding and does not require an AAC encoder.
   const output=new Output({format:new Mp4OutputFormat(),target:new BufferTarget()});
   const cues=buildCaptionCues(segments);
-  let canvas=null,ctx=null,sourceCanvas=null,sourceCtx=null,faceDetector=null;
-  let lastFaceCenter=null,frameNumber=0,multiFace=false,faceSamples=0,trackingMode='sin seguimiento';
+  let canvas=null,ctx=null,sourceCanvas=null,sourceCtx=null,faceLandmarker=null;
+  let lastFaceCenter=null,frameNumber=0,faceSamples=0,trackingMode='sin seguimiento';
+  const speakerTracks=[];
   const sourceTrack=await input.getPrimaryVideoTrack();
   const sourceWidth=Number(sourceTrack?.displayWidth||sourceTrack?.width||1920);
   const sourceHeight=Number(sourceTrack?.displayHeight||sourceTrack?.height||1080);
@@ -96,9 +97,12 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
       sayExport(`Clip ${index+1}/${total}: cargando detector facial gratuito…`);
       const vision=await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.2/vision_bundle.mjs');
       const fileset=await vision.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.2/wasm');
-      faceDetector=await vision.FaceDetector.createFromOptions(fileset,{baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite'},runningMode:'VIDEO',minDetectionConfidence:.48});
-      trackingMode='detector facial activo';
-    }catch(error){console.warn('Face tracking unavailable; using safe blurred background:',error);faceDetector=null;}
+      faceLandmarker=await vision.FaceLandmarker.createFromOptions(fileset,{
+        baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task'},
+        runningMode:'VIDEO',numFaces:5,outputFaceBlendshapes:false,outputFacialTransformationMatrixes:false
+      });
+      trackingMode='seguimiento facial y estimación visual de hablante';
+    }catch(error){console.warn('Face/mouth tracking unavailable; using safe blurred background:',error);faceLandmarker=null;}
   }
   const conversion=await Conversion.init({
     input,output,tracks:'primary',
@@ -122,25 +126,43 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
           sourceCtx.clearRect(0,0,sourceCanvas.width,sourceCanvas.height);
           sample.drawWithFit(sourceCtx,{fit:'contain'});
         }
-        if(faceDetector&&sourceCanvas){
+        if(faceLandmarker&&sourceCanvas){
           frameNumber++;
-          if(frameNumber%6===1||lastFaceCenter===null){
-            const detections=faceDetector.detectForVideo(sourceCanvas,Math.max(0,Math.round(stamp*1000)));
-            const faces=detections?.detections||[];
+          if(frameNumber%3===1||lastFaceCenter===null){
+            const result=faceLandmarker.detectForVideo(sourceCanvas,Math.max(0,Math.round(stamp*1000)));
+            const faces=result?.faceLandmarks||[];
             if(faces.length)faceSamples++;
-            multiFace=faces.length>1;
-            if(faces.length===1){
-              const box=faces[0].boundingBox;
-              const center=(Number(box.originX)+Number(box.width)/2)*sourceWidth/sourceCanvas.width;
-              lastFaceCenter=lastFaceCenter===null?center:lastFaceCenter*.68+center*.32;
-            }else if(faces.length===0){lastFaceCenter=null;}
+            const seen=[];
+            for(const landmarks of faces){
+              if(!landmarks?.length)continue;
+              const xs=landmarks.map(p=>Number(p.x)).filter(Number.isFinite);
+              const ys=landmarks.map(p=>Number(p.y)).filter(Number.isFinite);
+              if(!xs.length||!ys.length)continue;
+              const minX=Math.min(...xs),maxX=Math.max(...xs),faceHeight=Math.max(.001,Math.max(...ys)-Math.min(...ys));
+              const center=(minX+maxX)/2;
+              const upper=landmarks[13],lower=landmarks[14];
+              const mouthOpen=upper&&lower?Math.abs(Number(lower.y)-Number(upper.y))/faceHeight:0;
+              let track=speakerTracks.filter(t=>!seen.includes(t)).sort((x,y)=>Math.abs(x.center-center)-Math.abs(y.center-center))[0];
+              if(!track||Math.abs(track.center-center)>.16){track={center,previousMouth:mouthOpen,activity:0,samples:0};speakerTracks.push(track);}
+              const motion=Math.abs(mouthOpen-track.previousMouth);
+              track.activity=track.activity*.72+Math.min(1,motion*7+mouthOpen*.12)*.28;
+              track.center=track.center*.65+center*.35;
+              track.previousMouth=mouthOpen;track.samples++;track.lastSeen=frameNumber;
+              seen.push(track);
+            }
+            for(let i=speakerTracks.length-1;i>=0;i--)if(frameNumber-speakerTracks[i].lastSeen>45)speakerTracks.splice(i,1);
+            if(faces.length===1&&seen.length===1)lastFaceCenter=seen[0].center*sourceWidth;
+            else if(seen.length>1){
+              const active=[...seen].filter(t=>t.samples>=2).sort((x,y)=>y.activity-x.activity)[0]||seen[0];
+              lastFaceCenter=active.center*sourceWidth;
+            }else if(!faces.length)lastFaceCenter=null;
           }
         }
         if(settings.cropMode==='center'&&sourceCanvas){
           const cropWidth=Math.min(sourceCanvas.width,sourceCanvas.height*9/16);
           const left=Math.max(0,(sourceCanvas.width-cropWidth)/2);
           ctx.drawImage(sourceCanvas,left,0,cropWidth,sourceCanvas.height,0,0,1080,1920);
-        }else if(faceDetector&&sourceCanvas&&lastFaceCenter!==null&&!multiFace){
+        }else if(faceLandmarker&&sourceCanvas&&lastFaceCenter!==null){
           const cropWidth=Math.min(sourceCanvas.width,sourceCanvas.height*9/16);
           const center=lastFaceCenter*sourceCanvas.width/sourceWidth;
           const left=Math.max(0,Math.min(sourceCanvas.width-cropWidth,center-cropWidth/2));
@@ -165,7 +187,7 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
     throw new Error(`El navegador no puede codificar todas las pistas MP4 de este vídeo (${reasons||'códec no compatible'}).`);
   }
   conversion.onProgress=p=>sayExport(`Clip ${index+1}/${total}: renderizando ${Math.round(p*100)}%…`);
-  try{await conversion.execute();}finally{faceDetector?.close?.();}
+  try{await conversion.execute();}finally{faceLandmarker?.close?.();}
   const buffer=output.target.buffer;
   if(!buffer||buffer.byteLength<1024)throw new Error('El render terminó sin generar un MP4 válido.');
   const blob=new Blob([buffer],{type:'video/mp4'});
