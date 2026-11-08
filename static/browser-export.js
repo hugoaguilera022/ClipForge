@@ -39,10 +39,10 @@ function drawTextLayers(ctx,tracks,sourceTime,width,height){
   });
   ctx.restore();
 }
-function drawKaraokeCaption(ctx,cues,sourceTime,width,height){
+function drawKaraokeCaption(ctx,cues,sourceTime,width,height,settings={}){
   const cue=cues.find(words=>sourceTime>=words[0].start&&sourceTime<=words[words.length-1].end+.18);
   if(!cue)return;
-  const fontSize=Math.round(width*.052),lineHeight=Math.round(fontSize*1.2),maxWidth=width*.86;
+  const fontSize=Math.round(width*(Number(settings.captionSize)||5.2)/100),lineHeight=Math.round(fontSize*1.2),maxWidth=width*.86;
   ctx.save();ctx.font=`800 ${fontSize}px system-ui, sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
   const lines=[];let line=[],lineWidth=0;
   for(const word of cue){
@@ -52,11 +52,11 @@ function drawKaraokeCaption(ctx,cues,sourceTime,width,height){
   }
   if(line.length)lines.push(line);
   const visible=lines.slice(-2),blockHeight=visible.length*lineHeight,pad=fontSize*.42;
-  const y0=height*.78-blockHeight/2;
-  ctx.fillStyle='rgba(0,0,0,.66)';ctx.beginPath();
+  const y0=(settings.captionPosition==='top'?height*.16:height*.78)-blockHeight/2;
+  if(settings.captionBackground!=='none'){ctx.fillStyle=settings.captionBackground==='solid'?'rgba(0,0,0,1)':'rgba(0,0,0,.66)';ctx.beginPath();
   const boxW=Math.min(maxWidth+pad*2,width*.94),boxH=blockHeight+pad*2;
   const x=(width-boxW)/2,y=y0-pad,r=Math.round(fontSize*.22);
-  if(typeof ctx.roundRect==='function'){ctx.roundRect(x,y,boxW,boxH,r);ctx.fill();}else{ctx.fillRect(x,y,boxW,boxH);}
+  if(typeof ctx.roundRect==='function'){ctx.roundRect(x,y,boxW,boxH,r);ctx.fill();}else{ctx.fillRect(x,y,boxW,boxH);}}
   visible.forEach((words,index)=>{
     const total=words.reduce((n,w)=>n+ctx.measureText(w.text+' ').width,0);
     let xPos=width/2-total/2;
@@ -64,7 +64,7 @@ function drawKaraokeCaption(ctx,cues,sourceTime,width,height){
     for(const word of words){
       const text=word.text+' ',w=ctx.measureText(text).width;
       const active=sourceTime>=word.start&&sourceTime<=word.end+.06;
-      ctx.fillStyle=active?'#ffe16b':'#ffffff';
+      ctx.fillStyle=settings.captionColor==='white'?'#ffffff':(settings.captionColor==='yellow-solid'?'#ffe16b':(active?'#ffe16b':'#ffffff'));
       ctx.fillText(text,xPos+w/2,y,maxWidth);
       xPos+=w;
     }
@@ -72,7 +72,7 @@ function drawKaraokeCaption(ctx,cues,sourceTime,width,height){
   ctx.restore();
 }
 
-async function exportOne(file,clip,segments,tracks,index,total){
+async function exportOne(file,clip,segments,tracks,index,total,settings={}){
   const {Input,Output,Conversion,ALL_FORMATS,BlobSource,Mp4OutputFormat,BufferTarget,Quality}=await import('https://esm.sh/mediabunny@1.65.2');
   const input=new Input({source:new BlobSource(file),formats:ALL_FORMATS});
   const sourceDuration=await input.getDurationFromMetadata();
@@ -90,7 +90,7 @@ async function exportOne(file,clip,segments,tracks,index,total){
   const sourceWidth=Number(sourceTrack?.displayWidth||sourceTrack?.width||1920);
   const sourceHeight=Number(sourceTrack?.displayHeight||sourceTrack?.height||1080);
   const portraitCropWidth=sourceHeight*9/16;
-  const trackingPossible=sourceWidth>portraitCropWidth*1.05;
+  const trackingPossible=settings.cropMode!=='center'&&settings.cropMode!=='blur'&&sourceWidth>portraitCropWidth*1.05;
   if(trackingPossible){
     try{
       sayExport(`Clip ${index+1}/${total}: cargando detector facial gratuito…`);
@@ -134,7 +134,7 @@ async function exportOne(file,clip,segments,tracks,index,total){
             }else if(faces.length===0){lastFaceCenter=null;}
           }
         }
-        if(faceDetector&&sourceCanvas&&lastFaceCenter!==null&&!multiFace){
+        if(settings.cropMode==='center'&&sourceCanvas){\n          const cropWidth=Math.min(sourceCanvas.width,sourceCanvas.height*9/16);\n          const left=Math.max(0,(sourceCanvas.width-cropWidth)/2);\n          ctx.drawImage(sourceCanvas,left,0,cropWidth,sourceCanvas.height,0,0,1080,1920);\n        }else if(faceDetector&&sourceCanvas&&lastFaceCenter!==null&&!multiFace){
           const cropWidth=Math.min(sourceCanvas.width,sourceCanvas.height*9/16);
           const center=lastFaceCenter*sourceCanvas.width/sourceWidth;
           const left=Math.max(0,Math.min(sourceCanvas.width-cropWidth,center-cropWidth/2));
@@ -148,7 +148,7 @@ async function exportOne(file,clip,segments,tracks,index,total){
         // Mediabunny normalizes timestamps to zero after trim; captions keep source-video times.
         const local=clip.start+stamp;
         drawTextLayers(ctx,tracks,local,canvas.width,canvas.height);
-        drawKaraokeCaption(ctx,cues,local,canvas.width,canvas.height);
+        drawKaraokeCaption(ctx,cues,local,canvas.width,canvas.height,settings);
         return canvas;
       },
       processedWidth:1080,processedHeight:1920
@@ -183,7 +183,7 @@ exportButton?.addEventListener('click',async()=>{
     for(let i=0;i<clips.length;i++){
       const clip={start:Number(clips[i].start),end:Number(clips[i].end)};
       if(clip.end>36000)throw new Error('Un corte supera el límite de seguridad de 10 horas.');
-      results.push(await exportOne(file,clip,segments,tracks,i,clips.length));
+      results.push(await exportOne(file,clip,segments,tracks,i,clips.length,settings));
     }
     if(results.length===1){
       const url=URL.createObjectURL(results[0].blob),a=document.createElement('a');
