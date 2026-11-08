@@ -127,6 +127,7 @@ async function refreshProjects() {
   if(!projectSelect)return;
   projectSelect.replaceChildren(new Option('Nuevo proyecto',''));
   try{
+    if(document.body.dataset.browserOnly==='true')throw new Error('Modo navegador');
     const r=await fetch('/api/projects');
     if(!r.ok)throw new Error(`HTTP ${r.status}`);
     const data=await r.json();
@@ -158,6 +159,7 @@ document.querySelector('#saveSavedProject')?.addEventListener('click',async()=>{
   try{
     let savedRemotely=false;
     try{
+      if(document.body.dataset.browserOnly==='true')throw new Error('Modo navegador');
       const r=await fetch('/api/projects',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:activeProjectId||undefined,...project})});
       if(!r.ok)throw new Error(`HTTP ${r.status}`);
       const data=await r.json();activeProjectId=data.id;savedRemotely=true;
@@ -174,6 +176,7 @@ document.querySelector('#loadSavedProject')?.addEventListener('click',async()=>{
   try{
     let project;
     try{
+      if(document.body.dataset.browserOnly==='true')throw new Error('Modo navegador');
       const r=await fetch(`/api/projects/${encodeURIComponent(id)}`);
       if(!r.ok)throw new Error(`HTTP ${r.status}`);
       project=await r.json();
