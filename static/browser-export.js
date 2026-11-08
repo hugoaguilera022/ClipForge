@@ -80,13 +80,8 @@ async function exportOne(file,clip,segments,tracks,index,total){
   if(clip.start<0||clip.end<=clip.start||clip.start>=sourceDuration||clip.end>sourceDuration+.05){
     throw new Error(`El corte ${index+1} (${clip.start.toFixed(2)}–${clip.end.toFixed(2)} s) queda fuera de la duración real del vídeo (${sourceDuration.toFixed(2)} s).`);
   }
-  const sourceAudio=await input.getPrimaryAudioTrack();
-  let audioConfig;
-  if(sourceAudio){
-    const support=await AudioEncoder.isConfigSupported({codec:'mp4a.40.2',sampleRate:48000,numberOfChannels:2,bitrate:192000});
-    if(!support.supported)throw new Error('Este navegador no puede codificar audio AAC para MP4. Prueba con un navegador/dispositivo que admita AAC mediante WebCodecs.');
-    audioConfig={codec:'aac',quality:new Quality('high'),numberOfChannels:2,sampleRate:48000};
-  }
+  // Keep the original compressed audio track whenever MP4 supports it.
+  // This avoids unnecessary lossy re-encoding and does not require an AAC encoder.
   const output=new Output({format:new Mp4OutputFormat(),target:new BufferTarget()});
   const cues=buildCaptionCues(segments);
   let canvas=null,ctx=null;
@@ -114,7 +109,6 @@ async function exportOne(file,clip,segments,tracks,index,total){
       },
       processedWidth:1080,processedHeight:1920
     },
-    ...(audioConfig?{audio:audioConfig}:{})
   });
   if(!conversion.isValid){
     const reasons=(conversion.discardedTracks||[]).map(x=>x.reason).join(', ');
@@ -138,7 +132,7 @@ exportButton?.addEventListener('click',async()=>{
   if(!clips.length){sayExport('No hay clips seleccionados para exportar. Marca al menos uno en la lista de momentos.');return;}
   const expected=String(project?.source||'').split(/[\\/]/).pop();
   if(expected&&expected!==file.name){sayExport(`El proyecto corresponde a ${expected}; has seleccionado ${file.name}. Para evitar exportar el vídeo equivocado, selecciona el original.`);return;}
-  if(!('VideoEncoder'in window)||!('AudioEncoder'in window)||!('OffscreenCanvas'in window)){sayExport('Este navegador no ofrece WebCodecs/OffscreenCanvas. Usa Chrome o Edge actualizado.');return;}
+  if(!('VideoEncoder'in window)||!('OffscreenCanvas'in window)){sayExport('Este navegador no ofrece WebCodecs/OffscreenCanvas. Usa Chrome o Edge actualizado.');return;}
   exportButton.disabled=true;
   const results=[];
   try{
@@ -152,7 +146,7 @@ exportButton?.addEventListener('click',async()=>{
       a.href=url;a.download=results[0].name;
       document.body.append(a);a.click();a.remove();
       setTimeout(()=>URL.revokeObjectURL(url),60000);
-      sayExport(`Exportación terminada: 1 MP4 individual · 1080×1920 · 30 fps · H.264/AAC · ${(results[0].bytes/1024/1024).toFixed(1)} MB.`);
+      sayExport(`Exportación terminada: 1 MP4 individual · 1080×1920 · 30 fps · H.264 + audio original · ${(results[0].bytes/1024/1024).toFixed(1)} MB.`);
       return;
     }
     sayExport('Preparando paquete ZIP con los MP4…');
@@ -165,7 +159,7 @@ exportButton?.addEventListener('click',async()=>{
     document.body.append(a);a.click();a.remove();
     setTimeout(()=>URL.revokeObjectURL(url),60000);
     const totalBytes=results.reduce((n,x)=>n+x.bytes,0);
-    sayExport(`Exportación terminada: ${results.length} MP4 en un ZIP · 1080×1920 · 30 fps · H.264/AAC · ${(totalBytes/1024/1024).toFixed(1)} MB de vídeo.`);
+    sayExport(`Exportación terminada: ${results.length} MP4 en un ZIP · 1080×1920 · 30 fps · H.264 + audio original · ${(totalBytes/1024/1024).toFixed(1)} MB de vídeo.`);
   }catch(error){console.error(error);sayExport(`Exportación detenida: ${error.message}. No se ha enviado el vídeo a ningún servidor.`);}
   finally{exportButton.disabled=false;}
 });

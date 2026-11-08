@@ -12,21 +12,21 @@ page.on('console', message => { if (message.type() === 'error') browserLogs.push
 try {
   const response = await page.goto(base, { waitUntil: 'networkidle', timeout: 30000 });
   if (!response?.ok()) throw new Error(`Web app returned HTTP ${response?.status()}`);
-  await page.locator('#video').setInputFiles('test-output/e2e-source.webm');
+  await page.locator('#video').setInputFiles('test-output/e2e-source.mkv');
   const project = {
     schema: 'clipforge-browser-project-v1',
-    source: 'e2e-source.webm',
-    transcript: { source: 'e2e-source.webm', text: 'Prueba uno. Prueba dos. Prueba tres. Prueba cuatro.', segments: [
-      {start:0.1,end:1.2,text:'Prueba uno'},
-      {start:2.1,end:3.2,text:'Prueba dos'},
-      {start:4.1,end:5.2,text:'Prueba tres'},
-      {start:6.1,end:7.2,text:'Prueba cuatro'}
+    source: 'e2e-source.mkv',
+    transcript: { source: 'e2e-source.mkv', text: 'Prueba uno. Prueba dos. Prueba tres. Prueba cuatro.', segments: [
+      {start:0.1,end:0.5,text:'Prueba uno'},
+      {start:2.1,end:2.5,text:'Prueba dos'},
+      {start:4.1,end:4.5,text:'Prueba tres'},
+      {start:6.1,end:6.5,text:'Prueba cuatro'}
     ]},
     clips: [
-      {id:'clip-1',start:0,end:1.8,title:'Prueba uno',selected:true},
-      {id:'clip-2',start:2,end:3.8,title:'Prueba dos',selected:true},
-      {id:'clip-3',start:4,end:5.8,title:'Prueba tres',selected:true},
-      {id:'clip-4',start:6,end:7.8,title:'Prueba cuatro',selected:true}
+      {id:'clip-1',start:0,end:0.8,title:'Prueba uno',selected:true},
+      {id:'clip-2',start:2,end:2.8,title:'Prueba dos',selected:true},
+      {id:'clip-3',start:4,end:4.8,title:'Prueba tres',selected:true},
+      {id:'clip-4',start:6,end:6.8,title:'Prueba cuatro',selected:true}
     ]
   };
   await writeFile('test-output/e2e-project.json', JSON.stringify(project));
@@ -55,9 +55,9 @@ try {
   await download.saveAs('test-output/browser-export.zip');
   const inspect = spawnSync('python', ['-c', "import zipfile; z=zipfile.ZipFile('test-output/browser-export.zip'); names=z.namelist(); assert len(names)==4, names; [z.extract(n,'test-output/exported') for n in names]; print(names)"], {encoding:'utf8'});
   if (inspect.status !== 0) throw new Error(inspect.stderr || inspect.stdout);
-  const probe = spawnSync('bash', ['-lc', 'set -e; for f in test-output/exported/*.mp4; do ffprobe -v error -select_streams v:0 -show_entries stream=codec_name,width,height -of csv=p=0 "$f" | grep -E "^h264,1080,1920$"; done'], {encoding:'utf8'});
+  const probe = spawnSync('bash', ['-lc', 'set -e; for f in test-output/exported/*.mp4; do ffprobe -v error -select_streams v:0 -show_entries stream=codec_name,width,height -of csv=p=0 "$f" | grep -E "^h264,1080,1920$"; ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of csv=p=0 "$f" | grep -qx aac; done'], {encoding:'utf8'});
   if (probe.status !== 0) throw new Error('Exported MP4 validation failed: '+probe.stderr+probe.stdout);
-  console.log('Browser E2E passed: project import, four silent MP4 exports, H.264 1080x1920.');
+  console.log('Browser E2E passed: project import, four MP4 exports, H.264 1080x1920 and AAC audio passthrough.');
   if (errors.length) throw new Error('Browser page errors: '+errors.join('; '));
 } finally {
   await browser.close();
