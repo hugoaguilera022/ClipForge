@@ -58,7 +58,7 @@ jobs:
         run: |
           node --check static/app.js
           node --check static/browser-whisper.js
-          node --check static/browser-export.js
+          node --check static/browser-export.js\n          node --check static/browser-url.js
           node --check static/editor.js
           node --check static/sw.js
 
