@@ -277,8 +277,18 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
       if(dur>=minLen && (sentenceEnd.test(clean[j].text) || j===clean.length-1 || (j+1<clean.length && clean[j+1].start-clean[j].end>0.72))) possible.push(j);
     }
     if(!possible.length) continue;
-    // Prefer a natural endpoint around 24–30 seconds, but retain complete thoughts.
-    endIndex=possible.sort((x,y)=>Math.abs((clean[x].end-start)-targetLen)-Math.abs((clean[y].end-start)-targetLen))[0];
+    // Prefer a natural endpoint around 24–30 seconds, but let a complete
+    // question-and-answer beat finish early rather than adding unrelated tail.
+    const endpointCost=index=>{
+      const ending=clean.slice(Math.max(si,index-13),index+1).map(w=>w.text).join(' ');
+      const whole=clean.slice(si,index+1).map(w=>w.text).join(' ');
+      const hasQuestion=/[¿?]/.test(whole);
+      const answered=/\b(claro|efectivamente|exactamente|ya te avisaremos|te avisaremos|te lo digo|así es|eso es|that is why|exactly|there it is|turns out)\b/i.test(ending);
+      const complete=sentenceEnd.test(clean[index].text);
+      const semanticBonus=hasQuestion&&answered?12:answered?5:0;
+      return Math.abs((clean[index].end-start)-targetLen)-semanticBonus-(complete?1.5:0);
+    };
+    endIndex=possible.sort((x,y)=>endpointCost(x)-endpointCost(y))[0];
     const group=clean.slice(si,endIndex+1), end=group[group.length-1].end, duration=end-start;
     const text=group.map(w=>w.text).join(' '), lower=text.toLocaleLowerCase('es');
     const tokens=lower.match(/[a-záéíóúüñ]{2,}/g)||[];
@@ -346,8 +356,8 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
   const ranked=candidates.map(c=>({
     clip:c,
     selectionScore:c.score+(candidates.some(other=>
-      other.start>c.start&&other.start-c.start<=8&&overlapRatio(c,other)>=.55&&other.score<=c.score+6
-    )?6:0)
+      other.start>c.start&&other.start-c.start<=8&&overlapRatio(c,other)>=.55&&other.score>=c.score&&other.score<=c.score+6
+    )?12:0)
   })).sort((a,b)=>b.selectionScore-a.selectionScore);
   const firstStart=clean[0].start;
   const lastEnd=clean[clean.length-1].end;
