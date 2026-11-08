@@ -48,8 +48,9 @@ async function captureAudioFromVideo(file) {
       recorder.onerror = () => reject(new Error('Falló la extracción de audio.'));
       recorder.onstop = () => resolve(new Blob(chunks, { type: mime }));
     });
-    await video.play();
+    // Start recording before playback so the first audio samples are not lost.
     recorder.start(1000);
+    await video.play();
     await new Promise((resolve, reject) => {
       video.onended = resolve;
       video.onerror = () => reject(new Error('El vídeo falló durante la extracción de audio.'));
