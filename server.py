@@ -38,8 +38,8 @@ def load_job_registry()->dict:
   except (OSError,ValueError):
    jobs={}
  # Resume interrupted jobs when their original source and command are still available.
- recovered=False
- for job in jobs.values():
+ recovered_ids=[]
+ for job_id,job in jobs.items():
   if not isinstance(job,dict) or job.get('status') not in {'queued','processing'}:
    continue
   if job.get('status')=='processing' and float(job.get('lease_until') or 0)>time.time():
@@ -64,9 +64,12 @@ def load_job_registry()->dict:
   else:
    job['status']='failed'
    job['log']=(str(job.get('log') or '')+'\nEl proceso se interrumpió y el archivo original ya no está disponible. Vuelve a importar el vídeo.').strip()
-  recovered=True
- if recovered:
-  store.save_many(jobs)
+  recovered_ids.append(str(job_id))
+ if recovered_ids:
+  # save_many is insert-only by design; persist intentional recovery transitions
+  # individually so existing SQLite rows are not left in a stale processing state.
+  for job_id in recovered_ids:
+   store.upsert(jobs[job_id])
   tmp=JOBS_FILE.with_suffix('.tmp'); tmp.write_text(json.dumps(jobs,ensure_ascii=False,indent=2),encoding='utf-8'); tmp.replace(JOBS_FILE)
  return jobs
 
