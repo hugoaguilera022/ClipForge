@@ -546,10 +546,10 @@ class BrowserFaceTrackingTests(unittest.TestCase):
  def test_browser_export_uses_local_face_detection_and_safe_multi_face_fallback(self):
   module=(ROOT/'static'/'browser-export.js').read_text()
   self.assertIn('@mediapipe/tasks-vision@1.2.2/vision_bundle.mjs',module)
-  self.assertIn('faceDetector.detectForVideo(sourceCanvas',module)
-  self.assertIn('multiFace=faces.length>1',module)
+  self.assertIn('faceLandmarker.detectForVideo(sourceCanvas',module)
+  self.assertIn('track.activity=track.activity*.72',module)\n  self.assertIn('landmarks[13]',module)
   self.assertIn("sample.drawWithFit(ctx,{fit:'contain'})",module)
-  self.assertIn('faceDetector?.close?.()',module)
+  self.assertIn('faceLandmarker?.close?.()',module)
 
 
 class BrowserClipCandidateTests(unittest.TestCase):
