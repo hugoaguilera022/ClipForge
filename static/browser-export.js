@@ -129,7 +129,7 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
         }
         if(faceLandmarker&&sourceCanvas){
           frameNumber++;
-          if(frameNumber%3===1||lastFaceCenter===null){
+          if(frameNumber%6===1||lastFaceCenter===null){
             const result=faceLandmarker.detectForVideo(sourceCanvas,Math.max(0,Math.round(stamp*1000)));
             const faces=result?.faceLandmarks||[];
             if(faces.length)faceSamples++;
