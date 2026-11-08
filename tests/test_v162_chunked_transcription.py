@@ -9,7 +9,8 @@ def test_long_audio_is_transcribed_in_bounded_windows():
     assert 'const windowSeconds = 28' in js
     assert 'const overlapSeconds = 2' in js
     assert 'audio.subarray(startSample, endSample)' in js
-    assert 'return_timestamps: \'word\'' in js
+    assert 'return_timestamps: timestampMode' in js
+    assert "model === 'whisper-small' ? true : 'word'" in js
 
 
 def test_chunked_transcription_restores_absolute_timestamps_and_progress():
