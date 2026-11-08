@@ -40,9 +40,243 @@ async function captureAudioFromVideo(file) {
     const audioTracks = stream.getAudioTracks();
     if (!audioTracks.length) throw new Error('El vídeo no contiene una pista de audio reconocible.');
     const audioStream = new MediaStream(audioTracks);
-    const mime = ['audio/webm;codecs=opus', 'audio/webm'].find(x =
-…[1 chars truncated — re-run with head/grep/tail for full output]…
-ta o interacción');
+    const mime = ['audio/webm;codecs=opus', 'audio/webm'].find(x => MediaRecorder.isTypeSupported(x));
+    if (!mime) throw new Error('MediaRecorder no admite un formato de audio compatible.');
+    recorder = new MediaRecorder(audioStream, { mimeType: mime });
+    const chunks = [];
+    const done = new Promise((resolve, reject) => {
+      recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+      recorder.onerror = () => reject(new Error('Falló la extracción de audio.'));
+      recorder.onstop = () => resolve(new Blob(chunks, { type: mime }));
+    });
+    // Start recording before playback so the first audio samples are not lost.
+    recorder.start(1000);
+    await video.play();
+    await new Promise((resolve, reject) => {
+      video.onended = resolve;
+      video.onerror = () => reject(new Error('El vídeo falló durante la extracción de audio.'));
+    });
+    if (recorder.state !== 'inactive') recorder.stop();
+    return await done;
+  } finally {
+    try { if (recorder && recorder.state !== 'inactive') recorder.stop(); } catch {}
+    try { stream?.getTracks().forEach(t => t.stop()); } catch {}
+    video.pause();
+    video.removeAttribute('src');
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+async function extractAudioWithMediabunny(file) {
+  // Mediabunny demuxes the MP4 audio track without decoding the video stream
+  // or forcing the user to play the whole source in real time.
+  const { Input, BlobSource, ALL_FORMATS, AudioSampleSink } =
+    await import('https://esm.sh/mediabunny@1.65.2');
+  const input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS });
+  const track = await input.getPrimaryAudioTrack();
+  if (!track) throw new Error('El MP4 no contiene una pista de audio.');
+  if (!(await track.canDecode())) throw new Error('El navegador no puede decodificar el códec de audio de este MP4.');
+  const duration = await input.getDurationFromMetadata();
+  if (!Number.isFinite(duration) || duration <= 0 || duration > 6 * 60 * 60) {
+    throw new Error('La duración del audio del MP4 no es válida.');
+  }
+  const mono = new Float32Array(Math.ceil(duration * 16000));
+  const sink = new AudioSampleSink(track);
+  let samples = 0;
+  for await (const sample of sink.samples()) {
+    try {
+      const buffer = sample.toAudioBuffer();
+      const offset = Math.max(0, Math.round(sample.timestamp * 16000));
+      const sourceFrames = buffer.length;
+      if (sourceFrames <= 0 || offset >= mono.length) continue;
+      // Linear interpolation converts the FULL source block to 16 kHz while
+      // retaining its original media timestamp (including small gaps).
+      // Do not cap sourceFrames by the 16 kHz destination buffer: for 44.1 kHz
+      // audio that truncates most of every block before resampling.
+      const sourceRate = buffer.sampleRate;
+      const targetFrames = Math.min(Math.ceil(sourceFrames * 16000 / sourceRate), mono.length - offset);
+      for (let j = 0; j < targetFrames; j++) {
+        const sourcePos = j * sourceRate / 16000;
+        const lo = Math.min(Math.floor(sourcePos), sourceFrames - 1);
+        const hi = Math.min(lo + 1, sourceFrames - 1);
+        const frac = sourcePos - lo;
+        let interpolated = 0;
+        for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+          const channel = buffer.getChannelData(ch);
+          interpolated += (channel[lo] * (1 - frac) + channel[hi] * frac) / buffer.numberOfChannels;
+        }
+        mono[offset + j] = interpolated;
+      }
+      samples++;
+    } finally { sample.close(); }
+  }
+  if (!samples || !mono.some(value => Math.abs(value) > 1e-7)) {
+    throw new Error('No se pudieron extraer muestras de audio del MP4.');
+  }
+  return mono;
+}
+
+async function resampleDecodedAudio(decoded) {
+  const length = Math.ceil(decoded.duration * 16000);
+  const mono = new Float32Array(length);
+  for (let ch = 0; ch < decoded.numberOfChannels; ch++) {
+    const input = decoded.getChannelData(ch);
+    for (let i = 0; i < length; i++) {
+      const pos = i * decoded.sampleRate / 16000;
+      const lo = Math.floor(pos), hi = Math.min(lo + 1, input.length - 1);
+      const frac = pos - lo;
+      mono[i] += (input[lo] * (1 - frac) + input[hi] * frac) / decoded.numberOfChannels;
+    }
+  }
+  return mono;
+}
+
+async function toMono16k(blob) {
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtx) throw new Error('Web Audio no está disponible en este navegador.');
+  const ctx = new AudioCtx();
+  try { return await resampleDecodedAudio(await ctx.decodeAudioData(await blob.arrayBuffer())); }
+  finally { await ctx.close(); }
+}
+
+// Whisper has a 30-second audio context limit. Process the full source in
+// bounded windows so long interviews do not require one huge inference buffer.
+// A 2-second overlap protects words at boundaries; duplicate words are removed
+// by their absolute timestamps and normalized text.
+async function transcribeAudioInChunks(asr, audio, onProgress = () => {}) {
+  const sampleRate = 16000;
+  const windowSeconds = 28;
+  const overlapSeconds = 2;
+  const windowSamples = windowSeconds * sampleRate;
+  const stepSamples = (windowSeconds - overlapSeconds) * sampleRate;
+  const totalSeconds = audio.length / sampleRate;
+  const allChunks = [];
+  const fullText = [];
+  const totalParts = Math.max(1, Math.ceil(Math.max(0, audio.length - windowSamples) / stepSamples) + 1);
+
+  for (let startSample = 0, part = 0; startSample < audio.length; startSample += stepSamples, part++) {
+    const endSample = Math.min(audio.length, startSample + windowSamples);
+    const result = await asr(audio.subarray(startSample, endSample), {
+      language: 'spanish',
+      task: 'transcribe',
+      return_timestamps: 'word'
+    });
+    const offset = startSample / sampleRate;
+    const chunkText = String(result.text || '').trim();
+    if (chunkText) fullText.push(chunkText);
+
+    for (const chunk of (result.chunks || [])) {
+      const localStart = Number(chunk.timestamp?.[0]);
+      const localEnd = Number(chunk.timestamp?.[1]);
+      const text = String(chunk.text || '').trim();
+      if (!text || !Number.isFinite(localStart) || !Number.isFinite(localEnd)) continue;
+      const absoluteStart = Math.max(0, offset + localStart);
+      const absoluteEnd = Math.min(totalSeconds, offset + Math.max(localStart, localEnd));
+      if (absoluteEnd <= absoluteStart) continue;
+      // Keep words recognized only in the next window's overlap.
+      // Deduplicate matching words by timestamp rather than discarding the overlap.
+      const normalized = text.toLocaleLowerCase('es').replace(/\s+/g, ' ').trim();
+      const duplicate = allChunks.some(previous =>
+        Math.abs(previous.start - absoluteStart) < 0.45 &&        previous.text.toLocaleLowerCase('es').replace(/\s+/g, ' ').trim() === normalized
+      );
+      if (!duplicate) allChunks.push({ start: absoluteStart, end: absoluteEnd, text });
+    }
+    onProgress(Math.min(100, Math.round(endSample / audio.length * 100)), part + 1, totalParts);
+    if (endSample === audio.length) break;
+  }
+
+  allChunks.sort((a, b) => a.start - b.start);
+  return { text: (allChunks.length ? allChunks.map(chunk => chunk.text).join(' ') : fullText.join(' ')).replace(/\s+/g, ' ').trim(), chunks: allChunks };
+}
+
+function makeVtt(segments) {
+  // Build readable cues at natural pauses and sentence boundaries, not at
+  // arbitrary fixed five-word intervals. Keep timing from Whisper unchanged.
+  const words = segments
+    .filter(s => Number.isFinite(s.start) && Number.isFinite(s.end) && s.end > s.start && String(s.text || '').trim())
+    .map(s => ({ start: Number(s.start), end: Number(s.end), text: String(s.text).trim() }))
+    .sort((a, b) => a.start - b.start);
+  const groups = [];
+  let group = [];
+  const flush = () => { if (group.length) groups.push(group); group = []; };
+  for (const word of words) {
+    const previous = group[group.length - 1];
+    const proposedText = group.map(x => x.text).concat(word.text).join(' ');
+    const gap = previous ? word.start - previous.end : 0;
+    const sentenceEnd = previous && /[.!?…][”’"')\]]?$/.test(previous.text);
+    if (group.length && (group.length >= 5 || gap > 0.42 || word.end - group[0].start > 2.25 || proposedText.length > 42 || sentenceEnd)) flush();
+    group.push(word);
+    if (/[.!?…][”’"')\]]?$/.test(word.text)) flush();
+  }
+  flush();
+  const cues = groups.map(items => {
+    const start = Math.max(0, items[0].start);
+    const end = Math.max(start + 0.15, items[items.length - 1].end);
+    return `${timeVtt(start)} --> ${timeVtt(end)}\n${items.map(w => w.text).join(' ').trim()}`;
+  });
+  return `WEBVTT\n\n${cues.join('\n\n')}\n`;
+}
+
+// Editorial ranking: balanced hooks, coherent setup/payoff, dialogue, pace and clean boundaries.
+function rankClipCandidates(words, videoDuration) {
+  const minLen = 18, maxLen = 38, targetLen = 27;
+  const sentenceEnd = /[.!?…][”’"')\]]?$/;
+  const strongHook = /\b(¿qué|quién|cómo|por qué|qué pasa|no me digas|madre mía|increíble|imagina|resulta que|la verdad|nunca|jamás|te juro|no sabía|de repente|en serio|qué fuerte|qué locura|qué dices)\b/i;
+  const payoff = /\b(al final|resulta que|y entonces|por eso|exactamente|efectivamente|claro|no|sí|eso|ahí|pues|ya está|lo consiguió|lo he hecho|no puede ser)\b/i;
+  const filler = /\b(este|esto|eh|em|mmm|pues|vale|bueno|a ver|en plan|o sea)\b/gi;
+  const reactionWord = /\b(puf|potencia|dios|bolas|a huevo|jaj+a+|risas?|hostia|buah|ostras|flipante|brutal)\b/gi;
+  const storyPivot = /\b(se acabó|lo más importante|tienes que saber|para acabar|una preguntita|esto es|y entonces|ahora)\b/i;
+  const clean = words.filter(w => Number.isFinite(w.start) && Number.isFinite(w.end) && w.end > w.start && String(w.text||'').trim())
+    .map(w=>({start:Number(w.start),end:Number(w.end),text:String(w.text).trim()})).sort((a,b)=>a.start-b.start);
+  if (!clean.length) return [];
+  const candidates=[];
+  const stepSeconds=3.5;
+  let nextStart=clean[0].start;
+  for(let i=0;i<clean.length;i++){
+    if(clean[i].start+0.05<nextStart) continue;
+    let si=i;
+    for(let p=i;p>=0 && clean[i].start-clean[p].start<=2.2;p--){
+      if(p===0 || sentenceEnd.test(clean[p-1].text) || clean[p].start-clean[p-1].end>0.72){si=p;break;}
+    }
+    const start=clean[si].start;
+    if(start>videoDuration-minLen) break;
+    const possible=[];
+    for(let j=si;j<clean.length && clean[j].end-start<=maxLen;j++){
+      const dur=clean[j].end-start;
+      if(dur>=minLen && (sentenceEnd.test(clean[j].text) || j===clean.length-1 || (j+1<clean.length && clean[j+1].start-clean[j].end>0.72))) possible.push(j);
+    }
+    if(!possible.length) continue;
+    const endIndex=possible.sort((x,y)=>Math.abs((clean[x].end-start)-targetLen)-Math.abs((clean[y].end-start)-targetLen))[0];
+    const group=clean.slice(si,endIndex+1), end=group[group.length-1].end, duration=end-start;
+    const text=group.map(w=>w.text).join(' '), lower=text.toLocaleLowerCase('es');
+    const tokens=lower.match(/[a-záéíóúüñ]{2,}/g)||[];
+    const uniqueRatio=new Set(tokens).size/Math.max(1,tokens.length);
+    const wordsPerSecond=tokens.length/Math.max(1,duration);
+    const questionCount=(text.match(/[¿?]/g)||[]).length;
+    const exclamationCount=(text.match(/[¡!]/g)||[]).length;
+    const laughCount=(text.match(/\b(risas?|jaj+a+|ja ja|carcajadas?|puf|¡dios!|mira,? mira|a huevo|bolas)\b/gi)||[]).length;
+    const reactionCount=(text.match(reactionWord)||[]).length;
+    const hookAtStart=strongHook.test(group.slice(0,Math.min(18,group.length)).map(w=>w.text).join(' '));
+    const payoffAtEnd=payoff.test(group.slice(-Math.min(16,group.length)).map(w=>w.text).join(' '));
+    const hasSetup=/\b(pero|porque|cuando|si|aunque|resulta que|me dijo|y entonces|imagina|una vez)\b/i.test(text);
+    const hasTurn=/\b(pero|aunque|sin embargo|de repente|entonces|al final|resulta que|y va|me dijo|y me dice)\b/i.test(text);
+    const fillerCount=(text.match(filler)||[]).length;
+    const abruptStart=/^(y|pero|porque|que|cuando|si|aunque|entonces|de)\b/i.test(text.trim());
+    const completeEnd=sentenceEnd.test(group[group.length-1].text);
+    const pivot=storyPivot.test(text);
+    const durationScore=Math.max(0,1-Math.abs(duration-targetLen)/19);
+    const paceScore=Math.max(0,Math.min(1,(wordsPerSecond-1.15)/2.1));
+    const lexicalScore=Math.max(0,Math.min(1,(uniqueRatio-.28)/.42));
+    const score=Math.max(0,Math.min(100,Math.round(
+      15 + durationScore*10 + paceScore*12 + lexicalScore*8 +
+      (hookAtStart?12:0) + Math.min(6,questionCount*1.5) + Math.min(10,exclamationCount*2.5) +
+      Math.min(14,laughCount*7) + Math.min(18,reactionCount*4) + (pivot?8:0) +
+      (hasSetup?6:0) + (hasTurn?6:0) + (payoffAtEnd?8:0) + (completeEnd?7:0) -
+      Math.min(12,fillerCount*.8) - (abruptStart?8:0) - (wordsPerSecond<1.1?8:0)
+    )));
+    const reasons=[];
+    if(hookAtStart)reasons.push('inicio que despierta curiosidad');
+    if(questionCount)reasons.push('pregunta o interacción');
     if(exclamationCount||laughCount||reactionCount)reasons.push('reacción emocional');
     if(pivot)reasons.push('cambio de situación o remate');
     if(hasSetup&&payoffAtEnd)reasons.push('planteamiento y remate');
@@ -50,7 +284,6 @@ ta o interacción');
     candidates.push({start,end,duration,score,text,reasons:[...new Set(reasons)].slice(0,3)});
     nextStart=start+stepSeconds;
   }
-  // Greedy diversity: select high-scoring complete moments without near-duplicates.
   candidates.sort((a,b)=>b.score-a.score);
   const chosen=[];
   for(const c of candidates){
@@ -59,7 +292,6 @@ ta o interacción');
   }
   return chosen.sort((a,b)=>a.start-b.start).map((c,i)=>({...c,title:`Momento ${i+1}`}));
 }
-
 let editableCandidates=[];
 function showClipCandidates(words,duration,restoredCandidates=null) {
  const panel=document.querySelector('#browserCandidates'),list=document.querySelector('#browserCandidateList');
@@ -75,8 +307,7 @@ function showClipCandidates(words,duration,restoredCandidates=null) {
  };
  editableCandidates.forEach((c,i)=>{
   const card=document.createElement('article');card.className='candidate-card';
-  const heading=document.createElement('strong');heading.textContent=`${c.title} · potencial editorial (heurístico) ${c.score}/100`;
-  const rationale=document.createElement('small');rationale.className='candidate-rationale';rationale.textContent=(c.reasons||[]).join(' · ')||'Conversación con cierre natural';
+  const heading=document.createElement('strong');heading.textContent=`${c.title} · potencial editorial (heurístico) ${c.score}/100`;\n  const rationale=document.createElement('small');rationale.className='candidate-rationale';rationale.textContent=(c.reasons||[]).join(' · ')||'Conversación con cierre natural';
   const selectLabel=document.createElement('label');selectLabel.className='candidate-select';
   const select=document.createElement('input');select.type='checkbox';select.checked=c.selected!==false;
   select.setAttribute('aria-label','Incluir clip en exportación');
@@ -140,8 +371,7 @@ runButton?.addEventListener('click', async () => {
     say('Transcribiendo en fragmentos para reducir memoria y evitar límites de 30 segundos…');
     const result = await transcribeAudioInChunks(asr, audio, (percent, current, total) => {
       say(`Transcribiendo entrevista: ${percent}% · fragmento ${current}/${total}`);
-    });
-    const chunks = result.chunks || [];
+    });    const chunks = result.chunks || [];
     transcriptData = {
       source: file.name, model: modelId, language: 'es',
       generated_at: new Date().toISOString(), text: result.text || '',
@@ -320,8 +550,7 @@ window.clipforgeEditorBridge = {
     const field = document.querySelector('[name="selected_clip_ranges"]');
     if (field) field.value = JSON.stringify(editableCandidates);
   },
-  setTracks(value) { editorTracks = Array.isArray(value) ? JSON.parse(JSON.stringify(value)) : []; },
-  setTranscript(value) {
+  setTracks(value) { editorTracks = Array.isArray(value) ? JSON.parse(JSON.stringify(value)) : []; },  setTranscript(value) {
     if (!value || !Array.isArray(value.segments)) return;
     transcriptData = JSON.parse(JSON.stringify(value));
     if (output) output.value = transcriptData.segments.map(s => `[${Number(s.start).toFixed(2)}–${Number(s.end).toFixed(2)}] ${String(s.text || '')}`).join('\n');
