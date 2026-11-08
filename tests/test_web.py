@@ -177,7 +177,8 @@ class ChannelMonitorTests(unittest.TestCase):
   with self.assertRaises(ValueError): channel_monitor.channel_id_from_url('https://www.youtube.com/watch?v=abcdefghijk')
  def test_rss_parser_extracts_real_video_metadata(self):
   import channel_monitor
-  xml=b'''<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom" xmlns:yt="http://www.youtube.com/xml/schemas/2015"><entry><id>x</id><yt:videoId>abcdefghijk</yt:videoId><title>Nuevo episodio</title><published>2026-11-07T10:00:00+00:00</published><author><name>Canal</name></author></entry></feed>'''  from unittest.mock import patch
+  xml=b'''<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom" xmlns:yt="http://www.youtube.com/xml/schemas/2015"><entry><id>x</id><yt:videoId>abcdefghijk</yt:videoId><title>Nuevo episodio</title><published>2026-11-07T10:00:00+00:00</published><author><name>Canal</name></author></entry></feed>'''
+  from unittest.mock import patch
   import io
   class Response(io.BytesIO):
    status=200
@@ -356,7 +357,8 @@ class PersistentJobRegistryTests(unittest.TestCase):
   from unittest.mock import patch
   with tempfile.TemporaryDirectory() as td:
    source=Path(td)/'source.mp4'; source.write_bytes(b'video')
-   missing=Path(td)/'gone.srt'; registry=Path(td)/'jobs.json'   registry.write_text(json.dumps({'recover':{'id':'recover','status':'processing','log':'rendering','output':None,
+   missing=Path(td)/'gone.srt'; registry=Path(td)/'jobs.json'
+   registry.write_text(json.dumps({'recover':{'id':'recover','status':'processing','log':'rendering','output':None,
     'args':['python','-u','clipforge.py',str(source),'--transcript',str(missing)],'transcript_path':str(missing)}}))
    with patch.object(server,'JOBS_FILE',registry):
     job=server.load_job_registry()['recover']
@@ -535,7 +537,8 @@ class BrowserWhisperHandoffTests(unittest.TestCase):
   self.assertIn('function makeVtt(segments)',module)
   self.assertIn('WEBVTT',module)
   self.assertIn("document.querySelector('#transcript')",module)
-  self.assertIn("new File([vtt], 'clipforge-transcripcion.vtt'",module)  self.assertIn("input.dispatchEvent(new Event('change', { bubbles: true }))",module)
+  self.assertIn("new File([vtt], 'clipforge-transcripcion.vtt'",module)
+  self.assertIn("input.dispatchEvent(new Event('change', { bubbles: true }))",module)
 
  def test_browser_transcriber_does_not_claim_speaker_diarization(self):
   module=(ROOT/'static'/'browser-whisper.js').read_text()
@@ -547,7 +550,8 @@ class BrowserFaceTrackingTests(unittest.TestCase):
   module=(ROOT/'static'/'browser-export.js').read_text()
   self.assertIn('@mediapipe/tasks-vision@1.2.2/vision_bundle.mjs',module)
   self.assertIn('faceLandmarker.detectForVideo(sourceCanvas',module)
-  self.assertIn('track.activity=track.activity*.72',module)\n  self.assertIn('landmarks[13]',module)
+  self.assertIn('track.activity=track.activity*.72',module)
+  self.assertIn('landmarks[13]',module)
   self.assertIn("sample.drawWithFit(ctx,{fit:'contain'})",module)
   self.assertIn('faceLandmarker?.close?.()',module)
 
