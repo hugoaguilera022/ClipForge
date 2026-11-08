@@ -528,7 +528,8 @@ class BrowserWhisperIntegrationTests(unittest.TestCase):
   module=(ROOT/'static/browser-whisper.js').read_text()
   self.assertIn("import('https://esm.sh/@huggingface/transformers@3.7.2')",module)
   self.assertIn("language: 'es'",module)
-  self.assertIn("return_timestamps: 'word'",module)
+  self.assertIn("return_timestamps: timestampMode",module)
+  self.assertIn("model === 'whisper-small' ? true : 'word'",module)
 
 
 class BrowserWhisperHandoffTests(unittest.TestCase):
@@ -559,6 +560,10 @@ class BrowserFaceTrackingTests(unittest.TestCase):
   self.assertIn('instead of clamping',module)
   self.assertIn("sample.drawWithFit(ctx,{fit:'contain'})",module)
   self.assertIn('faceLandmarker?.close?.()',module)
+  self.assertIn('PoseLandmarker.createFromOptions',module)
+  self.assertIn('pose_landmarker_lite.task',module)
+  self.assertIn('poseSamples++',module)
+  self.assertIn('poseLandmarker?.close?.()',module)
   self.assertTrue(module.rstrip().endswith('});'))
 
 
@@ -566,16 +571,22 @@ class BrowserClipCandidateTests(unittest.TestCase):
  def test_browser_candidate_ranker_uses_timestamps_and_returns_four_non_overlapping_clips(self):
   module=(ROOT/'static'/'browser-whisper.js').read_text()
   self.assertIn('function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRate = 16000)',module)
-  self.assertIn('candidates.sort((a,b)=>b.score-a.score)',module)
-  self.assertIn('if (chosen.length === 4) break',module)
-  self.assertIn('c.end<=x.start-10 || c.start>=x.end+10',module)
+  self.assertIn('overlapRatio(c,other)>=.55',module)
+  self.assertIn('const quarter=(lastEnd-firstStart)/4',module)
+  self.assertIn('for(let bucket=0;bucket<4;bucket++)',module)
+  self.assertIn('if(chosen.length<4)',module)
+  self.assertIn('other.score<=c.score+6',module)
+  self.assertIn('selectionScore:c.score+',module)
+  self.assertIn('if(chosen.length<4)',module)
   self.assertIn('showClipCandidates(transcriptData.segments, audio.length / 16000, null, audio)',module)
 
  def test_candidate_ranker_supports_english_hooks_and_dialogue_turns(self):
   module=(ROOT/'static'/'browser-whisper.js').read_text()
   self.assertIn('guess what|you will not believe',module)
   self.assertIn('here is the thing|the point is',module)
-  self.assertIn('turnCount>=5',module)
+  self.assertIn('turnCount>=(phraseTimed?2:5)',module)
+  self.assertIn('questionAtStart=/[¿?]/.test(openingTokens)',module)
+  self.assertIn('(questionAtStart?6:0)',module)
   self.assertIn('turnScore=Math.min(10,turnCount*1.25)',module)
 
  def test_candidate_ui_labels_heuristic_scores_honestly(self):
