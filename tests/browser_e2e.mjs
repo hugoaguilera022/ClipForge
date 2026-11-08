@@ -12,11 +12,11 @@ page.on('console', message => { if (message.type() === 'error') browserLogs.push
 try {
   const response = await page.goto(base, { waitUntil: 'networkidle', timeout: 30000 });
   if (!response?.ok()) throw new Error(`Web app returned HTTP ${response?.status()}`);
-  await page.locator('#video').setInputFiles('test-output/e2e-source.mp4');
+  await page.locator('#video').setInputFiles('test-output/e2e-source.webm');
   const project = {
     schema: 'clipforge-browser-project-v1',
-    source: 'e2e-source.mp4',
-    transcript: { source: 'e2e-source.mp4', text: 'Prueba uno. Prueba dos. Prueba tres. Prueba cuatro.', segments: [
+    source: 'e2e-source.webm',
+    transcript: { source: 'e2e-source.webm', text: 'Prueba uno. Prueba dos. Prueba tres. Prueba cuatro.', segments: [
       {start:0.1,end:1.2,text:'Prueba uno'},
       {start:2.1,end:3.2,text:'Prueba dos'},
       {start:4.1,end:5.2,text:'Prueba tres'},
