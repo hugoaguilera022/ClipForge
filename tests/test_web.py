@@ -546,11 +546,12 @@ class BrowserWhisperHandoffTests(unittest.TestCase):
 
 
 class BrowserClipCandidateTests(unittest.TestCase):
- def test_browser_candidate_ranker_uses_timestamps_and_returns_top_five(self):
+ def test_browser_candidate_ranker_uses_timestamps_and_returns_four_clips(self):
   module=(ROOT/'static'/'browser-whisper.js').read_text()
   self.assertIn('function rankClipCandidates(words, videoDuration)',module)
   self.assertIn('candidates.sort((a,b)=>b.score-a.score)',module)
-  self.assertIn('if (chosen.length === 5) break',module)
+  self.assertIn('const minLen = 18, maxLen = 45, candidates = []',module)
+  self.assertIn('if (chosen.length === 4) break',module)
   self.assertIn('showClipCandidates(transcriptData.segments, audio.length / 16000)',module)
 
  def test_candidate_ui_labels_heuristic_scores_honestly(self):

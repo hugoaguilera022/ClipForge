@@ -250,7 +250,7 @@ function rankClipCandidates(words, videoDuration) {
   const chosen=[];
   for (const c of candidates) {
     if (chosen.every(x => c.end <= x.start + 3 || c.start >= x.end - 3)) chosen.push(c);
-    if (chosen.length === 5) break;
+    if (chosen.length === 4) break;
   }
   return chosen.sort((a,b)=>a.start-b.start);
 }
