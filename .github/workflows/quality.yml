@@ -57,6 +57,8 @@ jobs:
       - name: Validate JavaScript syntax
         run: |
           node --check static/app.js
+          node --check static/browser-whisper.js
+          node --check static/browser-export.js
           node --check static/editor.js
           node --check static/sw.js
 
