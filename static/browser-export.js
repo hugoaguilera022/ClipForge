@@ -83,11 +83,7 @@ async function exportOne(file,clip,segments,index,total){
   const buffer=output.target.buffer;
   if(!buffer||buffer.byteLength<1024)throw new Error('El render terminó sin generar un MP4 válido.');
   const blob=new Blob([buffer],{type:'video/mp4'});
-  const url=URL.createObjectURL(blob),a=document.createElement('a');
-  a.href=url;a.download=`clipforge-${String(index+1).padStart(2,'0')}.mp4`;
-  document.body.append(a);a.click();a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),60000);
-  return {bytes:blob.size,duration:clip.end-clip.start};
+  return {blob,bytes:blob.size,duration:clip.end-clip.start,name:`clipforge-${String(index+1).padStart(2,'0')}.mp4`};
 }
 
 exportButton?.addEventListener('click',async()=>{
@@ -108,8 +104,17 @@ exportButton?.addEventListener('click',async()=>{
       if(clip.end>36000)throw new Error('Un corte supera el límite de seguridad de 10 horas.');
       results.push(await exportOne(file,clip,segments,i,clips.length));
     }
+    sayExport('Preparando paquete ZIP con los MP4…');
+    const JSZip=(await import('https://esm.sh/jszip@3.10.1')).default;
+    const zip=new JSZip();
+    results.forEach(item=>zip.file(item.name,item.blob));
+    const archive=await zip.generateAsync({type:'blob',compression:'STORE'});
+    const url=URL.createObjectURL(archive),a=document.createElement('a');
+    a.href=url;a.download='clipforge-exportacion-mp4.zip';
+    document.body.append(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),60000);
     const totalBytes=results.reduce((n,x)=>n+x.bytes,0);
-    sayExport(`Exportación terminada: ${results.length} MP4 · 1080×1920 · 30 fps · H.264/AAC · ${(totalBytes/1024/1024).toFixed(1)} MB en total. Los archivos se han descargado individualmente.`);
+    sayExport(`Exportación terminada: ${results.length} MP4 en un ZIP · 1080×1920 · 30 fps · H.264/AAC · ${(totalBytes/1024/1024).toFixed(1)} MB de vídeo.`);
   }catch(error){console.error(error);sayExport(`Exportación detenida: ${error.message}. No se ha enviado el vídeo a ningún servidor.`);}
   finally{exportButton.disabled=false;}
 });
