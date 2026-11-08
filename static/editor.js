@@ -184,7 +184,6 @@ document.querySelector('#loadSavedProject')?.addEventListener('click',async()=>{
     window.clipforgeEditorBridge?.setClips(clips);
     if (transcript) window.clipforgeEditorBridge?.setTranscript(transcript);
     window.clipforgeEditorBridge?.setTracks(tracks);
-    window.clipforgeEditorBridge?.setTracks(tracks);
     render();updateHistoryButtons();say(`Proyecto ${id} abierto. ${clips.length} clips y ${tracks.length} pistas recuperados.`);
   }catch(e){say(`No se pudo abrir el proyecto: ${e.message}`);}
 });
