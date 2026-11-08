@@ -80,6 +80,13 @@ async function exportOne(file,clip,segments,tracks,index,total){
   if(clip.start<0||clip.end<=clip.start||clip.start>=sourceDuration||clip.end>sourceDuration+.05){
     throw new Error(`El corte ${index+1} (${clip.start.toFixed(2)}–${clip.end.toFixed(2)} s) queda fuera de la duración real del vídeo (${sourceDuration.toFixed(2)} s).`);
   }
+  const sourceAudio=await input.getPrimaryAudioTrack();
+  let audioConfig;
+  if(sourceAudio){
+    const support=await AudioEncoder.isConfigSupported({codec:'mp4a.40.2',sampleRate:48000,numberOfChannels:2,bitrate:192000});
+    if(!support.supported)throw new Error('Este navegador no puede codificar audio AAC para MP4. Prueba con un navegador/dispositivo que admita AAC mediante WebCodecs.');
+    audioConfig={codec:'aac',quality:new Quality('high'),numberOfChannels:2,sampleRate:48000};
+  }
   const output=new Output({format:new Mp4OutputFormat(),target:new BufferTarget()});
   const cues=buildCaptionCues(segments);
   let canvas=null,ctx=null;
@@ -88,7 +95,7 @@ async function exportOne(file,clip,segments,tracks,index,total){
     trim:{start:clip.start,end:clip.end},
     video:{
       width:1080,height:1920,fit:'cover',frameRate:30,codec:'avc',
-      quality:new Quality('high'),hardwareAcceleration:'prefer-hardware',
+      quality:new Quality('high'),hardwareAcceleration:'no-preference',
       process:sample=>{
         // The returned canvas MUST have the same 9:16 dimensions advertised
         // by processedWidth/processedHeight. Drawing at source dimensions here
@@ -107,7 +114,7 @@ async function exportOne(file,clip,segments,tracks,index,total){
       },
       processedWidth:1080,processedHeight:1920
     },
-    audio:{codec:'aac',quality:new Quality('high'),numberOfChannels:2,sampleRate:48000}
+    ...(audioConfig?{audio:audioConfig}:{})
   });
   if(!conversion.isValid){
     const reasons=(conversion.discardedTracks||[]).map(x=>x.reason).join(', ');

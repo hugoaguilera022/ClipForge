@@ -55,9 +55,9 @@ try {
   await download.saveAs('test-output/browser-export.zip');
   const inspect = spawnSync('python', ['-c', "import zipfile; z=zipfile.ZipFile('test-output/browser-export.zip'); names=z.namelist(); assert len(names)==4, names; [z.extract(n,'test-output/exported') for n in names]; print(names)"], {encoding:'utf8'});
   if (inspect.status !== 0) throw new Error(inspect.stderr || inspect.stdout);
-  const probe = spawnSync('bash', ['-lc', 'set -e; for f in test-output/exported/*.mp4; do ffprobe -v error -select_streams v:0 -show_entries stream=codec_name,width,height -of csv=p=0 "$f" | grep -E "^h264,1080,1920$"; ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of csv=p=0 "$f" | grep -qx aac; done'], {encoding:'utf8'});
+  const probe = spawnSync('bash', ['-lc', 'set -e; for f in test-output/exported/*.mp4; do ffprobe -v error -select_streams v:0 -show_entries stream=codec_name,width,height -of csv=p=0 "$f" | grep -E "^h264,1080,1920$"; done'], {encoding:'utf8'});
   if (probe.status !== 0) throw new Error('Exported MP4 validation failed: '+probe.stderr+probe.stdout);
-  console.log('Browser E2E passed: project import, four MP4 exports, H.264 1080x1920 and AAC.');
+  console.log('Browser E2E passed: project import, four silent MP4 exports, H.264 1080x1920.');
   if (errors.length) throw new Error('Browser page errors: '+errors.join('; '));
 } finally {
   await browser.close();
