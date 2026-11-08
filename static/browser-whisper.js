@@ -143,7 +143,7 @@ async function toMono16k(blob) {
 // bounded windows so long interviews do not require one huge inference buffer.
 // A 2-second overlap protects words at boundaries; duplicate words are removed
 // by their absolute timestamps and normalized text.
-async function transcribeAudioInChunks(asr, audio, onProgress = () => {}) {
+async function transcribeAudioInChunks(asr, audio, onProgress = () => {}, timestampMode = 'word') {
   const sampleRate = 16000;
   const windowSeconds = 28;
   const overlapSeconds = 2;
@@ -159,7 +159,7 @@ async function transcribeAudioInChunks(asr, audio, onProgress = () => {}) {
     const result = await asr(audio.subarray(startSample, endSample), {
       language: 'spanish',
       task: 'transcribe',
-      return_timestamps: 'word'
+      return_timestamps: timestampMode
     });
     const offset = startSample / sampleRate;
     const chunkText = String(result.text || '').trim();
@@ -252,6 +252,12 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
   const clean = words.filter(w => Number.isFinite(w.start) && Number.isFinite(w.end) && w.end > w.start && String(w.text||'').trim())
     .map(w=>({start:Number(w.start),end:Number(w.end),text:String(w.text).trim()})).sort((a,b)=>a.start-b.start);
   if (!clean.length) return [];
+  // Whisper Small in Transformers.js returns reliable phrase-level timestamps
+  // without cross-attention export. Detect that shape so editorial features
+  // count actual words, not phrase chunks, and don't mistake every subtitle
+  // boundary for a speaker turn.
+  const averageTokensPerSegment=clean.reduce((n,w)=>n+(w.text.match(/\S+/g)||[]).length,0)/clean.length;
+  const phraseTimed=averageTokensPerSegment>1.7;
   const candidates=[];
   const stepSeconds=3.5;
   let nextStart=clean[0].start;
@@ -279,14 +285,19 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     const uniqueRatio=new Set(tokens).size/Math.max(1,tokens.length);
     const wordsPerSecond=tokens.length/Math.max(1,duration);
     const questionCount=(text.match(/[¿?]/g)||[]).length;
-    const turnCount=group.slice(1).filter((w,i)=>w.start-group[i].end>.55).length;
+    const turnCount=group.slice(1).filter((w,i)=>
+      w.start-group[i].end>(phraseTimed?1.15:.55) || /^[-–—]/.test(w.text)
+    ).length;
     const turnScore=Math.min(10,turnCount*1.25);
     const exclamationCount=(text.match(/[¡!]/g)||[]).length;
     const laughCount=(text.match(/\b(risas?|jaj+a+|ja ja|carcajadas?|puf|¡dios!|mira,? mira|a huevo|bolas)\b/gi)||[]).length;
     const reactionCount=(text.match(reactionWord)||[]).length;
     const pivot=storyPivot.test(text);
-    const hookAtStart=strongHook.test(group.slice(0,Math.min(18,group.length)).map(w=>w.text).join(' '));
-    const payoffAtEnd=payoff.test(group.slice(-Math.min(16,group.length)).map(w=>w.text).join(' '));
+    const openingTokens=(text.match(/\S+/g)||[]).slice(0,8).join(' ');
+    const closingTokens=(text.match(/\S+/g)||[]).slice(-8).join(' ');
+    const hookAtStart=strongHook.test(openingTokens);
+    const questionAtStart=/[¿?]/.test(openingTokens);
+    const payoffAtEnd=payoff.test(closingTokens);
     const hasSetup=/\b(pero|porque|cuando|si|aunque|resulta que|me dijo|y entonces|imagina|una vez)\b/i.test(text);
     const hasTurn=/\b(pero|aunque|sin embargo|de repente|entonces|al final|resulta que|y va|me dijo|y me dice)\b/i.test(text);
     const fillerCount=(text.match(filler)||[]).length;
@@ -304,7 +315,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     const paceScore=Math.max(0,Math.min(1,(wordsPerSecond-1.15)/2.1));
     const lexicalScore=Math.max(0,Math.min(1,(uniqueRatio-.28)/.42));
     const rawScore = 15 + durationScore*10 + paceScore*12 + lexicalScore*8 +
-      (hookAtStart?12:0) + Math.min(6,questionCount*1.5) + Math.min(10,exclamationCount*2.5) + turnScore +
+      (hookAtStart?12:0) + (questionAtStart?6:0) + Math.min(6,questionCount*1.5) + Math.min(10,exclamationCount*2.5) + turnScore +
       Math.min(14,laughCount*7) + Math.min(18,reactionCount*4) + (pivot?8:0) + (hasSetup?6:0) + (hasTurn?6:0) +
       (payoffAtEnd?8:0) + (completeEnd?7:0) + acousticScore - Math.min(12,fillerCount*.8) -
       (abruptStart?8:0) - (wordsPerSecond<1.1?8:0);
@@ -314,7 +325,8 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     const reasons=[];
     if(hookAtStart)reasons.push('inicio que despierta curiosidad');
     if(questionCount)reasons.push('pregunta o interacción');
-    if(turnCount>=5)reasons.push('diálogo dinámico');
+    if(questionAtStart)reasons.push('pregunta que abre el momento');
+    if(turnCount>=(phraseTimed?2:5))reasons.push('diálogo dinámico');
     if(exclamationCount||laughCount||reactionCount)reasons.push('reacción emocional');
     if(pivot)reasons.push('cambio de situación o remate');
     if(hasSetup&&payoffAtEnd)reasons.push('planteamiento y remate');
@@ -323,12 +335,36 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     candidates.push({start,end,duration,score,text,reasons:[...new Set(reasons)].slice(0,3)});
     nextStart=start+stepSeconds;
   }
-  // Greedy diversity: select high-scoring complete moments without near-duplicates.
-  candidates.sort((a,b)=>b.score-a.score);
+  // Add a small boundary bonus when a slightly earlier window preserves
+  // context but is otherwise almost as strong as a later near-duplicate.
+  // Select one strong moment from each quarter of the source first, then fill
+  // any empty quarter from the global ranking while enforcing a clean gap.
+  const overlapRatio=(a,b)=>{
+    const overlap=Math.max(0,Math.min(a.end,b.end)-Math.max(a.start,b.start));
+    return overlap/Math.max(.001,Math.min(a.duration,b.duration));
+  };
+  const ranked=candidates.map(c=>({
+    clip:c,
+    selectionScore:c.score+(candidates.some(other=>
+      other.start>c.start&&other.start-c.start<=8&&overlapRatio(c,other)>=.55&&other.score<=c.score+6
+    )?6:0)
+  })).sort((a,b)=>b.selectionScore-a.selectionScore);
+  const firstStart=clean[0].start;
+  const lastEnd=clean[clean.length-1].end;
+  const quarter=(lastEnd-firstStart)/4;
   const chosen=[];
-  for(const c of candidates){
-    if(chosen.every(x=>c.end<=x.start-10 || c.start>=x.end+10))chosen.push(c);
-    if (chosen.length === 4) break;
+  const fits=c=>chosen.every(x=>c.end<=x.start-10||c.start>=x.end+10);
+  for(let bucket=0;bucket<4;bucket++){
+    const low=firstStart+quarter*bucket;
+    const high=bucket===3?lastEnd+0.001:low+quarter;
+    const best=ranked.find(x=>x.clip.start>=low&&x.clip.start<high&&fits(x.clip));
+    if(best)chosen.push(best.clip);
+  }
+  if(chosen.length<4){
+    for(const item of ranked){
+      if(chosen.length===4)break;
+      if(!chosen.includes(item.clip)&&fits(item.clip))chosen.push(item.clip);
+    }
   }
   return chosen.sort((a,b)=>a.start-b.start).map((c,i)=>({...c,title:`Momento ${i+1}`}));
 }
@@ -414,7 +450,7 @@ runButton?.addEventListener('click', async () => {
     say('Transcribiendo en fragmentos para reducir memoria y evitar límites de 30 segundos…');
     const result = await transcribeAudioInChunks(asr, audio, (percent, current, total) => {
       say(`Transcribiendo entrevista: ${percent}% · fragmento ${current}/${total}`);
-    });
+    }, model === 'whisper-small' ? true : 'word');
     const chunks = result.chunks || [];
     transcriptData = {
       source: file.name, model: modelId, language: 'es',
