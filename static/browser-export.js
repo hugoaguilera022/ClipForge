@@ -95,10 +95,10 @@ async function exportOne(file,clip,segments,index,total){
 exportButton?.addEventListener('click',async()=>{
   const file=document.querySelector('#video')?.files?.[0];
   const project=window.clipforgeEditorBridge?.getProject?.();
-  const clips=(project?.clips||[]).filter(c=>Number.isFinite(Number(c.start))&&Number.isFinite(Number(c.end))&&Number(c.start)>=0&&Number(c.end)>Number(c.start));
+  const clips=(project?.clips||[]).filter(c=>c.selected!==false&&Number.isFinite(Number(c.start))&&Number.isFinite(Number(c.end))&&Number(c.start)>=0&&Number(c.end)>Number(c.start));
   const segments=project?.transcript?.segments||[];
   if(!file){sayExport('Selecciona el MP4 original antes de exportar.');return;}
-  if(!clips.length){sayExport('No hay cortes válidos. Primero transcribe el vídeo y selecciona momentos.');return;}
+  if(!clips.length){sayExport('No hay clips seleccionados para exportar. Marca al menos uno en la lista de momentos.');return;}
   const expected=String(project?.source||'').split(/[\\/]/).pop();
   if(expected&&expected!==file.name){sayExport(`El proyecto corresponde a ${expected}; has seleccionado ${file.name}. Para evitar exportar el vídeo equivocado, selecciona el original.`);return;}
   if(!('VideoEncoder'in window)||!('AudioEncoder'in window)||!('OffscreenCanvas'in window)){sayExport('Este navegador no ofrece WebCodecs/OffscreenCanvas. Usa Chrome o Edge actualizado.');return;}
@@ -109,6 +109,14 @@ exportButton?.addEventListener('click',async()=>{
       const clip={start:Number(clips[i].start),end:Number(clips[i].end)};
       if(clip.end>36000)throw new Error('Un corte supera el límite de seguridad de 10 horas.');
       results.push(await exportOne(file,clip,segments,i,clips.length));
+    }
+    if(results.length===1){
+      const url=URL.createObjectURL(results[0].blob),a=document.createElement('a');
+      a.href=url;a.download=results[0].name;
+      document.body.append(a);a.click();a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),60000);
+      sayExport(`Exportación terminada: 1 MP4 individual · 1080×1920 · 30 fps · H.264/AAC · ${(results[0].bytes/1024/1024).toFixed(1)} MB.`);
+      return;
     }
     sayExport('Preparando paquete ZIP con los MP4…');
     const JSZip=(await import('https://esm.sh/jszip@3.10.1')).default;
