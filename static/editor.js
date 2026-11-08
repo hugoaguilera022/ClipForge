@@ -96,7 +96,7 @@ function render() {
           if (clip) Object.assign(clip,{start:a,end:b,text:text.value});
           window.clipforgeEditorBridge?.setClips(clips);
         } else if (track.type==='subtitles') {
-          const match=String(item.id).match(/^subtitle-(\\d+)$/);
+          const match=String(item.id).match(/^subtitle-(\d+)$/);
           const segment=match ? transcript?.segments?.[Number(match[1])-1] : null;
           if (segment) {
             Object.assign(segment,{start:a,end:b,text:text.value});
