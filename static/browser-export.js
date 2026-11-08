@@ -110,7 +110,7 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
     trim:{start:clip.start,end:clip.end},
     video:{
       width:1080,height:1920,fit:'cover',frameRate:30,codec:'avc',
-      quality:new Quality('high'),hardwareAcceleration:'no-preference',
+      quality:new Quality('high'),hardwareAcceleration:'prefer-hardware',
       process:sample=>{
         // The returned canvas MUST have the same 9:16 dimensions advertised
         // by processedWidth/processedHeight. Drawing at source dimensions here
