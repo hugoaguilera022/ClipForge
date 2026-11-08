@@ -16,6 +16,29 @@ function buildCaptionCues(segments){
   }
   flush();return cues;
 }
+function drawTextLayers(ctx,tracks,sourceTime,width,height){
+  const layers=(tracks||[]).filter(t=>t.type==='text').flatMap(t=>t.items||[])
+    .filter(item=>Number.isFinite(Number(item.start))&&Number.isFinite(Number(item.end))&&sourceTime>=Number(item.start)&&sourceTime<=Number(item.end)&&String(item.text||'').trim());
+  if(!layers.length)return;
+  ctx.save();
+  layers.forEach((item,index)=>{
+    const fontSize=Math.round(width*.052),text=String(item.text).trim().slice(0,180);
+    ctx.font=`800 ${fontSize}px system-ui,sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+    const maxWidth=width*.86,lines=[];let line='';
+    for(const word of text.split(/\\s+/)){
+      const next=line?line+' '+word:word;
+      if(line&&ctx.measureText(next).width>maxWidth){lines.push(line);line=word;}else line=next;
+    }
+    if(line)lines.push(line);
+    const visible=lines.slice(0,3),lineHeight=fontSize*1.2,pad=fontSize*.45;
+    const y=height*.22+index*(lineHeight*visible.length+pad*2);
+    const boxW=Math.min(maxWidth+pad*2,Math.max(...visible.map(x=>ctx.measureText(x).width))+pad*2);
+    const boxH=visible.length*lineHeight+pad*2,x=(width-boxW)/2;
+    ctx.fillStyle='rgba(0,0,0,.68)';ctx.fillRect(x,y,boxW,boxH);
+    ctx.fillStyle='#fff';visible.forEach((lineText,i)=>ctx.fillText(lineText,width/2,y+pad+lineHeight*(i+.5),maxWidth));
+  });
+  ctx.restore();
+}
 function drawKaraokeCaption(ctx,cues,sourceTime,width,height){
   const cue=cues.find(words=>sourceTime>=words[0].start&&sourceTime<=words[words.length-1].end+.18);
   if(!cue)return;
@@ -78,6 +101,7 @@ async function exportOne(file,clip,segments,index,total){
         const stamp=Number(sample.timestamp)||0;
         // Mediabunny normalizes timestamps to zero after trim; captions keep source-video times.
         const local=clip.start+stamp;
+        drawTextLayers(ctx,tracks,local,canvas.width,canvas.height);
         drawKaraokeCaption(ctx,cues,local,canvas.width,canvas.height);
         return canvas;
       },
@@ -102,6 +126,7 @@ exportButton?.addEventListener('click',async()=>{
   const project=window.clipforgeEditorBridge?.getProject?.();
   const clips=(project?.clips||[]).filter(c=>c.selected!==false&&Number.isFinite(Number(c.start))&&Number.isFinite(Number(c.end))&&Number(c.start)>=0&&Number(c.end)>Number(c.start));
   const segments=project?.transcript?.segments||[];
+  const tracks=project?.tracks||[];
   if(!file){sayExport('Selecciona el MP4 original antes de exportar.');return;}
   if(!clips.length){sayExport('No hay clips seleccionados para exportar. Marca al menos uno en la lista de momentos.');return;}
   const expected=String(project?.source||'').split(/[\\/]/).pop();
