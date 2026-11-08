@@ -635,3 +635,7 @@ class BrowserEditorPreviewTests(unittest.TestCase):
   self.assertIn('previewVideo.currentTime=start',module)
   self.assertIn("className='secondary preview-clip'",module)
   self.assertIn('URL.createObjectURL(file)',module)
+  self.assertIn('window.clipforgeEditorBridge.previewClip=previewClip',module)
+  whisper=(ROOT/'static'/'browser-whisper.js').read_text()
+  self.assertIn('preview-clip-candidate',whisper)
+  self.assertIn('previewClip?.(c)',whisper)
