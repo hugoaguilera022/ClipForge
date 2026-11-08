@@ -76,7 +76,15 @@ function render() {
     const head = document.createElement('div'); head.className='editor-track-head';
     const title = document.createElement('strong'); title.textContent = `${TYPES[track.type] || track.type} · ${track.name || `Pista ${trackIndex+1}`}`;
     const count = document.createElement('small'); count.className='muted'; count.textContent=`${track.items.length} elementos`;
-    head.append(title,count); section.append(head);
+    const actions=document.createElement('div'); actions.className='editor-track-actions';
+    if(track.type==='text'){
+      const add=document.createElement('button'); add.type='button'; add.className='secondary'; add.textContent='Añadir texto';
+      add.addEventListener('click',()=>{remember();track.items.push({id:`text-${crypto.randomUUID()}`,start:0,end:5,text:'Nuevo título'});render();say('Capa de texto añadida. Ajusta su intervalo y contenido.');});
+      actions.append(add);
+    }
+    const removeTrack=document.createElement('button');removeTrack.type='button';removeTrack.className='secondary';removeTrack.textContent='Eliminar pista';
+    removeTrack.addEventListener('click',()=>{remember();tracks=tracks.filter(t=>t.id!==track.id);render();say('Pista eliminada.');});
+    actions.append(removeTrack);head.append(title,count,actions); section.append(head);
     const items = document.createElement('div'); items.className='editor-track-items';
     if (!track.items.length) {
       const empty = document.createElement('div'); empty.className='editor-empty muted'; empty.textContent='Pista vacía. Puedes añadir elementos desde los clips o transcripción.'; items.append(empty);
@@ -106,7 +114,9 @@ function render() {
         say('Cambios aplicados a la línea de tiempo. Guarda el proyecto para conservarlos.');
         render();
       });
-      row.append(start,end,text,apply); items.append(row);
+      const remove=document.createElement('button');remove.type='button';remove.className='secondary';remove.textContent='Quitar';
+      remove.addEventListener('click',()=>{remember();track.items=track.items.filter(x=>x!==item);render();say('Elemento eliminado de la pista.');});
+      row.append(start,end,text,apply,remove); items.append(row);
     });
     section.append(items); timelineEl.append(section);
   });
@@ -171,6 +181,8 @@ document.querySelector('#loadSavedProject')?.addEventListener('click',async()=>{
     transcript=project.transcript||null;source=project.source||'';
     window.clipforgeEditorBridge?.setClips(clips);
     if (transcript) window.clipforgeEditorBridge?.setTranscript(transcript);
+    window.clipforgeEditorBridge?.setTracks(tracks);
+    window.clipforgeEditorBridge?.setTracks(tracks);
     render();updateHistoryButtons();say(`Proyecto ${id} abierto. ${clips.length} clips y ${tracks.length} pistas recuperados.`);
   }catch(e){say(`No se pudo abrir el proyecto: ${e.message}`);}
 });
@@ -183,6 +195,7 @@ refreshProjects(); updateHistoryButtons();
 window.addEventListener('clipforge:clips-updated',()=>{
   bridgeProject();
   if (!tracks.length) tracks=makeDefaultTracks();
+  window.clipforgeEditorBridge?.setTracks(tracks);
   const videoTrack=tracks.find(track=>track.type==='video');
   if (videoTrack) videoTrack.items=clips.map(c=>({id:c.id,start:c.start,end:c.end,text:c.title || c.text || 'Clip'}));
   render();
