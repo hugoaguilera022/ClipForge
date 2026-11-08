@@ -2,7 +2,7 @@ name: ClipForge quality checks
 
 on:
   push:
-    branches: [main]
+    branches: [main, browser-only-migration]
   pull_request:
   workflow_dispatch:
 
