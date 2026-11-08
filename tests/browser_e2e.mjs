@@ -6,7 +6,9 @@ const base = process.env.CLIPFORGE_URL || 'http://127.0.0.1:8765';
 const browser = await chromium.launch({ headless: true, args: ['--enable-features=PlatformHEVCDecoderSupport'] });
 const page = await browser.newPage({ acceptDownloads: true });
 const errors = [];
+const browserLogs = [];
 page.on('pageerror', error => errors.push(error.message));
+page.on('console', message => { if (message.type() === 'error') browserLogs.push(message.text()); });
 try {
   const response = await page.goto(base, { waitUntil: 'networkidle', timeout: 30000 });
   if (!response?.ok()) throw new Error(`Web app returned HTTP ${response?.status()}`);
@@ -38,9 +40,21 @@ try {
   await status.waitFor({ state:'visible' });
   await page.waitForFunction(() => {
     const el=document.querySelector('#browserExportStatus');
-    return el && /Exportación terminada:/.test(el.textContent);
+    return el && /Exportación (terminada|detenida):/.test(el.textContent);
   }, undefined, { timeout: 180000 });
-  const download = await downloadPromise;
+  const exportMessage = await status.innerText();
+  if (!exportMessage.includes('Exportación terminada:')) {
+    throw new Error(exportMessage + (errors.length ? ' | Page errors: '+errors.join('; ') : '') + (browserLogs.length ? ' | Console: '+browserLogs.join('; ') : ''));
+  }
+  let download;
+  try {
+    download = await Promise.race([
+      downloadPromise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('El MP4/ZIP se generó pero Chromium no notificó la descarga.')), 15000))
+    ]);
+  } catch (error) {
+    throw new Error(error.message + ' | Estado: ' + exportMessage + (browserLogs.length ? ' | Console: '+browserLogs.join('; ') : ''));
+  }
   await download.saveAs('test-output/browser-export.zip');
   const inspect = spawnSync('python', ['-c', "import zipfile; z=zipfile.ZipFile('test-output/browser-export.zip'); names=z.namelist(); assert len(names)==4, names; [z.extract(n,'test-output/exported') for n in names]; print(names)"], {encoding:'utf8'});
   if (inspect.status !== 0) throw new Error(inspect.stderr || inspect.stdout);
