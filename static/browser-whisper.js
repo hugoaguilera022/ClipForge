@@ -217,7 +217,25 @@ function makeVtt(segments) {
 }
 
 // Editorial ranking: balanced hooks, coherent setup/payoff, dialogue, pace and clean boundaries.
-function rankClipCandidates(words, videoDuration) {
+function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRate = 16000) {
+  // Lightweight acoustic profile from the already-decoded audio. It adds a
+  // free, on-device signal for energetic moments and avoids sending media away.
+  const audioWindow = 0.5;
+  const energy = [];
+  if (audioSamples && audioSamples.length) {
+    const n = Math.ceil(audioSamples.length / (sampleRate * audioWindow));
+    for (let k = 0; k < n; k++) {
+      const from = Math.floor(k * sampleRate * audioWindow);
+      const to = Math.min(audioSamples.length, Math.floor((k + 1) * sampleRate * audioWindow));
+      let sum = 0, peak = 0;
+      for (let j = from; j < to; j++) { const v = audioSamples[j]; sum += v * v; peak = Math.max(peak, Math.abs(v)); }
+      energy.push({ t: k * audioWindow, rms: Math.sqrt(sum / Math.max(1, to - from)), peak });
+    }
+  }
+  const sortedRms = energy.map(x => x.rms).sort((a,b) => a-b);
+  const quantile = q => sortedRms.length ? sortedRms[Math.min(sortedRms.length-1, Math.floor((sortedRms.length-1)*q))] : 0;
+  const energyFloor = quantile(.2), energyMedian = quantile(.5), energyTop = quantile(.9);
+  const energySpan = Math.max(1e-5, energyTop - energyFloor);
   const minLen = 18, maxLen = 38, targetLen = 27;
   const sentenceEnd = /[.!?…][”’"')\]]?$/;
   const strongHook = /\b(¿qué|quién|cómo|por qué|qué pasa|no me digas|madre mía|increíble|imagina|resulta que|la verdad|nunca|jamás|te juro|no sabía|de repente|en serio|qué fuerte|qué locura|qué dices)\b/i;
@@ -264,15 +282,23 @@ function rankClipCandidates(words, videoDuration) {
     const completeEnd=sentenceEnd.test(group[group.length-1].text);
     const pivot=storyPivot.test(text);
     const durationScore=Math.max(0,1-Math.abs(duration-targetLen)/19);
+    const acoustic = energy.filter(x => x.t >= start && x.t < end);
+    const activeRatio = acoustic.length ? acoustic.filter(x => x.rms > Math.max(energyFloor * 1.35, energyMedian * .42)).length / acoustic.length : 0;
+    const meanEnergy = acoustic.length ? acoustic.reduce((sum,x)=>sum+x.rms,0)/acoustic.length : 0;
+    const peakEnergy = acoustic.length ? Math.max(...acoustic.map(x=>x.rms)) : 0;
+    const energyLift = energy.length ? Math.max(0,Math.min(1,(meanEnergy-energyFloor)/energySpan)) : 0;
+    const energyContrast = energy.length ? Math.max(0,Math.min(1,(peakEnergy-meanEnergy)/energySpan)) : 0;
+    const acousticScore = energy.length ? Math.round(activeRatio*5 + energyLift*4 + energyContrast*3) : 0;
     const paceScore=Math.max(0,Math.min(1,(wordsPerSecond-1.15)/2.1));
     const lexicalScore=Math.max(0,Math.min(1,(uniqueRatio-.28)/.42));
-    const score=Math.max(0,Math.min(100,Math.round(
-      15 + durationScore*10 + paceScore*12 + lexicalScore*8 +
+    const rawScore = 15 + durationScore*10 + paceScore*12 + lexicalScore*8 +
       (hookAtStart?12:0) + Math.min(6,questionCount*1.5) + Math.min(10,exclamationCount*2.5) +
       Math.min(14,laughCount*7) + Math.min(18,reactionCount*4) + (pivot?8:0) +
-      (hasSetup?6:0) + (hasTurn?6:0) + (payoffAtEnd?8:0) + (completeEnd?7:0) -
-      Math.min(12,fillerCount*.8) - (abruptStart?8:0) - (wordsPerSecond<1.1?8:0)
-    )));
+      (hasSetup?6:0) + (hasTurn?6:0) + (payoffAtEnd?8:0) + (completeEnd?7:0) + acousticScore -
+      Math.min(12,fillerCount*.8) - (abruptStart?8:0) - (wordsPerSecond<1.1?8:0);
+    // Compress the raw weighted sum to avoid the previous ceiling effect where
+    // several very different moments all received 100/100.
+    const score = Math.max(0, Math.min(100, Math.round(rawScore / 1.5)));
     const reasons=[];
     if(hookAtStart)reasons.push('inicio que despierta curiosidad');
     if(questionCount)reasons.push('pregunta o interacción');
@@ -280,6 +306,7 @@ function rankClipCandidates(words, videoDuration) {
     if(pivot)reasons.push('cambio de situación o remate');
     if(hasSetup&&payoffAtEnd)reasons.push('planteamiento y remate');
     if(completeEnd)reasons.push('cierre natural');
+    if(energy.length && acousticScore >= 8)reasons.push('energía y dinámica de audio');
     candidates.push({start,end,duration,score,text,reasons:[...new Set(reasons)].slice(0,3)});
     nextStart=start+stepSeconds;
   }
@@ -292,10 +319,10 @@ function rankClipCandidates(words, videoDuration) {
   return chosen.sort((a,b)=>a.start-b.start).map((c,i)=>({...c,title:`Momento ${i+1}`}));
 }
 let editableCandidates=[];
-function showClipCandidates(words,duration,restoredCandidates=null) {
+function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=null) {
  const panel=document.querySelector('#browserCandidates'),list=document.querySelector('#browserCandidateList');
  if(!panel||!list)return;
- editableCandidates=(restoredCandidates || rankClipCandidates(words,duration)).map((c,i)=>({...c,title:c.title||`Clip ${i+1}`,selected:c.selected!==false}));
+ editableCandidates=(restoredCandidates || rankClipCandidates(words,duration,audioSamples)).map((c,i)=>({...c,title:c.title||`Clip ${i+1}`,selected:c.selected!==false}));
  panel.hidden=false;list.replaceChildren();
  if(!editableCandidates.length){list.textContent='No hay suficientes marcas de tiempo.';const field=document.querySelector('[name="selected_clip_ranges"]');if(field)field.value='';return;}
  const sync=()=>{
@@ -321,7 +348,7 @@ function showClipCandidates(words,duration,restoredCandidates=null) {
   a.addEventListener('change',update);b.addEventListener('change',update);note.addEventListener('input',update);
   row.append(a,b);card.append(heading,rationale,selectLabel,row,note);list.append(card);
  });
- const info=document.createElement('p');info.textContent='Selección local basada en inicio, coherencia, interacción, ritmo y cierre. Revisa los cuatro momentos: la puntuación orienta, no predice viralidad.';list.append(info);sync();
+ const info=document.createElement('p');info.textContent='Selección local basada en transcripción, coherencia, interacción, ritmo, energía de audio y cierre. Revisa los cuatro momentos: la puntuación orienta, no predice viralidad.';list.append(info);sync();
  window.dispatchEvent(new CustomEvent('clipforge:clips-updated'));
 }
 
@@ -388,7 +415,7 @@ runButton?.addEventListener('click', async () => {
       ? transcriptData.segments.map(s => `[${s.start.toFixed(2)}–${s.end.toFixed(2)}] ${s.text}`).join('\n')
       : (result.text || 'El modelo no devolvió texto temporizado.');
     if (transcriptData.segments.length) {
-      showClipCandidates(transcriptData.segments, audio.length / 16000);
+      showClipCandidates(transcriptData.segments, audio.length / 16000, null, audio);
       const vtt = makeVtt(transcriptData.segments);
       const attached = attachTranscriptToJobForm(vtt);
       say(`Transcripción lista: ${transcriptData.segments.length} fragmentos temporizados. ${attached ? 'Subtítulos y cortes seleccionados conectados al formulario de producción.' : 'Descarga el JSON para conservarla.'} Whisper no identifica hablantes.`);
