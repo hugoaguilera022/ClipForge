@@ -194,7 +194,8 @@ window.addEventListener('clipforge:editor-ready',()=>{
   bridgeProject(); if(clips.length){tracks=makeDefaultTracks();window.clipforgeEditorBridge?.setTracks(tracks);render();say(`${clips.length} clips disponibles para editar.`);}
 });
 document.querySelector('#browserTranscribe')?.addEventListener('click',()=>{});
-refreshProjects(); updateHistoryButtons();
+if(window.clipforgeModeReady)refreshProjects();else window.addEventListener('clipforge:mode-ready',refreshProjects,{once:true});
+updateHistoryButtons();
 
 window.addEventListener('clipforge:clips-updated',()=>{
   bridgeProject();

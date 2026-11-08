@@ -15,6 +15,8 @@ async function loadHealth(){
    const note=document.createElement('p');note.className='browser-only-note';note.textContent='Selecciona aquí el vídeo que quieres analizar. Después, baja al Motor 01 para transcribirlo, elegir cuatro momentos y exportarlos en vertical. No se necesita instalar nada ni subir el vídeo a un servidor.';
    upload.querySelector('.section-head').after(note);
   }
+  window.clipforgeModeReady=true;
+  window.dispatchEvent(new Event('clipforge:mode-ready'));
  }
 }
 async function loadPlatforms(){
