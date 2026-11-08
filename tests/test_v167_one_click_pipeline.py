@@ -18,6 +18,6 @@ def test_legacy_server_submission_is_opt_in_and_requires_rights_confirmation():
     assert 'id="autoGenerateAfterTranscription"' in html
     assert 'type="checkbox" checked' not in html
     assert 'modo compatibilidad' in html
-    assert 'confirmación de derechos' in html
+    assert 'confirmación de derechos' in js
     assert 'if (rights?.checked)' in js
     assert 'form.requestSubmit()' in js
