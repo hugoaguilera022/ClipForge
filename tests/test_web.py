@@ -29,216 +29,586 @@ class WebStaticTests(unittest.TestCase):
   engine=(ROOT/"clipforge.py").read_text()
   self.assertIn('name="crop"',html)
   self.assertIn('name="resolution"',html)
-  self.assertIn("face_crop_expresÕÈZ®Ëkºwµçkz»§Â+a…æş
-Ş§ûZŠWè­û¥–‹­¦ëX\Q\™XİÜJ
-H\È‚ˆÛİ\˜ÙOT]
-
-KÉÛÜšYÚ[˜[›\	ÎÈÛİ\˜ÙKÜš]WØ]\Ê‰Ø]]Üš^™Y\Ûİ\˜ÙIÊBˆšYIÜ™]ZLŒÍ	ÎÈ™YÚ\İOT]
-
-KÉÚ›ØœËšœÛÛ‰ÂˆÜšYÚ[˜[Ú›ØœÏ\Ù\™\‹’“Ğ”ÂˆÚ]]Ú›Øš™Xİ
-Ù\™\‹	Ò“Ğ”×Ñ’SIË™YÚ\İJK]Ú›Øš™Xİ
-Ù\™\‹	Ò“Ğ”ÉËÂˆšYÉÚY	ÎššY	Üİ]\ÉÎ‰Ù˜Z[Y	Ë	ÜÛİ\˜ÙIÎ‰ÛÜšYÚ[˜[›\	Ë	ØÜ™X]Y	ÎŒK	ÛÙÉÎ‰Ù˜Z[Y	Ë	Ûİ]]	Î“›Û™Kˆ	Ø\™ÜÉÎ–ÉÜ]Û‰Ë	Ë]IË	ØÛ\›Ü™ÙKœIËİŠÛİ\˜ÙJWK	İ˜[œØÜš\Ü]	Î“›Û™K	İšY[×İ\›	Î‰ÉßBˆJK]Ú›Øš™Xİ
-Ù\™\‹’[™\‹	Ü[—Ú›Ø‰Ë[X™HÙ[‹
-˜\™ÜÎˆ›Û™JN‚ˆU™XY[™ÒÙ\™\Š
-	ÌLËŒŒŒIË
-KÙ\™\‹’[™\ŠBˆ™XY]™XY[™Ë•™XY
-\™Ù]ZœÙ\™WÙ›Ü™]™\‹Y[[ÛUYJNÈ™XYœİ\
+  self.assertIn("face_crop_expression",engine)
+  self.assertIn(r"\fscx88",engine)
+if __name__=="__main__":unittest.main()
 
-Bˆ˜\ÙOY‰Ú‹ËÌLËŒŒŒNÚœÙ\™\—ØY™\ÜÖÌW_IÂˆN‚ˆ™\]Y\İ]\›X‹œ™\]Y\İ”™\]Y\İ
-˜\ÙJÙ‰ËØ\KÚ›ØœËŞÚšYKÜ™]IË]OX‰ÉËY]ÙIÔÔÕ	ÊBˆÚ]\›X‹œ™\]Y\İ\›Ü[Š™\]Y\İ[Y[İ]MJH\È™\ÜÛœÙN‚ˆÙ[‹˜\ÜÙ\\]X[
-™\ÜÛœÙKœİ]\ËŒŠBˆÙ[‹˜\ÜÙ\\]X[
-œÛÛ‹›ØYÊ™\ÜÛœÙKœ™XY
 
-JVÉÜİ]\É×K	Ü]Y]YY	ÊBˆÚ]\›X‹œ™\]Y\İ\›Ü[Š˜\ÙJÙ‰ËØ\KÚ›ØœËŞÚšYIË[Y[İ]MJH\È™\ÜÛœÙN‚ˆX›XÏZœÛÛ‹›ØYÊ™\ÜÛœÙKœ™XY
+class NativeMacSpeechTests(unittest.TestCase):
+ def test_macos_native_speech_fallback_is_wired(self):
+  source=(ROOT/"clipforge.py").read_text()
+  helper=ROOT/"transcribe_macos.swift"
+  self.assertTrue(helper.is_file())
+  self.assertIn("transcribe_macos_native",source)
+  self.assertIn('"--find","swiftc"',source)
+  self.assertIn('"-O",str(helper)',source)
+  self.assertIn('str(executable),str(audio),language,str(result)',source)
+  self.assertNotIn('["swift",str(helper)',source)
+  helper_source=helper.read_text()
+  self.assertIn("requiresOnDeviceRecognition = true",helper_source)
+  self.assertIn("waitOnMainRunLoop",helper_source)
+  self.assertIn("RunLoop.current.run",helper_source)
+  self.assertNotIn("DispatchSemaphore",helper_source)
 
-JBˆÙ[‹˜\ÜÙ\›İ[Š	Ø\™ÜÉËX›XÊNÈÙ[‹˜\ÜÙ\›İ[Š	İ˜[œØÜš\Ü]	ËX›XÊNÈÙ[‹˜\ÜÙ\›İ[Š	İšY[×İ\›	ËX›XÊBˆÙ[‹˜\ÜÙ\\]X[
-Ù\™\‹š›Ø—ÜİÜ™WÙ›Ü—Ü™YÚ\İJ
-K™Ù]
-šY
-VÉÜİ]\É×K	Ü]Y]YY	ÊBˆš[˜[N‚ˆœÚ]İÛŠ
-NÈœÙ\™\—ØÛÜÙJ
-BˆÙ\™\‹’“Ğ”Ï[ÜšYÚ[˜[Ú›ØœÂ‚ˆYˆ\İÚ›Ø—ÛY]Y]WÚ\×İÜš][—Ø]ÛZXØ[WØ[™Ø›İ[™Y
-Ù[ŠN‚ˆ[\ÜÙ\™\‹[\š[KœÛÛ‚ˆœ›ÛH]Xˆ[\Ü]ˆœ›ÛH[š]\İ›[ØÚÈ[\Ü]ÚˆÚ][\š[K•[\Ü˜\Q\™XİÜJ
-H\È‚ˆ™YÚ\İOT]
-
-KÉÚ›ØœËšœÛÛ‰Âˆ›ØœÏ^ÜİŠJNÉÚY	ÎœİŠJK	Üİ]\ÉÎ‰ØÛÛ\]Y	ßH›ÜˆH[ˆ˜[™ÙJLJ_BˆÚ]]Ú›Øš™Xİ
-Ù\™\‹	Ò“Ğ”×Ñ’SIË™YÚ\İJK]Ú›Øš™Xİ
-Ù\™\‹	Ò“Ğ”ÉË›ØœÊN‚ˆÚ]Ù\™\‹“ĞÒÎˆÙ\™\‹œ\œÚ\İÚ›Øœ×ÛØÚÙY
+class FaceTrackingContinuityTests(unittest.TestCase):
+ def test_tracker_uses_continuity_gap_interpolation_and_motion_limit(self):
+  source=(ROOT/"clipforge.py").read_text()
+  self.assertIn("continuity=abs(cx-previous_cx)",source)
+  self.assertIn("gap<=1.5",source)
+  self.assertIn("Limit horizontal camera speed",source)
+  self.assertIn("frame_step=max(1,int(round(fps*.30)))",source)
+  self.assertIn("cap.set(cv2.CAP_PROP_POS_MSEC,start*1000)",source)
 
-BˆØ]™YZœÛÛ‹›ØYÊ™YÚ\İKœ™XYİ^
 
-JBˆÙ[‹˜\ÜÙ\\]X[
-[ŠØ]™Y
-KL
-BˆÙ[‹˜\ÜÙ\˜[ÙJ™YÚ\İKÚ]ÜİY™š^
-	Ë\	ÊK™^\İÊ
-JB‚‚˜Û\ÜÈ›Ø’\İÜP\U\İÊ[š]\İ•\İØ\ÙJN‚ˆYˆ\İÚ›Ø—Ú\İÜWÙ[™Ú[Ü™]\›œ×ÜØY™WÜİ[[X\WØ[™ØÛÛ\]YÙİÛ›ØY
-Ù[ŠN‚ˆ[\ÜÙ\™\‹™XY[™Ë\›X‹œ™\]Y\İœÛÛ‹[\š[Bˆœ›ÛH]Xˆ[\Ü]ˆœ›ÛHœÙ\™\ˆ[\Ü™XY[™ÒÙ\™\‚ˆœ›ÛH[š]\İ›[ØÚÈ[\Ü]ÚˆÚ][\š[K•[\Ü˜\Q\™XİÜJ
-H\È‚ˆİ]]T]
-
-KÉÛİ]	ÎÈİ]]›ZÙ\Š
-Bˆ›ØœÏ^ÉØIÎÉÚY	Î‰ØIË	Üİ]\ÉÎ‰ØÛÛ\]Y	Ë	ÜÛİ\˜ÙIÎ‰ÜÛİ\˜ÙK›\	Ë	ØÜ™X]Y	ÎŒL	ÛÙÉÎ‰ÙÛ™IË	Ûİ]]	ÎœİŠİ]]
-_Kˆ	Ø‰ÎÉÚY	Î‰Ø‰Ë	Üİ]\ÉÎ‰Ù˜Z[Y	Ë	ÜÛİ\˜ÙIÎ‰Ø˜Y›\	Ë	ØÜ™X]Y	ÎŒŒ	ÛÙÉÎ‰Ù\œ›Ü‰Ë	Ûİ]]	Î“›Û™__BˆU™XY[™ÒÙ\™\Š
-	ÌLËŒŒŒIË
-KÙ\™\‹’[™\ŠNÈ™XY]™XY[™Ë•™XY
-\™Ù]ZœÙ\™WÙ›Ü™]™\‹Y[[ÛUYJNÈ™XYœİ\
+class CriticalServerRegressionTests(unittest.TestCase):
+ def test_job_outputs_are_isolated_and_api_uses_real_nested_folder(self):
+  source=(ROOT/"server.py").read_text()
+  self.assertIn("'--output',str(OUTPUTS/jid)",source)
+  self.assertIn("actual_output=OUTPUTS/jid/Path(args[3]).stem",source)
+  self.assertIn("str(actual_output) if success and actual_output.is_dir()",source)
+  self.assertIn("'version':'1.72.0'",source)
+ def test_upload_limit_is_memory_safer(self):
+  source=(ROOT/"server.py").read_text()
+  self.assertIn("length>512*1024*1024",source)
+  self.assertIn("'max_bytes':512*1024*1024",source)
+ def test_failed_job_removes_partial_output(self):
+  source=(ROOT/"server.py").read_text()
+  self.assertIn("shutil.rmtree(OUTPUTS/jid,ignore_errors=True)",source)
 
-BˆN‚ˆÚ]]Ú›Øš™Xİ
-Ù\™\‹	Ò“Ğ”ÉË›ØœÊN‚ˆÚ]\›X‹œ™\]Y\İ\›Ü[Š‰Ú‹ËÌLËŒŒŒNÚœÙ\™\—ÜÜKØ\KÚ›ØœÉÊH\È™\ÜÛœÙN‚ˆ]OZœÛÛ‹›ØYÊ™\ÜÛœÙKœ™XY
 
-JBˆÙ[‹˜\ÜÙ\\]X[
-ŞÉÚY	×H›Üˆ[ˆ]VÉÚ›ØœÉ×WKÉØ‰Ë	ØI×JBˆÙ[‹˜\ÜÙ\\]X[
-]VÉÚ›ØœÉ×VÌWVÉÙİÛ›ØYİ\›	×K	ËØ\KÙİÛ›ØYØIÊBˆÙ[‹˜\ÜÙ\›İ[Š	Ûİ]]	Ë]VÉÚ›ØœÉ×VÌWJBˆš[˜[N‚ˆœÚ]İÛŠ
-NÈœÙ\™\—ØÛÜÙJ
-NÈ™XYš›Ú[Š[Y[İ]LŠB‚ˆYˆ\İÚ\İÜWİZWÚ\×ØÛÛ›™XİYİ×Ø\JÙ[ŠN‚ˆ[J“ÓÕÉÜİ]XËÚ[™^š[	ÊKœ™XYİ^
+class UploadGuardAndHealthTests(unittest.TestCase):
+ def test_frontend_rejects_oversized_upload_before_network(self):
+  js=(ROOT/"static/app.js").read_text()
+  self.assertIn("file.size>512*1024*1024",js)
+ def test_health_reports_native_speech_capability(self):
+  server=(ROOT/"server.py").read_text()
+  self.assertIn("apple_native=sys.platform=='darwin'",server)
+  self.assertIn("'native_speech':apple_native",server)
+  self.assertIn("'mlx_whisper':mlx_available",server)
 
-NÈœÏJ“ÓÕÉÜİ]XËØ\šœÉÊKœ™XYİ^
 
-BˆÙ[‹˜\ÜÙ\[Š	ÚYHš›Ø’\İÜH‰Ë[
-BˆÙ[‹˜\ÜÙ\[Š™™]Ú
-	ËØ\KÚ›ØœÉÊH‹œÊBˆÙ[‹˜\ÜÙ\[Š	ÛØY›Ø’\İÜJ
-IËœÊB‚˜Û\ÜÈ]]Üš^™Y[˜›Ş\İÊ[š]\İ•\İØ\ÙJN‚ˆYˆ\İÚ[˜›ŞÛX[šY™\İÜ™\]Z\™\×Ù^XÚ]ÛİÛ™\—Ø[™Ü\›Z\ÜÚ[Û—Ü™Y™\™[˜ÙJÙ[ŠN‚ˆ[\Ü[\š[KœÛÛ‹Ù\™\‚ˆÚ][\š[K•[\Ü˜\Q\™XİÜJ
-H\È‚ˆÛ\Ù\™\‹’S“ÖÈÙ\™\‹’S“ÖT]
-
-BˆN‚ˆšY[ÏT]
-
-KÉÙ\\ÛÙK›\	ÎÈšY[ËÜš]WØ]\Ê‰Û›İXK\™X[]šY[ÉÊBˆX[šY™\İT]
-İŠšY[ÊJÉË˜Û\›Ü™ÙKšœÛÛ‰ÊBˆX[šY™\İÜš]Wİ^
-œÛÛ‹™[\ÊÉÜšYÚ×ØÛÛ™š\›YY	Î•YK	ÜšYÚ×ÚÛ\‰Î‰ĞÜ™X]Ü‰ßJJBˆÚ]Ù[‹˜\ÜÙ\˜Z\Ù\Ô™YÙ^
-˜[YQ\œ›Ü‹	Ù^XÚ]ÜšYÚ×ØÛÛ™š\›X][Û—Ü™\]Z\™Y	ÊN‚ˆÙ\™\‹—Ú[˜›ŞÛX[šY™\İ
-šY[ËX[šY™\İ
-Bˆš[˜[NˆÙ\™\‹’S“Ö[ÛˆYˆ\İÚ[˜›ŞÛX[šY™\İØXØÙ\×ØÛÛ\]WØ]]Üš^˜][Û—Ø[™ÜØY™WÜÙ][™ÜÊÙ[ŠN‚ˆ[\Ü[\š[KœÛÛ‹Ù\™\‚ˆÚ][\š[K•[\Ü˜\Q\™XİÜJ
-H\È‚ˆÛ\Ù\™\‹’S“ÖÈÙ\™\‹’S“ÖT]
-
-BˆN‚ˆšY[ÏT]
-
-KÉÙ\\ÛÙK›\	ÎÈšY[ËÜš]WØ]\Ê‰Ş	ÊBˆX[šY™\İT]
-İŠšY[ÊJÉË˜Û\›Ü™ÙKšœÛÛ‰ÊBˆX[šY™\İÜš]Wİ^
-œÛÛ‹™[\ÊÉÜšYÚ×ØÛÛ™š\›YY	Î•YK	ÜšYÚ×ÚÛ\‰Î‰ĞÜ™X]Ü‰Ë	Ü\›Z\ÜÚ[Û—Ü™Y™\™[˜ÙIÎ‰Ù[XZ[X\›İ˜[LŒ‰Ë	Û[™İXYÙIÎ‰Ù\ÉË	ØÛ\ÉÎK	ÛZ[—ÜÙXÛÛ™ÉÎŒŒ	ÛX^ÜÙXÛÛ™ÉÎ_JJBˆ]O\Ù\™\‹—Ú[˜›ŞÛX[šY™\İ
-šY[ËX[šY™\İ
-BˆÙ[‹˜\ÜÙ\\]X[
-]VÉÜ\›Z\ÜÚ[Û—Ü™Y™\™[˜ÙI×K	Ù[XZ[X\›İ˜[LŒ‰ÊBˆÙ[‹˜\ÜÙ\\]X[
-]VÉØÜ™‰×K	ÌN	ÊBˆš[˜[NˆÙ\™\‹’S“Ö[ÛˆYˆ\İÚ[˜›ŞØ]]×Ú[\ÜÚ\×İÚ\™Yİ×ÜØÚY[\—Ø[™İZJÙ[ŠN‚ˆÙ\™\J“ÓÕÉÜÙ\™\‹œIÊKœ™XYİ^
+class ServiceWorkerCacheRegressionTests(unittest.TestCase):
+ def test_service_worker_invalidates_old_cache_and_prefers_network(self):
+  source=(ROOT/"static/sw.js").read_text()
+  self.assertIn("clipforge-web-v144",source)
+  self.assertIn("self.addEventListener('activate'",source)
+  self.assertIn("key.startsWith('clipforge-web-')&&key!==CACHE",source)
+  self.assertIn("fetch(event.request)",source)
+  self.assertIn("self.clients.claim()",source)
 
-NÈ[J“ÓÕÉÜİ]XËÚ[™^š[	ÊKœ™XYİ^
 
-NÈœÏJ“ÓÕÉÜİ]XËØ\šœÉÊKœ™XYİ^
+class MediaPreflightTests(unittest.TestCase):
+ def test_server_preflights_media_before_queueing(self):
+  source=(ROOT/"server.py").read_text()
+  self.assertIn("media=inspect_media(src)",source)
+  self.assertIn("return self.json(422,media)",source)
+  self.assertIn("video_and_audio_required",source)
+  self.assertIn("invalid_video",source)
+  self.assertIn("'version':'1.72.0'",source)
 
-BˆÙ[‹˜\ÜÙ\[Š	ÙYˆØØ[—Ú[˜›ŞÛÛ˜ÙJ
-IËÙ\™\ŠBˆÙ[‹˜\ÜÙ\[Š	Üİ\Ú[˜›ŞÜØÚY[\Š
-IËÙ\™\ŠBˆÙ[‹˜\ÜÙ\[Šœ]OIËØ\KÚ[˜›ŞÜØØ[‰È‹Ù\™\ŠBˆÙ[‹˜\ÜÙ\[Š	ÚYHš[˜›Ş\İ‰Ë[
-BˆÙ[‹˜\ÜÙ\[Š™™]Ú
-	ËØ\KÚ[˜›ŞÜØØ[‰È‹œÊBˆÙ[‹˜\ÜÙ\[Š	ÒS“ÖÓPS’Q‘TÕ™^[\KšœÛÛ‰Ë
-“ÓÕÉÔ‘PQQK›Y	ÊKœ™XYİ^
+class YouTubeUrlWorkflowTests(unittest.TestCase):
+ def test_backend_accepts_validated_youtube_url_and_fetches_public_metadata(self):
+  source=(ROOT/"server.py").read_text()
+  self.assertIn("valid_video_url(video_url)",source)
+  self.assertIn("fetch_youtube_metadata(video_url)",source)
+  self.assertIn("'view_count','like_count','comment_count'",source)
+  self.assertIn("yt-dlp",source)
+ def test_frontend_offers_url_first_source(self):
+  html=(ROOT/"static/index.html").read_text()
+  js=(ROOT/"static/app.js").read_text()
+  self.assertIn('id="video_url"',html)
+  self.assertIn('name="video_url"',html)
+  self.assertIn("const url=$('#video_url').value.trim()",js)
 
-JBˆYˆ\İÚ[˜›ŞİØ]Ú\—İØZ]×Ù›Ü—ÜİX›WİšY[×İ[—Ü]Y]Y\×ÛÛ˜ÙJÙ[ŠN‚ˆ[\Ü[\š[KœÛÛ‹İXœ›ØÙ\ÜË™XY[™Ë[YKÙ\™\‚ˆœ›ÛH[š]\İ›[ØÚÈ[\Ü]ÚˆÚ][\š[K•[\Ü˜\Q\™XİÜJ
-H\È‚ˆ›ÛİT]
-
-NÈ[˜›Ş\›ÛİÉÚ[˜ÛÛZ[™ÉÎÈ›ØÙ\ÜÙYZ[˜›ŞÉÜ›ØÙ\ÜÙY	ÎÈ\ØYÏ\›ÛİÉİ\ØYÉÎÈİ]]Ï\›ÛİÉÛİ]]ÉÎÈ]O\›ÛİÉÙ]IÂˆ›Üˆ›Û\ˆ[ˆ
-[˜›Ş›ØÙ\ÜÙY\ØYËİ]]Ë]JNˆ›Û\‹›ZÙ\Š\™[ÏUYK^\İÛÚÏUYJBˆšY[ÏZ[˜›ŞÉØ]]Üš^™Y›\	ÂˆİXœ›ØÙ\ÜËœ[ŠÉÙ™›\YÉË	Ë^IË	ËY‰Ë	Û]™šIË	ËZIË	İ\İÜ˜Ï\Ú^™OLÌŒœ˜]OLIË	ËY‰Ë	Û]™šIË	ËZIË	ÜÚ[™OYœ™\]Y[˜ŞOM™\˜][ÛL‰Ë	Ë]	Ë	Ì‰Ë	ËXÎ‰Ë	ÛX	Ë	Ë\^Ù›]	Ë	Ş]]Œ	Ë	ËXÎ˜IË	ØXXÉËİŠšY[ÊWKİİ]\İXœ›ØÙ\ÜË‘U“•Sİ\œ\İXœ›ØÙ\ÜË‘U“•SÚXÚÏUYJBˆ]
-İŠšY[ÊJÉË˜Û\›Ü™ÙKšœÛÛ‰ÊKÜš]Wİ^
-œÛÛ‹™[\ÊÉÜšYÚ×ØÛÛ™š\›YY	Î•YK	ÜšYÚ×ÚÛ\‰Î‰ĞÜ™X]Ü‰Ë	Ü\›Z\ÜÚ[Û—Ü™Y™\™[˜ÙIÎ‰İÜš][‹XÛÛœÙ[	Ë	Û[™İXYÙIÎ‰Ù\ÉË	ØÛ\ÉÎŒK	ÛZ[—ÜÙXÛÛ™ÉÎŒL	ÛX^ÜÙXÛÛ™ÉÎŒŒJJBˆ˜[Y\ÏJ	ÒS“Ö	Ë	ÒS“ÖÔ“ĞÑTÔÑQ	Ë	ÕTĞQÉË	ÓÕUUÉË	Ò“Ğ”×Ñ’SIË	Ò“Ğ”ÉË	ÒS“ÖÔÕP’SUIË	ÒS“ÖÔĞĞS—ÓĞÒÉÊBˆÛ^Û˜[YN™Ù]]ŠÙ\™\‹˜[YJH›Üˆ˜[YH[ˆ˜[Y\ßNÈÛÜ[\Ù\™\‹’[™\‹œ[—Ú›Ø‚ˆØ[ÏV×BˆN‚ˆÙ\™\‹’S“ÖZ[˜›ŞÜÙ\™\‹’S“ÖÔ“ĞÑTÔÑQ\›ØÙ\ÜÙYÜÙ\™\‹•TĞQÏ]\ØYÎÜÙ\™\‹“ÕUUÏ[İ]]ÎÜÙ\™\‹’“Ğ”×Ñ’SOY]KÉÚ›ØœËšœÛÛ‰ÎÜÙ\™\‹’“Ğ”Ï^ßNÜÙ\™\‹’S“ÖÔÕP’SUO^ßNÜÙ\™\‹’S“ÖÔĞĞS—ÓĞÒÏ]™XY[™Ë“ØÚÊ
-BˆÙ\™\‹’[™\‹œ[—Ú›Ø[[X™HÙ[‹šY\™ÜË˜[œØÜš\Ü]S›Û™KšY[×İ\›IÉÎ˜Ø[Ë˜\[™
-šY
-Bˆš\œİ\Ù\™\‹œØØ[—Ú[˜›ŞÛÛ˜ÙJ
-NÈÙ[‹˜\ÜÙ\\]X[
-š\œİÉİØZ][™É×KJNÈÙ[‹˜\ÜÙ\\]X[
-š\œİÉÚ[\ÜY	×K×JBˆÙXÛÛ™\Ù\™\‹œØØ[—Ú[˜›ŞÛÛ˜ÙJ
-NÈÙ[‹˜\ÜÙ\\]X[
-[ŠÙXÛÛ™ÉÚ[\ÜY	×JKJNÈÙ[‹˜\ÜÙ\\]X[
-ÙXÛÛ™ÉİØZ][™É×K
-BˆÙ[‹˜\ÜÙ\\]X[
-[ŠØ[ÊK
-HÈÚ[˜›Ş]È[œ]Y]YNÈHÙ\\˜]HÛÜšÙ\ˆİÛœÈ^Xİ][Û‹‚ˆšY\ÙXÛÛ™ÉÚ[\ÜY	×VÌVÉÚ›Ø—ÚY	×NÂˆÙ[‹˜\ÜÙ\\]X[
-Ù\™\‹š›Ø—ÜİÜ™WÙ›Ü—Ü™YÚ\İJ
-K™Ù]
-šY
-VÉÜİ]\É×K	Ü]Y]YY	ÊBˆÙ[‹˜\ÜÙ\YJ
-›ØÙ\ÜÙYÙ‰ŞÚšYWØ]]Üš^™Y›\	ÊKš\×Ùš[J
-JBˆÙ[‹˜\ÜÙ\YJ]
-Ù\™\‹’“Ğ”ÖÚšYVÉØ\™ÜÉ×VÌ×JKš\×Ùš[J
-JBˆš[˜[N‚ˆÙ\™\‹’[™\‹œ[—Ú›Ø[ÛÜ[‚ˆ›Üˆ˜[YK˜[YH[ˆÛš][\Ê
-NœÙ]]ŠÙ\™\‹˜[YK˜[YJBˆYˆ\İÙ^[\WÛX[šY™\İØØ[››İØ™Wİ\ÙYØ\×Ú[\XÚ]Ü\›Z\ÜÚ[ÛŠÙ[ŠN‚ˆ[\Ü[\š[KœÛÛ‹Ù\™\‚ˆÚ][\š[K•[\Ü˜\Q\™XİÜJ
-H\È‚ˆÛ\Ù\™\‹’S“ÖÈÙ\™\‹’S“ÖT]
-
-BˆN‚ˆšY[ÏT]
-
-KÉÙ\\ÛÙK›\	ÎÈšY[ËÜš]WØ]\Ê‰Ş	ÊBˆX[šY™\İT]
-İŠšY[ÊJÉË˜Û\›Ü™ÙKšœÛÛ‰ÊBˆX[šY™\İÜš]Wİ^
 
-“ÓÕÉÒS“ÖÓPS’Q‘TÕ™^[\KšœÛÛ‰ÊKœ™XYİ^
+class ReviewEndpointTests(unittest.TestCase):
+ def test_review_endpoint_is_available_for_completed_jobs(self):
+  source=(ROOT/"server.py").read_text()
+  self.assertIn("path.startswith('/api/review/')",source)
+  self.assertIn("review_not_ready",source)
+  js=(ROOT/"static/app.js").read_text()
+  self.assertIn("/api/review/${d.id}",js)
 
-JBˆÚ]Ù[‹˜\ÜÙ\˜Z\Ù\Ô™YÙ^
-˜[YQ\œ›Ü‹	Ù^XÚ]ÜšYÚ×ØÛÛ™š\›X][Û—Ü™\]Z\™Y	ÊN‚ˆÙ\™\‹—Ú[˜›ŞÛX[šY™\İ
-šY[ËX[šY™\İ
-Bˆš[˜[NˆÙ\™\‹’S“Ö[Û‚‚˜Û\ÜÈ[[YU][™\ÜÕ\İÊ[š]\İ•\İØ\ÙJN‚ˆYˆ\İÚX[ÙÙ\×Û›İØÛZ[WÛ˜]]™WÜÜYXÚÜ[[YWİØ\×İ\İY
-Ù[ŠN‚ˆÛİ\˜ÙOJ“ÓÕÈœÙ\™\‹œHŠKœ™XYİ^
 
-BˆÙ[‹˜\ÜÙ\[Šš[\—Ù]XİYÛ›İÜ[[YWİ\İY‹Ûİ\˜ÙJBˆÙ[‹˜\ÜÙ\[Š[˜]˜Z[X›WÚ[—İ\×Ù[š\›Û›Y[‹Ûİ\˜ÙJBˆYˆ\İÜ™XYYWİ\ØYÛ[Z]ÛX]Ú\×ÜÙ\™\ŠÙ[ŠN‚ˆ™XYYOJ“ÓÕÈ”‘PQQK›YŠKœ™XYİ^
+class LiveProgressRegressionTests(unittest.TestCase):
+ def test_long_running_commands_stream_logs_to_job_status(self):
+  source=(ROOT/"server.py").read_text()
+  self.assertIn("def run_streaming_command",source)
+  self.assertIn('JOBS[jid]["log"]',source)
+  self.assertIn("'--newline','--progress'",source)
+  self.assertIn("run_streaming_command(args,jid",source)
+ def test_engine_python_is_unbuffered_for_live_progress(self):
+  source=(ROOT/"server.py").read_text()
+  self.assertIn("args=[sys.executable,'-u',str(ROOT/'clipforge.py')",source)
 
-BˆÙ\™\J“ÓÕÈœÙ\™\‹œHŠKœ™XYİ^
 
-BˆÙ[‹˜\ÜÙ\[ŠLLˆPˆ‹™XYYJBˆÙ[‹˜\ÜÙ\[ŠLLŠŒL
-ŒL‹Ù\™\ŠB‚˜Û\ÜÈœ›İÜÙ\•Ú\Ü\’[YÜ˜][Û•\İÊ[š]\İ•\İØ\ÙJN‚ˆYˆ\İØœ›İÜÙ\—İ˜[œØÜšX™\—Û[Ù[WÚ\×ÜÙ\™YØWÜİ]X×Ü›İ]JÙ[ŠN‚ˆÛİ\˜ÙOJ“ÓÕÉÜÙ\™\‹œIÊKœ™XYİ^
+class CriticalYouTubeWorkflowTests(unittest.TestCase):
+ def test_downloaded_video_replaces_input_argument_not_script(self):
+  source=(ROOT/"server.py").read_text()
+  self.assertIn("args=[sys.executable,'-u',str(ROOT/'clipforge.py'),str(src)",source)
+  self.assertIn("args[3]=str(downloaded)",source)
+  self.assertIn("Path(args[3]).stem",source)
+  self.assertNotIn("args[2]=str(downloaded)",source)
+ def test_youtube_downloads_manual_and_automatic_captions(self):
+  source=(ROOT/"server.py").read_text()
+  self.assertIn("'--write-subs','--write-auto-subs'",source)
+  self.assertIn("'--sub-langs',sub_langs",source)
+  self.assertIn("args.extend(['--transcript',str(subtitle_matches[0])])",source)
+ def test_ytdlp_uses_deno_if_installed(self):
+  import server
+  from unittest.mock import patch
+  with patch.object(server.shutil,"which",side_effect=lambda n:"/fake/yt-dlp" if n=="yt-dlp" else ("/fake/deno" if n=="deno" else None)):
+   self.assertEqual(server.yt_dlp_command(),["/fake/yt-dlp","--js-runtimes","deno"])
 
-BˆÙ[‹˜\ÜÙ\[Š‰Øœ›İÜÙ\‹]Ú\Ü\‹šœÉÈ‹Ûİ\˜ÙJBˆÙ[‹˜\ÜÙ\[Š‰Øœ›İÜÙ\‹]Ú\Ü\‹šœÉÎ‰İ^Ú˜]˜\ØÜš\	È‹Ûİ\˜ÙJBˆ[J“ÓÕÉÜİ]XËÚ[™^š[	ÊKœ™XYİ^
 
-BˆÙ[‹˜\ÜÙ\[Š	ÚYH˜œ›İÜÙ\•˜[œØÜšX™H‰Ë[
-BˆÙ[‹˜\ÜÙ\[Š	İ\OH›[Ù[HˆÜ˜ÏH‹Øœ›İÜÙ\‹]Ú\Ü\‹šœÈ‰Ë[
-Bˆ[Ù[OJ“ÓÕÉÜİ]XËØœ›İÜÙ\‹]Ú\Ü\‹šœÉÊKœ™XYİ^
+class ChannelMonitorTests(unittest.TestCase):
+ def test_channel_id_parser_accepts_channel_and_resolves_handle(self):
+  import channel_monitor, io
+  from unittest.mock import patch
+  good='https://www.youtube.com/channel/UC'+'a'*22
+  self.assertEqual(channel_monitor.channel_id_from_url(good),'UC'+'a'*22)
+  class Response(io.BytesIO):
+   status=200
+   def __enter__(self): return self
+   def __exit__(self,*a): self.close()
+  html=('\"externalId\":\"UC'+'a'*22+'\"').encode()
+  with patch.dict('os.environ',{'YOUTUBE_API_KEY':''}), patch('channel_monitor.urllib.request.urlopen',return_value=Response(html)):
+   self.assertEqual(channel_monitor.channel_id_from_url('https://www.youtube.com/@somechannel'),'UC'+'a'*22)
+  with self.assertRaises(ValueError): channel_monitor.channel_id_from_url('https://www.youtube.com/watch?v=abcdefghijk')
+ def test_rss_parser_extracts_real_video_metadata(self):
+  import channel_monitor
+  xml=b'''<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom" xmlns:yt="http://www.youtube.com/xml/schemas/2015"><entry><id>x</id><yt:videoId>abcdefghijk</yt:videoId><title>Nuevo episodio</title><published>2026-11-07T10:00:00+00:00</published><author><name>Canal</name></author></entry></feed>'''
+  from unittest.mock import patch
+  import io
+  class Response(io.BytesIO):
+   status=200
+   def __enter__(self): return self
+   def __exit__(self,*a): self.close()
+  with patch('channel_monitor.urllib.request.urlopen',return_value=Response(xml)):
+   entries=channel_monitor.fetch_feed('UC'+'a'*22)
+  self.assertEqual(entries[0]['video_id'],'abcdefghijk')
+  self.assertEqual(entries[0]['title'],'Nuevo episodio')
+ def test_channel_monitor_is_public_discovery_not_downloader(self):
+  import channel_monitor
+  source=Path(channel_monitor.__file__).read_text()
+  self.assertIn('youtube.com/feeds/videos.xml',source)
+  self.assertNotIn('yt-dlp',source)
+  self.assertIn('does not download',source)
+ def test_channel_routes_and_ui_exist(self):
+  server=(ROOT/'server.py').read_text(); html=(ROOT/'static/index.html').read_text(); js=(ROOT/'static/app.js').read_text()
+  self.assertIn("path=='/api/channels'",server)
+  self.assertIn("path=='/api/channels/refresh'",server)
+  self.assertIn('id="channelForm"',html)
+  self.assertIn("/api/channels/refresh",js)
 
-BˆÙ[‹˜\ÜÙ\[Šš[\Ü
-	ÚÎ‹ËÙ\ÛKœÚĞYÙÚ[™Ù˜XÙKİ˜[œÙ›Ü›Y\œĞËËŒ‰ÊH‹[Ù[JBˆÙ[‹˜\ÜÙ\[Š›[™İXYÙNˆ	Ù\ÉÈ‹[Ù[JBˆÙ[‹˜\ÜÙ\[Šœ™]\›—İ[Y\İ[\Îˆ	İÛÜ™	È‹[Ù[JB‚‚˜Û\ÜÈœ›İÜÙ\•Ú\Ü\’[™Ù™•\İÊ[š]\İ•\İØ\ÙJN‚ˆYˆ\İØœ›İÜÙ\—İ˜[œØÜšX™\—ØÛÛ™\×İÛÜ™İ[Y\İ[\×İ×İØ[™Ø]XÚ\×Ú]
-Ù[ŠN‚ˆ[Ù[OJ“ÓÕÉÜİ]XÉËÉØœ›İÜÙ\‹]Ú\Ü\‹šœÉÊKœ™XYİ^
+class ChannelMonitorPersistenceTests(unittest.TestCase):
+ def test_new_video_flag_survives_later_refreshes(self):
+  import channel_monitor, tempfile, json
+  from unittest.mock import patch
+  from pathlib import Path
+  channel={'channel_id':'UC'+'a'*22,'url':'https://www.youtube.com/channel/UC'+'a'*22,'label':'test','enabled':True,'videos':[]}
+  with tempfile.TemporaryDirectory() as td:
+   store=Path(td)/'channels.json'
+   store.write_text(json.dumps([channel]))
+   entries=[{'video_id':'abcdefghijk','title':'Nuevo','url':'https://www.youtube.com/watch?v=abcdefghijk','published':'2026-11-07T10:00:00Z','author':'test'}]
+   with patch.object(channel_monitor,'STORE',store), patch.object(channel_monitor,'fetch_feed',return_value=entries):
+    first=channel_monitor.refresh_channels()
+    self.assertEqual(first['new_videos'],1)
+    self.assertTrue(json.loads(store.read_text())[0]['videos'][0]['is_new'])
+    second=channel_monitor.refresh_channels()
+    self.assertEqual(second['new_videos'],0)
+    self.assertTrue(json.loads(store.read_text())[0]['videos'][0]['is_new'])
 
-BˆÙ[‹˜\ÜÙ\[Š	Ù[˜İ[ÛˆXZÙU
-ÙYÛY[ÊIË[Ù[JBˆÙ[‹˜\ÜÙ\[Š	ÕÑP••	Ë[Ù[JBˆÙ[‹˜\ÜÙ\[Š™Øİ[Y[œ]Y\TÙ[XİÜŠ	Èİ˜[œØÜš\	ÊH‹[Ù[JBˆÙ[‹˜\ÜÙ\[Š›™]Èš[JİK	ØÛ\›Ü™ÙK]˜[œØÜš\Ú[Û‹	È‹[Ù[JBˆÙ[‹˜\ÜÙ\[Šš[œ]™\Ü]Ú]™[
-™]È]™[
-	ØÚ[™ÙIËÈX˜›\ÎˆYHJJH‹[Ù[JB‚ˆYˆ\İØœ›İÜÙ\—İ˜[œØÜšX™\—ÙÙ\×Û›İØÛZ[WÜÜXZÙ\—ÙX\š^˜][ÛŠÙ[ŠN‚ˆ[Ù[OJ“ÓÕÉÜİ]XÉËÉØœ›İÜÙ\‹]Ú\Ü\‹šœÉÊKœ™XYİ^
+ def test_youtube_api_handle_resolution_uses_forhandle(self):
+  import channel_monitor, io, json
+  from unittest.mock import patch
+  class Response(io.BytesIO):
+   status=200
+   def __enter__(self): return self
+   def __exit__(self,*a): self.close()
+  payload=json.dumps({'items':[{'id':'UC'+'b'*22}]}).encode()
+  with patch.dict('os.environ',{'YOUTUBE_API_KEY':'test-key'}), patch('channel_monitor.urllib.request.urlopen',return_value=Response(payload)) as mocked:
+   self.assertEqual(channel_monitor.channel_id_from_url('https://youtube.com/@creator'),'UC'+'b'*22)
+   self.assertIn('forHandle=creator',mocked.call_args.args[0].full_url)
 
-BˆÙ[‹˜\ÜÙ\[Š	ÕÚ\Ü\ˆ›ÈY[YšXØHX›[\ÉË[Ù[JB‚‚˜Û\ÜÈœ›İÜÙ\‘˜XÙU˜XÚÚ[™Õ\İÊ[š]\İ•\İØ\ÙJN‚ˆYˆ\İØœ›İÜÙ\—Ù^Üİ\Ù\×ÛØØ[Ù˜XÙWÙ]Xİ[Û—Ø[™ÜØY™WÛ][WÙ˜XÙWÙ˜[˜XÚÊÙ[ŠN‚ˆ[Ù[OJ“ÓÕÉÜİ]XÉËÉØœ›İÜÙ\‹Y^ÜšœÉÊKœ™XYİ^
+class ChannelReviewWorkflowTests(unittest.TestCase):
+ def test_new_channel_video_can_be_marked_seen_and_stays_seen_after_refresh(self):
+  import channel_monitor, tempfile, json
+  from unittest.mock import patch
+  from pathlib import Path
+  cid='UC'+'c'*22; vid='abcdefghijk'
+  channel={'channel_id':cid,'url':f'https://www.youtube.com/channel/{cid}','label':'test','enabled':True,'videos':[]}
+  entries=[{'video_id':vid,'title':'Nuevo','url':f'https://www.youtube.com/watch?v={vid}','published':'2026-11-07T10:00:00Z','author':'test'}]
+  with tempfile.TemporaryDirectory() as td:
+   store=Path(td)/'channels.json'; store.write_text(json.dumps([channel]))
+   with patch.object(channel_monitor,'STORE',store), patch.object(channel_monitor,'fetch_feed',return_value=entries):
+    self.assertEqual(channel_monitor.refresh_channels()['new_videos'],1)
+    self.assertTrue(channel_monitor.mark_video_seen(cid,vid))
+    self.assertFalse(json.loads(store.read_text())[0]['videos'][0]['is_new'])
+    channel_monitor.refresh_channels()
+    saved=json.loads(store.read_text())[0]['videos'][0]
+    self.assertFalse(saved['is_new'])
+    self.assertIn('seen_at',saved)
+    self.assertFalse(channel_monitor.mark_video_seen(cid,'zzzzzzzzzzz'))
+ def test_scheduler_is_singleton_and_seen_route_is_wired(self):
+  source=(ROOT/'channel_monitor.py').read_text(); server=(ROOT/'server.py').read_text(); js=(ROOT/'static/app.js').read_text()
+  self.assertIn('_SCHEDULER_STARTED',source)
+  self.assertIn("endswith('/seen')",server)
+  self.assertIn('seen-video',js)
+  self.assertIn("'version':'1.72.0'",server)
 
-BˆÙ[‹˜\ÜÙ\[Š	ĞYYX\\Kİ\ÚÜË]š\Ú[ÛKŒ‹Œ‹İš\Ú[Û—Ø[™K›ZœÉË[Ù[JBˆÙ[‹˜\ÜÙ\[Š	Ù˜XÙQ]XİÜ‹™]Xİ›Ü•šY[ÊÛİ\˜ÙPØ[˜\ÉË[Ù[JBˆÙ[‹˜\ÜÙ\[Š	Û][Q˜XÙOY˜XÙ\Ë›[™İŒIË[Ù[JBˆÙ[‹˜\ÜÙ\[ŠœØ[\K™˜]ÕÚ]š]
-İÙš]‰ØÛÛZ[‰ßJH‹[Ù[JBˆÙ[‹˜\ÜÙ\[Š	Ù˜XÙQ]XİÜË˜ÛÜÙOËŠ
-IË[Ù[JB‚‚˜Û\ÜÈœ›İÜÙ\Û\Ø[™Y]U\İÊ[š]\İ•\İØ\ÙJN‚ˆYˆ\İØœ›İÜÙ\—ØØ[™Y]WÜ˜[šÙ\—İ\Ù\×İ[Y\İ[\×Ø[™Ü™]\›œ×Ù›İ\—Û›Û—Ûİ™\›\[™×ØÛ\ÊÙ[ŠN‚ˆ[Ù[OJ“ÓÕÉÜİ]XÉËÉØœ›İÜÙ\‹]Ú\Ü\‹šœÉÊKœ™XYİ^
 
-BˆÙ[‹˜\ÜÙ\[Š	Ù[˜İ[Ûˆ˜[šĞÛ\Ø[™Y]\ÊÛÜ™ËšY[Ñ\˜][ÛŠIË[Ù[JBˆÙ[‹˜\ÜÙ\[Š	ØØ[™Y]\ËœÛÜ
+class ChannelSeenHttpRouteTests(unittest.TestCase):
+ def test_seen_endpoint_accepts_actual_frontend_url_shape(self):
+  import json, threading, urllib.request, urllib.error
+  from http.server import ThreadingHTTPServer
+  from unittest.mock import patch
+  import server
+  cid='UC'+'d'*22; vid='abcdefghijk'
+  httpd=ThreadingHTTPServer(('127.0.0.1',0),server.Handler)
+  thread=threading.Thread(target=httpd.serve_forever,daemon=True); thread.start()
+  try:
+   req=urllib.request.Request(f'http://127.0.0.1:{httpd.server_port}/api/channels/{cid}/{vid}/seen',data=b'',method='POST')
+   with patch.object(server.channel_monitor,'mark_video_seen',return_value=True) as mark:
+    with urllib.request.urlopen(req,timeout=3) as response:
+     self.assertEqual(response.status,200)
+     self.assertTrue(json.loads(response.read())['ok'])
+    mark.assert_called_once_with(cid,vid)
+  finally:
+   httpd.shutdown(); httpd.server_close(); thread.join(timeout=2)
 
-KŠOO˜‹œØÛÜ™KXKœØÛÜ™JIË[Ù[JBˆÙ[‹˜\ÜÙ\[Š	ÚYˆ
-ÚÜÙ[‹›[™İOOH
-Hœ™XZÉË[Ù[JBˆÙ[‹˜\ÜÙ\[Š	ØË™[™Hœİ\
-ÈÈËœİ\H™[™HÉË[Ù[JBˆÙ[‹˜\ÜÙ\[Š	ÜÚİĞÛ\Ø[™Y]\Ê˜[œØÜš\]KœÙYÛY[Ë]Y[Ë›[™İÈMŒ
-IË[Ù[JB‚ˆYˆ\İØØ[™Y]WİZWÛX™[×Ú]\š\İX×ÜØÛÜ™\×ÚÛ™\İJÙ[ŠN‚ˆ[J“ÓÕÉÜİ]XÉËÉÚ[™^š[	ÊKœ™XYİ^
 
-Bˆ[Ù[OJ“ÓÕÉÜİ]XÉËÉØœ›İÜÙ\‹]Ú\Ü\‹šœÉÊKœ™XYİ^
+class ChannelRefreshConcurrencyTests(unittest.TestCase):
+ def test_feed_network_wait_does_not_hold_storage_lock(self):
+  import channel_monitor, tempfile, json, threading
+  from pathlib import Path
+  from unittest.mock import patch
+  cid='UC'+'e'*22
+  channel={'channel_id':cid,'url':f'https://www.youtube.com/channel/{cid}','label':'test','enabled':True,'videos':[]}
+  entered=threading.Event(); release=threading.Event()
+  def slow_feed(_cid):
+   entered.set(); release.wait(2)
+   return []
+  with tempfile.TemporaryDirectory() as td:
+   store=Path(td)/'channels.json'; store.write_text(json.dumps([channel]))
+   with patch.object(channel_monitor,'STORE',store), patch.object(channel_monitor,'fetch_feed',side_effect=slow_feed):
+    worker=threading.Thread(target=channel_monitor.refresh_channels); worker.start()
+    self.assertTrue(entered.wait(1))
+    # A UI read must not wait for the network request to finish.
+    self.assertEqual(len(channel_monitor.list_channels()),1)
+    release.set(); worker.join(2)
+    self.assertFalse(worker.is_alive())
 
-BˆÙ[‹˜\ÜÙ\[Š	Ô[XXÚpìÛˆ]\°ë\İXØIË[
-BˆÙ[‹˜\ÜÙ\[Š	Û›È\]Z]˜[[ˆH[˜H™YXØÚpìÛˆHš\˜[YY	Ë[Ù[JB‚˜Û\ÜÈœ›İÜÙ\”›Ú™Xİ[\Ü\İÊ[š]\İ•\İØ\ÙJN‚ˆYˆ\İÜ›Ú™XİÚ[\Üİ˜[Y]\×ÜØÚ[XWØ[™ØÛ\İ[Y\ÊÙ[ŠN‚ˆ[Ù[OJ“ÓÕÉÜİ]XÉËÉØœ›İÜÙ\‹]Ú\Ü\‹šœÉÊKœ™XYİ^
+ def test_refresh_preserves_seen_state_changed_during_network_fetch(self):
+  import channel_monitor, tempfile, json, threading
+  from pathlib import Path
+  from unittest.mock import patch
+  cid='UC'+'f'*22; vid='abcdefghijk'
+  channel={'channel_id':cid,'url':f'https://www.youtube.com/channel/{cid}','label':'test','enabled':True,'videos':[]}
+  entered=threading.Event(); release=threading.Event()
+  entry={'video_id':vid,'title':'Nuevo','url':f'https://www.youtube.com/watch?v={vid}','published':'2026-11-07T10:00:00Z','author':'test'}
+  def slow_feed(_cid):
+   entered.set(); release.wait(2); return [entry]
+  with tempfile.TemporaryDirectory() as td:
+   store=Path(td)/'channels.json'; store.write_text(json.dumps([channel]))
+   with patch.object(channel_monitor,'STORE',store), patch.object(channel_monitor,'fetch_feed',side_effect=slow_feed):
+    worker=threading.Thread(target=channel_monitor.refresh_channels); worker.start()
+    self.assertTrue(entered.wait(1))
+    # Simulate an existing item being marked seen while a later feed refresh runs.
+    data=json.loads(store.read_text()); data[0]['videos']=[{**entry,'is_new':False,'seen_at':123}]; store.write_text(json.dumps(data))
+    release.set(); worker.join(2)
+    saved=json.loads(store.read_text())[0]['videos'][0]
+    self.assertFalse(saved['is_new']); self.assertEqual(saved['seen_at'],123)
 
-BˆÙ[‹˜\ÜÙ\[Šœ›Ú™XİËœØÚ[XHOOIØÛ\›Ü™ÙKXœ›İÜÙ\‹\›Ú™Xİ]ŒIÈ‹[Ù[JBˆÙ[‹˜\ÜÙ\[Š“[X™\ŠË™[™
-OS[X™\ŠËœİ\
-H‹[Ù[JBˆÙ[‹˜\ÜÙ\[Š˜œ›İÜÙ\”›Ú™Xİ[\Ü‹[Ù[JB‚ˆYˆ\İÜ›Ú™XİÚ[\ÜÜ™\İÜ™\×ØÛ\×Ø[™İ˜[œØÜš\
-Ù[ŠN‚ˆ[Ù[OJ“ÓÕÉÜİ]XÉËÉØœ›İÜÙ\‹]Ú\Ü\‹šœÉÊKœ™XYİ^
 
-BˆÙ[‹˜\ÜÙ\[Š™Y]X›PØ[™Y]\Ï\›Ú™Xİ˜Û\Ë›X\‹[Ù[JBˆÙ[‹˜\ÜÙ\[Š˜[œØÜš\]O\›Ú™Xİ˜[œØÜš\[‹[Ù[JBˆ[J“ÓÕÉÜİ]XÉËÉÚ[™^š[	ÊKœ™XYİ^
+class PersistentJobRegistryTests(unittest.TestCase):
+ def test_job_registry_resumes_recoverable_jobs_and_fails_missing_sources(self):
+  import server, tempfile, json
+  from pathlib import Path
+  from unittest.mock import patch
+  with tempfile.TemporaryDirectory() as td:
+   registry=Path(td)/'jobs.json'; source=Path(td)/'source.mp4'; source.write_bytes(b'video')
+   registry.write_text(json.dumps({
+    'done':{'id':'done','status':'completed','log':'ok','output':'/tmp/out'},
+    'busy':{'id':'busy','status':'processing','log':'rendering','output':None,'args':['python','clipforge.py','--unused',str(Path(td)/'missing.mp4')]},
+    'recoverable':{'id':'recoverable','status':'processing','log':'rendering','output':None,'args':['python','clipforge.py','--unused',str(source)]}
+   }))
+   with patch.object(server,'JOBS_FILE',registry):
+    recovered=server.load_job_registry()
+    self.assertEqual(recovered['done']['status'],'completed')
+    self.assertEqual(recovered['busy']['status'],'failed')
+    self.assertIn('interrumpiÃ³',recovered['busy']['log'])
+    self.assertEqual(recovered['recoverable']['status'],'queued')
+    self.assertIn('reanudar',recovered['recoverable']['log'])
+    saved=json.loads(registry.read_text())
+    self.assertEqual(saved['recoverable']['status'],'queued')
 
-BˆÙ[‹˜\ÜÙ\[Š	ØXØÙ\H˜\XØ][Û‹ÚœÛÛ‹šœÛÛˆ‰Ë[
-B‚˜Û\ÜÈX[X[œ›İÜÙ\”™[™\’[YÜ˜][Û•\İÊ[š]\İ•\İØ\ÙJN‚ˆYˆ\İØ˜XÚÙ[™ØXØÙ\×Øœ›İÜÙ\—ÙY]ÙXÚ\Ú[Û—Û\İ
-Ù[ŠN‚ˆÙ\™\J“ÓÕÉÜÙ\™\‹œIÊKœ™XYİ^
+ def test_failed_job_retains_original_for_retry_and_retry_route_exists(self):
+  source=(ROOT/'server.py').read_text(); js=(ROOT/'static/app.js').read_text()
+  self.assertIn("if success:\n     if not lease_lost:",source)
+  self.assertIn("job_store_for_registry().finish_claim(JOBS[jid],worker_id)",source)
+  self.assertIn("path.endswith('/retry')",source)
+  self.assertIn("retry-job",js)
+  self.assertIn("/api/jobs/${encodeURIComponent(button.dataset.id)}/retry",js)
 
-Bˆ[™Ú[™OJ“ÓÕÉØÛ\›Ü™ÙKœIÊKœ™XYİ^
+ def test_restart_removes_missing_optional_transcript_from_recovery_command(self):
+  import server, tempfile, json
+  from pathlib import Path
+  from unittest.mock import patch
+  with tempfile.TemporaryDirectory() as td:
+   source=Path(td)/'source.mp4'; source.write_bytes(b'video')
+   missing=Path(td)/'gone.srt'; registry=Path(td)/'jobs.json'
+   registry.write_text(json.dumps({'recover':{'id':'recover','status':'processing','log':'rendering','output':None,
+    'args':['python','-u','clipforge.py',str(source),'--transcript',str(missing)],'transcript_path':str(missing)}}))
+   with patch.object(server,'JOBS_FILE',registry):
+    job=server.load_job_registry()['recover']
+   self.assertEqual(job['status'],'queued')
+   self.assertNotIn('--transcript',job['args'])
+   self.assertIsNone(job['transcript_path'])
 
-BˆÙ[‹˜\ÜÙ\[Š™šY[Ë™Ù]
-	ÜÙ[XİYØÛ\Ü˜[™Ù\ÉÊH‹Ù\™\ŠBˆÙ[‹˜\ÜÙ\[Š‰ËK\˜[™Ù\ËZœÛÛ‰È‹Ù\™\ŠBˆÙ[‹˜\ÜÙ\[Š	ÛX[X[Øœ›İÜÙ\—ÙY]ÙXÚ\Ú[Û—Û\İ	Ë[™Ú[™JBˆYˆ\İÛX[X[Ü˜[™Ù\×Ø\™WØ›İ[™YØ[™İ˜[Y]Y
-Ù[ŠN‚ˆ[™Ú[™OJ“ÓÕÉØÛ\›Ü™ÙKœIÊKœ™XYİ^
+ def test_retry_endpoint_over_http_requeues_and_hides_private_execution_data(self):
+  import server, tempfile, threading, urllib.request, json
+  from pathlib import Path
+  from http.server import ThreadingHTTPServer
+  from unittest.mock import patch
+  with tempfile.TemporaryDirectory() as td:
+   source=Path(td)/'original.mp4'; source.write_bytes(b'authorized-source')
+   jid='retryhttp1234'; registry=Path(td)/'jobs.json'
+   original_jobs=server.JOBS
+   with patch.object(server,'JOBS_FILE',registry), patch.object(server,'JOBS',{
+    jid:{'id':jid,'status':'failed','source':'original.mp4','created':1,'log':'failed','output':None,
+         'args':['python','-u','clipforge.py',str(source)],'transcript_path':None,'video_url':''}
+   }), patch.object(server.Handler,'run_job',lambda self,*args: None):
+    httpd=ThreadingHTTPServer(('127.0.0.1',0),server.Handler)
+    thread=threading.Thread(target=httpd.serve_forever,daemon=True); thread.start()
+    base=f'http://127.0.0.1:{httpd.server_address[1]}'
+    try:
+     request=urllib.request.Request(base+f'/api/jobs/{jid}/retry',data=b'',method='POST')
+     with urllib.request.urlopen(request,timeout=5) as response:
+      self.assertEqual(response.status,202)
+      self.assertEqual(json.loads(response.read())['status'],'queued')
+     with urllib.request.urlopen(base+f'/api/jobs/{jid}',timeout=5) as response:
+      public=json.loads(response.read())
+     self.assertNotIn('args',public); self.assertNotIn('transcript_path',public); self.assertNotIn('video_url',public)
+     self.assertEqual(server.job_store_for_registry().get(jid)['status'],'queued')
+    finally:
+     httpd.shutdown(); httpd.server_close()
+  server.JOBS=original_jobs
 
-BˆÙ[‹˜\ÜÙ\[Š	Û[ŠÚ[™İÜÊOŒL	Ë[™Ú[™JBˆÙ[‹˜\ÜÙ\[Š	Ø™\˜][Û‰Ë[™Ú[™JBˆÙ[‹˜\ÜÙ\[Š	ËK\˜[™Ù\ËZœÛÛ‰Ë[™Ú[™JBˆYˆ\İØœ›İÜÙ\—ØØ[™Y]\×ÜİX›Z]Ü˜[™Ù\×İÚ]Ú›Ø—Ù›Ü›JÙ[ŠN‚ˆ[Ù[OJ“ÓÕÉÜİ]XÉËÉØœ›İÜÙ\‹]Ú\Ü\‹šœÉÊKœ™XYİ^
+ def test_job_metadata_is_written_atomically_and_bounded(self):
+  import server, tempfile, json
+  from pathlib import Path
+  from unittest.mock import patch
+  with tempfile.TemporaryDirectory() as td:
+   registry=Path(td)/'jobs.json'
+   jobs={str(i):{'id':str(i),'status':'completed'} for i in range(105)}
+   with patch.object(server,'JOBS_FILE',registry), patch.object(server,'JOBS',jobs):
+    with server.LOCK: server.persist_jobs_locked()
+    saved=json.loads(registry.read_text())
+    self.assertEqual(len(saved),100)
+    self.assertFalse(registry.with_suffix('.tmp').exists())
 
-BˆÙ[‹˜\ÜÙ\[Š™šY[›˜[YOIÜÙ[XİYØÛ\Ü˜[™Ù\ÉÈ‹[Ù[JBˆÙ[‹˜\ÜÙ\[Š	Ò”ÓÓ‹œİš[™ÚYJY]X›PØ[™Y]\ÊIË[Ù[JB‚˜Û\ÜÈ›Ú™Xİ™\İÜ™T™YÜ™\ÜÚ[Û•\İÊ[š]\İ•\İØ\ÙJN‚ˆYˆ\İÚ[\ÜYÜ›Ú™XİÜ™]\Ù\×ÜØ[YWÙY]X›WØØ[™Y]WØÛÛ›ÛÊÙ[ŠN‚ˆ[Ù[OJ“ÓÕÉÜİ]XÉËÉØœ›İÜÙ\‹]Ú\Ü\‹šœÉÊKœ™XYİ^
 
-BˆÙ[‹˜\ÜÙ\[Š	Ù[˜İ[ÛˆÚİĞÛ\Ø[™Y]\ÊÛÜ™Ë\˜][Û‹™\İÜ™YØ[™Y]\Ï[[
-IË[Ù[JBˆÙ[‹˜\ÜÙ\[Š	ÜÚİĞÛ\Ø[™Y]\Ê×K\˜][Û‹Y]X›PØ[™Y]\ÊIË[Ù[JBˆÙ[‹˜\ÜÙ\[Š	ÓÜÈÛÜ\ÈY]YÜÈÙH[šX\°è[ˆ[™[™\š^˜YÜ‰Ë[Ù[JBˆYˆ\İÚ[\ÜÛ›×ÛÛ™Ù\—Ü™\İÜ™\×Ü™XYÛÛ›WØØ\™ÊÙ[ŠN‚ˆ[Ù[OJ“ÓÕÉÜİ]XÉËÉØœ›İÜÙ\‹]Ú\Ü\‹šœÉÊKœ™XYİ^
+class JobHistoryApiTests(unittest.TestCase):
+ def test_job_history_endpoint_returns_safe_summary_and_completed_download(self):
+  import server, threading, urllib.request, json, tempfile
+  from pathlib import Path
+  from http.server import ThreadingHTTPServer
+  from unittest.mock import patch
+  with tempfile.TemporaryDirectory() as td:
+   output=Path(td)/'out'; output.mkdir()
+   jobs={'a':{'id':'a','status':'completed','source':'source.mp4','created':10,'log':'done','output':str(output)},
+         'b':{'id':'b','status':'failed','source':'bad.mp4','created':20,'log':'error','output':None}}
+   httpd=ThreadingHTTPServer(('127.0.0.1',0),server.Handler); thread=threading.Thread(target=httpd.serve_forever,daemon=True); thread.start()
+   try:
+    with patch.object(server,'JOBS',jobs):
+     with urllib.request.urlopen(f'http://127.0.0.1:{httpd.server_port}/api/jobs') as response:
+      data=json.loads(response.read())
+     self.assertEqual([x['id'] for x in data['jobs']],['b','a'])
+     self.assertEqual(data['jobs'][1]['download_url'],'/api/download/a')
+     self.assertNotIn('output',data['jobs'][1])
+   finally:
+    httpd.shutdown(); httpd.server_close(); thread.join(timeout=2)
 
-Bˆ[\ÜÜÙXİ[Û[[Ù[VÛ[Ù[Kš[™^
-	ËËÈ[\ÜXÚpìÛˆ^0ëXÚ]IÊN—BˆÙ[‹˜\ÜÙ\›İ[Š™Øİ[Y[˜Ü™X]Q[[Y[
-	Ü	ÊH‹[\ÜÜÙXİ[ÛŠBˆÙ[‹˜\ÜÙ\[Š	ØY]™[\İ[™\Š	ØÚ[™ÙW	Ë\]JIË[Ù[JB
+ def test_history_ui_is_connected_to_api(self):
+  html=(ROOT/'static/index.html').read_text(); js=(ROOT/'static/app.js').read_text()
+  self.assertIn('id="jobHistory"',html)
+  self.assertIn("fetch('/api/jobs')",js)
+  self.assertIn('loadJobHistory()',js)
+
+class AuthorizedInboxTests(unittest.TestCase):
+ def test_inbox_manifest_requires_explicit_owner_and_permission_reference(self):
+  import tempfile, json, server
+  with tempfile.TemporaryDirectory() as td:
+   old=server.INBOX; server.INBOX=Path(td)
+   try:
+    video=Path(td)/'episode.mp4'; video.write_bytes(b'not-a-real-video')
+    manifest=Path(str(video)+'.clipforge.json')
+    manifest.write_text(json.dumps({'rights_confirmed':True,'rights_holder':'Creator'}))
+    with self.assertRaisesRegex(ValueError,'explicit_rights_confirmation_required'):
+     server._inbox_manifest(video,manifest)
+   finally: server.INBOX=old
+ def test_inbox_manifest_accepts_complete_authorization_and_safe_settings(self):
+  import tempfile, json, server
+  with tempfile.TemporaryDirectory() as td:
+   old=server.INBOX; server.INBOX=Path(td)
+   try:
+    video=Path(td)/'episode.mp4'; video.write_bytes(b'x')
+    manifest=Path(str(video)+'.clipforge.json')
+    manifest.write_text(json.dumps({'rights_confirmed':True,'rights_holder':'Creator','permission_reference':'email-approval-2026','language':'es','clips':5,'min_seconds':20,'max_seconds':45}))
+    data=server._inbox_manifest(video,manifest)
+    self.assertEqual(data['permission_reference'],'email-approval-2026')
+    self.assertEqual(data['crf'],'18')
+   finally: server.INBOX=old
+ def test_inbox_auto_import_is_wired_to_scheduler_and_ui(self):
+  server=(ROOT/'server.py').read_text(); html=(ROOT/'static/index.html').read_text(); js=(ROOT/'static/app.js').read_text()
+  self.assertIn('def scan_inbox_once()',server)
+  self.assertIn('start_inbox_scheduler()',server)
+  self.assertIn("path=='/api/inbox/scan'",server)
+  self.assertIn('id="inboxList"',html)
+  self.assertIn("fetch('/api/inbox/scan'",js)
+  self.assertIn('INBOX_MANIFEST.example.json',(ROOT/'README.md').read_text())
+ def test_inbox_watcher_waits_for_stable_video_then_queues_once(self):
+  import tempfile, json, subprocess, threading, time, server
+  from unittest.mock import patch
+  with tempfile.TemporaryDirectory() as td:
+   root=Path(td); inbox=root/'incoming'; processed=inbox/'processed'; uploads=root/'uploads'; outputs=root/'outputs'; data=root/'data'
+   for folder in (inbox,processed,uploads,outputs,data): folder.mkdir(parents=True,exist_ok=True)
+   video=inbox/'authorized.mp4'
+   subprocess.run(['ffmpeg','-y','-f','lavfi','-i','testsrc=size=320x240:rate=25','-f','lavfi','-i','sine=frequency=440:duration=2','-t','2','-c:v','libx264','-pix_fmt','yuv420p','-c:a','aac',str(video)],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=True)
+   Path(str(video)+'.clipforge.json').write_text(json.dumps({'rights_confirmed':True,'rights_holder':'Creator','permission_reference':'written-consent','language':'es','clips':1,'min_seconds':10,'max_seconds':20}))
+   names=('INBOX','INBOX_PROCESSED','UPLOADS','OUTPUTS','JOBS_FILE','JOBS','INBOX_STABILITY','INBOX_SCAN_LOCK')
+   old={name:getattr(server,name) for name in names}; old_run=server.Handler.run_job
+   calls=[]
+   try:
+    server.INBOX=inbox;server.INBOX_PROCESSED=processed;server.UPLOADS=uploads;server.OUTPUTS=outputs;server.JOBS_FILE=data/'jobs.json';server.JOBS={};server.INBOX_STABILITY={};server.INBOX_SCAN_LOCK=threading.Lock()
+    server.Handler.run_job=lambda self,jid,args,transcript_path=None,video_url='':calls.append(jid)
+    first=server.scan_inbox_once(); self.assertEqual(first['waiting'],1); self.assertEqual(first['imported'],[])
+    second=server.scan_inbox_once(); self.assertEqual(len(second['imported']),1); self.assertEqual(second['waiting'],0)
+    self.assertEqual(len(calls),0)  # HTTP/inbox paths enqueue; the separate worker owns execution.
+    jid=second['imported'][0]['job_id'];
+    self.assertEqual(server.job_store_for_registry().get(jid)['status'],'queued')
+    self.assertTrue((processed/f'{jid}_authorized.mp4').is_file())
+    self.assertTrue(Path(server.JOBS[jid]['args'][3]).is_file())
+   finally:
+    server.Handler.run_job=old_run
+    for name,value in old.items():setattr(server,name,value)
+ def test_example_manifest_cannot_be_used_as_implicit_permission(self):
+  import tempfile, json, server
+  with tempfile.TemporaryDirectory() as td:
+   old=server.INBOX; server.INBOX=Path(td)
+   try:
+    video=Path(td)/'episode.mp4'; video.write_bytes(b'x')
+    manifest=Path(str(video)+'.clipforge.json')
+    manifest.write_text((ROOT/'INBOX_MANIFEST.example.json').read_text())
+    with self.assertRaisesRegex(ValueError,'explicit_rights_confirmation_required'):
+     server._inbox_manifest(video,manifest)
+   finally: server.INBOX=old
+
+
+class RuntimeTruthfulnessTests(unittest.TestCase):
+ def test_health_does_not_claim_native_speech_runtime_was_tested(self):
+  source=(ROOT/"server.py").read_text()
+  self.assertIn("helper_detected_not_runtime_tested",source)
+  self.assertIn("unavailable_in_this_environment",source)
+ def test_readme_upload_limit_matches_server(self):
+  readme=(ROOT/"README.md").read_text()
+  server=(ROOT/"server.py").read_text()
+  self.assertIn("512 MB",readme)
+  self.assertIn("512*1024*1024",server)
+
+class BrowserWhisperIntegrationTests(unittest.TestCase):
+ def test_browser_transcriber_module_is_served_by_static_route(self):
+  source=(ROOT/'server.py').read_text()
+  self.assertIn("'browser-whisper.js'",source)
+  self.assertIn("'browser-whisper.js':'text/javascript'",source)
+  html=(ROOT/'static/index.html').read_text()
+  self.assertIn('id="browserTranscribe"',html)
+  self.assertIn('type="module" src="/browser-whisper.js"',html)
+  module=(ROOT/'static/browser-whisper.js').read_text()
+  self.assertIn("import('https://esm.sh/@huggingface/transformers@3.7.2')",module)
+  self.assertIn("language: 'es'",module)
+  self.assertIn("return_timestamps: 'word'",module)
+
+
+class BrowserWhisperHandoffTests(unittest.TestCase):
+ def test_browser_transcriber_converts_word_timestamps_to_vtt_and_attaches_it(self):
+  module=(ROOT/'static'/'browser-whisper.js').read_text()
+  self.assertIn('function makeVtt(segments)',module)
+  self.assertIn('WEBVTT',module)
+  self.assertIn("document.querySelector('#transcript')",module)
+  self.assertIn("new File([vtt], 'clipforge-transcripcion.vtt'",module)
+  self.assertIn("input.dispatchEvent(new Event('change', { bubbles: true }))",module)
+
+ def test_browser_transcriber_does_not_claim_speaker_diarization(self):
+  module=(ROOT/'static'/'browser-whisper.js').read_text()
+  self.assertIn('Whisper no identifica hablantes',module)
+
+
+class BrowserFaceTrackingTests(unittest.TestCase):
+ def test_browser_export_uses_local_face_detection_and_safe_multi_face_fallback(self):
+  module=(ROOT/'static'/'browser-export.js').read_text()
+  self.assertIn('@mediapipe/tasks-vision@1.2.2/vision_bundle.mjs',module)
+  self.assertIn('faceDetector.detectForVideo(sourceCanvas',module)
+  self.assertIn('multiFace=faces.length>1',module)
+  self.assertIn("sample.drawWithFit(ctx,{fit:'contain'})",module)
+  self.assertIn('faceDetector?.close?.()',module)
+
+
+class BrowserClipCandidateTests(unittest.TestCase):
+ def test_browser_candidate_ranker_uses_timestamps_and_returns_four_non_overlapping_clips(self):
+  module=(ROOT/'static'/'browser-whisper.js').read_text()
+  self.assertIn('function rankClipCandidates(words, videoDuration)',module)
+  self.assertIn('candidates.sort((a,b)=>b.score-a.score)',module)
+  self.assertIn('if (chosen.length === 4) break',module)
+  self.assertIn('c.end <= x.start + 3 || c.start >= x.end - 3',module)
+  self.assertIn('showClipCandidates(transcriptData.segments, audio.length / 16000)',module)
+
+ def test_candidate_ui_labels_heuristic_scores_honestly(self):
+  html=(ROOT/'static'/'index.html').read_text()
+  module=(ROOT/'static'/'browser-whisper.js').read_text()
+  self.assertIn('PuntuaciÃ³n heurÃ­stica',html)
+  self.assertIn('no equivalen a una predicciÃ³n de viralidad',module)
+
+class BrowserProjectImportTests(unittest.TestCase):
+ def test_project_import_validates_schema_and_clip_times(self):
+  module=(ROOT/'static'/'browser-whisper.js').read_text()
+  self.assertIn("project?.schema!=='clipforge-browser-project-v1'",module)
+  self.assertIn("Number(c.end)<=Number(c.start)",module)
+  self.assertIn("browserProjectImport",module)
+
+ def test_project_import_restores_clips_and_transcript(self):
+  module=(ROOT/'static'/'browser-whisper.js').read_text()
+  self.assertIn("editableCandidates=project.clips.map",module)
+  self.assertIn("transcriptData=project.transcript || null",module)
+  html=(ROOT/'static'/'index.html').read_text()
+  self.assertIn('accept="application/json,.json"',html)
+
+class ManualBrowserRenderIntegrationTests(unittest.TestCase):
+ def test_backend_accepts_browser_edit_decision_list(self):
+  server=(ROOT/'server.py').read_text()
+  engine=(ROOT/'clipforge.py').read_text()
+  self.assertIn("fields.get('selected_clip_ranges')",server)
+  self.assertIn("'--ranges-json'",server)
+  self.assertIn('manual_browser_edit_decision_list',engine)
+ def test_manual_ranges_are_bounded_and_validated(self):
+  engine=(ROOT/'clipforge.py').read_text()
+  self.assertIn('len(windows)>10',engine)
+  self.assertIn('b>duration',engine)
+  self.assertIn('--ranges-json',engine)
+ def test_browser_candidates_submit_ranges_with_job_form(self):
+  module=(ROOT/'static'/'browser-whisper.js').read_text()
+  self.assertIn("field.name='selected_clip_ranges'",module)
+  self.assertIn('JSON.stringify(editableCandidates)',module)
+
+class ProjectRestoreRegressionTests(unittest.TestCase):
+ def test_imported_project_reuses_same_editable_candidate_controls(self):
+  module=(ROOT/'static'/'browser-whisper.js').read_text()
+  self.assertIn('function showClipCandidates(words,duration,restoredCandidates=null)',module)
+  self.assertIn('showClipCandidates([],duration,editableCandidates)',module)
+  self.assertIn('Los cortes editados se enviarÃ¡n al renderizador',module)
+ def test_import_no_longer_restores_read_only_cards(self):
+  module=(ROOT/'static'/'browser-whisper.js').read_text()
+  import_section=module[module.index('// ImportaciÃ³n explÃ­cita'):]
+  self.assertNotIn("document.createElement('p')",import_section)
+  self.assertIn('addEventListener(\'change\',update)',module)
