@@ -188,7 +188,6 @@ async function transcribeAudioInChunks(asr, audio, onProgress = () => {}) {
   allChunks.sort((a, b) => a.start - b.start);
   return { text: (allChunks.length ? allChunks.map(chunk => chunk.text).join(' ') : fullText.join(' ')).replace(/\s+/g, ' ').trim(), chunks: allChunks };
 }
-
 function makeVtt(segments) {
   // Build readable cues at natural pauses and sentence boundaries, not at
   // arbitrary fixed five-word intervals. Keep timing from Whisper unchanged.
@@ -307,7 +306,8 @@ function showClipCandidates(words,duration,restoredCandidates=null) {
  };
  editableCandidates.forEach((c,i)=>{
   const card=document.createElement('article');card.className='candidate-card';
-  const heading=document.createElement('strong');heading.textContent=`${c.title} · potencial editorial (heurístico) ${c.score}/100`;\n  const rationale=document.createElement('small');rationale.className='candidate-rationale';rationale.textContent=(c.reasons||[]).join(' · ')||'Conversación con cierre natural';
+  const heading=document.createElement('strong');heading.textContent=`${c.title} · potencial editorial (heurístico) ${c.score}/100`;
+  const rationale=document.createElement('small');rationale.className='candidate-rationale';rationale.textContent=(c.reasons||[]).join(' · ')||'Conversación con cierre natural';
   const selectLabel=document.createElement('label');selectLabel.className='candidate-select';
   const select=document.createElement('input');select.type='checkbox';select.checked=c.selected!==false;
   select.setAttribute('aria-label','Incluir clip en exportación');
@@ -377,8 +377,7 @@ runButton?.addEventListener('click', async () => {
       generated_at: new Date().toISOString(), text: result.text || '',
       // transcribeAudioInChunks already converts model-local timestamps to
       // absolute source-video seconds and returns {start, end, text} objects.
-      // Do not read c.timestamp here: that field belongs to raw Transformers.js
-      // chunks and would silently reset every saved caption to 0 seconds.
+      // Do not read c.timestamp here: that field belongs to raw Transformers.js      // chunks and would silently reset every saved caption to 0 seconds.
       segments: chunks.map(c => ({
         start: Number(c.start),
         end: Number(c.end),
@@ -558,4 +557,3 @@ window.clipforgeEditorBridge = {
     if (saveProjectButton) saveProjectButton.disabled = false;
   }
 };
-window.dispatchEvent(new CustomEvent('clipforge:editor-ready'));
