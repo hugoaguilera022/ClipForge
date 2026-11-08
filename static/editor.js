@@ -24,6 +24,7 @@ function previewClip(clip){
   if(previewVideo.readyState>=1)seek();else previewVideo.addEventListener('loadedmetadata',seek,{once:true});
   say(`Previsualizando ${start.toFixed(2)}–${end.toFixed(2)} s del vídeo original.`);
 }
+window.clipforgeEditorBridge&&(window.clipforgeEditorBridge.previewClip=previewClip);
 previewVideo?.addEventListener('timeupdate',()=>{if(previewEnd!==null&&previewVideo.currentTime>=previewEnd){previewVideo.pause();previewVideo.currentTime=previewEnd;previewEnd=null;}});
 document.querySelector('#video')?.addEventListener('change',()=>{previewEnd=null;syncPreviewSource();});
 let tracks = [];
