@@ -255,7 +255,7 @@ let editableCandidates=[];
 function showClipCandidates(words,duration,restoredCandidates=null) {
  const panel=document.querySelector('#browserCandidates'),list=document.querySelector('#browserCandidateList');
  if(!panel||!list)return;
- editableCandidates=(restoredCandidates || rankClipCandidates(words,duration)).map((c,i)=>({...c,title:c.title||`Clip ${i+1}`}));
+ editableCandidates=(restoredCandidates || rankClipCandidates(words,duration)).map((c,i)=>({...c,title:c.title||`Clip ${i+1}`,selected:c.selected!==false}));
  panel.hidden=false;list.replaceChildren();
  if(!editableCandidates.length){list.textContent='No hay suficientes marcas de tiempo.';const field=document.querySelector('[name="selected_clip_ranges"]');if(field)field.value='';return;}
  const sync=()=>{
@@ -267,13 +267,18 @@ function showClipCandidates(words,duration,restoredCandidates=null) {
  editableCandidates.forEach((c,i)=>{
   const card=document.createElement('article');card.className='candidate-card';
   const heading=document.createElement('strong');heading.textContent=`${c.title} · ${c.score}/100 (heurístico)`;
+  const selectLabel=document.createElement('label');selectLabel.className='candidate-select';
+  const select=document.createElement('input');select.type='checkbox';select.checked=c.selected!==false;
+  select.setAttribute('aria-label','Incluir clip en exportación');
+  select.addEventListener('change',()=>{editableCandidates[i]={...editableCandidates[i],selected:select.checked};sync();});
+  selectLabel.append(select,document.createTextNode(' Incluir en exportación'));
   const row=document.createElement('div');row.className='candidate-edit-grid';
   const a=document.createElement('input');a.type='number';a.min='0';a.step='.1';a.value=Number(c.start).toFixed(2);a.setAttribute('aria-label','Inicio en segundos');
   const b=document.createElement('input');b.type='number';b.min='0';b.step='.1';b.value=Number(c.end).toFixed(2);b.setAttribute('aria-label','Final en segundos');
   const note=document.createElement('textarea');note.value=String(c.text || '');note.rows=3;note.setAttribute('aria-label','Texto del clip');
   const update=()=>{const x=Number(a.value),y=Number(b.value);if(a.value.trim()===''||b.value.trim()===''||!Number.isFinite(x)||!Number.isFinite(y)||x<0||y<=x||y>duration){card.classList.add('candidate-invalid');return;}card.classList.remove('candidate-invalid');editableCandidates[i]={...editableCandidates[i],start:x,end:y,duration:y-x,text:note.value};sync();};
   a.addEventListener('change',update);b.addEventListener('change',update);note.addEventListener('input',update);
-  row.append(a,b);card.append(heading,row,note);list.append(card);
+  row.append(a,b);card.append(heading,selectLabel,row,note);list.append(card);
  });
  const info=document.createElement('p');info.textContent='Los cortes editados se enviarán al renderizador al crear el trabajo. Puntuación orientativa, no predicción de viralidad.';list.append(info);sync();
  window.dispatchEvent(new CustomEvent('clipforge:clips-updated'));
