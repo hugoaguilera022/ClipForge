@@ -176,8 +176,12 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
         }else if(faceLandmarker&&sourceCanvas&&lastFaceCenter!==null){
           const cropWidth=Math.min(sourceCanvas.width,sourceCanvas.height*9/16);
           const center=lastFaceCenter*sourceCanvas.width/sourceWidth;
-          const left=Math.max(0,Math.min(sourceCanvas.width-cropWidth,center-cropWidth/2));
-          ctx.drawImage(sourceCanvas,left,0,cropWidth,sourceCanvas.height,0,0,1080,1920);
+          // Keep the speaker centered even at the extreme left/right edge.
+          // Fill any out-of-frame area with a blurred copy instead of clamping
+          // the crop and cutting half of the speaker's face.
+          const left=center-cropWidth/2,scale=1080/cropWidth;
+          ctx.save();ctx.filter='blur(24px)';sample.drawWithFit(ctx,{fit:'cover'});ctx.restore();
+          ctx.drawImage(sourceCanvas,-left*scale,0,sourceCanvas.width*scale,1920);
         }else{
           // When dialogue has multiple faces or tracking is unavailable, retain
           // the complete shot over a blurred fill instead of cutting a speaker off.
@@ -249,7 +253,3 @@ exportButton?.addEventListener('click',async()=>{
     document.body.append(a);a.click();a.remove();
     setTimeout(()=>URL.revokeObjectURL(url),60000);
     const totalBytes=results.reduce((n,x)=>n+x.bytes,0);
-    sayExport(`Exportación terminada: ${results.length} MP4 en un ZIP · 1080×1920 · 30 fps · H.264 + audio original · ${results.some(x=>x.faceSamples)?'seguimiento facial':'encuadre seguro'} · ${(totalBytes/1024/1024).toFixed(1)} MB de vídeo.`);
-  }catch(error){console.error(error);sayExport(`Exportación detenida: ${error.message}. No se ha enviado el vídeo a ningún servidor.`);}
-  finally{exportButton.disabled=false;}
-});
