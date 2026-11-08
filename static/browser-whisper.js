@@ -291,7 +291,10 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
       const payoffAtBoundary=/\b(ya te avisaremos|te avisaremos|te lo digo|así es|eso es|there it is|turns out)\s*[.!?]?$/i.test(ending);
       const complete=sentenceEnd.test(clean[index].text);
       const semanticBonus=(hasQuestion&&answered?12:answered?5:0)+(payoffAtBoundary?10:0);
-      return Math.abs((clean[index].end-start)-targetLen)-semanticBonus-(complete?1.5:0);
+      // Don't cut immediately after an answer if the speaker continues the
+      // same beat in the next breath; keep the follow-up reaction together.
+      const unfinishedFollowup=payoffAtBoundary&&index+1<clean.length&&clean[index+1].start-clean[index].end<.72;
+      return Math.abs((clean[index].end-start)-targetLen)-semanticBonus-(complete?1.5:0)+(unfinishedFollowup?7:0);
     };
     endIndex=possible.sort((x,y)=>endpointCost(x)-endpointCost(y))[0];
     const group=clean.slice(si,endIndex+1), end=group[group.length-1].end, duration=end-start;
@@ -334,7 +337,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     const rawScore = 15 + durationScore*10 + paceScore*12 + lexicalScore*8 +
       (hookAtStart?12:0) + (questionAtStart?6:0) + Math.min(6,questionCount*1.5) + Math.min(10,exclamationCount*2.5) + turnScore +
       Math.min(14,laughCount*7) + Math.min(18,reactionCount*4) + (pivot?8:0) + (hasSetup?6:0) + (hasTurn?6:0) +
-      (payoffAtEnd?8:0) + (questionAnswered?10:0) + (answerClosedAtEnd?12:0) + (completeEnd?7:0) + acousticScore - Math.min(12,fillerCount*.8) -
+      (payoffAtEnd?8:0) + (questionAnswered?16:0) + (answerClosedAtEnd?12:0) + (completeEnd?7:0) + acousticScore - Math.min(12,fillerCount*.8) -
       (abruptStart?8:0) - (wordsPerSecond<1.1?8:0);
     // Compress the raw weighted sum to avoid the previous ceiling effect where
     // several very different moments all received 100/100.
@@ -656,6 +659,3 @@ window.clipforgeEditorBridge = {
     if (output) output.value = transcriptData.segments.map(s => `[${Number(s.start).toFixed(2)}–${Number(s.end).toFixed(2)}] ${String(s.text || '')}`).join('\n');
     if (download) download.disabled = false;
     if (saveProjectButton) saveProjectButton.disabled = false;
-  }
-};
-window.dispatchEvent(new CustomEvent('clipforge:editor-ready'));
