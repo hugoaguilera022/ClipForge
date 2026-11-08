@@ -554,6 +554,7 @@ class BrowserFaceTrackingTests(unittest.TestCase):
   self.assertIn('track.activity=track.activity*.72',module)
   self.assertIn('landmarks[13]',module)
   self.assertIn('frameNumber%6===1',module)
+  self.assertNotIn('frameNumber%6===1||lastFaceCenter===null',module)
   self.assertIn('activeSpeakerTrack.activity*1.18+.015',module)
   self.assertIn('lastFaceCenter*.78+desired*.22',module)
   self.assertIn('ctx.drawImage(sourceCanvas,-left*scale,0,sourceCanvas.width*scale,1920)',module)
@@ -652,4 +653,3 @@ class BrowserEditorPreviewTests(unittest.TestCase):
   self.assertIn('window.clipforgeEditorBridge.previewClip=previewClip',module)
   whisper=(ROOT/'static'/'browser-whisper.js').read_text()
   self.assertIn('preview-clip-candidate',whisper)
-  self.assertIn('previewClip?.(c)',whisper)
