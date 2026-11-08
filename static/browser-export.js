@@ -52,6 +52,11 @@ function drawKaraokeCaption(ctx,cues,sourceTime,width,height){
 async function exportOne(file,clip,segments,index,total){
   const {Input,Output,Conversion,ALL_FORMATS,BlobSource,Mp4OutputFormat,BufferTarget,Quality}=await import('https://esm.sh/mediabunny@1.65.2');
   const input=new Input({source:new BlobSource(file),formats:ALL_FORMATS});
+  const sourceDuration=await input.getDurationFromMetadata();
+  if(!Number.isFinite(sourceDuration)||sourceDuration<=0)throw new Error('No se pudo verificar la duración del vídeo original.');
+  if(clip.start<0||clip.end<=clip.start||clip.start>=sourceDuration||clip.end>sourceDuration+.05){
+    throw new Error(`El corte ${index+1} (${clip.start.toFixed(2)}–${clip.end.toFixed(2)} s) queda fuera de la duración real del vídeo (${sourceDuration.toFixed(2)} s).`);
+  }
   const output=new Output({format:new Mp4OutputFormat(),target:new BufferTarget()});
   const cues=buildCaptionCues(segments);
   let canvas=null,ctx=null;
