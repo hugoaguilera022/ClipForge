@@ -555,11 +555,11 @@ class BrowserFaceTrackingTests(unittest.TestCase):
 class BrowserClipCandidateTests(unittest.TestCase):
  def test_browser_candidate_ranker_uses_timestamps_and_returns_four_non_overlapping_clips(self):
   module=(ROOT/'static'/'browser-whisper.js').read_text()
-  self.assertIn('function rankClipCandidates(words, videoDuration)',module)
+  self.assertIn('function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRate = 16000)',module)
   self.assertIn('candidates.sort((a,b)=>b.score-a.score)',module)
   self.assertIn('if (chosen.length === 4) break',module)
   self.assertIn('c.end<=x.start-10 || c.start>=x.end+10',module)
-  self.assertIn('showClipCandidates(transcriptData.segments, audio.length / 16000)',module)
+  self.assertIn('showClipCandidates(transcriptData.segments, audio.length / 16000, null, audio)',module)
 
  def test_candidate_ui_labels_heuristic_scores_honestly(self):
   html=(ROOT/'static'/'index.html').read_text()
@@ -601,9 +601,9 @@ class ManualBrowserRenderIntegrationTests(unittest.TestCase):
 class ProjectRestoreRegressionTests(unittest.TestCase):
  def test_imported_project_reuses_same_editable_candidate_controls(self):
   module=(ROOT/'static'/'browser-whisper.js').read_text()
-  self.assertIn('function showClipCandidates(words,duration,restoredCandidates=null)',module)
+  self.assertIn('function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=null)',module)
   self.assertIn('showClipCandidates([],duration,editableCandidates)',module)
-  self.assertIn('Selección local basada en inicio, coherencia, interacción, ritmo y cierre',module)
+  self.assertIn('Selección local basada en transcripción, coherencia, interacción, ritmo, energía de audio y cierre',module)
  def test_import_no_longer_restores_read_only_cards(self):
   module=(ROOT/'static'/'browser-whisper.js').read_text()
   import_section=module[module.index('// Importación explícita'):]
