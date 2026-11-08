@@ -39,7 +39,7 @@ try {
   await page.waitForFunction(() => {
     const el=document.querySelector('#browserExportStatus');
     return el && /Exportación terminada:/.test(el.textContent);
-  }, { timeout: 180000 });
+  }, undefined, { timeout: 180000 });
   const download = await downloadPromise;
   await download.saveAs('test-output/browser-export.zip');
   const inspect = spawnSync('python', ['-c', "import zipfile; z=zipfile.ZipFile('test-output/browser-export.zip'); names=z.namelist(); assert len(names)==4, names; [z.extract(n,'test-output/exported') for n in names]; print(names)"], {encoding:'utf8'});
