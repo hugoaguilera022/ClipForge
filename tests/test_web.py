@@ -578,6 +578,10 @@ class BrowserClipCandidateTests(unittest.TestCase):
   self.assertIn('if(chosen.length<4)',module)
   self.assertIn('other.score<=c.score+6',module)
   self.assertIn('selectionScore:c.score+',module)
+  self.assertIn('const endpointCost=index=>',module)
+  self.assertIn('hasQuestion&&answered?12',module)
+  self.assertIn('ya te avisaremos',module)
+  self.assertIn('Prefer a natural endpoint around 24–30 seconds',module)
   self.assertIn('if(chosen.length<4)',module)
   self.assertIn('showClipCandidates(transcriptData.segments, audio.length / 16000, null, audio)',module)
 
@@ -653,3 +657,4 @@ class BrowserEditorPreviewTests(unittest.TestCase):
   self.assertIn('window.clipforgeEditorBridge.previewClip=previewClip',module)
   whisper=(ROOT/'static'/'browser-whisper.js').read_text()
   self.assertIn('preview-clip-candidate',whisper)
+  self.assertIn('previewClip?.(c)',whisper)
