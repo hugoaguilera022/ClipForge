@@ -84,7 +84,12 @@ async function loadJobHistory(){
 }
 $('#refreshJobs')?.addEventListener('click',loadJobHistory);
 
-loadHealth();loadPlatforms();loadJobHistory();
+loadHealth().then(()=>{
+ if(document.body.dataset.browserOnly!=='true'){
+  loadPlatforms();loadJobHistory();loadChannels();loadInbox();
+  setInterval(loadInbox,20000);
+ }
+});
 
 async function loadChannels(){
  const list=$('#channelList'); if(!list)return;
@@ -111,7 +116,6 @@ $('#channelList')?.addEventListener('click',async e=>{
  const button=e.target.closest('.remove-channel');if(!button)return;button.disabled=true;
  try{const r=await fetch('/api/channels/'+encodeURIComponent(button.dataset.id),{method:'DELETE'});if(!r.ok)throw Error('No se pudo eliminar');await loadChannels();}catch(err){$('#channelStatus').textContent=err.message;button.disabled=false;}
 });
-loadChannels();
 
 $('#jobHistory')?.addEventListener('click',async e=>{
  const button=e.target.closest('.retry-job');if(!button)return;
@@ -133,5 +137,3 @@ $('#scanInbox')?.addEventListener('click',async()=>{
  try{const r=await fetch('/api/inbox/scan',{method:'POST'});const d=await r.json();if(!r.ok)throw Error(d.error||'Error de entrada');s.textContent=`Importados: ${d.imported?.length||0} · esperando: ${d.waiting||0} · errores: ${d.errors?.length||0}`;await loadInbox();await loadJobHistory();}
  catch(e){s.textContent=e.message;}finally{b.disabled=false;}
 });
-loadInbox();
-setInterval(loadInbox,20000);
