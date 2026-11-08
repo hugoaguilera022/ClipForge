@@ -32,6 +32,12 @@ try {
   await writeFile('test-output/e2e-project.json', JSON.stringify(project));
   await page.locator('#browserProjectImport').setInputFiles('test-output/e2e-project.json');
   await page.locator('#browserCandidates').waitFor({state:'visible', timeout:10000});
+  // Exercise the editable export controls and the centered portrait crop path.
+  await page.locator('#captionPosition').selectOption('top');
+  await page.locator('#captionColor').selectOption('white');
+  await page.locator('#captionBackground').selectOption('none');
+  await page.locator('#captionSize').selectOption('6.2');
+  await page.locator('#browserCropMode').selectOption('center');
   const projectState = await page.locator('#browserWhisperStatus').innerText();
   if (!projectState.includes('Proyecto recuperado')) throw new Error('Browser project import did not complete: '+projectState);
   // Attach rejection handling immediately: an unhandled Playwright timeout can terminate Node while the render is still running.
