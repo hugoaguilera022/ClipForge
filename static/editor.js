@@ -10,7 +10,7 @@ let source = '';
 const undoStack = []; const redoStack = []; const HISTORY_LIMIT = 80;
 function snapshot(){ return JSON.stringify({tracks,clips,transcript,source}); }
 function remember(){ const current=snapshot(); if(undoStack.at(-1)!==current) undoStack.push(current); if(undoStack.length>HISTORY_LIMIT) undoStack.shift(); redoStack.length=0; updateHistoryButtons(); }
-function restore(raw){ const state=JSON.parse(raw); tracks=state.tracks||[]; clips=state.clips||[]; transcript=state.transcript||null; source=state.source||''; window.clipforgeEditorBridge?.setClips(clips); render(); updateHistoryButtons(); }
+function restore(raw){ const state=JSON.parse(raw); tracks=state.tracks||[]; clips=state.clips||[]; transcript=state.transcript||null; source=state.source||''; window.clipforgeEditorBridge?.setClips(clips); if(transcript)window.clipforgeEditorBridge?.setTranscript(transcript); render(); updateHistoryButtons(); }
 function updateHistoryButtons(){ const u=document.querySelector('#editorUndo'),r=document.querySelector('#editorRedo'); if(u)u.disabled=!undoStack.length; if(r)r.disabled=!redoStack.length; }
 function undo(){ if(!undoStack.length)return; redoStack.push(snapshot()); restore(undoStack.pop()); say('Último cambio deshecho.'); }
 function redo(){ if(!redoStack.length)return; undoStack.push(snapshot()); restore(redoStack.pop()); say('Cambio restaurado.'); }
