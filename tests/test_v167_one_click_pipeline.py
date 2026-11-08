@@ -12,8 +12,12 @@ def test_browser_transcription_is_attached_to_production_form():
     assert 'if (rights?.checked)' in js
 
 
-def test_one_click_option_is_explicit_and_enabled_by_default():
+def test_legacy_server_submission_is_opt_in_and_requires_rights_confirmation():
     html = (ROOT / 'static/index.html').read_text(encoding='utf-8')
+    js = (ROOT / 'static/browser-whisper.js').read_text(encoding='utf-8')
     assert 'id="autoGenerateAfterTranscription"' in html
-    assert 'type="checkbox" checked' in html
+    assert 'type="checkbox" checked' not in html
+    assert 'modo compatibilidad' in html
     assert 'confirmación de derechos' in html
+    assert 'if (rights?.checked)' in js
+    assert 'form.requestSubmit()' in js
