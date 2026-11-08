@@ -622,3 +622,4 @@ class ProjectRestoreRegressionTests(unittest.TestCase):
   module=(ROOT/'static'/'browser-whisper.js').read_text()
   import_section=module[module.index('// Importación explícita'):]
   self.assertNotIn("document.createElement('p')",import_section)
+  self.assertIn('addEventListener(\'change\',update)',module)
