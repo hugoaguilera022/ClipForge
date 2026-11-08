@@ -6,6 +6,7 @@ const saveProjectButton = document.querySelector('#saveBrowserProject');
 let transcriptData = null;
 let asr = null;
 let importedProjectPendingSource = false;
+let editorTracks = [];
 const say = (message) => { if (status) status.textContent = message; };
 
 function timeVtt(seconds) {
@@ -502,7 +503,7 @@ window.clipforgeEditorBridge = {
       source: transcriptData?.source || document.querySelector('#video')?.files?.[0]?.name || '',
       transcript: transcriptData ? JSON.parse(JSON.stringify(transcriptData)) : null,
       clips: editableCandidates.map((clip, i) => ({...clip, id:String(clip.id || `clip-${i+1}`)})),
-      tracks: []
+      tracks: JSON.parse(JSON.stringify(editorTracks))
     };
   },
   setClips(clips) {
@@ -512,6 +513,7 @@ window.clipforgeEditorBridge = {
     const field = document.querySelector('[name="selected_clip_ranges"]');
     if (field) field.value = JSON.stringify(editableCandidates);
   },
+  setTracks(value) { editorTracks = Array.isArray(value) ? JSON.parse(JSON.stringify(value)) : []; },
   setTranscript(value) {
     if (!value || !Array.isArray(value.segments)) return;
     transcriptData = JSON.parse(JSON.stringify(value));
