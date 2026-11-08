@@ -44,3 +44,17 @@
 .editor-empty{padding:14px;border:1px dashed var(--line,#303744);border-radius:10px}
 .editor-track button{white-space:nowrap}
 @media(max-width:680px){.editor-clip{grid-template-columns:1fr 1fr}.editor-clip input[type=text]{grid-column:1/-1}.editor-clip button{grid-column:1/-1}}
+
+/* Static-host mode: keep the browser pipeline visible and hide controls that require the legacy Python API. */
+body[data-browser-only="true"] .publish,
+body[data-browser-only="true"] .channel-panel,
+body[data-browser-only="true"] .inbox-panel,
+body[data-browser-only="true"] .history-panel,
+body[data-browser-only="true"] .workflow{display:none!important}
+body[data-browser-only="true"] .grid{grid-template-columns:1fr}
+body[data-browser-only="true"] .upload #jobForm > :not(.drop){display:none!important}
+body[data-browser-only="true"] .upload .drop{min-height:110px}
+body[data-browser-only="true"] .hero .eyebrow:after{content:" · PROCESAMIENTO EN TU NAVEGADOR"}
+.browser-export{margin-top:22px;padding:18px;border:1px solid var(--line);border-radius:14px;background:#0d141e}
+.browser-export h3{margin:3px 0;font-size:18px}
+#browserExportStatus{margin-top:12px}
