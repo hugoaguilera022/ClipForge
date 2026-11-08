@@ -511,6 +511,13 @@ window.clipforgeEditorBridge = {
     showClipCandidates([], duration, editableCandidates);
     const field = document.querySelector('[name="selected_clip_ranges"]');
     if (field) field.value = JSON.stringify(editableCandidates);
+  },
+  setTranscript(value) {
+    if (!value || !Array.isArray(value.segments)) return;
+    transcriptData = JSON.parse(JSON.stringify(value));
+    if (output) output.value = transcriptData.text || '';
+    if (download) download.disabled = false;
+    if (saveProjectButton) saveProjectButton.disabled = false;
   }
 };
 window.dispatchEvent(new CustomEvent('clipforge:editor-ready'));
