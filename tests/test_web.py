@@ -526,7 +526,7 @@ class BrowserWhisperIntegrationTests(unittest.TestCase):
   self.assertIn("'browser-whisper.js':'text/javascript'",source)
   html=(ROOT/'static/index.html').read_text()
   self.assertIn('id="browserTranscribe"',html)
-  self.assertIn('type="module" src="/browser-whisper.js"',html)
+  self.assertIn('type="module" src="/browser-whisper.js?v=',html)
   module=(ROOT/'static/browser-whisper.js').read_text()
   self.assertIn("import('https://esm.sh/@huggingface/transformers@3.7.2')",module)
   self.assertIn("language: result.language || sourceLanguage",module)
