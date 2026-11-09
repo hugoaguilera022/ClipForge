@@ -653,6 +653,92 @@ function rerankWithSemanticEmbeddings(candidates, embeddings, limit = 4) {
     }));
 }
 
+// A real generative editorial judge. Unlike the embedding reranker, this
+// model reads each candidate as an editor and makes a narrative-quality choice.
+// Runs locally through WebGPU: no API key, no paid inference endpoint, no upload.
+let editorialEnginePromise = null;
+async function loadEditorialJudge(onProgress = () => {}) {
+  if (!navigator.gpu) throw new Error('Este navegador no ofrece WebGPU. Para usar el editor IA local, abre ClipForge en Chrome o Edge actualizado.');
+  if (!editorialEnginePromise) {
+    editorialEnginePromise = (async () => {
+      onProgress('Preparando el editor IA local Qwen3…');
+      const webllm = await import('https://esm.sh/@mlc-ai/web-llm@0.2.80');
+      const modelId = 'Qwen3-1.7B-q4f16_1-MLC';
+      const engine = await webllm.CreateMLCEngine(modelId, {
+        initProgressCallback: report => onProgress(report?.text || 'Descargando el modelo editorial IA…')
+      });
+      return engine;
+    })().catch(error => { editorialEnginePromise = null; throw error; });
+  }
+  return editorialEnginePromise;
+}
+
+function parseEditorialDecision(raw, candidates, limit = 4) {
+  const text = String(raw || '').replace(/<think>[\\s\\S]*?<\\/think>/gi, '').trim();
+  const match = text.match(/\\{[\\s\\S]*\\}/);
+  if (!match) throw new Error('El editor IA no devolvió una selección estructurada.');
+  const data = JSON.parse(match[0]);
+  if (!Array.isArray(data.selected)) throw new Error('La respuesta del editor IA no contiene una lista de selección.');
+  const used = new Set(), selected = [];
+  for (const item of data.selected) {
+    const id = Number(item.id);
+    if (!Number.isInteger(id) || id < 1 || id > candidates.length || used.has(id)) continue;
+    const clip = candidates[id - 1];
+    if (selected.some(other => !(clip.end <= other.end && clip.end <= other.start - 1 || clip.start >= other.end + 1))) {
+      // Reject overlapping editorial selections; timestamps always come from ASR.
+      if (selected.some(other => clip.start < other.end + 1 && clip.end > other.start - 1)) continue;
+    }
+    used.add(id);
+    selected.push({
+      ...clip,
+      title: String(item.title || `Clip ${selected.length + 1}`).slice(0, 70),
+      ai_editorial_rank: selected.length + 1,
+      ai_editorial_score: Math.max(0, Math.min(100, Number(item.score) || 0)),
+      ai_editorial_reason: String(item.reason || '').slice(0, 240),
+      selection_method: 'local_generative_editor'
+    });
+    if (selected.length >= Math.max(1, Math.min(4, limit))) break;
+  }
+  if (selected.length !== Math.min(4, candidates.length, Math.max(1, limit))) {
+    throw new Error('El editor IA no ha devuelto cuatro candidatos válidos y distintos.');
+  }
+  return selected.sort((a,b) => a.start - b.start).map((clip,i) => ({...clip,title:clip.title || `Clip ${i+1}`}));
+}
+
+async function aiEditorialSelect(candidates, limit = 4, onProgress = () => {}) {
+  const pool = (Array.isArray(candidates) ? candidates : []).filter(c =>
+    c && Number.isFinite(c.start) && Number.isFinite(c.end) && c.end > c.start && String(c.text || '').trim()
+  );
+  if (pool.length < limit) throw new Error('No hay suficientes momentos con diálogo para que el editor IA compare cuatro clips.');
+  const engine = await loadEditorialJudge(onProgress);
+  const shortlist = pool.slice(0, 16).map((clip,index) => ({
+    id:index+1, start:Number(clip.start.toFixed(1)), end:Number(clip.end.toFixed(1)),
+    transcript:String(clip.text).replace(/\\s+/g,' ').slice(0,520)
+  }));
+  const prompt = [
+    'Eres el editor jefe de una productora profesional de clips verticales para redes sociales.',
+    'Debes elegir exactamente cuatro fragmentos de una entrevista/conversación. Evalúa el contenido, no señales superficiales.',
+    'Prioriza: historia o anécdota comprensible sin contexto externo; tensión, sorpresa o giro; humor genuino y reacción; pregunta con respuesta interesante; opinión contundente; emoción; remate satisfactorio; claridad para alguien que no vio el vídeo.',
+    'Penaliza: charla de transición, presentaciones, nombres sin contexto, frases cortadas, repeticiones, silencios transcritos, promoción, fragmentos que necesitan demasiado contexto y finales sin payoff.',
+    'Busca cuatro momentos distintos, no cuatro variaciones de la misma conversación. El idioma puede ser español o inglés.',
+    'No inventes hechos ni cambies los tiempos. Solo puedes seleccionar IDs de la lista. No selecciones por puntuación heurística.',
+    'Devuelve SOLO JSON válido con esta forma: {"selected":[{"id":1,"score":92,"title":"título breve","reason":"por qué funciona editorialmente"}]}. Ordena por calidad editorial. Exactamente cuatro IDs distintos.',
+    'CANDIDATOS:', JSON.stringify(shortlist)
+  ].join('\\n');
+  onProgress('El editor IA está leyendo y comparando los momentos…');
+  const response = await engine.chat.completions.create({
+    messages:[
+      {role:'system',content:'Eres un editor audiovisual exigente. No inventes contenido. Responde exclusivamente con JSON válido.'},
+      {role:'user',content:prompt}
+    ],
+    temperature:0.15,
+    max_tokens:850,
+    response_format:{type:'json_object'}
+  });
+  const raw=response?.choices?.[0]?.message?.content || '';
+  return parseEditorialDecision(raw,pool,limit);
+}
+
 async function semanticRerankCandidates(candidates, limit = 4, onProgress = () => {}) {
   if (!Array.isArray(candidates) || candidates.length < 2 || !candidates.some(clip => String(clip.text || '').trim())) {
     return rerankWithoutEmbeddings(candidates, limit);
