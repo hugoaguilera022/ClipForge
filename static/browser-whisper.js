@@ -782,6 +782,18 @@ function buildEditorialCandidatePool(segments, videoDuration, audioSamples = nul
       .slice(0,5).map(x=>x.text).join(' ').replace(/\s+/g,' ').trim().slice(0,360);
     pool.push({start,end,duration:end-start,text,context_before:contextBefore,context_after:contextAfter,title:'Candidato editorial',selected:false,selection_method:'neutral_transcript_window',media_evidence:evidence});
   }
+  // Bound local-LLM work for long videos. Keep a uniform temporal sample
+  // across the complete source instead of ranking windows with heuristics.
+  const maxCandidates=64;
+  if(pool.length>maxCandidates){
+    const sampled=[];
+    const used=new Set();
+    for(let i=0;i<maxCandidates;i++){
+      const index=Math.round(i*(pool.length-1)/(maxCandidates-1));
+      if(!used.has(index)){used.add(index);sampled.push(pool[index]);}
+    }
+    return sampled;
+  }
   return pool;
 }
 
