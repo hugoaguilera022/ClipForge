@@ -143,3 +143,17 @@ const fakeAsr=async()=>{
 const chunkResult=await chunkSandbox.transcribeAudioInChunks(fakeAsr,new Float32Array(16000*54),()=>{},'word','es');
 if(chunkResult.chunks.length!==1)throw new Error(`overlap phrase was duplicated: ${JSON.stringify(chunkResult.chunks)}`);
 console.log('Phrase overlap deduplication passed across adjacent Whisper chunks.');
+
+
+// Language propagation regression: explicit Spanish/English selections must
+// reach Whisper, while automatic mode must leave language unset for detection.
+const languageCalls=[];
+const languageProbe=async(_audio,options)=>{languageCalls.push(options);return {text:'hello mundo',chunks:[]};};
+await chunkSandbox.transcribeAudioInChunks(languageProbe,new Float32Array(16000),()=>{},'word','es');
+await chunkSandbox.transcribeAudioInChunks(languageProbe,new Float32Array(16000),()=>{},'word','en');
+await chunkSandbox.transcribeAudioInChunks(languageProbe,new Float32Array(16000),()=>{},'word',undefined);
+assert.equal(languageCalls[0].language,'es','Spanish selection must be passed to Whisper');
+assert.equal(languageCalls[1].language,'en','English selection must be passed to Whisper');
+assert.equal(languageCalls[2].language,undefined,'automatic mode must not force a source language');
+assert.equal(languageCalls[2].task,'transcribe','automatic mode must still use transcription, not translation');
+console.log('Bilingual ASR passed: Spanish, English and automatic language detection options.');
