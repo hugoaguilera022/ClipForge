@@ -1,0 +1,11 @@
+FROM python:3.12-slim
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 DENO_INSTALL=/root/.deno
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl ffmpeg && rm -rf /var/lib/apt/lists/*
+RUN curl -fsSL https://deno.land/install.sh | sh
+ENV PATH="/root/.deno/bin:${PATH}"
+WORKDIR /app
+COPY youtube_proxy_requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
+COPY youtube_proxy.py /app/youtube_proxy.py
+EXPOSE 10000
+CMD ["python", "/app/youtube_proxy.py"]
