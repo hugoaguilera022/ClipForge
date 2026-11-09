@@ -174,6 +174,34 @@ const reactionSecond=context.rank(reactionDialogue,25);
 assert.deepEqual(reactionFirst.map(x=>({start:x.start,end:x.end,score:x.score,reasons:x.reasons})),reactionSecond.map(x=>({start:x.start,end:x.end,score:x.score,reasons:x.reasons})),'candidate scoring must be deterministic across repeated calls');
 console.log('Reaction scoring passed: global regex state cannot change candidate rankings.');
 
+// A short answer must retain its preceding setup even when ASR omitted a
+// question mark, and an ellipsis must not be mistaken for a completed beat.
+const terseReplyBeat=[
+  ['Tell me what happened before the final round.',0,2.8],
+  ['No.',3,3.8],
+  ['We had already lost the first match.',4,7],
+  ['Then we changed the whole strategy.',7.2,10.5],
+  ['And suddenly everyone started cheering.',10.6,14],
+  ['The last point decided everything.',14.1,18],
+  ['We could not believe it.',18.1,21],
+  ['That was the best ending.',21.1,25]
+].map(([text,start,end])=>({text,start,end}));
+const replyBeatClips=context.rank(terseReplyBeat,26);
+assert.ok(replyBeatClips.some(c=>c.start===0&&c.text.startsWith('Tell me what happened before the final round. No.')),'short answers must include the preceding setup even without a question mark');
+const unfinishedBeat=[
+  ['What happened after the show?',0,3],
+  ['We went into the old house and heard a noise...',3.2,7.8],
+  ['Then someone turned off all the lights.',7.9,11.8],
+  ['I opened the door and saw...',11.9,15.8],
+  ['my brother standing there with a cake',15.9,19.8],
+  ['and everyone started laughing',19.9,23.8],
+  ['because it was his surprise birthday.',23.9,29.8]
+].map(([text,start,end])=>({text,start,end}));
+const completeBeatClips=context.rank(unfinishedBeat,30);
+assert.ok(completeBeatClips.some(c=>c.text.includes('my brother standing there with a cake')&&c.text.includes('surprise birthday')),'ellipsis must not cut off a setup before its payoff');
+console.log('Context integrity passed: terse replies retain setup and ellipses do not cut story payoffs.');
+
+
 
 
 // Sponsor calls-to-action must never outrank editorial moments.
