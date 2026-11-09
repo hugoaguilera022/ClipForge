@@ -529,7 +529,7 @@ class BrowserWhisperIntegrationTests(unittest.TestCase):
   self.assertIn('type="module" src="/browser-whisper.js"',html)
   module=(ROOT/'static/browser-whisper.js').read_text()
   self.assertIn("import('https://esm.sh/@huggingface/transformers@3.7.2')",module)
-  self.assertIn("language: 'es'",module)
+  self.assertIn("language: result.language || 'auto'",module)
   self.assertIn("return_timestamps: timestampMode",module)
   self.assertIn("model === 'whisper-small' ? true : 'word'",module)
 
@@ -677,3 +677,12 @@ class BroadVideoContainerSupportTests(unittest.TestCase):
   html=(ROOT/"static/index.html").read_text()
   self.assertIn('accept="video/*',html)
   self.assertIn("AVI, M4V",html)
+
+
+class MultilingualBrowserTranscriptionTests(unittest.TestCase):
+ def test_browser_whisper_does_not_force_spanish_for_every_source(self):
+  source=(ROOT/"static"/"browser-whisper.js").read_text()
+  self.assertIn("Leave language unset: Whisper detects the spoken language per chunk.",source)
+  self.assertNotIn("language: 'spanish'",source)
+  self.assertIn("language: result.language || 'auto'",source)
+  self.assertIn("text.toLowerCase()",source)
