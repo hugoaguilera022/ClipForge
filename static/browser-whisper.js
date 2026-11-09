@@ -451,7 +451,8 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     if(questionAnswered)reasons.push('pregunta y respuesta');
     if(answerClosedAtEnd)reasons.push('remate completo al final');
     if(completeEnd)reasons.push('cierre natural');
-    if(energy.length && acousticScore >= 8)reasons.push('energía y dinámica de audio');\n    if(visualChanges.length && visualScore>=3)reasons.push('movimiento y cambios visuales');
+    if(energy.length && acousticScore >= 8)reasons.push('energía y dinámica de audio');
+    if(visualChanges.length && visualScore>=3)reasons.push('movimiento y cambios visuales');
     candidates.push({start,end,duration,score,text,reasons:[...new Set(reasons)].slice(0,3)});
     nextStart=start+stepSeconds;
   }
