@@ -501,16 +501,19 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
   const chosen=[];
   const fits=c=>chosen.every(x=>c.end<=x.start-2.5||c.start>=x.end+2.5);
   const bucketOf=c=>Math.min(3,Math.max(0,Math.floor((c.start-firstStart)/Math.max(quarter,.001))));
-  // Guarantee source coverage: first take the strongest valid candidate from
-  // each quarter. Then fill any missing slot globally without overlap.
-  for(let bucket=0;bucket<4;bucket++){
-    const regional=ranked.find(item=>bucketOf(item.clip)===bucket&&fits(item.clip));
-    if(regional)chosen.push(regional.clip);
-  }
+  // Coverage is a soft preference, never a hard quota: forcing one weak clip
+  // into every quarter can make the result worse than choosing four genuinely
+  // strong moments. Each uncovered quarter gets a small diversity bonus.
   while(chosen.length<4){
-    const best=ranked.find(item=>!chosen.includes(item.clip)&&fits(item.clip));
-    if(!best)break;
-    chosen.push(best.clip);
+    const represented=new Set(chosen.map(bucketOf));
+    const options=ranked.filter(item=>!chosen.includes(item.clip)&&fits(item.clip));
+    if(!options.length)break;
+    options.sort((a,b)=>{
+      const scoreA=a.selectionScore+(represented.has(bucketOf(a.clip))?0:3);
+      const scoreB=b.selectionScore+(represented.has(bucketOf(b.clip))?0:3);
+      return scoreB-scoreA;
+    });
+    chosen.push(options[0].clip);
   }
   // If long edits leave fewer than four slots, make one second pass with a
   // tighter one-second breathing gap. Never overlap clips or fabricate cuts.
