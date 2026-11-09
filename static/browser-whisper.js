@@ -784,6 +784,9 @@ function parseEditorialDecision(raw, candidates, limit = 4, requireAudit = false
     const rubric=item.rubric&&typeof item.rubric==='object'?item.rubric:null;
     const rubricKeys=['hook','story','payoff','clarity','completeness','emotion','pacing','originality','importance'];
     const validRubric=rubric&&rubricKeys.every(key=>Number.isFinite(Number(rubric[key]))&&Number(rubric[key])>=0&&Number(rubric[key])<=10);
+    // A generative selection is only accepted when the model supplies the complete editorial rubric.
+    // Missing dimensions trigger the constrained repair pass; they never become a silent score fallback.
+    if(!validRubric)continue;
     const editorialScore=validRubric?Math.round((
       Number(rubric.hook)*1.3+Number(rubric.story)*.9+Number(rubric.payoff)*1.8+
       Number(rubric.clarity)*1.3+Number(rubric.completeness)*1.7+Number(rubric.emotion)*.5+
@@ -985,23 +988,26 @@ async function aiEditorialSelect(candidates, limit = 4, onProgress = () => {}) {
   );
   if(pool.length<limit)throw new Error('No hay suficientes fragmentos de diálogo para la selección editorial IA.');
   const engine=await loadEditorialJudge(onProgress);
-  // The model reviews every neutral window in small batches, then judges the
-  // finalists together. No heuristic score decides which candidates survive.
-  if(pool.length<=8)return askEditorialModel(engine,pool,limit,onProgress,'El editor IA está comparando todos los momentos disponibles…');
+  // Every candidate is judged by Qwen. Twelve-item batches keep prompts below
+  // Colab's 8k context budget; two finalists per batch cap a 96-window video
+  // at 16 global finalists. Small pools still go through the final vote + audit.
   const finalists=[];
-  const batchCount=Math.ceil(pool.length/8);
-  // Interleave the chronological pool: every judge batch sees candidates from
-  // the beginning, middle and end, instead of eight neighboring windows. This
-  // prevents local chronology from biasing the model and gives each batch a
-  // genuinely global editorial comparison.
-  const batches=Array.from({length:batchCount},(_,batchIndex)=>
-    pool.filter((_,candidateIndex)=>candidateIndex%batchCount===batchIndex)
-  );
-  for(let index=0;index<batches.length;index++){
-    const batch=batches[index];
-    const keep=Math.min(3,batch.length);
-    const selected=await askEditorialModel(engine,batch,keep,onProgress,'Evaluación editorial IA: bloque global '+(index+1)+'/'+batches.length+'…');
-    finalists.push(...selected);
+  const batchSize=12;
+  if(pool.length<=batchSize){
+    finalists.push(...pool);
+  }else{
+    const batchCount=Math.ceil(pool.length/batchSize);
+    // Interleave the chronological pool so each batch sees the beginning,
+    // middle and end instead of neighboring windows.
+    const batches=Array.from({length:batchCount},(_,batchIndex)=>
+      pool.filter((_,candidateIndex)=>candidateIndex%batchCount===batchIndex)
+    );
+    for(let index=0;index<batches.length;index++){
+      const batch=batches[index];
+      const keep=Math.min(2,batch.length);
+      const selected=await askEditorialModel(engine,batch,keep,onProgress,'Evaluación editorial IA: bloque global '+(index+1)+'/'+batches.length+'…');
+      finalists.push(...selected);
+    }
   }
   if(finalists.length<limit)throw new Error('La evaluación por bloques no produjo suficientes finalistas.');
   // Independent multilingual embedding judge detects near-duplicate topics.
