@@ -528,7 +528,7 @@ class BrowserWhisperIntegrationTests(unittest.TestCase):
   self.assertIn('id="browserTranscribe"',html)
   self.assertIn('Analizar y seleccionar clips con IA',html)
   self.assertIn('hasta 12 momentos con IA por vídeo',html)
-  self.assertIn('sin que tengas que escoger momentos manualmente',html)
+  self.assertIn('presupuesto diario adaptativo del dispositivo',html)
   self.assertIn('type="module" src="/browser-whisper.js?v=',html)
   module=(ROOT/'static/browser-whisper.js').read_text()
   self.assertIn("import('https://esm.sh/@huggingface/transformers@3.7.2')",module)
