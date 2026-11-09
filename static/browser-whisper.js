@@ -1181,7 +1181,8 @@ const DAILY_CLIP_BUDGET_KEY='clipforge.ai-clips-daily.v1';
 function getDailyClipBudget(){
   const memory=Number(navigator.deviceMemory)||4;
   const max=memory>=8?90:memory>=4?60:30;
-  const now=new Date();\n  const today=[now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-');
+  const now=new Date();
+  const today=[now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-');
   let record={date:today,used:0};
   try{const saved=JSON.parse(localStorage.getItem(DAILY_CLIP_BUDGET_KEY)||'null');if(saved?.date===today)record={date:today,used:Math.max(0,Math.floor(Number(saved.used)||0))};}catch{}
   return {date:today,used:record.used,max,remaining:Math.max(0,max-record.used)};
