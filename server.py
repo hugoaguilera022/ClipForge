@@ -545,7 +545,7 @@ class Handler(BaseHTTPRequestHandler):
      }
      with LOCK:JOBS[jid]['youtube_metadata']=source_meta
      language=args[args.index('--language')+1] if '--language' in args else 'es'
-     sub_langs='es,en' if language=='es' else 'en,es'
+     sub_langs=','.join(dict.fromkeys([language,'es','en']))
      dl=yt_dlp_command()+['--no-warnings','--no-playlist','--newline','--progress',
        '--write-subs','--write-auto-subs','--sub-langs',sub_langs,'--sub-format','srt/vtt/best',
        '-f','bv*+ba/b','--merge-output-format','mp4','-o',str(UPLOADS/f'{jid}_%(title).80s.%(ext)s'),video_url]
