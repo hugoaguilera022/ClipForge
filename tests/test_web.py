@@ -694,8 +694,10 @@ class MultilingualBrowserTranscriptionTests(unittest.TestCase):
   self.assertIn("await releaseWhisperModel();",source)
   self.assertIn("const bucketOf=c=>",source)
   html=(ROOT/"static"/"index.html").read_text()
-  for code in ("fr","de","pt","it","ja","zh","ar","ru","hi","ko"):
+  for code in ("es","en"):
    self.assertIn(f'value="{code}"',html)
+  for code in ("fr","de","pt","it","ja","zh","ar","ru","hi","ko"):
+   self.assertNotIn(f'value="{code}"',html)
   backend=(ROOT/"server.py").read_text()
   self.assertIn("language not in SUPPORTED_LANGUAGES",backend)
 
