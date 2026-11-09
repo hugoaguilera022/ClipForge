@@ -844,8 +844,8 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
  };
  editableCandidates.forEach((c,i)=>{
   const card=document.createElement('article');card.className='candidate-card';
-  const heading=document.createElement('strong');heading.textContent=`${c.title} · potencial editorial ${c.score}/100${Number.isFinite(c.semanticScore)?` · diversidad semántica ${c.semanticScore}/100`:''}`;
-  const rationale=document.createElement('small');rationale.className='candidate-rationale';rationale.textContent=(c.reasons||[]).join(' · ')||'Conversación con cierre natural';
+  const heading=document.createElement('strong');heading.textContent=c.selection_method==='local_generative_editor'? \`${c.title} · valoración IA ${c.ai_editorial_score}/100\` : \`${c.title} · candidato para revisión\`;
+  const rationale=document.createElement('small');rationale.className='candidate-rationale';rationale.textContent=c.ai_editorial_reason || (c.reasons||[]).join(' · ') || 'Fragmento propuesto para evaluación';
   const preview=document.createElement('button');preview.type='button';preview.className='secondary preview-clip-candidate';preview.textContent='Vista previa';preview.addEventListener('click',()=>window.clipforgeEditorBridge?.previewClip?.(c));
   const selectLabel=document.createElement('label');selectLabel.className='candidate-select';
   const select=document.createElement('input');select.type='checkbox';select.checked=c.selected!==false;
@@ -860,7 +860,7 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
   a.addEventListener('change',update);b.addEventListener('change',update);note.addEventListener('input',update);
   row.append(a,b);card.append(heading,rationale,preview,selectLabel,row,note);list.append(card);
  });
- const info=document.createElement('p');info.textContent='Selección local basada en transcripción, coherencia, interacción, ritmo, energía de audio y diversidad semántica cuando el modelo gratuito está disponible. Revisa los cuatro momentos: la puntuación orienta, no predice viralidad.';list.append(info);sync();
+ const info=document.createElement('p');info.textContent=editableCandidates.every(c=>c.selection_method==='local_generative_editor')?'Selección editorial realizada por un modelo generativo local. La IA compara el contenido y explica por qué ha elegido cada momento; revisa el resultado antes de exportar.':'Ventanas de transcripción sin selección editorial confirmada.';list.append(info);sync();
  window.dispatchEvent(new CustomEvent('clipforge:clips-updated'));
 }
 
