@@ -784,3 +784,10 @@ class BrowserVideoExportRobustnessTests(unittest.TestCase):
  def test_export_releases_mediabunny_input_after_conversion(self):
   source=(ROOT/'static'/'browser-export.js').read_text()
   self.assertIn('poseLandmarker?.close?.();input.dispose();',source)
+
+
+class BrowserMultiPersonTrackingFallbackTests(unittest.TestCase):
+ def test_pose_tracking_falls_back_when_no_valid_face_is_seen(self):
+  source=(ROOT/'static'/'browser-export.js').read_text()
+  self.assertIn('}else if(!seen.length&&poseLandmarker){',source)
+  self.assertNotIn('}else if(!faces.length&&poseLandmarker){',source)
