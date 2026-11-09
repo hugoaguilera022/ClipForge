@@ -575,6 +575,7 @@ class BrowserClipCandidateTests(unittest.TestCase):
   module=(ROOT/'static'/'browser-whisper.js').read_text()
   self.assertIn('function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRate = 16000)',module)
   self.assertIn('overlapRatio(c,other)>=.5',module)
+  self.assertIn('const lastEnd=Math.max(clean[clean.length-1].end,videoDuration)',module)
   self.assertIn('const quarter=(lastEnd-firstStart)/4',module)
   self.assertIn('const bucketOf=c=>',module)
   self.assertIn('for(let bucket=0;bucket<4;bucket++)',module)
