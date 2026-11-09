@@ -684,9 +684,10 @@ class BroadVideoContainerSupportTests(unittest.TestCase):
 class MultilingualBrowserTranscriptionTests(unittest.TestCase):
  def test_browser_whisper_uses_the_selected_source_language(self):
   source=(ROOT/"static"/"browser-whisper.js").read_text()
-  self.assertIn("async function transcribeAudioInChunks(asr, audio, onProgress = () => {}, timestampMode = 'word', language = 'es')",source)
-  self.assertIn("language,",source)
-  self.assertIn("const sourceLanguage",source)
+  self.assertIn("async function transcribeAudioInChunks(asr, audio, onProgress = () => {}, timestampMode = 'word', language = null)",source)
+  self.assertIn("language: language || undefined",source)
+  self.assertIn("const selectedLanguage",source)
+  self.assertIn("selectedLanguage === 'auto' ? undefined : selectedLanguage",source)
   self.assertIn('function captureVisualActivity(file, duration, stepSeconds = 4)',source)
   self.assertIn('movimiento y cambios visuales',source)
   self.assertIn('id="browserWhisperLanguage"',(ROOT/"static"/"index.html").read_text())
@@ -696,6 +697,7 @@ class MultilingualBrowserTranscriptionTests(unittest.TestCase):
   self.assertIn("await releaseWhisperModel();",source)
   self.assertIn("const bucketOf=c=>",source)
   html=(ROOT/"static"/"index.html").read_text()
+  self.assertIn('value="auto" selected',html)
   for code in ("es","en"):
    self.assertIn(f'value="{code}"',html)
   for code in ("fr","de","pt","it","ja","zh","ar","ru","hi","ko"):
