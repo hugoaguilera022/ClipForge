@@ -14,12 +14,20 @@ async function loadHealth(){
    upload.querySelector('.tag').textContent='Procesamiento en tu navegador';
    const note=document.createElement('p');note.className='browser-only-note';note.textContent='Selecciona aquí el vídeo que quieres analizar. Después, baja al Motor 01 para transcribirlo, elegir cuatro momentos y exportarlos en vertical. No se necesita instalar nada ni subir el vídeo a un servidor.';
    upload.querySelector('.section-head').after(note);
-   // This Render deployment is intentionally browser-only. Do not leave a
-   // YouTube-page URL form visible when no server-side yt-dlp resolver exists.
-   const youtubeField=upload.querySelector('.url-source');
-   if(youtubeField)youtubeField.hidden=true;
-   const serverSubmit=upload.querySelector('#submit');
-   if(serverSubmit)serverSubmit.hidden=true;
+   // Static hosting has no Python API. Hide every control that would
+   // otherwise submit to missing server endpoints; keep only the local file
+   // picker and the independent browser transcription/editor/export workflow.
+   const serverOnlySelectors=[
+    '.publish','.channel-panel','.inbox-panel','.history-panel',
+    '.url-source','.source-divider','.transcript-drop','.form-grid',
+    '.upload form > .check','.upload form > .hint','#submit',
+    '.browser-auto-generate'
+   ];
+   serverOnlySelectors.forEach(selector=>{
+    document.querySelectorAll(selector).forEach(element=>{element.hidden=true;});
+   });
+   const filename=document.querySelector('#filename');
+   if(filename)filename.textContent='MP4, MOV, MKV, WEBM y otros formatos compatibles';
    const directUrl=document.querySelector('.browser-url-import');
    if(directUrl)directUrl.hidden=false;
   }
