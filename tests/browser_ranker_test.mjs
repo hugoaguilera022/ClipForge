@@ -57,6 +57,7 @@ for (let quarter = 0; quarter < dialogue.length; quarter++) {
   }
 }
 const clips = context.rank(words, 210);
+console.log('RANKER_DEBUG', JSON.stringify(clips.map(c => ({start:c.start,end:c.end,score:c.score}))));
 assert.equal(clips.length, 4, 'must return four distinct clips when four coherent beats exist');
 for (const clip of clips) {
   assert.ok(clip.duration >= 15 && clip.duration <= 45, 'clip duration must stay within editorial bounds');
