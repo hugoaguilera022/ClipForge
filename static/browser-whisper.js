@@ -506,6 +506,14 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     );
     const weakOpening=/^(?:bienvenidos|buenas(?: tardes| noches)?|hola,? buenas|formato nuevo|arrancamos|empezamos|antes de que continúe|oye,? antes de|welcome back|hello everyone|new format|let's get started)\b/i.test(text.trim());
     const transitionOnly=/\b(?:pasamos al siguiente|vamos con el siguiente|siguiente participante|continuamos con|momento de publicidad|antes de continuar el vídeo|moving on to the next|next contestant)\b/i.test(text.trim());
+    // A window that captures the hand-off AND the next person's introduction
+    // is usually two unrelated beats stitched together. Do not penalize a
+    // hand-off near the beginning when a proper punchline follows it.
+    const handoffIntroMatch=text.match(/\b(?:pásale al siguiente|pasamos al siguiente|siguiente|next one|next person)\b[\s\S]{0,110}\b(?:hola,? buenas|me llamo|mi nombre es|hello,? my name is|i'm called)\b/i);
+    const afterHandoffIntro=handoffIntroMatch?text.slice(handoffIntroMatch.index+handoffIntroMatch[0].length).trim():'';
+    const newSceneTail=Boolean(handoffIntroMatch&&afterHandoffIntro.split(/\s+/).length<=15&&!/\b(?:jaj+a+|risas?|hostia|buah|wow|no way|madre mía|no puede ser|increíble|that's crazy|oh my god)\b/i.test(afterHandoffIntro));
+    const lastSentence=group.slice(-4).map(w=>w.text).join(' ').trim();
+    const unansweredEnding=/[?¿]\s*$/.test(lastSentence)&&!/(?:\b(?:sí|si|no|claro|exacto|exactamente|porque|por eso|that's why|because|right|yeah|yes|nope)\b)/i.test(lastSentence);
     const hasSetup=/\b(pero|porque|cuando|si|aunque|resulta que|me dijo|y entonces|imagina|una vez)\b/i.test(text);
     const hasTurn=/\b(pero|aunque|sin embargo|de repente|entonces|al final|resulta que|y va|me dijo|y me dice)\b/i.test(text);
     // Additional capped editorial signals: narrative reveal, conflict, stakes
@@ -545,7 +553,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
       (hookAtStart?12:0) + (questionAtStart?12:0) + Math.min(6,questionCount*1.5) + Math.min(10,exclamationCount*2.5) + turnScore +
       Math.min(14,laughCount*7) + Math.min(18,reactionCount*4) + (pivot?8:0) + (hasSetup?6:0) + (hasTurn?6:0) +
       (payoffAtEnd?8:0) + (questionAnswered?16:0) + (shortAnswerReaction?18:0) + (questionAnswerExchange?22:0) + (shortAnswerFollowup?18:0) + (completeConversationBeat?15:0) + (multiTurnExchange?5:0) + (dialogueProgression?6:0) + (answerClosedAtEnd?12:0) + (questionHasAnswer?8:0) + (pivot&&completeEnd?5:0) + (completeEnd?7:0) + (revelation?10:0) + (conflict?7:0) + (stakes?9:0) + (anecdote?7:0) + (progression?8:0) + (strongOpinion?4:0) + (closingReaction?5:0) + specificityScore + acousticScore + visualScore - Math.min(12,fillerCount*.8) -
-      (questionAtStart&&!questionHasAnswer?9:0) - (questionCount>=3&&!questionAnswered?5:0) - (abruptStart?18:0) - (fragmentStart?14:0) - (!completeEnd?8:0) - (promotional?55:0) - (weakOpening?18:0) - (transitionOnly?22:0) - (wordsPerSecond<1.1?8:0);
+      (questionAtStart&&!questionHasAnswer?9:0) - (questionCount>=3&&!questionAnswered?5:0) - (abruptStart?18:0) - (fragmentStart?14:0) - (!completeEnd?8:0) - (promotional?55:0) - (weakOpening?18:0) - (transitionOnly?22:0) - (newSceneTail?22:0) - (unansweredEnding?9:0) - (wordsPerSecond<1.1?8:0);
     // Compress the raw weighted sum to avoid the previous ceiling effect where
     // several very different moments all received 100/100.
     const score = Math.max(0, Math.min(100, Math.round(rawScore / 1.5)));
@@ -571,10 +579,12 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     if(strongOpinion)reasons.push('opinión definida');
     if(closingReaction)reasons.push('reacción o remate al cierre');
     if(specificityScore>=3)reasons.push('detalle concreto que aporta contexto');
+    if(newSceneTail)reasons.push('penalizado: mezcla con la presentación del siguiente participante');
+    if(unansweredEnding)reasons.push('pregunta sin respuesta ni remate');
     if(completeEnd)reasons.push('cierre natural');
     if(energy.length && acousticScore >= 8)reasons.push('energía y dinámica de audio');
     if(visualChanges.length && visualScore>=3)reasons.push('movimiento y cambios visuales');
-    candidates.push({start,end,duration,score,text,promotional,editorial_signals:{complete_conversation_beat:completeConversationBeat,short_answer_followup:shortAnswerFollowup,multi_turn_exchange:multiTurnExchange,dialogue_progression:dialogueProgression,weak_opening:weakOpening,transition_only:transitionOnly},reasons:[...new Set(reasons)].slice(0,4)});
+    candidates.push({start,end,duration,score,text,promotional,editorial_signals:{complete_conversation_beat:completeConversationBeat,short_answer_followup:shortAnswerFollowup,multi_turn_exchange:multiTurnExchange,dialogue_progression:dialogueProgression,weak_opening:weakOpening,transition_only:transitionOnly,new_scene_tail:newSceneTail,unanswered_ending:unansweredEnding},reasons:[...new Set(reasons)].slice(0,4)});
     nextStart=start+stepSeconds;
   }
   // Add a small boundary bonus when a slightly earlier window preserves
