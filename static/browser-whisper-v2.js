@@ -1025,7 +1025,7 @@ async function aiEditorialSelect(candidates, limit = 4, onProgress = () => {}) {
     'Devuelve exactamente '+limit+' IDs distintos y no solapados. Incluye la rúbrica completa hook, story, payoff, clarity, completeness, emotion, pacing, originality (0-10), title y reason. Añade audit_verdict="pass" y audit_flags=[] si no detectas defecto; si hay defectos en otros candidatos, no los selecciones.',
     'Devuelve SOLO JSON válido con la misma estructura {"selected":[...]}.',
     'FINALISTAS PARA AUDITAR:',JSON.stringify(auditInput)
-  ].join('\\n');
+  ].join('\n');
   const audit=await engine.chat.completions.create({messages:[
     {role:'system',content:'Actúas como revisor editorial independiente. Busca motivos para DESCARTAR, no para confirmar. Responde solo JSON válido.'},
     {role:'user',content:auditPrompt}
