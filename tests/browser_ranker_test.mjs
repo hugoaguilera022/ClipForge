@@ -85,7 +85,24 @@ for(let q=0;q<englishDialogue.length;q++)for(let i=0;i<englishDialogue[q].length
 const englishClips=context.rank(englishWords,210);
 assert.equal(englishClips.length,4,'English dialogue must produce four clips');
 assert.equal(new Set(englishClips.map(x=>Math.floor(x.start/52.5))).size,4,'English clips must cover the full source');
+
 console.log('English ranker passed: hooks, payoff and four distributed clips.');
+
+// Sponsor calls-to-action must never outrank editorial moments.
+const sponsoredWords=[];
+const sponsorLines=['We are giving away a free iPhone 18.','Subscribe to the channel and follow us on Instagram.','Enter to win and use our discount code.','This giveaway is sponsored.','Follow us for more and click the link in bio.','You can win a new iPhone.'];
+for(let q=0;q<4;q++){
+  const lines=q===1?sponsorLines:dialogue[q];
+  for(let i=0;i<lines.length;i++){
+    const start=q*56+i*4;
+    sponsoredWords.push({start,end:start+2.7,text:lines[i]});
+  }
+}
+const sponsorSafe=context.rank(sponsoredWords,210);
+assert.ok(sponsorSafe.length>=3,'ranker should still find non-sponsored moments elsewhere');
+assert.ok(sponsorSafe.every(clip=>!/(giveaway|subscribe|follow us|iphone|discount code|sponsored)/i.test(clip.text)),'sponsor calls-to-action must be excluded from selected clips');
+console.log('Sponsor filter passed: promotional segments are excluded from editorial selections.');
+
 
 
 // Non-speech source regression: music/gameplay/scenic footage still yields
