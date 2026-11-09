@@ -662,7 +662,8 @@ class ProjectRestoreRegressionTests(unittest.TestCase):
   module=(ROOT/'static'/'browser-whisper.js').read_text()
   self.assertIn('function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=null,visualSamples=[])',module)
   self.assertIn('showClipCandidates([],duration,editableCandidates)',module)
-  self.assertIn('Selección local basada en transcripción, coherencia, interacción, ritmo, energía de audio y diversidad semántica',module)
+  self.assertIn('Selección editorial realizada por un modelo generativo local',module)
+  self.assertIn('c.ai_editorial_reason',module)
  def test_import_no_longer_restores_read_only_cards(self):
   module=(ROOT/'static'/'browser-whisper.js').read_text()
   import_section=module[module.index('// Importación explícita'):]
