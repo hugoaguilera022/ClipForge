@@ -26,6 +26,23 @@ try {
     throw new Error('Browser transcription must default to automatic Spanish/English language detection.');
   }
   await page.locator('#video').setInputFiles('test-output/e2e-source.mkv');
+  await page.waitForFunction(() => {
+    const panel=document.querySelector('#videoCapacity');
+    return panel && document.querySelector('#capacityRam')?.textContent.includes('GB') &&
+      document.querySelector('#capacityGpu')?.textContent.includes('GB') &&
+      document.querySelector('#capacityDisk')?.textContent.includes('GB');
+  }, undefined, {timeout:20000});
+  const capacity=await page.evaluate(()=>({
+    status:document.querySelector('#capacityStatus')?.textContent,
+    ram:document.querySelector('#capacityRam')?.textContent,
+    gpu:document.querySelector('#capacityGpu')?.textContent,
+    disk:document.querySelector('#capacityDisk')?.textContent,
+    model:document.querySelector('#capacityModel')?.textContent
+  }));
+  if(!capacity.model?.includes('Qwen3') || !capacity.ram || !capacity.gpu || !capacity.disk) {
+    throw new Error('Per-video capacity panel did not produce complete requirements: '+JSON.stringify(capacity));
+  }
+
   const project = {
     schema: 'clipforge-browser-project-v1',
     source: 'e2e-source.mkv',
