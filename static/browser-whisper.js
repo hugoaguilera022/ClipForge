@@ -532,7 +532,7 @@ runButton?.addEventListener('click', async () => {
     const reportProgress = (percent, current, total) => {
       say(`Transcribiendo vídeo: ${percent}% · fragmento ${current}/${total}`);
     };
-    const sourceLanguage = document.querySelector('[name="language"]')?.value || 'es';
+    const sourceLanguage = document.querySelector('#browserWhisperLanguage')?.value || document.querySelector('[name="language"]')?.value || 'es';
     let activeModelId = modelId;
     let result;
     try {
