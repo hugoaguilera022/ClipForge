@@ -98,6 +98,34 @@ assert.ok(!semanticSelected.some(clip=>clip.text.startsWith('The same lost train
 assert.ok(semanticSelected.every(clip=>Number.isFinite(clip.semanticScore)&&clip.semanticScore>=0&&clip.semanticScore<=100),'semantic diversity scores must stay within 0–100');
 console.log('Semantic reranker passed: four clips selected with duplicate-topic suppression.');
 
+// Generative editor output validation: only existing candidate IDs and
+// source timestamps are accepted; duplicate and overlapping choices are rejected.
+const decisionStart=source.indexOf('function parseEditorialDecision(');
+assert.notEqual(decisionStart,-1,'AI editorial decision parser must exist');
+let decisionDepth=0,decisionEnd=-1;
+for(let i=source.indexOf('{',decisionStart);i<source.length;i++){
+  if(source[i]==='{')decisionDepth++;
+  else if(source[i]==='}'&&--decisionDepth===0){decisionEnd=i+1;break;}
+}
+assert.notEqual(decisionEnd,-1,'AI editorial decision parser must be complete');
+vm.runInContext(source.slice(decisionStart,decisionEnd)+'; this.parseDecision=parseEditorialDecision;',context);
+const judgePool=[
+  {start:0,end:22,text:'An anecdote with a complete payoff.'},
+  {start:30,end:54,text:'A funny exchange with a reaction.'},
+  {start:60,end:84,text:'A surprising confession.'},
+  {start:90,end:114,text:'A strong opinion with context.'},
+  {start:120,end:144,text:'A final distinct story.'}
+];
+const judgeOutput=JSON.stringify({selected:[1,2,3,4].map((id)=>({id,score:90,title:'Momento',reason:'Historia clara y remate.'}))});
+const judged=context.parseDecision(judgeOutput,judgePool,4);
+assert.equal(judged.length,4);
+assert.equal(judged[0].selection_method,'local_generative_editor');
+assert.equal(judged[0].start,0,'AI cannot invent or alter source timestamps');
+assert.throws(()=>context.parseDecision(JSON.stringify({selected:[1,1,3,4].map(id=>({id}))}),judgePool,4),/cuatro candidatos válidos/);
+assert.throws(()=>context.parseDecision(JSON.stringify({selected:[1,2,3,99].map(id=>({id}))}),judgePool,4),/cuatro candidatos válidos/);
+console.log('Generative editor validation passed: only grounded IDs and non-overlapping source times are accepted.');
+
+
 // When the optional embedding download fails, the local fallback must still
 // select four high-quality, non-overlapping and lexically distinct moments.
 const fallbackStart=source.indexOf('function rerankWithoutEmbeddings(');
