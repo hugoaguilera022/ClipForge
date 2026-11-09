@@ -658,13 +658,58 @@ function rerankWithSemanticEmbeddings(candidates, embeddings, limit = 4) {
 // model reads each candidate as an editor and makes a narrative-quality choice.
 // Runs locally through WebGPU: no API key, no paid inference endpoint, no upload.
 let editorialEnginePromise = null;
+const COLAB_EDITOR_KEY='clipforge.colab.editor.v1';
+function getColabEditorConfig(){
+  try{const raw=sessionStorage.getItem(COLAB_EDITOR_KEY);const value=raw?JSON.parse(raw):null;
+    if(!value||typeof value.url!=='string'||typeof value.token!=='string')return null;
+    const parsed=new URL(value.url);if(parsed.protocol!=='https:'||!parsed.hostname.endsWith('.trycloudflare.com'))return null;
+    return {url:parsed.origin,token:value.token};
+  }catch{return null;}
+}
+function createRemoteEditorialEngine(config){
+  return {chat:{completions:{create:async(request)=>{
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),300000);
+    try{
+      const response=await fetch(config.url+'/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+config.token},body:JSON.stringify(request),signal:controller.signal,cache:'no-store'});
+      const body=await response.json().catch(()=>({}));
+      if(!response.ok)throw new Error(body.error||('Motor Colab respondió HTTP '+response.status));
+      if(!body?.choices?.[0]?.message?.content)throw new Error('El motor Colab no devolvió una respuesta editorial válida.');
+      return body;
+    }finally{clearTimeout(timer);}
+  }}}};
+}
+async function connectColabEditorialEngine(){
+  const urlField=document.querySelector('#colabEditorUrl'),tokenField=document.querySelector('#colabEditorToken'),status=document.querySelector('#colabEditorStatus'),button=document.querySelector('#connectColabEditor');
+  if(!urlField||!tokenField||!status||!button)return;
+  const url=String(urlField.value||'').trim().replace(/\\/+$/,'');const token=String(tokenField.value||'').trim();
+  let parsed;try{parsed=new URL(url);}catch{status.textContent='Introduce la URL HTTPS temporal que muestra Google Colab.';return;}
+  if(parsed.protocol!=='https:'||!parsed.hostname.endsWith('.trycloudflare.com')||!token){status.textContent='La URL debe ser HTTPS de trycloudflare.com y el token no puede estar vacío.';return;}
+  button.disabled=true;status.textContent='Comprobando el motor, el modelo y la sesión…';
+  try{
+    const response=await fetch(parsed.origin+'/health',{headers:{'Authorization':'Bearer '+token},cache:'no-store'});
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok||data.status!=='ready'||data.model!=='qwen3:4b')throw new Error(data.error||'El motor no confirma Qwen3 4B disponible.');
+    sessionStorage.setItem(COLAB_EDITOR_KEY,JSON.stringify({url:parsed.origin,token}));
+    editorialEnginePromise=createRemoteEditorialEngine({url:parsed.origin,token});
+    status.textContent='Conectado y comprobado: Qwen3 4B en Colab. La inferencia editorial se ejecutará en esa sesión temporal.';
+    button.textContent='Motor conectado';
+  }catch(error){sessionStorage.removeItem(COLAB_EDITOR_KEY);editorialEnginePromise=null;status.textContent='No se pudo conectar: '+String(error.message||error);}
+  finally{button.disabled=false;}
+}
+document.querySelector('#connectColabEditor')?.addEventListener('click',connectColabEditorialEngine);
+(function restoreColabEditorConnection(){
+  const config=getColabEditorConfig();const url=document.querySelector('#colabEditorUrl'),status=document.querySelector('#colabEditorStatus');
+  if(config&&url){url.value=config.url;if(status)status.textContent='Hay una conexión guardada en esta pestaña. Pulsa «Comprobar y conectar» para validar que Colab siga activa.';}
+})();
 async function loadEditorialJudge(onProgress = () => {}) {
-  if (!navigator.gpu) throw new Error('Este navegador no ofrece WebGPU. La selección editorial IA requiere Chrome, Edge u otro navegador compatible con WebGPU.');
+  const remote=getColabEditorConfig();
+  if(remote){onProgress('Conectando con Qwen3 4B en tu sesión temporal de Colab…');return createRemoteEditorialEngine(remote);}
+  if (!navigator.gpu) throw new Error('No hay conexión a Colab y este navegador no ofrece WebGPU. Abre Google Colab, inicia el motor gratuito y conecta su URL y token aquí; o usa un navegador/dispositivo compatible con WebGPU.');
   const adapter=await navigator.gpu.requestAdapter({powerPreference:'high-performance'});
-  if(!adapter)throw new Error('No se ha encontrado una GPU compatible con WebGPU.');
+  if(!adapter)throw new Error('No se ha encontrado una GPU compatible con WebGPU. Puedes conectar el motor gratuito de Google Colab.');
   if (!editorialEnginePromise) {
     editorialEnginePromise = (async () => {
-      onProgress('Preparando el editor IA Qwen3-1.7B…');
+      onProgress('Preparando el editor IA local Qwen3-1.7B…');
       const webllm = await import('https://esm.sh/@mlc-ai/web-llm@0.2.87');
       const modelId = 'Qwen3-1.7B-q4f16_1-MLC';
       const record=webllm.prebuiltAppConfig.model_list.find(item=>item.model_id===modelId);
