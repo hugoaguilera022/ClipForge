@@ -13,6 +13,7 @@ def test_browser_whisper_uses_word_and_phrase_timestamp_modes():
     assert 'phraseTimed?1.15:.55' in js
     assert 'onnx-community/whisper-base\'' not in js
     assert 'const minLen = 15, maxLen = 45, targetLen = 24;' in js
+    assert 'visualSamples, 12);' in js, 'semantic reranking must compare a broad shortlist before choosing four clips'
     assert 'let asrModelId = null;' in js
     assert 'asrModelId !== modelId' in js
     assert 'Small no pudo cargarse o generar tiempos utilizables. Cambiando automáticamente a Base' in js
