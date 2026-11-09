@@ -688,6 +688,9 @@ class MultilingualBrowserTranscriptionTests(unittest.TestCase):
   self.assertIn('id="browserWhisperLanguage"',(ROOT/"static"/"index.html").read_text())
   self.assertNotIn("language: 'spanish'",source)
   self.assertIn("text.toLowerCase()",source)
+  self.assertIn("async function releaseWhisperModel()",source)
+  self.assertIn("await releaseWhisperModel();",source)
+  self.assertIn("const bucketOf=c=>",source)
   html=(ROOT/"static"/"index.html").read_text()
   for code in ("fr","de","pt","it","ja","zh","ar","ru","hi","ko"):
    self.assertIn(f'value="{code}"',html)
