@@ -17,6 +17,9 @@ function extract(name){
   assert.notEqual(end,-1,`${name} must parse`);
   return source.slice(start,end);
 }
+assert.ok(source.includes("https://esm.sh/@mlc-ai/web-llm@0.2.87"),'editorial runtime must stay pinned');
+assert.ok(source.includes("Qwen3-1.7B-q4f16_1-MLC"),'production selector must use the chosen Qwen3 model');
+assert.ok(source.includes("webllm.prebuiltAppConfig.model_list.find"),'model availability must be checked before initialization');
 const candidates=Array.from({length:64},(_,i)=>({
   start:i*70,end:i*70+25,duration:25,
   text:`Story ${i}: an unexpected reveal and a complete punchline ${i}`,
