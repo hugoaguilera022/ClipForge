@@ -18,7 +18,7 @@ def test_chunked_transcription_restores_absolute_timestamps_and_progress():
     assert 'const offset = startSample / sampleRate' in js
     assert 'offset + localStart' in js
     assert 'onProgress(Math.min(100' in js
-    assert 'Transcribiendo entrevista: ${percent}%' in js
+    assert 'Transcribiendo vídeo: ${percent}%' in js
 
 
 def test_overlap_words_are_not_added_twice():
