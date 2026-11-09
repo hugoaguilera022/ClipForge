@@ -52,7 +52,7 @@ const dialogue = [
 const words = [];
 for (let quarter = 0; quarter < dialogue.length; quarter++) {
   for (let i = 0; i < dialogue[quarter].length; i++) {
-    const start = quarter * 52 + i * 4 + (quarter === 3 ? 10 : 0);
+    const start = quarter * 53 + i * 4 + (quarter === 3 ? 10 : 0);
     words.push({ start, end: start + 2.7, text: dialogue[quarter][i] });
   }
 }
