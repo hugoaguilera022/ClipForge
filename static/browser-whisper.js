@@ -416,7 +416,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     const openingTokens=(text.match(/\S+/g)||[]).slice(0,8).join(' ');
     const closingTokens=(text.match(/\S+/g)||[]).slice(-8).join(' ');
     const hookAtStart=strongHook.test(openingTokens);
-    const questionAtStart=/[¿?]/.test(openingTokens);
+    const questionAtStart=/^\\s*[¿]/.test(text);
     const payoffAtEnd=payoff.test(closingTokens);
     const questionAnswered=/[¿?]/.test(text)&&/\b(claro|efectivamente|exactamente|ya te avisaremos|te avisaremos|te lo digo|así es|eso es|there it is|turns out)\b/i.test(text);
     const answerClosedAtEnd=/\b(avisaremos|te lo digo|así es|eso es|there it is|turns out)\s*[.!?]?$/i.test(closingTokens);
@@ -453,7 +453,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     const paceScore=Math.max(0,Math.min(1,(wordsPerSecond-1.15)/2.1));
     const lexicalScore=Math.max(0,Math.min(1,(uniqueRatio-.28)/.42));
     const rawScore = 15 + durationScore*10 + paceScore*12 + lexicalScore*8 +
-      (hookAtStart?12:0) + (questionAtStart?6:0) + Math.min(6,questionCount*1.5) + Math.min(10,exclamationCount*2.5) + turnScore +
+      (hookAtStart?12:0) + (questionAtStart?12:0) + Math.min(6,questionCount*1.5) + Math.min(10,exclamationCount*2.5) + turnScore +
       Math.min(14,laughCount*7) + Math.min(18,reactionCount*4) + (pivot?8:0) + (hasSetup?6:0) + (hasTurn?6:0) +
       (payoffAtEnd?8:0) + (questionAnswered?16:0) + (shortAnswerReaction?18:0) + (answerClosedAtEnd?12:0) + (completeEnd?7:0) + acousticScore + visualScore - Math.min(12,fillerCount*.8) -
       (abruptStart?18:0) - (fragmentStart?14:0) - (!completeEnd?8:0) - (promotional?55:0) - (wordsPerSecond<1.1?8:0);
@@ -488,7 +488,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
   const editorialCandidates=candidates.filter(c=>!c.promotional);
   const ranked=editorialCandidates.map(c=>{
     const laterNearDuplicate=candidates.some(other=>
-      other.start>c.start&&other.start-c.start<=18&&overlapRatio(c,other)>=.5&&other.score>=c.score&&other.score<=c.score+6
+      other.start>c.start&&other.start-c.start<=18&&overlapRatio(c,other)>=.5&&other.score>=c.score&&other.score<=c.score+6&&(strongHook.test(c.text.slice(0,90))||/^\\s*[¿]/.test(c.text))
     );
     const preservesContext=candidates.some(other=>
       other.start>c.start&&other.start-c.start<=18&&overlapRatio(c,other)>=.5&&c.duration>=other.duration+5
