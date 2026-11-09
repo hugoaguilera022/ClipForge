@@ -809,3 +809,17 @@ class BrowserGroupFramingSafetyTests(unittest.TestCase):
   self.assertIn('lastFaceCenter=null;',group)
   self.assertIn('activeSpeakerTrack=null;',group)
   self.assertIn('mouth motion alone is not reliable',group)
+
+
+class ViralMomentFallbackSignalsTests(unittest.TestCase):
+ def test_fallback_ranking_considers_story_reveals_conflict_stakes_and_specificity(self):
+  source=(ROOT/'static'/'browser-whisper.js').read_text()
+  for signal in ('const revelation=', 'const conflict=', 'const stakes=', 'const specificityScore='):
+   self.assertIn(signal,source)
+  self.assertIn('(revelation?10:0)',source)
+  self.assertIn('(conflict?7:0)',source)
+  self.assertIn('(stakes?9:0)',source)
+  self.assertIn('revelación o giro narrativo',source)
+  self.assertIn('conflicto u opinión contundente',source)
+  self.assertIn('resultado o consecuencia relevante',source)
+
