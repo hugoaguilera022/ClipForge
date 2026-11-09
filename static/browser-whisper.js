@@ -783,7 +783,52 @@ document.querySelector('#connectColabEditor')?.addEventListener('click',connectC
   const config=getColabEditorConfig();const url=document.querySelector('#colabEditorUrl'),status=document.querySelector('#colabEditorStatus');
   if(config&&url){url.value=config.url;const token=document.querySelector('#colabEditorToken');if(token)token.value=config.token;if(status)status.textContent='Hay una conexión guardada en esta pestaña. Pulsa «Comprobar y conectar» para validar que Colab siga activa.';}
 })();
-async function loadEditorialJudge(onProgress = () => {}) {
+// Federated free-tier LLM router. API keys remain in this browser's localStorage;
+// they are sent only to the provider selected for the current inference request.
+const FREE_AI_PROVIDERS={
+ groq:{label:'Groq',endpoint:'https://api.groq.com/openai/v1/chat/completions',model:'openai/gpt-oss-120b'},
+ cerebras:{label:'Cerebras',endpoint:'https://api.cerebras.ai/v1/chat/completions',model:'gpt-oss-120b'},
+ mistral:{label:'Mistral',endpoint:'https://api.mistral.ai/v1/chat/completions',model:'mistral-small-latest'},
+ openrouter:{label:'OpenRouter',endpoint:'https://openrouter.ai/api/v1/chat/completions',model:'openrouter/free'}
+};
+const FREE_AI_KEYS='clipforge.free-ai-keys.v1';
+function readFreeAIKeys(){try{return JSON.parse(localStorage.getItem(FREE_AI_KEYS)||'{}')||{};}catch{return {};}}
+function saveFreeAIKeys(values){const clean={};for(const id of Object.keys(FREE_AI_PROVIDERS)){const key=String(values[id]||'').trim();if(key)clean[id]=key;}localStorage.setItem(FREE_AI_KEYS,JSON.stringify(clean));return clean;}
+function configuredFreeAIProviders(){const keys=readFreeAIKeys();return Object.keys(FREE_AI_PROVIDERS).filter(id=>keys[id]).map(id=>({id,...FREE_AI_PROVIDERS[id],key:keys[id]}));}
+let freeAIRoundRobin=0;
+function createFederatedFreeAIEngine(providers,onProgress){
+ const cooldown=new Map();
+ return {isRemote:true,providerChain:providers.map(p=>p.id),chat:{completions:{create:async options=>{
+  const now=Date.now(),ready=providers.filter(p=>(cooldown.get(p.id)||0)<=now);
+  const ordered=(ready.length?ready:providers).map((_,i)=>(ready.length?ready:providers)[(freeAIRoundRobin+i)%(ready.length?ready.length:providers.length)]);
+  const errors=[];
+  for(const provider of ordered){
+   try{
+    onProgress('Juez IA: consultando '+provider.label+'…');
+    const response=await fetch(provider.endpoint,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+provider.key},body:JSON.stringify({...options,model:provider.model,stream:false})});
+    if(!response.ok){const body=await response.text();if(response.status===429||response.status===402)cooldown.set(provider.id,Date.now()+Math.min(3600000,Math.max(60000,Number(response.headers.get('retry-after'))*1000||300000)));throw new Error(provider.label+' HTTP '+response.status+': '+body.slice(0,240));}
+    const data=await response.json();
+    if(!data?.choices?.[0]?.message?.content)throw new Error(provider.label+' devolvió una respuesta vacía.');
+    freeAIRoundRobin=(providers.findIndex(p=>p.id===provider.id)+1)%providers.length;
+    return data;
+   }catch(error){errors.push(String(error.message||error));cooldown.set(provider.id,Math.max(cooldown.get(provider.id)||0,Date.now()+30000));}
+  }
+  throw new Error('Todos los proveedores IA gratuitos configurados están temporalmente indisponibles. '+errors.join(' | '));
+ }}}};
+}
+function initFreeAIProviderSettings(){
+ const root=document.querySelector('#freeAIProviderSettings');if(!root||root.dataset.ready)return;root.dataset.ready='1';
+ for(const id of Object.keys(FREE_AI_PROVIDERS)){const input=root.querySelector('[data-provider-key="'+id+'"]');if(input)input.value=readFreeAIKeys()[id]||'';}
+ const status=root.querySelector('#freeAIProviderStatus');
+ root.querySelector('#saveFreeAIProviders')?.addEventListener('click',()=>{
+  const values={};for(const id of Object.keys(FREE_AI_PROVIDERS))values[id]=root.querySelector('[data-provider-key="'+id+'"]')?.value||'';
+  const saved=saveFreeAIKeys(values);if(status)status.textContent=Object.keys(saved).length+' proveedor(es) configurado(s). Las claves se guardan solo en este navegador; no se envían a ClipForge ni a Render.';
+ });
+ root.querySelector('#clearFreeAIProviders')?.addEventListener('click',()=>{localStorage.removeItem(FREE_AI_KEYS);root.querySelectorAll('[data-provider-key]').forEach(input=>input.value='');if(status)status.textContent='Claves eliminadas de este navegador.';});
+ if(status)status.textContent=Object.keys(readFreeAIKeys()).length+' proveedor(es) configurado(s). Las claves nunca se envían a ClipForge/Render.';
+}
+initFreeAIProviderSettings();
+async function loadEditorialJudge(onProgress = () => {}) {\n  const freeProviders=configuredFreeAIProviders();\n  if(freeProviders.length)return createFederatedFreeAIEngine(freeProviders,onProgress);
   const remote=getColabEditorConfig();
   if(remote){onProgress('Conectando con Qwen3 4B en tu sesión temporal de Colab…');return createRemoteEditorialEngine(remote);}
   if (!navigator.gpu) throw new Error('No hay conexión a Colab y este navegador no ofrece WebGPU. Abre Google Colab, inicia el motor gratuito y conecta su URL y token aquí; o usa un navegador/dispositivo compatible con WebGPU.');
@@ -853,7 +898,7 @@ function parseEditorialDecision(raw, candidates, limit = 4, requireAudit = false
   if (!match) throw new Error('El editor IA no devolvió una selección estructurada.');
   const data = JSON.parse(match[0]);
   if (!Array.isArray(data.selected)) throw new Error('La respuesta del editor IA no contiene una lista de selección.');
-  const used = new Set(), selected = [];
+  const selectionLimit=Math.max(1,Math.min(12,Math.floor(Number(limit)||4)));\n  const used = new Set(), selected = [];
   for (const item of data.selected) {
     const id = Number(item.id);
     if (!Number.isInteger(id) || id < 1 || id > candidates.length || used.has(id)) continue;
@@ -885,7 +930,7 @@ function parseEditorialDecision(raw, candidates, limit = 4, requireAudit = false
       ai_editorial_audit_verdict:requireAudit?item.audit_verdict:null,
       ai_editorial_audit_flags:requireAudit?auditFlags:[]
     });
-    if (selected.length >= Math.max(1, Math.min(4, limit))) break;
+    if (selected.length >= selectionLimit) break;
   }
   if (selected.length !== Math.min(4, candidates.length, Math.max(1, limit))) {
     throw new Error('El editor IA no ha devuelto cuatro candidatos válidos y distintos.');
