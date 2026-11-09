@@ -87,8 +87,21 @@ class Handler(BaseHTTPRequestHandler):
         self._cors()
         self.end_headers()
 
+    def do_HEAD(self):
+        if self.path not in ("/", "/health"):
+            self.send_response(404)
+            self.end_headers()
+            return
+        body = json.dumps({"ok": True, "service": "clipforge-youtube-ingest", "max_bytes": MAX_BYTES}).encode("utf-8")
+        self.send_response(200)
+        self._cors()
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+
     def do_GET(self):
-        if self.path != "/health":
+        if self.path not in ("/", "/health"):
             self._json(404, {"error": "not_found"})
             return
         self._json(200, {"ok": True, "service": "clipforge-youtube-ingest", "max_bytes": MAX_BYTES})
