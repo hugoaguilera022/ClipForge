@@ -71,6 +71,22 @@ const sourceQuarter = clip => Math.min(3, Math.floor(clip.start / 52.5));
 assert.equal(new Set(clips.map(sourceQuarter)).size, 4, 'four clips must cover all four source quarters');
 console.log('Browser ranker passed: four coherent, distinct, non-overlapping clips.');
 
+// French dialogue regression: Unicode tokenization and translated hooks/payoffs.
+const frenchDialogue = [
+  ['Pourquoi tout le monde a-t-il commencé à rire?', 'Je pensais que le train était déjà parti.', 'Mais en fait, nous étions dans le mauvais wagon.', 'Tout le monde était surpris et nous avons éclaté de rire.', 'Finalement, c’était la meilleure partie du voyage.', 'Je ne l’oublierai jamais.'],
+  ['Comment as-tu appris cette nouvelle?', 'Mon ami m’a appelé juste avant le match.', 'Il m’a dit que personne ne s’y attendait.', 'Soudain, tout le stade a commencé à crier.', 'C’était incroyable, vraiment incroyable.', 'Et voilà pourquoi je m’en souviens.'],
+  ['Qui a trouvé la solution?', 'Nous avons essayé plusieurs idées.', 'Mais rien ne fonctionnait vraiment.', 'Puis elle a vu une petite erreur.', 'Exactement, c’était ça le problème.', 'Tout est devenu beaucoup plus simple.'],
+  ['Qu’est-ce qui s’est passé ensuite?', 'Nous avons attendu pendant une heure.', 'Puis la porte s’est ouverte.', 'Tout le monde a commencé à applaudir.', 'C’était fou, je n’avais jamais vu ça.', 'Et finalement nous avons gagné.']
+];
+const frenchWords=[];
+for(let q=0;q<frenchDialogue.length;q++)for(let i=0;i<frenchDialogue[q].length;i++){
+  const start=q*56+i*4; frenchWords.push({start,end:start+2.7,text:frenchDialogue[q][i]});
+}
+const frenchClips=context.rank(frenchWords,210);
+assert.equal(frenchClips.length,4,'French dialogue must produce four clips');
+assert.equal(new Set(frenchClips.map(x=>Math.floor(x.start/52.5))).size,4,'French clips must cover the full source');
+console.log('Multilingual ranker passed: French hooks, Unicode words and four distributed clips.');
+
 
 // Non-speech source regression: music/gameplay/scenic footage still yields
 // four usable, distributed moments from the measured audio activity.
