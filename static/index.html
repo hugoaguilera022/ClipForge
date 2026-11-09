@@ -18,14 +18,14 @@
 <label for="browserVideoUrl">O carga una URL directa de vídeo compatible</label><div class="browser-url-row"><input id="browserVideoUrl" type="url" placeholder="https://servidor.com/video.mp4"><button type="button" class="secondary" id="loadBrowserVideoUrl">Cargar URL</button></div><small>Debe ser un enlace directo al archivo y permitir CORS. Las páginas de YouTube no son enlaces directos de vídeo.</small></div>
 <div class="browser-transcribe-controls"><label>Idioma del vídeo<select id="browserWhisperLanguage"><option value="auto" selected>Detectar automáticamente (español o inglés)</option><option value="es">Español</option><option value="en">Inglés</option></select></label><label>Modelo<select id="browserWhisperModel"><option value="whisper-tiny">Tiny · más rápido</option><option value="whisper-base" selected>Base · recomendado (subtítulos palabra a palabra)</option><option value="whisper-small">Small · más precisión (subtítulos por frase)</option></select></label><button type="button" id="browserTranscribe">Transcribir archivo seleccionado</button></div>
 <label class="check browser-auto-generate"><input id="autoGenerateAfterTranscription" type="checkbox"><span>Al terminar la transcripción, enviar también el vídeo al servidor local heredado (modo compatibilidad). Para exportar sin servidor, utiliza el motor de exportación del navegador.</span></label>
-<div class="colab-editor-connection">
-<label for="editorialRemoteUrl">Motor editorial en la nube (Google Colab) · URL</label>
-<input id="editorialRemoteUrl" type="url" placeholder="https://….trycloudflare.com/api/chat" autocomplete="url">
-<label for="editorialRemoteToken">Clave temporal de conexión</label>
-<input id="editorialRemoteToken" type="password" placeholder="Pega el token que muestra el cuaderno de Colab" autocomplete="off">
-<button type="button" class="secondary" id="saveEditorialRemote">Guardar conexión del motor</button>
-<small class="muted">Opcional. Si conectas Colab, Qwen seleccionará los momentos en la nube. Si no, ClipForge intentará el motor local del navegador. La URL y la clave son temporales y se guardan solo en este navegador.</small>
+<section class="capacity-panel" id="videoCapacity" aria-live="polite">
+<div class="capacity-head"><b>Requisitos de este vídeo</b><span id="capacityStatus" class="capacity-state">Esperando vídeo</span></div>
+<p id="capacitySummary" class="muted">Selecciona un archivo para calcular la memoria, aceleración y espacio recomendados antes de empezar.</p>
+<div class="capacity-grid">
+<div><small>Memoria RAM</small><b id="capacityRam">—</b></div><div><small>Memoria gráfica</small><b id="capacityGpu">—</b></div><div><small>Espacio libre</small><b id="capacityDisk">—</b></div><div><small>Modelo editorial</small><b id="capacityModel">Qwen3 1.7B</b></div>
 </div>
+<small id="capacityDetails" class="muted">Estimación por duración, tamaño y modelo Whisper. No se puede medir con precisión la RAM libre, VRAM ni espacio real desde el navegador.</small>
+</section>
 <div class="engine-progress" id="browserWhisperStatus" role="status" aria-live="polite">Esperando un vídeo seleccionado.</div>
 <textarea id="browserTranscript" rows="8" placeholder="La transcripción aparecerá aquí…" spellcheck="false" aria-label="Transcripción editable con marcas de tiempo"></textarea>
 <p class="hint">Puedes corregir el texto de cada línea conservando su marca de tiempo. Pulsa fuera del campo para aplicar los cambios a los subtítulos que se incrustarán al exportar.</p>
@@ -39,8 +39,8 @@
 </div>
 <button type="button" id="browserExportClips">Exportar clips MP4 en este navegador</button><div id="browserExportStatus" class="engine-progress" role="status">Esperando transcripción y cortes seleccionados.</div></div>
 <div class="browser-candidates" id="browserCandidates" hidden>
-  <div class="section-head"><div><span class="step">MOTOR 02 / SELECCIÓN</span><h3>Momentos candidatos</h3></div><span class="tag">Heurística + semántica local</span></div>
-  <p class="muted">Sugerencias calculadas a partir del texto, los tiempos y un modelo semántico local gratuito que ayuda a evitar clips repetidos. No equivalen a una predicción de viralidad ni a un análisis editorial humano.</p>
+  <div class="section-head"><div><span class="step">MOTOR 02 / SELECCIÓN</span><h3>Momentos candidatos</h3></div><span class="tag">Selección editorial IA</span></div>
+  <p class="muted">El juez generativo compara los momentos del vídeo y un modelo semántico ayuda a evitar repeticiones. Si el dispositivo no puede ejecutar el juez IA, ClipForge identifica expresamente los candidatos de respaldo.</p>
   <div class="project-transfer">
     <label for="browserProjectImport">Recuperar proyecto editable (.json)</label>
     <input id="browserProjectImport" type="file" accept="application/json,.json">
