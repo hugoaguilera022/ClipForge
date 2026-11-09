@@ -750,3 +750,13 @@ class YouTubeProxyValidationTests(unittest.TestCase):
   self.assertIn('clipforge-youtube-importer.onrender.com',module)
   self.assertIn("rights_confirmed: true",module)
   self.assertIn("new File([new Blob(chunks, {type: 'video/mp4'})]",module)
+
+
+class BrowserWhisperDefaultTests(unittest.TestCase):
+ def test_default_browser_model_prioritizes_word_timed_captions(self):
+  html=(ROOT/'static'/'index.html').read_text()
+  self.assertIn('<option value="whisper-base" selected>Base · recomendado (subtítulos palabra a palabra)</option>',html)
+  self.assertIn('<option value="whisper-small">Small · más precisión (subtítulos por frase)</option>',html)
+ def test_browser_language_defaults_to_automatic_spanish_or_english_detection(self):
+  html=(ROOT/'static'/'index.html').read_text()
+  self.assertIn('<option value="auto" selected>Detectar automáticamente (español o inglés)</option>',html)
