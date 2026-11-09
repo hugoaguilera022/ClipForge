@@ -243,10 +243,36 @@ function makeVtt(segments) {
   return `WEBVTT\n\n${cues.join('\n\n')}\n`;
 }
 
-// Editorial ranking: balanced hooks, coherent setup/payoff, dialogue, pace and clean boundaries.
+
+ // Sample low-resolution frames locally. Frame-to-frame change is a
+ // language- and genre-independent signal for cuts, movement and visual activity.
+ async function captureVisualActivity(file, duration, stepSeconds = 4) {
+  if (!file || !Number.isFinite(duration) || duration < 3) return [];
+  const video=document.createElement('video'); video.muted=true; video.playsInline=true; video.preload='auto';
+  const url=URL.createObjectURL(file); video.src=url;
+  const canvas=document.createElement('canvas'); canvas.width=64; canvas.height=36;
+  const ctx=canvas.getContext('2d',{willReadFrequently:true});
+  const wait=(event)=>new Promise((resolve,reject)=>{const ok=()=>{cleanup();resolve();};const bad=()=>{cleanup();reject(new Error('No se pudieron analizar los fotogramas del vídeo.'));};const cleanup=()=>{video.removeEventListener(event,ok);video.removeEventListener('error',bad);};video.addEventListener(event,ok,{once:true});video.addEventListener('error',bad,{once:true});});
+  try {
+   await Promise.race([wait('loadedmetadata'),new Promise((_,reject)=>setTimeout(()=>reject(new Error('Tiempo agotado leyendo el vídeo.')),15000))]);
+   const samples=[]; let previous=null;
+   for(let t=0;t<duration;t+=stepSeconds){
+    video.currentTime=Math.min(t,Math.max(0,duration-.05));
+    await Promise.race([wait('seeked'),new Promise((_,reject)=>setTimeout(()=>reject(new Error('Tiempo agotado analizando fotogramas.')),5000))]);
+    try{ctx.drawImage(video,0,0,64,36);}catch{continue;}
+    const data=ctx.getImageData(0,0,64,36).data;const gray=new Uint8Array(64*36);
+    for(let i=0,j=0;i<data.length;i+=4,j++)gray[j]=(data[i]*.299+data[i+1]*.587+data[i+2]*.114)|0;
+    let change=0;if(previous){for(let i=0;i<gray.length;i++)change+=Math.abs(gray[i]-previous[i]);change/=gray.length*255;}
+    samples.push({t,change});previous=gray;
+   }
+   return samples;
+  }catch(error){console.warn('Análisis visual local no disponible:',error);return [];}
+  finally{video.removeAttribute('src');video.load();URL.revokeObjectURL(url);}
+ }
+\n// Editorial ranking: balanced hooks, coherent setup/payoff, dialogue, pace and clean boundaries.
 // Las puntuaciones heurísticas no equivalen a una predicción de viralidad.
 // It is a transparent local editorial score, not a promise of virality or a copy of OpusClip's model.
-function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRate = 16000) {
+function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRate = 16000, visualSamples = []) {
   // Lightweight acoustic profile from the already-decoded audio. It adds a
   // free, on-device signal for energetic moments and avoids sending media away.
   const audioWindow = 0.5;
@@ -264,7 +290,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
   const sortedRms = energy.map(x => x.rms).sort((a,b) => a-b);
   const quantile = q => sortedRms.length ? sortedRms[Math.min(sortedRms.length-1, Math.floor((sortedRms.length-1)*q))] : 0;
   const energyFloor = quantile(.2), energyMedian = quantile(.5), energyTop = quantile(.9);
-  const energySpan = Math.max(1e-5, energyTop - energyFloor);
+  const energySpan = Math.max(1e-5, energyTop - energyFloor);\n  const visualAvailable=visualSamples.length>1;
 
   const minLen = 15, maxLen = 45, targetLen = 24;
   const sentenceEnd = /[.!?…][”’"')\]]?$/;
@@ -281,7 +307,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
   // rank evenly distributed windows from the actual audio activity profile.
   // This is deliberately a fallback, not a claim of semantic highlight detection.
   if (!clean.length) {
-    if (!energy.length || !Number.isFinite(videoDuration) || videoDuration < 15) return [];
+    if ((!energy.length && !visualAvailable) || !Number.isFinite(videoDuration) || videoDuration < 15) return [];
     const minAudioLen=15, maxAudioLen=45;
     const windowLen=Math.min(maxAudioLen,Math.max(minAudioLen,Math.min(24,videoDuration/4)));
     const hop=Math.max(2.5,windowLen/3);
@@ -395,13 +421,13 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     const peakEnergy = acoustic.length ? Math.max(...acoustic.map(x=>x.rms)) : 0;
     const energyLift = energy.length ? Math.max(0,Math.min(1,(meanEnergy-energyFloor)/energySpan)) : 0;
     const energyContrast = energy.length ? Math.max(0,Math.min(1,(peakEnergy-meanEnergy)/energySpan)) : 0;
-    const acousticScore = energy.length ? Math.round(activeRatio*5 + energyLift*4 + energyContrast*3) : 0;
+    const acousticScore = energy.length ? Math.round(activeRatio*5 + energyLift*4 + energyContrast*3) : 0;\n    const visualChanges=visualSamples.filter(x=>x.t>=start&&x.t<end).map(x=>x.change);\n    const visualMean=visualChanges.length?visualChanges.reduce((a,b)=>a+b,0)/visualChanges.length:0;\n    const visualScore=visualChanges.length?Math.round(Math.min(10,visualMean*50)):0;
     const paceScore=Math.max(0,Math.min(1,(wordsPerSecond-1.15)/2.1));
     const lexicalScore=Math.max(0,Math.min(1,(uniqueRatio-.28)/.42));
     const rawScore = 15 + durationScore*10 + paceScore*12 + lexicalScore*8 +
       (hookAtStart?12:0) + (questionAtStart?6:0) + Math.min(6,questionCount*1.5) + Math.min(10,exclamationCount*2.5) + turnScore +
       Math.min(14,laughCount*7) + Math.min(18,reactionCount*4) + (pivot?8:0) + (hasSetup?6:0) + (hasTurn?6:0) +
-      (payoffAtEnd?8:0) + (questionAnswered?16:0) + (answerClosedAtEnd?12:0) + (completeEnd?7:0) + acousticScore - Math.min(12,fillerCount*.8) -
+      (payoffAtEnd?8:0) + (questionAnswered?16:0) + (answerClosedAtEnd?12:0) + (completeEnd?7:0) + acousticScore + visualScore - Math.min(12,fillerCount*.8) -
       (abruptStart?8:0) - (fragmentStart?14:0) - (wordsPerSecond<1.1?8:0);
     // Compress the raw weighted sum to avoid the previous ceiling effect where
     // several very different moments all received 100/100.
@@ -417,7 +443,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     if(questionAnswered)reasons.push('pregunta y respuesta');
     if(answerClosedAtEnd)reasons.push('remate completo al final');
     if(completeEnd)reasons.push('cierre natural');
-    if(energy.length && acousticScore >= 8)reasons.push('energía y dinámica de audio');
+    if(energy.length && acousticScore >= 8)reasons.push('energía y dinámica de audio');\n    if(visualChanges.length && visualScore>=3)reasons.push('movimiento y cambios visuales');
     candidates.push({start,end,duration,score,text,reasons:[...new Set(reasons)].slice(0,3)});
     nextStart=start+stepSeconds;
   }
@@ -469,10 +495,10 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
 }
 
 let editableCandidates=[];
-function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=null) {
+function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=null,visualSamples=[]) {
  const panel=document.querySelector('#browserCandidates'),list=document.querySelector('#browserCandidateList');
  if(!panel||!list)return;
- editableCandidates=(restoredCandidates || rankClipCandidates(words,duration,audioSamples)).map((c,i)=>({...c,title:c.title||`Clip ${i+1}`,selected:c.selected!==false}));
+ editableCandidates=(restoredCandidates || rankClipCandidates(words,duration,audioSamples,16000,visualSamples)).map((c,i)=>({...c,title:c.title||`Clip ${i+1}`,selected:c.selected!==false}));
  panel.hidden=false;list.replaceChildren();
  if(!editableCandidates.length){list.textContent='No hay suficientes marcas de tiempo.';const field=document.querySelector('[name="selected_clip_ranges"]');if(field)field.value='';return;}
  const sync=()=>{
@@ -578,7 +604,7 @@ runButton?.addEventListener('click', async () => {
     // Free the large ONNX/Whisper session before video rendering. Keeping it
     // alive caused Chromium to run out of memory while exporting long clips.
     await releaseWhisperModel();
-    const chunks = result.chunks || [];
+    const chunks = result.chunks || [];\n    say('Analizando cambios visuales del vídeo localmente para complementar la transcripción…');\n    const visualSamples = await captureVisualActivity(file,audio.length/16000,4);
     transcriptData = {
       source: file.name, model: activeModelId, language: result.language || sourceLanguage,
       generated_at: new Date().toISOString(), text: result.text || '',
@@ -596,7 +622,7 @@ runButton?.addEventListener('click', async () => {
       ? transcriptData.segments.map(s => `[${s.start.toFixed(2)}–${s.end.toFixed(2)}] ${s.text}`).join('\n')
       : (result.text || 'El modelo no devolvió texto temporizado.');
     if (transcriptData.segments.length) {
-      showClipCandidates(transcriptData.segments, audio.length / 16000, null, audio);
+      showClipCandidates(transcriptData.segments, audio.length / 16000, null, audio, visualSamples);
       const vtt = makeVtt(transcriptData.segments);
       const attached = attachTranscriptToJobForm(vtt);
       say(`Transcripción lista: ${transcriptData.segments.length} fragmentos temporizados. ${attached ? 'Subtítulos y cortes seleccionados conectados al formulario de producción.' : 'Descarga el JSON para conservarla.'} Whisper no identifica hablantes.`);
@@ -615,7 +641,7 @@ runButton?.addEventListener('click', async () => {
     } else {
       // A silent transcript is still a valid input for the non-speech ranker.
       // It uses audio activity to suggest moments for music, gameplay and B-roll.
-      showClipCandidates([], audio.length / 16000, null, audio);
+      showClipCandidates([], audio.length / 16000, null, audio, visualSamples);
       say(editableCandidates.length
         ? `No se detectó diálogo temporizado. Se han propuesto ${editableCandidates.length} momentos mediante actividad sonora; revisa los cortes antes de exportar.`
         : 'No se detectó diálogo ni suficiente actividad sonora para proponer cortes.');
