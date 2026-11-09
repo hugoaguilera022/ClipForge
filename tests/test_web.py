@@ -601,7 +601,9 @@ class BrowserClipCandidateTests(unittest.TestCase):
   self.assertIn('claro|ya te avisaremos|te avisaremos|no|sí',module)
   self.assertIn('Prefer a natural endpoint around 24–30 seconds',module)
   self.assertIn('if(chosen.length<selectionLimit)',module)
-  self.assertIn('let candidatePool = rankClipCandidates(transcriptData.segments, audio.length / 16000, audio, 16000, visualSamples, 8)',module)
+  self.assertIn('let candidatePool = rankClipCandidates(transcriptData.segments, audio.length / 16000, audio, 16000, visualSamples, 12)',module)
+  self.assertIn('const shortQuestion=',module)
+  self.assertIn('const sentenceEnd = /(?<![.])[.!?]',module)
 
  def test_candidate_ranker_supports_english_hooks_and_dialogue_turns(self):
   module=(ROOT/'static'/'browser-whisper.js').read_text()
