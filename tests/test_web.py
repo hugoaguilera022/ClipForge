@@ -601,7 +601,7 @@ class BrowserClipCandidateTests(unittest.TestCase):
   self.assertIn('claro|ya te avisaremos|te avisaremos|no|sí',module)
   self.assertIn('Prefer a natural endpoint around 24–30 seconds',module)
   self.assertIn('if(chosen.length<selectionLimit)',module)
-  self.assertIn('let candidatePool = buildEditorialCandidatePool(transcriptData.segments, audio.length / 16000)',module)
+  self.assertIn('let candidatePool = buildEditorialCandidatePool(transcriptData.segments, audio.length / 16000, audio, visualSamples, 16000)',module)
   self.assertIn('for(let offset=0;offset<pool.length;offset+=8)',module)
   self.assertIn('No heuristic score decides which candidates survive',module)
   self.assertIn('candidatePool = await aiEditorialSelect(candidatePool, 4, say)',module)
