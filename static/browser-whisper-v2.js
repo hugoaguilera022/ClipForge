@@ -659,39 +659,65 @@ function rerankWithSemanticEmbeddings(candidates, embeddings, limit = 4) {
 // Runs locally through WebGPU: no API key, no paid inference endpoint, no upload.
 let editorialEnginePromise = null;
 async function loadEditorialJudge(onProgress = () => {}) {
-  const remoteUrl=String(document.querySelector('#editorialRemoteUrl')?.value||localStorage.getItem('clipforge.editorial.remoteUrl')||'').trim().replace(/\/$/,'');
-  const remoteToken=String(document.querySelector('#editorialRemoteToken')?.value||localStorage.getItem('clipforge.editorial.remoteToken')||'').trim();
-  if(remoteUrl&&remoteToken){
-    if(!/^https:\/\//i.test(remoteUrl))throw new Error('La URL del motor remoto debe comenzar por https://');
-    onProgress('Conectando con el motor editorial de Google Colab…');
-    return {chat:{completions:{create:async({messages,temperature=0.12,max_tokens=700,response_format})=>{
-      const response=await fetch(remoteUrl,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+remoteToken},body:JSON.stringify({model:'qwen2.5:3b-instruct-q4_K_M',messages,stream:false,options:{temperature,num_predict:max_tokens},...(response_format?.type==='json_object'?{format:'json'}:{})})});
-      if(!response.ok)throw new Error('Motor Colab respondió HTTP '+response.status+'. Comprueba que la sesión siga activa y que la URL y el token sean correctos.');
-      const data=await response.json();
-      const content=data?.message?.content;
-      if(!content)throw new Error('El motor Colab no devolvió contenido editorial.');
-      return {choices:[{message:{content}}]};
-    }}}};
-  }
-  if (!navigator.gpu) throw new Error('No hay motor editorial remoto configurado y este navegador no ofrece WebGPU. Abre Chrome/Edge con WebGPU o conecta Google Colab.');
-  const adapter=await navigator.gpu.requestAdapter();
-  if(!adapter)throw new Error('No se ha encontrado un adaptador WebGPU disponible en este dispositivo.');
+  if (!navigator.gpu) throw new Error('Este navegador no ofrece WebGPU. La selección editorial IA requiere Chrome, Edge u otro navegador compatible con WebGPU.');
+  const adapter=await navigator.gpu.requestAdapter({powerPreference:'high-performance'});
+  if(!adapter)throw new Error('No se ha encontrado una GPU compatible con WebGPU.');
   if (!editorialEnginePromise) {
     editorialEnginePromise = (async () => {
-      onProgress('Preparando el editor IA local Qwen3…');
+      onProgress('Preparando el editor IA Qwen3-1.7B…');
       const webllm = await import('https://esm.sh/@mlc-ai/web-llm@0.2.87');
       const modelId = 'Qwen3-1.7B-q4f16_1-MLC';
-      // OPFS is a better fit for multi-GB model artifacts than Cache API on
-      // mobile browsers; "auto" uses sync access handles when supported.
+      const record=webllm.prebuiltAppConfig.model_list.find(item=>item.model_id===modelId);
+      if(!record)throw new Error('La versión instalada de WebLLM no incluye el modelo editorial Qwen3-1.7B compatible.');
       const appConfig = {...webllm.prebuiltAppConfig, cacheBackend:'opfs', opfsAccessMode:'auto'};
-      const engine = await webllm.CreateMLCEngine(modelId, {
-        appConfig,
-        initProgressCallback: report => onProgress(report?.text || 'Descargando el modelo editorial IA…')
-      });
-      return engine;
-    })().catch(error => { editorialEnginePromise = null; throw error; });
+      return await webllm.CreateMLCEngine(modelId,{appConfig,initProgressCallback:report=>onProgress(report?.text||'Descargando el modelo editorial IA…')});
+    })().catch(error=>{editorialEnginePromise=null;throw error;});
   }
   return editorialEnginePromise;
+}
+
+// Approximate per-video resource estimate. Browsers do not expose exact free RAM,
+// VRAM or disk space; show safe recommendations and label uncertainty honestly.
+function estimateVideoCapacity(options) {
+  const {durationSeconds=0,fileBytes=0,whisperModel='whisper-base',deviceMemoryGb=null,webgpu=false}=options||{};
+  const minutes=Math.max(0,Number(durationSeconds)||0)/60;
+  const asr={
+    'whisper-tiny':{label:'Whisper Tiny',downloadMb:80,ramGb:1.8},
+    'whisper-base':{label:'Whisper Base',downloadMb:160,ramGb:2.4},
+    'whisper-small':{label:'Whisper Small',downloadMb:520,ramGb:4.0}
+  }[String(whisperModel)]||{label:'Whisper Base',downloadMb:160,ramGb:2.4};
+  const audioGb=minutes*0.00384;
+  const systemRamGb=Math.ceil((2.2+asr.ramGb+audioGb)*2)/2;
+  const gpuRamGb=2.5;
+  const cacheGb=Math.ceil((2.0+asr.downloadMb/1024)*2)/2;
+  const tempGb=Math.max(1.5,(Number(fileBytes)||0)/1024**3*1.5);
+  const freeDiskGb=Math.ceil((cacheGb+tempGb)*2)/2;
+  const deviceRam=deviceMemoryGb!==null&&deviceMemoryGb!==undefined&&Number.isFinite(Number(deviceMemoryGb))?Number(deviceMemoryGb):null;
+  const ramFit=deviceRam===null?null:deviceRam>=systemRamGb;
+  return {asrLabel:asr.label,systemRamGb,gpuRamGb,cacheGb,freeDiskGb,deviceMemoryGb:deviceRam,webgpu:Boolean(webgpu),ramFit,status:!webgpu?'incompatible':ramFit===false?'limited':deviceRam===null?'unknown':'ready',audioWorkingSetMb:Math.round(audioGb*1024)};
+}
+function formatCapacityGb(value){return Number(value).toFixed(1).replace('.',',')+' GB';}
+async function updateVideoCapacity(file) {
+  const el=id=>document.querySelector('#'+id);
+  if(!file||!el('capacityStatus'))return;
+  el('capacityStatus').textContent='Calculando duración y compatibilidad…';
+  let duration=0;
+  const url=URL.createObjectURL(file),video=document.createElement('video');
+  try{video.preload='metadata';video.src=url;duration=await new Promise(resolve=>{video.onloadedmetadata=()=>resolve(Number(video.duration)||0);video.onerror=()=>resolve(0);setTimeout(()=>resolve(0),12000);});}
+  finally{URL.revokeObjectURL(url);video.removeAttribute('src');}
+  let adapter=null;try{if(navigator.gpu)adapter=await navigator.gpu.requestAdapter({powerPreference:'high-performance'});}catch{}
+  const estimate=estimateVideoCapacity({durationSeconds:duration,fileBytes:file.size,whisperModel:el('browserWhisperModel')?.value||'whisper-base',deviceMemoryGb:navigator.deviceMemory,webgpu:Boolean(adapter)});
+  el('capacityRam').textContent=formatCapacityGb(estimate.systemRamGb)+' recomendados';
+  el('capacityGpu').textContent=formatCapacityGb(estimate.gpuRamGb)+' recomendados';
+  el('capacityDisk').textContent=formatCapacityGb(estimate.freeDiskGb)+' libres';
+  el('capacityModel').textContent='Qwen3 1.7B + '+estimate.asrLabel.replace('Whisper ','');
+  const length=duration?(duration/60).toFixed(1).replace('.',',')+' min':'duración no detectada';
+  const status=el('capacityStatus'),summary=el('capacitySummary');
+  if(!adapter){status.textContent='No compatible con selección IA';status.dataset.level='bad';summary.textContent='Vídeo: '+length+' · '+Math.round(file.size/1048576)+' MB. No se detecta WebGPU; la selección editorial generativa no podrá ejecutarse en este navegador.';}
+  else if(estimate.ramFit===false){status.textContent='Capacidad posiblemente insuficiente';status.dataset.level='warn';summary.textContent='Vídeo: '+length+' · '+Math.round(file.size/1048576)+' MB. El navegador declara '+estimate.deviceMemoryGb+' GB de RAM; se recomiendan '+formatCapacityGb(estimate.systemRamGb)+'.';}
+  else{status.textContent=estimate.ramFit===null?'GPU compatible · RAM no verificable':'Requisitos estimados';status.dataset.level='ok';summary.textContent='Vídeo: '+length+' · '+Math.round(file.size/1048576)+' MB. '+(estimate.ramFit===true?'La memoria declarada parece suficiente.':'WebGPU disponible; evita otras aplicaciones pesadas durante el análisis.');}
+  el('capacityDetails').textContent='Para Whisper '+estimate.asrLabel.replace('Whisper ','')+' + Qwen3-1.7B: RAM '+formatCapacityGb(estimate.systemRamGb)+', memoria gráfica '+formatCapacityGb(estimate.gpuRamGb)+', caché de modelos '+formatCapacityGb(estimate.cacheGb)+' y espacio libre recomendado '+formatCapacityGb(estimate.freeDiskGb)+'. '+(estimate.deviceMemoryGb===null?'Este navegador no permite consultar la RAM del dispositivo.':'RAM declarada por el navegador: '+estimate.deviceMemoryGb+' GB (aproximada).')+' El audio temporal ocupa unos '+estimate.audioWorkingSetMb+' MB. No se puede consultar con precisión la VRAM ni el espacio libre real.';
+  el('videoCapacity').dataset.level=estimate.status;
 }
 
 function parseEditorialDecision(raw, candidates, limit = 4) {
@@ -1111,6 +1137,7 @@ document.querySelector('#video')?.addEventListener('change', async () => {
   const input = document.querySelector('#video');
   const file = input?.files?.[0];
   if (!file) return;
+  updateVideoCapacity(file).catch(error=>console.warn('No se pudo calcular la capacidad del vídeo:',error));
   const field=document.querySelector('[name="selected_clip_ranges"]');
   const panel=document.querySelector('#browserCandidates');
   const transcript=document.querySelector('#transcript');
@@ -1243,19 +1270,5 @@ window.clipforgeEditorBridge = {
 };
 window.dispatchEvent(new CustomEvent('clipforge:editor-ready'));
 
-// ClipForge multilingual editorial engine revision 94094108.
 
-document.querySelector('#saveEditorialRemote')?.addEventListener('click',()=>{
-  const url=String(document.querySelector('#editorialRemoteUrl')?.value||'').trim().replace(/\/$/,'');
-  const token=String(document.querySelector('#editorialRemoteToken')?.value||'').trim();
-  if(url&&!/^https:\/\//i.test(url)){say('La URL debe comenzar por https://');return;}
-  if(Boolean(url)!==Boolean(token)){say('Introduce tanto la URL como la clave temporal de Colab.');return;}
-  if(url){localStorage.setItem('clipforge.editorial.remoteUrl',url);localStorage.setItem('clipforge.editorial.remoteToken',token);say('Motor editorial de Colab guardado. La próxima selección utilizará Qwen en la nube.');}
-  else{localStorage.removeItem('clipforge.editorial.remoteUrl');localStorage.removeItem('clipforge.editorial.remoteToken');say('Conexión remota eliminada. Se utilizará el motor local si está disponible.');}
-});
-(()=>{
- const url=localStorage.getItem('clipforge.editorial.remoteUrl');
- const token=localStorage.getItem('clipforge.editorial.remoteToken');
- const u=document.querySelector('#editorialRemoteUrl'),t=document.querySelector('#editorialRemoteToken');
- if(u&&url)u.value=url;if(t&&token)t.value=token;
-})();
+document.querySelector('#browserWhisperModel')?.addEventListener('change',()=>{const file=document.querySelector('#video')?.files?.[0];if(file)updateVideoCapacity(file).catch(console.warn);});
