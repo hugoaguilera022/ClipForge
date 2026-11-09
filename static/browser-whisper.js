@@ -255,10 +255,10 @@ function makeVtt(segments) {
   const wait=(event)=>new Promise((resolve,reject)=>{const ok=()=>{cleanup();resolve();};const bad=()=>{cleanup();reject(new Error('No se pudieron analizar los fotogramas del vídeo.'));};const cleanup=()=>{video.removeEventListener(event,ok);video.removeEventListener('error',bad);};video.addEventListener(event,ok,{once:true});video.addEventListener('error',bad,{once:true});});
   try {
    await Promise.race([wait('loadedmetadata'),new Promise((_,reject)=>setTimeout(()=>reject(new Error('Tiempo agotado leyendo el vídeo.')),15000))]);
+   if(video.readyState<2)await Promise.race([wait('loadeddata'),new Promise((_,reject)=>setTimeout(()=>reject(new Error('Tiempo agotado decodificando el primer fotograma.')),15000))]);
    const samples=[]; let previous=null;
    for(let t=0;t<duration;t+=stepSeconds){
-    video.currentTime=Math.min(t,Math.max(0,duration-.05));
-    await Promise.race([wait('seeked'),new Promise((_,reject)=>setTimeout(()=>reject(new Error('Tiempo agotado analizando fotogramas.')),5000))]);
+    if(t>0){video.currentTime=Math.min(t,Math.max(0,duration-.05));await Promise.race([wait('seeked'),new Promise((_,reject)=>setTimeout(()=>reject(new Error('Tiempo agotado analizando fotogramas.')),5000))]);}
     try{ctx.drawImage(video,0,0,64,36);}catch{continue;}
     const data=ctx.getImageData(0,0,64,36).data;const gray=new Uint8Array(64*36);
     for(let i=0,j=0;i<data.length;i+=4,j++)gray[j]=(data[i]*.299+data[i+1]*.587+data[i+2]*.114)|0;
