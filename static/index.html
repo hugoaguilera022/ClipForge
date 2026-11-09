@@ -20,8 +20,8 @@
 </div>
 <button type="button" id="browserExportClips">Exportar clips MP4 en este navegador</button><div id="browserExportStatus" class="engine-progress" role="status">Esperando transcripción y cortes seleccionados.</div></div>
 <div class="browser-candidates" id="browserCandidates" hidden>
-  <div class="section-head"><div><span class="step">MOTOR 02 / SELECCIÓN</span><h3>Momentos candidatos</h3></div><span class="tag">Puntuación heurística</span></div>
-  <p class="muted">Sugerencias calculadas a partir del texto y los tiempos. No equivalen a una predicción de viralidad ni a un análisis semántico humano.</p>
+  <div class="section-head"><div><span class="step">MOTOR 02 / SELECCIÓN</span><h3>Momentos candidatos</h3></div><span class="tag">Heurística + semántica local</span></div>
+  <p class="muted">Sugerencias calculadas a partir del texto, los tiempos y un modelo semántico local gratuito que ayuda a evitar clips repetidos. No equivalen a una predicción de viralidad ni a un análisis editorial humano.</p>
   <div class="project-transfer">
     <label for="browserProjectImport">Recuperar proyecto editable (.json)</label>
     <input id="browserProjectImport" type="file" accept="application/json,.json">
