@@ -664,9 +664,13 @@ async function loadEditorialJudge(onProgress = () => {}) {
   if (!editorialEnginePromise) {
     editorialEnginePromise = (async () => {
       onProgress('Preparando el editor IA local Qwen3…');
-      const webllm = await import('https://esm.sh/@mlc-ai/web-llm@0.2.80');
+      const webllm = await import('https://esm.sh/@mlc-ai/web-llm@0.2.87');
       const modelId = 'Qwen3-1.7B-q4f16_1-MLC';
+      // OPFS is a better fit for multi-GB model artifacts than Cache API on
+      // mobile browsers; "auto" uses sync access handles when supported.
+      const appConfig = {...webllm.prebuiltAppConfig, cacheBackend:'opfs', opfsAccessMode:'auto'};
       const engine = await webllm.CreateMLCEngine(modelId, {
+        appConfig,
         initProgressCallback: report => onProgress(report?.text || 'Descargando el modelo editorial IA…')
       });
       return engine;
@@ -753,10 +757,11 @@ async function askEditorialModel(engine, pool, count, onProgress, phase) {
   }));
   const prompt=[
     'Eres el editor jefe de una productora profesional de clips verticales para redes sociales.',
-    'Evalúa el contenido real de cada fragmento, no señales superficiales ni puntuaciones automáticas.',
-    'Prioriza: historia comprensible sin contexto externo; tensión, sorpresa o giro; humor genuino y reacción; pregunta con respuesta interesante; opinión contundente; emoción; remate satisfactorio; claridad para quien no vio el vídeo.',
-    'Penaliza: charla de transición, presentaciones, nombres sin contexto, frases cortadas, repeticiones, promoción, fragmentos que necesitan demasiado contexto y finales sin payoff.',
-    'Busca variedad temática y cuatro momentos que funcionen de forma independiente. El idioma puede ser español o inglés.',
+    'Evalúa cada fragmento como un editor de short-form profesional, usando su contenido y su contexto conversacional. No uses popularidad de palabras ni señales superficiales.',
+    'Puntúa mentalmente cada momento en cinco dimensiones: gancho inicial; interés narrativo/emocional/cómico; claridad y autonomía; desarrollo con payoff; potencial de mantener atención. No confundas volumen de voz con interés.',
+    'Prioriza anécdotas con giro o remate, bromas con reacción, revelaciones, desacuerdo con argumentos, respuestas inesperadas, opiniones memorables y momentos emocionales genuinos.',
+    'Penaliza inicios a mitad de frase, preguntas sin respuesta, introducciones, charla de transición, bromas internas sin contexto, repeticiones, promoción y finales sin cierre.',
+    'Prefiere el fragmento completo más corto que conserve la premisa y el remate. Busca variedad de temas y formatos. El idioma puede ser español o inglés.',
     'No inventes hechos ni cambies los tiempos. Solo puedes elegir IDs de esta lista.',
     'En esta ronda elige exactamente '+count+' fragmentos. '+phase,
     'Devuelve SOLO JSON válido: {"selected":[{"id":1,"score":92,"title":"título breve","reason":"razón editorial concreta"}]}.',
@@ -787,7 +792,7 @@ async function aiEditorialSelect(candidates, limit = 4, onProgress = () => {}) {
   const finalists=[];
   for(let offset=0;offset<pool.length;offset+=8){
     const batch=pool.slice(offset,offset+8);
-    const keep=Math.min(2,batch.length);
+    const keep=Math.min(3,batch.length);
     const selected=await askEditorialModel(engine,batch,keep,onProgress,'Evaluación editorial IA: bloque '+(Math.floor(offset/8)+1)+'/'+Math.ceil(pool.length/8)+'…');
     finalists.push(...selected);
   }
