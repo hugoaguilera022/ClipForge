@@ -529,6 +529,45 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
   return chosen.sort((a,b)=>a.start-b.start).map((c,i)=>({...c,title:`Momento ${i+1}`}));
 }
 
+function rerankWithoutEmbeddings(candidates, limit = 4) {
+  const pool=(Array.isArray(candidates)?candidates:[])
+    .filter(c=>c&&Number.isFinite(Number(c.start))&&Number.isFinite(Number(c.end))&&Number(c.end)>Number(c.start))
+    .map(c=>({...c,score:Number(c.score)||0}));
+  const count=Math.max(1,Math.min(4,Math.floor(Number(limit)||4)));
+  if(pool.length<=count)return pool.sort((a,b)=>a.start-b.start).map((c,i)=>({...c,title:c.title||`Clip ${i+1}`}));
+  const stop=new Set(('the and for that with this from have your you are was were but then when what why how who where como que para por una uno unos unas los las del con sin sus sus que pero porque cuando donde quien cual este esta esto eso ellos ellas nosotros vosotros ella el la de y a en un es se al lo mi tu me te yo').split(/\\s+/));
+  const tokens=text=>new Set((String(text||'').toLocaleLowerCase().match(/[\\p{L}\\p{N}]{2,}/gu)||[]).filter(t=>!stop.has(t)));
+  const similarity=(a,b)=>{
+    const A=tokens(a),B=tokens(b);if(!A.size||!B.size)return 0;
+    let common=0;for(const t of A)if(B.has(t))common++;
+    return common/Math.max(1,A.size+B.size-common);
+  };
+  const first=Math.min(...pool.map(c=>Number(c.start))),last=Math.max(...pool.map(c=>Number(c.end)));
+  const span=Math.max(1,last-first),bucket=c=>Math.min(3,Math.max(0,Math.floor((Number(c.start)-first)/span*4)));
+  const selected=[];
+  while(selected.length<count){
+    const options=pool.filter(c=>!selected.includes(c)&&selected.every(x=>Number(c.end)<=Number(x.start)-1||Number(c.start)>=Number(x.end)+1));
+    if(!options.length)break;
+    options.sort((a,b)=>{
+      const value=c=>{
+        const similarities=selected.map(x=>similarity(c.text,x.text));
+        const maxSim=similarities.length?Math.max(...similarities):0;
+        const duplicatePenalty=Math.max(0,maxSim-.32)*42;
+        const novelty=similarities.length?(1-maxSim)*3:0;
+        const coverage=selected.some(x=>bucket(x)===bucket(c))?0:3;
+        return c.score+novelty+coverage-duplicatePenalty;
+      };
+      return value(b)-value(a);
+    });
+    selected.push(options[0]);
+  }
+  return selected.sort((a,b)=>a.start-b.start).map((c,i)=>({
+    ...c,title:c.title||`Clip ${i+1}`,
+    reasons:[...new Set([...(c.reasons||[]),'selección local de respaldo; diversidad léxica y separación temporal'])].slice(0,4),
+    selected:true
+  }));
+}
+
 function rerankWithSemanticEmbeddings(candidates, embeddings, limit = 4) {
   if (!Array.isArray(candidates) || !Array.isArray(embeddings) || candidates.length !== embeddings.length) {
     return (candidates || []).slice(0, limit);
@@ -572,7 +611,7 @@ function rerankWithSemanticEmbeddings(candidates, embeddings, limit = 4) {
 
 async function semanticRerankCandidates(candidates, limit = 4, onProgress = () => {}) {
   if (!Array.isArray(candidates) || candidates.length < 2 || !candidates.some(clip => String(clip.text || '').trim())) {
-    return (candidates || []).slice(0, limit);
+    return rerankWithoutEmbeddings(candidates, limit);
   }
   const {pipeline, env} = await import('https://esm.sh/@huggingface/transformers@3.7.2');
   env.allowLocalModels = false;
@@ -744,8 +783,8 @@ runButton?.addEventListener('click', async () => {
           candidatePool = await semanticRerankCandidates(candidatePool, 4, say);
         } catch (semanticError) {
           console.warn('El reranker semántico no está disponible; se conserva la selección heurística.', semanticError);
-          candidatePool = candidatePool.slice(0, 4);
-          say('Modelo semántico no disponible; usando selección heurística local.');
+          candidatePool = rerankWithoutEmbeddings(candidatePool, 4);
+          say('Modelo semántico no disponible; usando selección local con diversidad léxica y separación temporal.');
         }
       }
       showClipCandidates(transcriptData.segments, audio.length / 16000, candidatePool, audio, visualSamples);
