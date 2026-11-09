@@ -707,11 +707,11 @@ class MultilingualBrowserTranscriptionTests(unittest.TestCase):
 
 
 class BrowserModelPreferenceTests(unittest.TestCase):
- def test_higher_accuracy_small_model_is_default_with_base_fallback(self):
+ def test_word_timed_base_model_is_default_with_small_option(self):
   html=(ROOT/"static"/"index.html").read_text()
   model=html.split('id="browserWhisperModel"',1)[1].split('</select>',1)[0]
-  self.assertIn('value="whisper-small" selected',model)
-  self.assertNotIn('value="whisper-base" selected',model)
+  self.assertIn('value="whisper-base" selected',model)
+  self.assertNotIn('value="whisper-small" selected',model)
   self.assertIn("await loadModel(activeModelId)", (ROOT/"static"/"browser-whisper.js").read_text())
 
  def test_phrase_overlap_deduplication_uses_time_and_token_similarity(self):
