@@ -67,6 +67,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS, GET")
             self.send_header("Access-Control-Allow-Headers", "Content-Type")
             self.send_header("Access-Control-Max-Age", "600")
+            self.send_header("Access-Control-Expose-Headers", "Content-Disposition, Content-Length")
 
     def _json(self, status: int, payload: dict):
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -150,13 +151,16 @@ class Handler(BaseHTTPRequestHandler):
                 }
                 try:
                     with yt_dlp.YoutubeDL(options) as ydl:
-                        info = ydl.extract_info(url, download=True)
+                        info = ydl.extract_info(url, download=False)
                         if float(info.get("duration") or 0) > MAX_DURATION:
                             raise ValueError("El vídeo supera las seis horas permitidas.")
+                        info = ydl.process_ie_result(info, download=True)
                         path = Path(ydl.prepare_filename(info))
                         if not path.is_file():
                             candidates = [p for p in Path(folder).iterdir() if p.is_file() and not p.name.endswith(".part")]
                             path = candidates[0] if candidates else path
+                except ValueError:
+                    raise
                 except Exception as exc:
                     message = str(exc)
                     if "512 MB" in message:
@@ -165,6 +169,8 @@ class Handler(BaseHTTPRequestHandler):
 
                 if not path.is_file() or path.stat().st_size <= 0:
                     raise RuntimeError("YouTube no devolvió un archivo de vídeo válido.")
+                if path.suffix.lower() != ".mp4":
+                    raise RuntimeError("No se pudo obtener una versión MP4 compatible de este vídeo.")
                 size = path.stat().st_size
                 if size > MAX_BYTES:
                     raise ValueError("El vídeo supera el límite de 512 MB.")
