@@ -37,7 +37,7 @@ const engine={chat:{completions:{create:async({messages})=>{
   const count=Number(prompt.match(/(?:elige exactamente |exactamente )(\d+)/)?.[1]);
   assert.ok(count>0,'each model round must specify its requested selection count');
   calls.push({size:batch.length,count,ids:batch.map(x=>x.id)});
-  const chosen=[...batch].reverse().slice(0,count).map((item,index)=>({id:item.id,score:90-index,title:`Clip ${item.id}`,reason:'Complete narrative with a payoff.'}));
+  const chosen=[...batch].reverse().slice(0,count).map((item,index)=>({id:item.id,score:90-index,title:`Clip ${item.id}`,reason:'Complete narrative with a payoff.',...(prompt.includes('FINALISTAS PARA AUDITAR:')?{audit_verdict:'pass',audit_flags:[]}: {})}));
   return {choices:[{message:{content:JSON.stringify({selected:chosen})}}]};
 }}}};
 const context={console,Set,Math,Number,String,Array,JSON};
