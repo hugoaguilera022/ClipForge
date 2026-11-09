@@ -822,4 +822,11 @@ class ViralMomentFallbackSignalsTests(unittest.TestCase):
   self.assertIn('revelación o giro narrativo',source)
   self.assertIn('conflicto u opinión contundente',source)
   self.assertIn('resultado o consecuencia relevante',source)
+  self.assertIn('const anecdote=',source)
+  self.assertIn('const progression=',source)
+  self.assertIn('const strongOpinion=',source)
+  self.assertIn('const closingReaction=',source)
+  self.assertIn('(anecdote?7:0)',source)
+  self.assertIn('(progression?8:0)',source)
+  self.assertIn('anécdota con desarrollo narrativo',source)
 
