@@ -69,7 +69,34 @@ for (let i = 1; i < clips.length; i++) {
 assert.ok(new Set(clips.map(clip => clip.text.slice(0, 25))).size === 4, 'selected moments must not be duplicates');
 const sourceQuarter = clip => Math.min(3, Math.floor(clip.start / 52.5));
 assert.equal(new Set(clips.map(sourceQuarter)).size, 4, 'four clips must cover all four source quarters');
+
 console.log('Browser ranker passed: four coherent, distinct, non-overlapping clips.');
+
+// Semantic diversity reranker: choose four editorially strong moments without
+// wasting a slot on a near-duplicate when other topics are available.
+const semanticStart=source.indexOf('function rerankWithSemanticEmbeddings(');
+assert.notEqual(semanticStart,-1,'semantic diversity reranker must exist');
+let semanticDepth=0,semanticEnd=-1;
+for(let i=source.indexOf('{',semanticStart);i<source.length;i++){
+  if(source[i]==='{')semanticDepth++;
+  else if(source[i]==='}'&&--semanticDepth===0){semanticEnd=i+1;break;}
+}
+assert.notEqual(semanticEnd,-1,'semantic reranker must parse as a complete function');
+vm.runInContext(source.slice(semanticStart,semanticEnd)+'; this.semanticRerank=rerankWithSemanticEmbeddings;',context);
+const semanticCandidates=[
+  {start:0,end:20,score:92,text:'A story about a lost train and a funny mistake.'},
+  {start:25,end:45,score:90,text:'The same lost train story and the same funny mistake.'},
+  {start:50,end:70,score:84,text:'A surprise birthday party and everyone cheering.'},
+  {start:75,end:95,score:82,text:'The coach explains the final goal and the team celebration.'},
+  {start:100,end:120,score:80,text:'A chef reveals the secret ingredient in a recipe.'}
+];
+const semanticVectors=[[1,0,0],[.99,.01,0],[0,1,0],[0,0,1],[-1,0,0]];
+const semanticSelected=context.semanticRerank(semanticCandidates,semanticVectors,4);
+assert.equal(semanticSelected.length,4,'semantic reranker must return four clips');
+assert.ok(!semanticSelected.some(clip=>clip.text.startsWith('The same lost train')),'near-duplicate clip must lose its slot to a distinct topic');
+assert.ok(semanticSelected.every(clip=>Number.isFinite(clip.semanticScore)),'semantic diversity scores must be available');
+console.log('Semantic reranker passed: four clips selected with duplicate-topic suppression.');
+
 
 // English dialogue regression: hooks, payoff and Unicode-safe tokenization.
 const englishDialogue = [
