@@ -442,13 +442,6 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     const uniqueRatio=new Set(tokens).size/Math.max(1,tokens.length);
     const wordsPerSecond=tokens.length/Math.max(1,duration);
     const questionCount=(text.match(/[¿?]/g)||[]).length;
-    // Questions are only strong short-form moments when the selected window
-    // also contains an intelligible answer or a clear payoff. A question mark
-    // by itself is not an editorial hook.
-    const questionHasAnswer=questionCount>0&&(
-      questionAnswered||shortAnswerReaction||answerClosedAtEnd||
-      /\b(porque|por eso|resulta que|la razón|es que|because|that's why|the reason|turns out|actually)\b/i.test(text)
-    );
 
     const turnCount=group.slice(1).filter((w,i)=>
       w.start-group[i].end>(phraseTimed?1.15:.55) || /^[-–—]/.test(w.text)
@@ -465,6 +458,13 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     const payoffAtEnd=payoff.test(closingTokens);
     const questionAnswered=/[¿?]/.test(text)&&/\b(claro|efectivamente|exactamente|ya te avisaremos|te avisaremos|te lo digo|así es|eso es|there it is|turns out)\b/i.test(text);
     const answerClosedAtEnd=/\b(avisaremos|te lo digo|así es|eso es|there it is|turns out)\s*[.!?]?$/i.test(closingTokens);
+    // Questions are only strong short-form moments when the selected window
+    // also contains an intelligible answer or a clear payoff. A question mark
+    // by itself is not an editorial hook.
+    const questionHasAnswer=questionCount>0&&(
+      questionAnswered||shortAnswerReaction||answerClosedAtEnd||
+      /\b(porque|por eso|resulta que|la razón|es que|because|that's why|the reason|turns out|actually)\b/i.test(text)
+    );
     const utterances=[];let utterance=[];
     for(let u=0;u<group.length;u++){const item=group[u],previous=group[u-1];if(utterance.length&&previous&&(sentenceEnd.test(previous.text)||item.start-previous.end>.78)){utterances.push(utterance);utterance=[];}utterance.push(item);}
     if(utterance.length)utterances.push(utterance);
