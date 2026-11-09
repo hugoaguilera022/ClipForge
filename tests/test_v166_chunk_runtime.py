@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_real_chunk_execution_and_overlap(tmp_path):
     js = (ROOT / 'static/browser-whisper.js').read_text()
-    fn = js[js.index('async function transcribeAudioInChunks('):js.index('\n// Sample low-resolution frames')]
+    fn = js[js.index('async function transcribeAudioInChunks('):js.index('Sample low-resolution frames')]
     vtt = js[js.index('function makeVtt('):js.index('\n// Las puntuaciones')]
     time_fn = js[js.index('function timeVtt('):js.index('\n// Extracts')]
     script = time_fn + '\n' + fn + '\n' + vtt + '''
