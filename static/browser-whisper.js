@@ -703,38 +703,94 @@ function parseEditorialDecision(raw, candidates, limit = 4) {
   return selected.sort((a,b) => a.start - b.start).map((clip,i) => ({...clip,title:clip.title || `Clip ${i+1}`}));
 }
 
-async function aiEditorialSelect(candidates, limit = 4, onProgress = () => {}) {
-  const pool = (Array.isArray(candidates) ? candidates : []).filter(c =>
-    c && Number.isFinite(c.start) && Number.isFinite(c.end) && c.end > c.start && String(c.text || '').trim()
-  );
-  if (pool.length < limit) throw new Error('No hay suficientes momentos con diálogo para que el editor IA compare cuatro clips.');
-  const engine = await loadEditorialJudge(onProgress);
-  const shortlist = pool.slice(0, 16).map((clip,index) => ({
-    id:index+1, start:Number(clip.start.toFixed(1)), end:Number(clip.end.toFixed(1)),
+// Build neutral transcript windows for the AI editor. This stage only places
+// legal, sentence-aware candidate boundaries; it does not score or rank moments.
+function buildEditorialCandidatePool(segments, videoDuration) {
+  const clean=(Array.isArray(segments)?segments:[])
+    .filter(x=>Number.isFinite(Number(x.start))&&Number.isFinite(Number(x.end))&&Number(x.end)>Number(x.start)&&String(x.text||'').trim())
+    .map(x=>({start:Number(x.start),end:Number(x.end),text:String(x.text).trim()}))
+    .sort((a,b)=>a.start-b.start);
+  if(clean.length<4||!Number.isFinite(videoDuration)||videoDuration<18)return [];
+  const boundary=i=>i===0||/[.!?…]["'”’)]?$/.test(clean[i-1].text)||clean[i].start-clean[i-1].end>.72;
+  const starts=[];
+  let next=clean[0].start;
+  for(let i=0;i<clean.length;i++){
+    if(clean[i].start+0.01<next||!boundary(i))continue;
+    starts.push(i);
+    next=clean[i].start+9;
+  }
+  const pool=[];
+  for(const si of starts){
+    const start=clean[si].start;
+    if(start>videoDuration-15)continue;
+    const possible=[];
+    for(let j=si;j<clean.length&&clean[j].end-start<=45;j++){
+      const duration=clean[j].end-start;
+      if(duration<18)continue;
+      const naturalEnd=/[.!?…]["'”’)]?$/.test(clean[j].text)||j===clean.length-1||(j+1<clean.length&&clean[j+1].start-clean[j].end>.72);
+      if(naturalEnd)possible.push(j);
+    }
+    if(!possible.length)continue;
+    const ei=possible.sort((a,b)=>{
+      const cost=i=>Math.abs(clean[i].end-start-29)+(/[.!?]["'”’)]?$/.test(clean[i].text)?-2:0);
+      return cost(a)-cost(b);
+    })[0];
+    const group=clean.slice(si,ei+1),end=group[group.length-1].end;
+    const text=group.map(x=>x.text).join(' ').replace(/\s+/g,' ').trim();
+    if(end-start<18||!text)continue;
+    if(pool.some(x=>Math.abs(x.start-start)<5&&Math.abs(x.end-end)<8))continue;
+    pool.push({start,end,duration:end-start,text,title:'Candidato editorial',selected:false,selection_method:'neutral_transcript_window'});
+  }
+  return pool;
+}
+
+async function askEditorialModel(engine, pool, count, onProgress, phase) {
+  const shortlist=pool.map((clip,index)=>({
+    id:index+1,start:Number(clip.start.toFixed(1)),end:Number(clip.end.toFixed(1)),
     transcript:String(clip.text).replace(/\s+/g,' ').slice(0,520)
   }));
-  const prompt = [
+  const prompt=[
     'Eres el editor jefe de una productora profesional de clips verticales para redes sociales.',
-    'Debes elegir exactamente cuatro fragmentos de una entrevista/conversación. Evalúa el contenido, no señales superficiales.',
-    'Prioriza: historia o anécdota comprensible sin contexto externo; tensión, sorpresa o giro; humor genuino y reacción; pregunta con respuesta interesante; opinión contundente; emoción; remate satisfactorio; claridad para alguien que no vio el vídeo.',
-    'Penaliza: charla de transición, presentaciones, nombres sin contexto, frases cortadas, repeticiones, silencios transcritos, promoción, fragmentos que necesitan demasiado contexto y finales sin payoff.',
-    'Busca cuatro momentos distintos, no cuatro variaciones de la misma conversación. El idioma puede ser español o inglés.',
-    'No inventes hechos ni cambies los tiempos. Solo puedes seleccionar IDs de la lista. No selecciones por puntuación heurística.',
-    'Devuelve SOLO JSON válido con esta forma: {"selected":[{"id":1,"score":92,"title":"título breve","reason":"por qué funciona editorialmente"}]}. Ordena por calidad editorial. Exactamente cuatro IDs distintos.',
-    'CANDIDATOS:', JSON.stringify(shortlist)
+    'Evalúa el contenido real de cada fragmento, no señales superficiales ni puntuaciones automáticas.',
+    'Prioriza: historia comprensible sin contexto externo; tensión, sorpresa o giro; humor genuino y reacción; pregunta con respuesta interesante; opinión contundente; emoción; remate satisfactorio; claridad para quien no vio el vídeo.',
+    'Penaliza: charla de transición, presentaciones, nombres sin contexto, frases cortadas, repeticiones, promoción, fragmentos que necesitan demasiado contexto y finales sin payoff.',
+    'Busca variedad temática y cuatro momentos que funcionen de forma independiente. El idioma puede ser español o inglés.',
+    'No inventes hechos ni cambies los tiempos. Solo puedes elegir IDs de esta lista.',
+    'En esta ronda elige exactamente '+count+' fragmentos. '+phase,
+    'Devuelve SOLO JSON válido: {"selected":[{"id":1,"score":92,"title":"título breve","reason":"razón editorial concreta"}]}.',
+    'CANDIDATOS:',JSON.stringify(shortlist)
   ].join('\n');
-  onProgress('El editor IA está leyendo y comparando los momentos…');
-  const response = await engine.chat.completions.create({
+  onProgress(phase);
+  const response=await engine.chat.completions.create({
     messages:[
       {role:'system',content:'Eres un editor audiovisual exigente. No inventes contenido. Responde exclusivamente con JSON válido.'},
       {role:'user',content:prompt}
     ],
-    temperature:0.15,
-    max_tokens:850,
+    temperature:0.12,
+    max_tokens:700,
     response_format:{type:'json_object'}
   });
-  const raw=response?.choices?.[0]?.message?.content || '';
-  return parseEditorialDecision(raw,pool,limit);
+  return parseEditorialDecision(response?.choices?.[0]?.message?.content||'',pool,count);
+}
+
+async function aiEditorialSelect(candidates, limit = 4, onProgress = () => {}) {
+  const pool=(Array.isArray(candidates)?candidates:[]).filter(c=>
+    c&&Number.isFinite(c.start)&&Number.isFinite(c.end)&&c.end>c.start&&String(c.text||'').trim()
+  );
+  if(pool.length<limit)throw new Error('No hay suficientes fragmentos de diálogo para la selección editorial IA.');
+  const engine=await loadEditorialJudge(onProgress);
+  // The model reviews every neutral window in small batches, then judges the
+  // finalists together. No heuristic score decides which candidates survive.
+  if(pool.length<=8)return askEditorialModel(engine,pool,limit,onProgress,'El editor IA está comparando todos los momentos disponibles…');
+  const finalists=[];
+  for(let offset=0;offset<pool.length;offset+=8){
+    const batch=pool.slice(offset,offset+8);
+    const keep=Math.min(2,batch.length);
+    const selected=await askEditorialModel(engine,batch,keep,onProgress,'Evaluación editorial IA: bloque '+(Math.floor(offset/8)+1)+'/'+Math.ceil(pool.length/8)+'…');
+    finalists.push(...selected);
+  }
+  if(finalists.length<limit)throw new Error('La evaluación por bloques no produjo suficientes finalistas.');
+  return askEditorialModel(engine,finalists,limit,onProgress,'Comparación final IA: eligiendo los cuatro mejores clips entre todos los bloques…');
 }
 
 async function semanticRerankCandidates(candidates, limit = 4, onProgress = () => {}) {
@@ -904,10 +960,10 @@ runButton?.addEventListener('click', async () => {
       ? transcriptData.segments.map(s => `[${s.start.toFixed(2)}–${s.end.toFixed(2)}] ${s.text}`).join('\n')
       : (result.text || 'El modelo no devolvió texto temporizado.');
     if (transcriptData.segments.length) {
-      let candidatePool = rankClipCandidates(transcriptData.segments, audio.length / 16000, audio, 16000, visualSamples, 12);
+      let candidatePool = buildEditorialCandidatePool(transcriptData.segments, audio.length / 16000);
       if (candidatePool.length > 1) {
         try {
-          say('Iniciando editor IA generativo local. La selección se decide leyendo el contenido, no por puntuaciones heurísticas…');
+          say(`Se han preparado ${candidatePool.length} ventanas neutrales. El editor IA comparará todas, sin preselección por puntuación heurística…`);
           candidatePool = await aiEditorialSelect(candidatePool, 4, say);
         } catch (editorError) {
           console.error('El editor IA local no está disponible o no ha devuelto una selección válida.', editorError);
