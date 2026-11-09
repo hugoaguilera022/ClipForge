@@ -5,10 +5,15 @@ import argparse, html, json, re, shutil, subprocess, sys, tempfile, platform, ma
 from pathlib import Path
 from typing import Any
 
+SUPPORTED_LANGUAGES={"es","en","fr","de","pt","it","ja","zh","ar","ru","hi","ko","nl","pl","tr","uk","sv","da","no","fi","el","cs","ro","hu","id","vi","th","he"}
 HOOK_WORDS = {
  "es":["nunca","increíble","secreto","error","problema","millón","dinero","nadie","verdad","brutal","imagina","importante","imposible","por qué","cómo","descubrí","funciona","cuidado","deja de"],
- "en":["never","incredible","secret","mistake","problem","million","money","nobody","truth","crazy","imagine","important","impossible","why","how","discovered","works","stop","warning"]}
-FILLERS={"es":["eh","em","este","bueno"],"en":["uh","um","you know"]}
+ "en":["never","incredible","secret","mistake","problem","million","money","nobody","truth","crazy","imagine","important","impossible","why","how","discovered","works","stop","warning"],
+ "fr":["jamais","incroyable","secret","erreur","problème","million","argent","personne","vérité","imagine","important","impossible","pourquoi","comment","découvert","attention"],
+ "de":["niemals","unglaublich","geheimnis","fehler","problem","million","geld","niemand","wahrheit","stell dir vor","wichtig","unmöglich","warum","wie","entdeckt","achtung"],
+ "pt":["nunca","incrível","segredo","erro","problema","milhão","dinheiro","ninguém","verdade","imagina","importante","impossível","porquê","como","descobri","atenção"],
+ "it":["mai","incredibile","segreto","errore","problema","milione","soldi","nessuno","verità","immagina","importante","impossibile","perché","come","scoperto","attenzione"]}
+FILLERS={"es":["eh","em","este","bueno"],"en":["uh","um","you know"],"fr":["euh","ben","voilà"],"de":["äh","also","halt"],"pt":["é","tipo","né"],"it":["ehm","cioè","allora"]}
 
 def run(cmd:list[str])->None:
  p=subprocess.run(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
@@ -282,7 +287,7 @@ def transcribe(video:Path,model_name:str,language:str)->dict[str,Any]:
  if not (platform.system()=="Darwin" and cpp_available):
   try:return _transcribe_whisper_cpp(video,model_name,language)
   except Exception as exc:errors.append(f"Whisper.cpp alternativo: {exc}")
- if platform.system()=="Darwin" and (shutil.which("xcrun") or shutil.which("swiftc")):
+ if platform.system()=="Darwin" and language in {"es","en"} and (shutil.which("xcrun") or shutil.which("swiftc")):
   try:return transcribe_macos_native(video,language)
   except Exception as exc:errors.append(f"Apple Speech heredado: {exc}")
  try:
@@ -340,8 +345,8 @@ def read_timed_transcript(path:Path)->list[dict[str,Any]]:
 def score_text(text:str,language:str)->float:
  """Explainable editorial heuristic. Never a prediction of virality."""
  low=re.sub(r"\s+"," ",text.lower()).strip(); words=re.findall(r"\w+",low)
- hooks=HOOK_WORDS.get(language,HOOK_WORDS["es"])
- fillers=FILLERS.get(language,FILLERS["es"])
+ hooks=HOOK_WORDS.get(language,[])
+ fillers=FILLERS.get(language,[])
  score=min(len(words)/24,2.0)
  score+=sum(1.15 for w in hooks if re.search(rf"(?<!\w){re.escape(w)}(?!\w)",low))
  score+=min(text.count("?")*.9,1.8)+min(text.count("!")*.6,1.2)
@@ -385,7 +390,7 @@ def _candidate_quality(text:str,language:str,duration:float,speech_ratio:float)-
  # A clear opening question/hook and a complete closing thought improve standalone usability.
  opening=0.55 if re.match(r"^(¿|¡|por qué|cómo|qué pasa|sabías que|imagina|what if|why|how|did you know)",low) else 0.0
  closure=0.45 if re.search(r"[.!?…][\"»’)]?\s*$",text.strip()) else 0.0
- filler_count=sum(len(re.findall(rf"(?<!\w){re.escape(w)}(?!\w)",low)) for w in FILLERS.get(language,FILLERS["es"]))
+ filler_count=sum(len(re.findall(rf"(?<!\w){re.escape(w)}(?!\w)",low)) for w in FILLERS.get(language,[]))
  filler_penalty=min(1.2,filler_count*0.32)
  # Lightweight editorial signals: concrete numbers, emotional language, direct address and contrast.
  number_signal=bool(re.search(r"\b\d+(?:[.,]\d+)?\s?(?:%|euros?|d[oó]lares?|años?|meses?|d[ií]as?|horas?|millones?|mil|k|m)?\b",low))
@@ -749,7 +754,7 @@ def ollama_rerank_windows(candidates:list[dict[str,Any]],count:int,language:str)
    items.append({"id":index,"duration_seconds":round(float(item.get("duration",0)),1),
      "text":str(item.get("text",""))[:1200],"context_before":str(item.get("context_before",""))[:240],
      "context_after":str(item.get("context_after",""))[:240],"story_phase":item.get("story_phase")})
-  language_name="español" if language=="es" else "inglés"
+  language_name={"es":"español","en":"inglés","fr":"francés","de":"alemán","pt":"portugués","it":"italiano","ja":"japonés","zh":"chino","ar":"árabe","ru":"ruso","hi":"hindi","ko":"coreano","nl":"neerlandés","pl":"polaco","tr":"turco","uk":"ucraniano","sv":"sueco","da":"danés","no":"noruego","fi":"finés","el":"griego","cs":"checo","ro":"rumano","hu":"húngaro","id":"indonesio","vi":"vietnamita","th":"tailandés","he":"hebreo"}.get(language,language)
   prompt=("Eres editor de vídeos cortos. Selecciona los mejores fragmentos para Shorts/Reels/TikTok. "
     f"Evalúa en {language_name}: gancho inicial, claridad sin contexto externo, idea completa, emoción/humor/sorpresa, "
     "pregunta-respuesta, valor y cierre. Penaliza frases cortadas, contexto dependiente, repeticiones y pausas. "
@@ -1186,7 +1191,7 @@ def main()->None:
  ap=argparse.ArgumentParser(description="Clipping local de vídeos para los que tienes autorización.")
  ap.add_argument("input",type=Path,help="Archivo de vídeo o carpeta con vídeos")
  ap.add_argument("--rights-confirmed",action="store_true",help="Confirma que tienes permiso/licencia para editar y publicar este contenido")
- ap.add_argument("--clips",type=int,default=5);ap.add_argument("--language",choices=["es","en"],default="es")
+ ap.add_argument("--clips",type=int,default=5);ap.add_argument("--language",choices=sorted(SUPPORTED_LANGUAGES),default="es")
  ap.add_argument("--model",choices=["tiny","base","small","medium","large-v3-turbo"],default="small")
  ap.add_argument("--min-seconds",type=float,default=25);ap.add_argument("--max-seconds",type=float,default=45)
  ap.add_argument("--output",type=Path,default=Path("output"))
