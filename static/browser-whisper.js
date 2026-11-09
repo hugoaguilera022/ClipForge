@@ -550,7 +550,7 @@ function rerankWithSemanticEmbeddings(candidates, embeddings, limit = 4) {
     const ranked = remaining.map(item => {
       const similarities = chosen.map(previous => cosine(embeddings[item.index], embeddings[previous.index]));
       const maxSimilarity = similarities.length ? Math.max(...similarities) : 0;
-      const diversity = similarities.length ? Math.max(0, 1 - maxSimilarity) : 1;
+      const diversity = similarities.length ? Math.max(0, Math.min(1, 1 - maxSimilarity)) : 1;
       const penalty = similarities.length ? Math.max(0, maxSimilarity - 0.78) * 34 : 0;
       const bonus = similarities.length ? diversity * 8 : 0;
       return {...item, maxSimilarity, diversity, finalScore: Number(item.clip.score || 0) + bonus - penalty};
