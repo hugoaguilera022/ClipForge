@@ -42,7 +42,7 @@ async function loadPlatforms(){
  }catch{$('#platforms').textContent='No se pudo cargar el estado de las plataformas.'}
 }
 $('#video').addEventListener('change',e=>$('#filename').textContent=e.target.files[0]?.name||'MP4, MOV, MKV, WEBM, AVI, M4V y más · máximo 512 MB');
-$('#transcript').addEventListener('change',e=>$('#transcriptname').textContent=e.target.files[0]?.name||'SRT o VTT · permite trabajar sin instalar Whisper');
+$('#transcript')?.addEventListener('change',e=>$('#transcriptname').textContent=e.target.files[0]?.name||'SRT o VTT · permite trabajar sin instalar Whisper');
 $('#jobForm').addEventListener('submit',async e=>{
  e.preventDefault();if(document.body.dataset.browserOnly==='true'){const out=$('#jobResult');out.classList.remove('hidden');out.textContent='Estás usando ClipForge en modo navegador independiente. No se necesita el servidor Python: utiliza “Transcribir archivo seleccionado” y después “Exportar clips MP4 en este navegador”.';document.querySelector('#browserEngine')?.scrollIntoView({behavior:'smooth',block:'start'});return;}const form=e.currentTarget;const file=$('#video').files[0];const url=$('#video_url').value.trim();if(!file&&!url){alert('Pega una URL de YouTube o selecciona un vídeo.');return;}
  if(file&&file.size>512*1024*1024){alert('El vídeo supera el límite de 512 MB.');return;}const button=$('#submit'),out=$('#jobResult');button.disabled=true;button.textContent=url?'Analizando URL…':'Subiendo vídeo…';out.classList.remove('hidden');out.textContent='Preparando trabajo…';
