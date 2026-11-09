@@ -358,9 +358,13 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     if(clean[i].start+0.05<nextStart) continue;
     // Snap to a sentence/turn opening near the sampled point.
     let si=i;
-    for(let p=i;p>=0 && clean[i].start-clean[p].start<=2.2;p--){
+    for(let p=i;p>=0 && clean[i].start-clean[p].start<=3.5;p--){
       if(p===0 || sentenceEnd.test(clean[p-1].text) || clean[p].start-clean[p-1].end>0.72){si=p;break;}
     }
+    // Include the immediately preceding question when a candidate opens with its answer.
+    let precedingQuestion=-1;
+    for(let p=si-1;p>=0&&clean[si].start-clean[p].start<=3.5;p--){if(sentenceEnd.test(clean[p].text)&&/[?¿]/.test(clean[p].text)){precedingQuestion=p;break;}}
+    if(precedingQuestion>=0){let q=precedingQuestion;while(q>0&&clean[precedingQuestion].start-clean[q-1].start<=3.5&&!sentenceEnd.test(clean[q-1].text))q--;si=q;}
     const start=clean[si].start;
     if(start>videoDuration-minLen) break;
     let endIndex=-1;
@@ -387,7 +391,11 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
       // Don't cut immediately after an answer if the speaker continues the
       // same beat in the next breath; keep the follow-up reaction together.
       const unfinishedFollowup=payoffAtBoundary&&index+1<clean.length&&clean[index+1].start-clean[index].end<.72;
-      return Math.abs((clean[index].end-start)-targetLen)-semanticBonus-(complete?1.5:0)+(unfinishedFollowup?12:0);
+      const nextText=clean.slice(index+1,Math.min(clean.length,index+10)).map(w=>w.text).join(' ');
+      const nextGap=index+1<clean.length?clean[index+1].start-clean[index].end:99;
+      const followupReaction=nextGap<2.5&&(/[!¡]/.test(nextText)||/\b(uy|hala|ahí va|wow|no way|oh my god)\b/i.test(nextText));
+      const handoff=/\b(pásale al siguiente|pasamos al siguiente|vamos con el siguiente|siguiente|next one|next person|moving on)\b/i.test(ending);
+      return Math.abs((clean[index].end-start)-targetLen)-semanticBonus-(complete?1.5:0)-(followupReaction?8:0)-(handoff?6:0)+(unfinishedFollowup?12:0);
     };
     endIndex=possible.sort((x,y)=>endpointCost(x)-endpointCost(y))[0];
     const group=clean.slice(si,endIndex+1), end=group[group.length-1].end, duration=end-start;
@@ -412,6 +420,16 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     const payoffAtEnd=payoff.test(closingTokens);
     const questionAnswered=/[¿?]/.test(text)&&/\b(claro|efectivamente|exactamente|ya te avisaremos|te avisaremos|te lo digo|así es|eso es|there it is|turns out)\b/i.test(text);
     const answerClosedAtEnd=/\b(avisaremos|te lo digo|así es|eso es|there it is|turns out)\s*[.!?]?$/i.test(closingTokens);
+    const utterances=[];let utterance=[];
+    for(let u=0;u<group.length;u++){const item=group[u],previous=group[u-1];if(utterance.length&&previous&&(sentenceEnd.test(previous.text)||item.start-previous.end>.78)){utterances.push(utterance);utterance=[];}utterance.push(item);}
+    if(utterance.length)utterances.push(utterance);
+    const utteranceText=items=>items.map(x=>x.text).join(' ').trim();
+    const shortAnswerReaction=utterances.some((items,index)=>{
+      if(index<1||index>=utterances.length-1)return false;
+      const before=utteranceText(utterances[index-1]),answer=utteranceText(items),after=utteranceText(utterances[index+1]);
+      const answerWords=(answer.match(/[\p{L}\p{N}]{2,}/gu)||[]).length;
+      return /[?¿]\s*[”’\"')\]]?$/.test(before)&&answerWords>=1&&answerWords<=5&&(/[!¡]/.test(after)||new RegExp(reactionWord.source,reactionWord.flags).test(after));
+    });
     const hasSetup=/\b(pero|porque|cuando|si|aunque|resulta que|me dijo|y entonces|imagina|una vez)\b/i.test(text);
     const hasTurn=/\b(pero|aunque|sin embargo|de repente|entonces|al final|resulta que|y va|me dijo|y me dice)\b/i.test(text);
     const fillerCount=(text.match(filler)||[]).length;
@@ -437,7 +455,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     const rawScore = 15 + durationScore*10 + paceScore*12 + lexicalScore*8 +
       (hookAtStart?12:0) + (questionAtStart?6:0) + Math.min(6,questionCount*1.5) + Math.min(10,exclamationCount*2.5) + turnScore +
       Math.min(14,laughCount*7) + Math.min(18,reactionCount*4) + (pivot?8:0) + (hasSetup?6:0) + (hasTurn?6:0) +
-      (payoffAtEnd?8:0) + (questionAnswered?16:0) + (answerClosedAtEnd?12:0) + (completeEnd?7:0) + acousticScore + visualScore - Math.min(12,fillerCount*.8) -
+      (payoffAtEnd?8:0) + (questionAnswered?16:0) + (shortAnswerReaction?18:0) + (answerClosedAtEnd?12:0) + (completeEnd?7:0) + acousticScore + visualScore - Math.min(12,fillerCount*.8) -
       (abruptStart?18:0) - (fragmentStart?14:0) - (!completeEnd?8:0) - (promotional?55:0) - (wordsPerSecond<1.1?8:0);
     // Compress the raw weighted sum to avoid the previous ceiling effect where
     // several very different moments all received 100/100.
@@ -451,6 +469,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     if(pivot)reasons.push('cambio de situación o remate');
     if(hasSetup&&payoffAtEnd)reasons.push('planteamiento y remate');
     if(questionAnswered)reasons.push('pregunta y respuesta');
+    if(shortAnswerReaction)reasons.push('respuesta breve con reacción');
     if(answerClosedAtEnd)reasons.push('remate completo al final');
     if(completeEnd)reasons.push('cierre natural');
     if(energy.length && acousticScore >= 8)reasons.push('energía y dinámica de audio');
