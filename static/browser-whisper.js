@@ -535,8 +535,8 @@ function rerankWithoutEmbeddings(candidates, limit = 4) {
     .map(c=>({...c,score:Number(c.score)||0}));
   const count=Math.max(1,Math.min(4,Math.floor(Number(limit)||4)));
   if(pool.length<=count)return pool.sort((a,b)=>a.start-b.start).map((c,i)=>({...c,title:c.title||`Clip ${i+1}`}));
-  const stop=new Set(('the and for that with this from have your you are was were but then when what why how who where como que para por una uno unos unas los las del con sin sus sus que pero porque cuando donde quien cual este esta esto eso ellos ellas nosotros vosotros ella el la de y a en un es se al lo mi tu me te yo').split(/\\s+/));
-  const tokens=text=>new Set((String(text||'').toLocaleLowerCase().match(/[\\p{L}\\p{N}]{2,}/gu)||[]).filter(t=>!stop.has(t)));
+  const stop=new Set(('the and for that with this from have your you are was were but then when what why how who where como que para por una uno unos unas los las del con sin sus sus que pero porque cuando donde quien cual este esta esto eso ellos ellas nosotros vosotros ella el la de y a en un es se al lo mi tu me te yo').split(/\s+/));
+  const tokens=text=>new Set((String(text||'').toLocaleLowerCase().match(/[\p{L}\p{N}]{2,}/gu)||[]).filter(t=>!stop.has(t)));
   const similarity=(a,b)=>{
     const A=tokens(a),B=tokens(b);if(!A.size||!B.size)return 0;
     let common=0;for(const t of A)if(B.has(t))common++;
