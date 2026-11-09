@@ -183,7 +183,7 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
               const active=seen.includes(activeSpeakerTrack)?activeSpeakerTrack:leader;
               const desired=active.center*sourceWidth;
               lastFaceCenter=lastFaceCenter===null?desired:lastFaceCenter*.78+desired*.22;
-            }else if(!faces.length&&poseLandmarker){
+            }else if(!seen.length&&poseLandmarker){
               const poseResult=poseLandmarker.detectForVideo(sourceCanvas,Math.max(0,Math.round(stamp*1000)));
               const poses=poseResult?.landmarks||[];
               const candidates=poses.map(points=>{
