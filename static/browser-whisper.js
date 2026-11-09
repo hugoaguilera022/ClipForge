@@ -323,6 +323,9 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     const hasTurn=/\b(pero|aunque|sin embargo|de repente|entonces|al final|resulta que|y va|me dijo|y me dice)\b/i.test(text);
     const fillerCount=(text.match(filler)||[]).length;
     const abruptStart=/^(y|pero|porque|que|cuando|si|aunque|entonces|de)\b/i.test(text.trim());
+    // Reject windows that begin with a clipped hesitation or an unfinished
+    // word: they are poor standalone hooks even when the middle is lively.
+    const fragmentStart=/^(?:me|yo|eh|em|mmm|uh|um)\s*(?:\.{2,}|…)/i.test(text.trim());
     const last=group[group.length-1].text;
     const completeEnd=sentenceEnd.test(last);
     const durationScore=Math.max(0,1-Math.abs(duration-targetLen)/19);
@@ -339,7 +342,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
       (hookAtStart?12:0) + (questionAtStart?6:0) + Math.min(6,questionCount*1.5) + Math.min(10,exclamationCount*2.5) + turnScore +
       Math.min(14,laughCount*7) + Math.min(18,reactionCount*4) + (pivot?8:0) + (hasSetup?6:0) + (hasTurn?6:0) +
       (payoffAtEnd?8:0) + (questionAnswered?16:0) + (answerClosedAtEnd?12:0) + (completeEnd?7:0) + acousticScore - Math.min(12,fillerCount*.8) -
-      (abruptStart?8:0) - (wordsPerSecond<1.1?8:0);
+      (abruptStart?8:0) - (fragmentStart?14:0) - (wordsPerSecond<1.1?8:0);
     // Compress the raw weighted sum to avoid the previous ceiling effect where
     // several very different moments all received 100/100.
     const score = Math.max(0, Math.min(100, Math.round(rawScore / 1.5)));
