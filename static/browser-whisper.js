@@ -192,10 +192,19 @@ async function transcribeAudioInChunks(asr, audio, onProgress = () => {}, timest
       // Keep words recognized only in the next window's overlap.
       // Deduplicate matching words by timestamp rather than discarding the overlap.
       const normalized = text.toLowerCase().replace(/\s+/g, ' ').trim();
-      const duplicate = allChunks.some(previous =>
-        Math.abs(previous.start - absoluteStart) < 0.45 &&
-        previous.text.toLowerCase().replace(/\s+/g, ' ').trim() === normalized
-      );
+      const duplicate = allChunks.some(previous => {
+        const previousText=previous.text.toLowerCase().replace(/\s+/g,' ').trim();
+        const previousTokens=new Set(previousText.split(' '));
+        const currentTokens=new Set(normalized.split(' '));
+        const intersection=[...currentTokens].filter(token=>previousTokens.has(token)).length;
+        const union=new Set([...previousTokens,...currentTokens]).size;
+        const textSimilarity=intersection/Math.max(1,union);
+        const overlap=Math.max(0,Math.min(previous.end,absoluteEnd)-Math.max(previous.start,absoluteStart));
+        const overlapRatio=overlap/Math.max(0.001,Math.min(previous.end-previous.start,absoluteEnd-absoluteStart));
+        // Phrase-level Small timestamps can drift across adjacent 28s windows.
+        return (Math.abs(previous.start-absoluteStart)<0.45 && textSimilarity>=0.8) ||
+          (overlapRatio>=0.55 && textSimilarity>=0.82);
+      });
       if (!duplicate) allChunks.push({ start: absoluteStart, end: absoluteEnd, text });
     }
     onProgress(Math.min(100, Math.round(endSample / audio.length * 100)), part + 1, totalParts);
@@ -615,7 +624,7 @@ runButton?.addEventListener('click', async () => {
     if (saveProjectButton) saveProjectButton.disabled = !transcriptData?.segments?.length;
   } catch (error) {
     console.error(error);
-    say(`Error de transcripción: ${error?.message || error}. Prueba Chrome/Edge actualizado y el modelo Tiny.`);
+    say(`Error de transcripción: ${error?.message || error}. Comprueba el idioma seleccionado y prueba Whisper Base si Small falla.`);
   } finally { runButton.disabled = false; }
 });
 
