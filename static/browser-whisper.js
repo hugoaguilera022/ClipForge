@@ -87,47 +87,55 @@ async function extractAudioWithMediabunny(file) {
   const { Input, BlobSource, ALL_FORMATS, AudioSampleSink } =
     await import('https://esm.sh/mediabunny@1.65.2');
   const input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS });
-  const track = await input.getPrimaryAudioTrack();
-  if (!track) throw new Error('El MP4 no contiene una pista de audio.');
-  if (!(await track.canDecode())) throw new Error('El navegador no puede decodificar el códec de audio de este MP4.');
-  const duration = await input.getDurationFromMetadata();
-  if (!Number.isFinite(duration) || duration <= 0 || duration > 6 * 60 * 60) {
-    throw new Error('La duración del audio del MP4 no es válida.');
-  }
-  const mono = new Float32Array(Math.ceil(duration * 16000));
-  const sink = new AudioSampleSink(track);
-  let samples = 0;
-  for await (const sample of sink.samples()) {
-    try {
-      const buffer = sample.toAudioBuffer();
-      const offset = Math.max(0, Math.round(sample.timestamp * 16000));
-      const sourceFrames = buffer.length;
-      if (sourceFrames <= 0 || offset >= mono.length) continue;
-      // Linear interpolation converts the FULL source block to 16 kHz while
-      // retaining its original media timestamp (including small gaps).
-      // Do not cap sourceFrames by the 16 kHz destination buffer: for 44.1 kHz
-      // audio that truncates most of every block before resampling.
-      const sourceRate = buffer.sampleRate;
-      const targetFrames = Math.min(Math.ceil(sourceFrames * 16000 / sourceRate), mono.length - offset);
-      for (let j = 0; j < targetFrames; j++) {
-        const sourcePos = j * sourceRate / 16000;
-        const lo = Math.min(Math.floor(sourcePos), sourceFrames - 1);
-        const hi = Math.min(lo + 1, sourceFrames - 1);
-        const frac = sourcePos - lo;
-        let interpolated = 0;
-        for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
-          const channel = buffer.getChannelData(ch);
-          interpolated += (channel[lo] * (1 - frac) + channel[hi] * frac) / buffer.numberOfChannels;
+  try {
+    const track = await input.getPrimaryAudioTrack();
+    if (!track) throw new Error('El MP4 no contiene una pista de audio.');
+    if (!(await track.canDecode())) throw new Error('El navegador no puede decodificar el códec de audio de este MP4.');
+    // Some valid MP4/MOV files omit duration metadata. Fall back to the
+    // audio track's measured duration instead of rejecting a usable source.
+    const metadataDuration = await input.getDurationFromMetadata();
+    const duration = Number.isFinite(metadataDuration) && metadataDuration > 0
+      ? metadataDuration
+      : await track.computeDuration();
+    if (!Number.isFinite(duration) || duration <= 0 || duration > 6 * 60 * 60) {
+      throw new Error('La duración del audio del MP4 no es válida.');
+    }
+    const mono = new Float32Array(Math.ceil(duration * 16000));
+    const sink = new AudioSampleSink(track);
+    let samples = 0;
+    for await (const sample of sink.samples()) {
+      try {
+        const buffer = sample.toAudioBuffer();
+        const offset = Math.max(0, Math.round(sample.timestamp * 16000));
+        const sourceFrames = buffer.length;
+        if (sourceFrames <= 0 || offset >= mono.length) continue;
+        // Linear interpolation converts the FULL source block to 16 kHz while
+        // retaining its original media timestamp (including small gaps).
+        const sourceRate = buffer.sampleRate;
+        const targetFrames = Math.min(Math.ceil(sourceFrames * 16000 / sourceRate), mono.length - offset);
+        for (let j = 0; j < targetFrames; j++) {
+          const sourcePos = j * sourceRate / 16000;
+          const lo = Math.min(Math.floor(sourcePos), sourceFrames - 1);
+          const hi = Math.min(lo + 1, sourceFrames - 1);
+          const frac = sourcePos - lo;
+          let interpolated = 0;
+          for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+            const channel = buffer.getChannelData(ch);
+            interpolated += (channel[lo] * (1 - frac) + channel[hi] * frac) / buffer.numberOfChannels;
+          }
+          mono[offset + j] = interpolated;
         }
-        mono[offset + j] = interpolated;
-      }
-      samples++;
-    } finally { sample.close(); }
+        samples++;
+      } finally { sample.close(); }
+    }
+    if (!samples || !mono.some(value => Math.abs(value) > 1e-7)) {
+      throw new Error('No se pudieron extraer muestras de audio del MP4.');
+    }
+    return mono;
+  } finally {
+    // Explicitly release demuxer/decoder resources on success and failure.
+    input.dispose();
   }
-  if (!samples || !mono.some(value => Math.abs(value) > 1e-7)) {
-    throw new Error('No se pudieron extraer muestras de audio del MP4.');
-  }
-  return mono;
 }
 
 async function resampleDecodedAudio(decoded) {
