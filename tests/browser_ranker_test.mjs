@@ -157,6 +157,24 @@ assert.ok(accentedClips.length>0,'accented Spanish dialogue must produce a candi
 assert.ok(accentedClips[0].reasons.includes('inicio que despierta curiosidad'),'accented Spanish hook words such as increíble/jamás must be detected');
 console.log('Unicode Spanish hooks passed: accented terms are recognized correctly.');
 
+// Stateful global regexes must not make short-answer/reaction scoring depend
+// on how many earlier candidate windows happened to be evaluated.
+const reactionDialogue=[
+  {start:0,end:2.5,text:'What happened to the keys?'},
+  {start:3,end:5.5,text:'I left them in the car.'},
+  {start:6,end:8.5,text:'No way!'},
+  {start:9,end:11.5,text:'Then we had to walk home.'},
+  {start:12,end:14.5,text:'Everyone laughed at me.'},
+  {start:15,end:17.5,text:'It was honestly ridiculous.'},
+  {start:18,end:20.5,text:'And that is how the night started.'},
+  {start:21,end:23.5,text:'We still tell that story.'}
+];
+const reactionFirst=context.rank(reactionDialogue,25);
+const reactionSecond=context.rank(reactionDialogue,25);
+assert.deepEqual(reactionFirst.map(x=>({start:x.start,end:x.end,score:x.score,reasons:x.reasons})),reactionSecond.map(x=>({start:x.start,end:x.end,score:x.score,reasons:x.reasons})),'candidate scoring must be deterministic across repeated calls');
+console.log('Reaction scoring passed: global regex state cannot change candidate rankings.');
+
+
 
 // Sponsor calls-to-action must never outrank editorial moments.
 const sponsoredWords=[];
