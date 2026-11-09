@@ -74,7 +74,7 @@ La batería automatizada verifica lógica y adaptadores con modelos simulados; *
 
 ## Limitaciones actuales
 
-- La selección de momentos aún utiliza reglas y puntuación editorial heurística. El siguiente hito es selección semántica local con Ollama y revisión manual de candidatos.
+- El Motor 02 del navegador ya incorpora selección generativa con Qwen3 1.7B mediante WebGPU o Qwen3 4B/8B mediante Colab, con evaluación por bloques, votación final y auditor crítico. La calidad semántica debe validarse con vídeos reales: los tests automáticos no certifican por sí solos que los cuatro clips sean buenos ni equivalentes a OpusClip.
 - El encuadre Haar puede seguir una cara equivocada en entrevistas con varias personas. El siguiente hito visual es detección y seguimiento de sujetos con análisis por escenas.
 - Publicación automática en redes no está habilitada: requiere OAuth, revisión de aplicaciones y permisos oficiales.
 - No exponer el servidor local a Internet: todavía no incorpora autenticación multiusuario, TLS ni almacenamiento de credenciales para despliegue público.
