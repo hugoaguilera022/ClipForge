@@ -718,3 +718,25 @@ class BrowserModelPreferenceTests(unittest.TestCase):
   source=(ROOT/"static"/"browser-whisper.js").read_text()
   self.assertIn("overlapRatio>=0.55 && textSimilarity>=0.82",source)
   self.assertIn("const previousTokens=new Set(previousText.split(' '))",source)
+
+
+class YouTubeProxyValidationTests(unittest.TestCase):
+ def test_accepts_supported_youtube_video_urls(self):
+  from youtube_proxy import validate_youtube_url
+  self.assertEqual(validate_youtube_url('https://www.youtube.com/watch?v=abcdefghijk'),'https://www.youtube.com/watch?v=abcdefghijk')
+  self.assertEqual(validate_youtube_url('https://youtu.be/abcdefghijk'),'https://youtu.be/abcdefghijk')
+  self.assertEqual(validate_youtube_url('https://youtube.com/shorts/abcdefghijk'),'https://youtube.com/shorts/abcdefghijk')
+
+ def test_rejects_non_youtube_hosts_and_non_video_pages(self):
+  from youtube_proxy import validate_youtube_url
+  for value in ('http://youtube.com/watch?v=abcdefghijk','https://youtube.com.evil.test/watch?v=abcdefghijk','https://example.com/video.mp4','https://youtube.com/@channel'):
+   with self.subTest(value=value), self.assertRaises(ValueError):
+    validate_youtube_url(value)
+
+ def test_filename_is_sanitized_and_bounded(self):
+  from youtube_proxy import safe_filename
+  name=safe_filename('../../vídeo: prueba?')
+  self.assertNotIn('/',name)
+  self.assertNotIn('\\\\',name)
+  self.assertTrue(name.endswith('.mp4'))
+  self.assertLessEqual(len(name),125)
