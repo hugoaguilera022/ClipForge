@@ -91,3 +91,22 @@ for (let i = 1; i < audioOnly.length; i++) {
 }
 console.log('Audio-only ranker passed: four distributed, non-overlapping clips without speech.');
 
+
+
+// Phrase-level timestamps from adjacent ASR windows may drift while still
+// describing the same phrase. The overlap deduper must collapse them.
+const chunkStart=source.indexOf('async function transcribeAudioInChunks(');
+const chunkEnd=source.indexOf('\nfunction makeVtt(',chunkStart);
+if(chunkStart<0||chunkEnd<0)throw new Error('chunked transcription helper not found');
+const chunkSandbox={};vm.createContext(chunkSandbox);
+vm.runInContext(`${source.slice(chunkStart,chunkEnd)}; this.transcribeAudioInChunks=transcribeAudioInChunks;`,chunkSandbox);
+let call=0;
+const fakeAsr=async()=>{
+  call++;
+  return call===1
+    ? {text:'Mira, mira, mira.',chunks:[{timestamp:[26.5,27.5],text:'Mira, mira, mira.'}]}
+    : {text:'Mira, mira, mira.',chunks:[{timestamp:[0.9,1.9],text:'Mira, mira, mira.'}]};
+};
+const chunkResult=await chunkSandbox.transcribeAudioInChunks(fakeAsr,new Float32Array(16000*54),()=>{},'word','es');
+if(chunkResult.chunks.length!==1)throw new Error(`overlap phrase was duplicated: ${JSON.stringify(chunkResult.chunks)}`);
+console.log('Phrase overlap deduplication passed across adjacent Whisper chunks.');
