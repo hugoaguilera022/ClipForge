@@ -688,10 +688,10 @@ async function connectColabEditorialEngine(){
   try{
     const response=await fetch(parsed.origin+'/health',{headers:{'Authorization':'Bearer '+token},cache:'no-store'});
     const data=await response.json().catch(()=>({}));
-    if(!response.ok||data.status!=='ready'||data.model!=='qwen3:4b')throw new Error(data.error||'El motor no confirma Qwen3 4B disponible.');
+    if(!response.ok||data.status!=='ready'||!['qwen3:4b','qwen3:8b'].includes(data.model))throw new Error(data.error||'El motor no confirma Qwen3 4B disponible.');
     sessionStorage.setItem(COLAB_EDITOR_KEY,JSON.stringify({url:parsed.origin,token}));
     editorialEnginePromise=createRemoteEditorialEngine({url:parsed.origin,token});
-    status.textContent='Conectado y comprobado: Qwen3 4B en Colab. La inferencia editorial se ejecutará en esa sesión temporal.';
+    status.textContent='Conectado y comprobado: '+data.model+' en Colab. La inferencia editorial se ejecutará en esa sesión temporal.';
     button.textContent='Motor conectado';
   }catch(error){sessionStorage.removeItem(COLAB_EDITOR_KEY);editorialEnginePromise=null;status.textContent='No se pudo conectar: '+String(error.message||error);}
   finally{button.disabled=false;}
@@ -755,7 +755,7 @@ async function updateVideoCapacity(file) {
   el('capacityRam').textContent=formatCapacityGb(estimate.systemRamGb)+' recomendados';
   el('capacityGpu').textContent=formatCapacityGb(estimate.gpuRamGb)+' recomendados';
   el('capacityDisk').textContent=formatCapacityGb(estimate.freeDiskGb)+' libres';
-  el('capacityModel').textContent='Qwen3 1.7B + '+estimate.asrLabel.replace('Whisper ','');
+  el('capacityModel').textContent=(getColabEditorConfig()?'Qwen3 remoto 4B/8B':'Qwen3 local 1.7B')+' + '+estimate.asrLabel.replace('Whisper ','');
   const length=duration?(duration/60).toFixed(1).replace('.',',')+' min':'duración no detectada';
   const status=el('capacityStatus'),summary=el('capacitySummary');
   if(!adapter){status.textContent='No compatible con selección IA';status.dataset.level='bad';summary.textContent='Vídeo: '+length+' · '+Math.round(file.size/1048576)+' MB. No se detecta WebGPU; la selección editorial generativa no podrá ejecutarse en este navegador.';}
