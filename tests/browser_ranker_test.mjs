@@ -142,6 +142,21 @@ assert.equal(englishClips.length,4,'English dialogue must produce four clips');
 assert.equal(new Set(englishClips.map(x=>Math.floor(x.start/52.5))).size,4,'English clips must cover the full source');
 
 console.log('English ranker passed: hooks, payoff and four distributed clips.');
+ 
+// Unicode-aware Spanish hooks must recognize accented words at token boundaries.
+const accentedSpanish = [
+  'Increíble, jamás pensé que esto pasaría.',
+  'Todo empezó como una broma entre amigos.',
+  'Nadie esperaba que la situación cambiara tan rápido.',
+  'De repente, todos comenzaron a mirar.',
+  'Fue uno de esos momentos que no se olvidan.',
+  'Y todavía nos reímos cuando lo contamos.'
+].map((text,i)=>({start:i*3.2,end:i*3.2+2.8,text}));
+const accentedClips=context.rank(accentedSpanish,25);
+assert.ok(accentedClips.length>0,'accented Spanish dialogue must produce a candidate');
+assert.ok(accentedClips[0].reasons.includes('inicio que despierta curiosidad'),'accented Spanish hook words such as increíble/jamás must be detected');
+console.log('Unicode Spanish hooks passed: accented terms are recognized correctly.');
+
 
 // Sponsor calls-to-action must never outrank editorial moments.
 const sponsoredWords=[];
