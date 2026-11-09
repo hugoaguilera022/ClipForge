@@ -468,6 +468,16 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
       const answerWords=(answer.match(/[\p{L}\p{N}]{2,}/gu)||[]).length;
       return /[?¿]\s*[”’\"')\]]?$/.test(before)&&answerWords>=1&&answerWords<=5&&(/[!¡]/.test(after)||new RegExp(reactionWord.source,reactionWord.flags.replace('g','')).test(after));
     });
+    // A concise answer followed by an immediate interviewer reaction/question
+    // is often the strongest self-contained beat in quiz, challenge and
+    // street-interview formats. It catches punchlines without literal keywords.
+    const questionAnswerExchange=utterances.some((items,index)=>{
+      if(index<1||index>=utterances.length-1)return false;
+      const before=utteranceText(utterances[index-1]),answer=utteranceText(items),after=utteranceText(utterances[index+1]);
+      const answerWords=(answer.match(/[\\p{L}\\p{N}]{2,}/gu)||[]).length;
+      const followupReaction=/[?¿!¡]/.test(after)||new RegExp(reactionWord.source,reactionWord.flags.replace('g','')).test(after)||/\\b(no|pero|cómo|por qué|en serio|de verdad|really|wait|but)\\b/i.test(after);
+      return /[?¿]\\s*[”’\"')\\]]?$/.test(before)&&answerWords>=1&&answerWords<=9&&followupReaction;
+    });
     // Questions are only strong short-form moments when the selected window
     // also contains an intelligible answer or a clear payoff. A question mark
     // by itself is not an editorial hook.
@@ -513,7 +523,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     const rawScore = 15 + durationScore*10 + paceScore*12 + lexicalScore*8 +
       (hookAtStart?12:0) + (questionAtStart?12:0) + Math.min(6,questionCount*1.5) + Math.min(10,exclamationCount*2.5) + turnScore +
       Math.min(14,laughCount*7) + Math.min(18,reactionCount*4) + (pivot?8:0) + (hasSetup?6:0) + (hasTurn?6:0) +
-      (payoffAtEnd?8:0) + (questionAnswered?16:0) + (shortAnswerReaction?18:0) + (answerClosedAtEnd?12:0) + (questionHasAnswer?8:0) + (pivot&&completeEnd?5:0) + (completeEnd?7:0) + (revelation?10:0) + (conflict?7:0) + (stakes?9:0) + (anecdote?7:0) + (progression?8:0) + (strongOpinion?4:0) + (closingReaction?5:0) + specificityScore + acousticScore + visualScore - Math.min(12,fillerCount*.8) -
+      (payoffAtEnd?8:0) + (questionAnswered?16:0) + (shortAnswerReaction?18:0) + (questionAnswerExchange?14:0) + (answerClosedAtEnd?12:0) + (questionHasAnswer?8:0) + (pivot&&completeEnd?5:0) + (completeEnd?7:0) + (revelation?10:0) + (conflict?7:0) + (stakes?9:0) + (anecdote?7:0) + (progression?8:0) + (strongOpinion?4:0) + (closingReaction?5:0) + specificityScore + acousticScore + visualScore - Math.min(12,fillerCount*.8) -
       (questionAtStart&&!questionHasAnswer?9:0) - (questionCount>=3&&!questionAnswered?5:0) - (abruptStart?18:0) - (fragmentStart?14:0) - (!completeEnd?8:0) - (promotional?55:0) - (wordsPerSecond<1.1?8:0);
     // Compress the raw weighted sum to avoid the previous ceiling effect where
     // several very different moments all received 100/100.
@@ -528,6 +538,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     if(hasSetup&&payoffAtEnd)reasons.push('planteamiento y remate');
     if(questionAnswered)reasons.push('pregunta y respuesta');
     if(shortAnswerReaction)reasons.push('respuesta breve con reacción');
+    if(questionAnswerExchange)reasons.push('pregunta, respuesta breve y réplica inmediata');
     if(answerClosedAtEnd)reasons.push('remate completo al final');
     if(revelation)reasons.push('revelación o giro narrativo');
     if(conflict)reasons.push('conflicto u opinión contundente');
