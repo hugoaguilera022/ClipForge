@@ -628,7 +628,7 @@ function rerankWithSemanticEmbeddings(candidates, embeddings, limit = 4) {
   };
   const remaining = candidates.map((clip, index) => ({clip, index}));
   const chosen = [];
-  const count = Math.max(1, Math.min(4, Math.floor(Number(limit) || 4)));
+  const count = Math.max(1, Math.min(candidates.length, Math.floor(Number(limit) || 4)));
   while (chosen.length < count && remaining.length) {
     const ranked = remaining.map(item => {
       const similarities = chosen.map(previous => cosine(embeddings[item.index], embeddings[previous.index]));
@@ -636,7 +636,8 @@ function rerankWithSemanticEmbeddings(candidates, embeddings, limit = 4) {
       const diversity = similarities.length ? Math.max(0, Math.min(1, 1 - maxSimilarity)) : 1;
       const penalty = similarities.length ? Math.max(0, maxSimilarity - 0.78) * 34 : 0;
       const bonus = similarities.length ? diversity * 8 : 0;
-      return {...item, maxSimilarity, diversity, finalScore: Number(item.clip.score || 0) + bonus - penalty};
+      const editorialScore = Number(item.clip.ai_editorial_score ?? item.clip.score ?? 0);
+      return {...item, maxSimilarity, diversity, finalScore: editorialScore + bonus - penalty};
     }).sort((a, b) => b.finalScore - a.finalScore);
     chosen.push(ranked[0]);
     remaining.splice(remaining.findIndex(item => item.index === ranked[0].index), 1);
@@ -801,6 +802,9 @@ async function askEditorialModel(engine, pool, count, onProgress, phase) {
   const shortlist=pool.map((clip,index)=>({
     id:index+1,start:Number(clip.start.toFixed(1)),end:Number(clip.end.toFixed(1)),
     transcript:String(clip.text).replace(/\s+/g,' ').slice(0,760),
+    prior_editorial_score:Number(clip.ai_editorial_score||0),
+    prior_editorial_reason:String(clip.ai_editorial_reason||'').slice(0,180),
+    semantic_diversity_score:Number(clip.semanticScore||0),
     context_before:String(clip.context_before||'').replace(/\s+/g,' ').slice(-360),
     context_after:String(clip.context_after||'').replace(/\s+/g,' ').slice(0,360),
     media_evidence:clip.media_evidence||null
@@ -849,7 +853,22 @@ async function aiEditorialSelect(candidates, limit = 4, onProgress = () => {}) {
     finalists.push(...selected);
   }
   if(finalists.length<limit)throw new Error('La evaluación por bloques no produjo suficientes finalistas.');
-  return askEditorialModel(engine,finalists,limit,onProgress,'Comparación final IA: eligiendo los cuatro mejores clips entre todos los bloques…');
+  // Independent second model: multilingual sentence embeddings do not judge
+  // comedy or narrative quality; they detect near-duplicate topics so the
+  // final generative editor can spend its context on a more varied shortlist.
+  // This stage is optional: storage/WebGPU/model-download failures must never
+  // prevent the primary editorial judge from completing its final decision.
+  let finalPool=finalists;
+  if(finalists.length>limit){
+    try{
+      onProgress('Segundo modelo IA: comparando similitud semántica para evitar cuatro clips del mismo tema…');
+      finalPool=await semanticRerankCandidates(finalists,Math.min(8,finalists.length),onProgress);
+    }catch(semanticError){
+      console.warn('El segundo modelo semántico no está disponible; se mantiene la evaluación editorial principal.',semanticError);
+      onProgress('El modelo semántico opcional no está disponible; el editor principal continúa con todos los finalistas…');
+    }
+  }
+  return askEditorialModel(engine,finalPool,limit,onProgress,'Comparación final IA: eligiendo los cuatro mejores clips entre todos los finalistas…');
 }
 
 async function semanticRerankCandidates(candidates, limit = 4, onProgress = () => {}) {
