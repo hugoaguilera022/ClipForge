@@ -782,12 +782,12 @@ function parseEditorialDecision(raw, candidates, limit = 4, requireAudit = false
     if (selected.some(other => clip.start < other.end + 1 && clip.end > other.start - 1)) continue;
     used.add(id);
     const rubric=item.rubric&&typeof item.rubric==='object'?item.rubric:null;
-    const rubricKeys=['hook','story','payoff','clarity','completeness','emotion','pacing','originality'];
+    const rubricKeys=['hook','story','payoff','clarity','completeness','emotion','pacing','originality','importance'];
     const validRubric=rubric&&rubricKeys.every(key=>Number.isFinite(Number(rubric[key]))&&Number(rubric[key])>=0&&Number(rubric[key])<=10);
     const editorialScore=validRubric?Math.round((
-      Number(rubric.hook)*1.5+Number(rubric.story)*1+Number(rubric.payoff)*2+
-      Number(rubric.clarity)*1.5+Number(rubric.completeness)*2+Number(rubric.emotion)*.5+
-      Number(rubric.pacing)*.5+Number(rubric.originality)*1
+      Number(rubric.hook)*1.3+Number(rubric.story)*.9+Number(rubric.payoff)*1.8+
+      Number(rubric.clarity)*1.3+Number(rubric.completeness)*1.7+Number(rubric.emotion)*.5+
+      Number(rubric.pacing)*.4+Number(rubric.originality)*.6+Number(rubric.importance)*1.5
     )*1):Math.max(0,Math.min(100,Number(item.score)||0));
     selected.push({
       ...clip,
@@ -822,7 +822,7 @@ function buildEditorialCandidatePool(segments, videoDuration, audioSamples = nul
   for(let i=0;i<clean.length;i++){
     if(clean[i].start+0.01<next||!boundary(i))continue;
     starts.push(i);
-    next=clean[i].start+5.5;
+    next=clean[i].start+3.8;
   }
   const audioProfile=[];
   if(audioSamples&&audioSamples.length){
@@ -893,7 +893,7 @@ function buildEditorialCandidatePool(segments, videoDuration, audioSamples = nul
   }
   // Bound local-LLM work for long videos. Keep a uniform temporal sample
   // across the complete source instead of ranking windows with heuristics.
-  const maxCandidates=64;
+  const maxCandidates=96;
   if(pool.length>maxCandidates){
     const ordered=[...pool].sort((a,b)=>a.start-b.start||a.end-b.end);
     const sampled=[],used=new Set();
@@ -926,6 +926,7 @@ async function askEditorialModel(engine, pool, count, onProgress, phase) {
     id:index+1,start:Number(clip.start.toFixed(1)),end:Number(clip.end.toFixed(1)),
     transcript:String(clip.text).replace(/\s+/g,' ').slice(0,620),
     prior_editorial_score:Number(clip.ai_editorial_score||0),
+    editorial_importance:Number(clip.ai_editorial_rubric?.importance||0),
     prior_editorial_reason:String(clip.ai_editorial_reason||'').slice(0,180),
     semantic_diversity_score:Number(clip.semanticScore||0),
     context_before:String(clip.context_before||'').replace(/\s+/g,' ').slice(-160),
@@ -937,8 +938,8 @@ async function askEditorialModel(engine, pool, count, onProgress, phase) {
     'Evalúa cada fragmento como un editor de short-form profesional, usando el diálogo y las señales de audio y vídeo adjuntas. No uses popularidad de palabras ni señales superficiales.',
     'Las señales media_evidence son medidas de actividad, no etiquetas semánticas: audio_activity y audio_dynamic_peaks pueden señalar énfasis o reacción; visual_change indica cambios de plano/movimiento, pero no demuestra interés por sí solo. Úsalas solo como evidencia secundaria.',
     'Actúa como editor jefe: busca momentos que un espectador que no conoce el vídeo entienda y quiera terminar. No selecciones por ser representativo del tema; selecciona por ser un buen fragmento autónomo.',
-    'Evalúa CADA candidato con una rúbrica de 0 a 10: hook (primeros 2 segundos), story (progresión o tensión), payoff (remate/revelación/respuesta), clarity (se entiende sin contexto externo), completeness (no corta la premisa ni el remate), emotion (reacción genuina), pacing (sin relleno), originality (no repite otro candidato).',
-    'Da prioridad a hook, payoff, clarity y completeness. Una frase graciosa aislada pero sin contexto no supera a una historia completa. Una pregunta sin respuesta no es un payoff. Una respuesta necesita incluir la pregunta si sin ella pierde sentido.',
+    'Evalúa CADA candidato con una rúbrica de 0 a 10: hook (primeros 2 segundos), story (progresión o tensión), payoff (remate/revelación/respuesta), clarity (se entiende sin contexto externo), completeness (no corta la premisa ni el remate), emotion (reacción genuina), pacing (sin relleno), originality (no repite otro candidato), importance (relevancia real del acontecimiento dentro del vídeo). La importancia no es lo mismo que lo gracioso: puntúa alto decisiones, eliminaciones, revelaciones, conflictos, cambios de situación, resultados y reacciones decisivas que hacen avanzar el episodio. No llames importante a una frase llamativa sin consecuencias.',
+    'Pondera importance 15%, payoff 18%, completeness 17%, hook 13%, clarity 13%, story 9%, emotion 5%, pacing 4% y originality 6%. La selección debe contener los cuatro acontecimientos más relevantes y atractivos, no simplemente cuatro frases graciosas. Un momento de eliminación, decisión, revelación o desenlace puede superar a un chiste si tiene más peso narrativo y está completo. Una frase graciosa aislada pero sin contexto no supera a una historia completa. Una pregunta sin respuesta no es un payoff. Una respuesta necesita incluir la pregunta si sin ella pierde sentido.',
     'Penaliza con fuerza: arranque a mitad de frase, presentación, explicación larga, transición, publicidad/patrocinio, repetición, charla plana, respuesta incomprensible por ASR, remate fuera del corte, final abrupto y dependencia de contexto que no aparece en el clip.',
     'No confundas volumen, risas de fondo, cambios de plano o palabras llamativas con calidad editorial. Úsalas solo como señales secundarias. No inventes reacciones ni atribuyas quién habla si el texto no lo demuestra.',
     'Busca cuatro tipos de momento distintos cuando existan: historia con payoff, intercambio cómico, sorpresa/revelación y reacción/opinión fuerte. No fuerces categorías si el vídeo no las contiene. Evita elegir cuatro fragmentos de la misma conversación o del mismo chiste.',
@@ -946,7 +947,7 @@ async function askEditorialModel(engine, pool, count, onProgress, phase) {
     'Prefiere el fragmento completo más corto que conserve la premisa y el remate. Busca variedad de temas y formatos. El idioma puede ser español o inglés.',
     'No inventes hechos ni cambies los tiempos. Solo puedes elegir IDs de esta lista.',
     'En esta ronda elige exactamente '+count+' fragmentos. '+phase,
-    'Devuelve SOLO JSON válido: {"selected":[{"id":1,"score":92,"rubric":{"hook":9,"story":8,"payoff":9,"clarity":9,"completeness":10,"emotion":8,"pacing":8,"originality":9},"title":"título breve","reason":"razón editorial concreta que identifica premisa y payoff"}]}.',
+    'Devuelve SOLO JSON válido: {"selected":[{"id":1,"score":92,"rubric":{"hook":9,"story":8,"payoff":9,"clarity":9,"completeness":10,"emotion":8,"pacing":8,"originality":9,"importance":9},"title":"título breve","reason":"razón editorial concreta que identifica premisa y payoff"}]}.',
     'CANDIDATOS:',JSON.stringify(shortlist)
   ].join('\n');
   onProgress(phase);
@@ -1032,9 +1033,9 @@ async function aiEditorialSelect(candidates, limit = 4, onProgress = () => {}) {
   const auditPrompt=[
     'Eres un auditor editorial independiente y escéptico. No eres el editor que hizo la primera selección.',
     'Audita TODOS los finalistas desde cero. No favorezcas provisional=true: puede ser un error de la primera votación.',
-    'Tu prioridad es evitar falsos positivos: un clip solo pasa si tiene gancho comprensible, desarrollo suficiente, payoff dentro del corte y cierre natural. Rechaza cortes que dependan de contexto externo, respuestas sin pregunta, premisas incompletas, remates posteriores al final, ASR ininteligible, relleno y duplicados.',
+    'Tu prioridad es evitar falsos positivos: un clip solo pasa si tiene gancho comprensible, desarrollo suficiente, payoff dentro del corte y cierre natural. Comprueba además si el acontecimiento tiene importancia narrativa real (decisión, eliminación, revelación, conflicto, giro, resultado o reacción decisiva), no solo una frase graciosa. Rechaza cortes que dependan de contexto externo, respuestas sin pregunta, premisas incompletas, remates posteriores al final, ASR ininteligible, relleno y duplicados.',
     'Compara calidad real, no popularidad del tema. Evalúa claridad, autonomía, retención probable, ritmo y singularidad. Si un provisional es peor que una alternativa, sustitúyelo. No inventes palabras ni cambies timestamps.',
-    'Devuelve exactamente '+limit+' IDs distintos y no solapados. Incluye la rúbrica completa hook, story, payoff, clarity, completeness, emotion, pacing, originality (0-10), title y reason. Añade audit_verdict="pass" y audit_flags=[] si no detectas defecto; si hay defectos en otros candidatos, no los selecciones.',
+    'Devuelve exactamente '+limit+' IDs distintos y no solapados. Incluye la rúbrica completa hook, story, payoff, clarity, completeness, emotion, pacing, originality e importance (0-10), title y reason. Añade audit_verdict="pass" y audit_flags=[] si no detectas defecto; si hay defectos en otros candidatos, no los selecciones.',
     'Devuelve SOLO JSON válido con la misma estructura {"selected":[...]}.',
     'FINALISTAS PARA AUDITAR:',JSON.stringify(auditInput)
   ].join('\n');
