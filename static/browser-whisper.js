@@ -173,6 +173,10 @@ async function transcribeAudioInChunks(asr, audio, onProgress = () => {}, timest
   const stepSamples = (windowSeconds - overlapSeconds) * sampleRate;
   const totalSeconds = audio.length / sampleRate;
   const allChunks = [];
+  // Only adjacent Whisper windows can produce duplicate phrases: each window
+  // overlaps the previous one by two seconds. Keep a tiny rolling comparison
+  // set instead of scanning the entire transcript for every recognized word.
+  let recentChunks = [];
   const fullText = [];
   const totalParts = Math.max(1, Math.ceil(Math.max(0, audio.length - windowSamples) / stepSamples) + 1);
 
@@ -200,7 +204,8 @@ async function transcribeAudioInChunks(asr, audio, onProgress = () => {}, timest
       // Keep words recognized only in the next window's overlap.
       // Deduplicate matching words by timestamp rather than discarding the overlap.
       const normalized = text.toLowerCase().replace(/\s+/g, ' ').trim();
-      const duplicate = allChunks.some(previous => {
+      recentChunks = recentChunks.filter(previous => previous.end >= absoluteStart - 0.45);
+      const duplicate = recentChunks.some(previous => {
         const previousText=previous.text.toLowerCase().replace(/\s+/g,' ').trim();
         const previousTokens=new Set(previousText.split(' '));
         const currentTokens=new Set(normalized.split(' '));
@@ -213,7 +218,11 @@ async function transcribeAudioInChunks(asr, audio, onProgress = () => {}, timest
         return (Math.abs(previous.start-absoluteStart)<0.45 && textSimilarity>=0.8) ||
           (overlapRatio>=0.55 && textSimilarity>=0.82);
       });
-      if (!duplicate) allChunks.push({ start: absoluteStart, end: absoluteEnd, text });
+      if (!duplicate) {
+        const item={ start: absoluteStart, end: absoluteEnd, text };
+        allChunks.push(item);
+        recentChunks.push(item);
+      }
     }
     onProgress(Math.min(100, Math.round(endSample / audio.length * 100)), part + 1, totalParts);
     if (endSample === audio.length) break;
