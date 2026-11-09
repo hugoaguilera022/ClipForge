@@ -296,7 +296,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
 
   const minLen = 15, maxLen = 45, targetLen = 24;
   const sentenceEnd = /[.!?…][”’"')\]]?$/;
-  const strongHook = /\b(¿qué|quién|cómo|por qué|qué pasa|no me digas|madre mía|increíble|imagina|resulta que|la verdad|nunca|jamás|te juro|no sabía|de repente|en serio|qué fuerte|qué locura|qué dices|what|who|how|why|guess what|you will not believe|unbelievable|imagine|turns out|never|suddenly|seriously|that is crazy|no way|pourquoi|comment|qui|incroyable|jamais|soudain|sérieusement|c’est fou|résultat|por que|como|quem|incrível|nunca|de repente|imagina|por quê|warum|wie|wer|unglaublich|niemals|plötzlich|stell dir vor|perché|chi|incredibile|mai|all’improvviso)\b/i;
+  const strongHook = /\b(¿qué|quién|cómo|por qué|qué pasa|no me digas|madre mía|increíble|imagina|resulta que|la verdad|nunca|jamás|te juro|no sabía|de repente|en serio|qué fuerte|qué locura|qué dices|todos los gitanos|a ver si|dime|tell me|what|who|how|why|guess what|you will not believe|unbelievable|imagine|turns out|never|suddenly|seriously|that is crazy|no way)\b/i;
   const payoff = /\b(al final|resulta que|y entonces|por eso|exactamente|efectivamente|claro|ya te avisaremos|te avisaremos|no|sí|eso|ahí|pues|ya está|lo consiguió|lo he hecho|no puede ser|in the end|turns out|that is why|exactly|actually|that is it|he did it|I did it|cannot believe|there it is|finalement|en fait|exactement|bien sûr|voilà|c’est ça|por fim|no final|na verdade|exatamente|no fim|am ende|genau|natürlich|tatsächlich|so ist es|ecco|alla fine|esattamente|certo|è così)\b/i;
   const emotional = /\b(risa|risas|riendo|llor|miedo|vergüenza|sorpresa|increíble|brutal|absurdo|ridículo|flipante|hostia|joder|buah|ostras|madre mía|qué fuerte|dios|ja ja|jajaja|puf|potencia|a huevo|bolas|laugh|laughing|cry|scared|embarrassed|surprised|insane|crazy|ridiculous|awesome|damn|wow|oh my god|no way|rire|rires|mort de rire|fou|incroyable|peur|honte|surpris|wahnsinn|verrückt|angst|peinlich|überrascht|lachen|risada|risadas|louco|medo|vergonha|surpreso|risate|pazzesco|paura|imbarazzo|sorpreso)\b/i;
   const promotionalPattern = /\b(suscr[ií]bete|suscr[ií]banse|s[ií]guenos|s[ií]gueme|dale like|darle like|regalamos|sorteo|participa(r|ci[oó]n)|papeletas extras|c[oó]digo de descuento|link en la descripci[oó]n|patrocinado|colaboraci[oó]n pagada|iphone(?:\s*\d+)?|giving away|win a (?:free|new)|subscribe|follow us|follow me|giveaway|enter to win|use code|discount code|link in bio|sponsored|paid partnership|free iphone)\b/i;
@@ -358,12 +358,12 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     if(clean[i].start+0.05<nextStart) continue;
     // Snap to a sentence/turn opening near the sampled point.
     let si=i;
-    for(let p=i;p>=0 && clean[i].start-clean[p].start<=3.5;p--){
+    for(let p=i;p>=0 && clean[i].start-clean[p].start<=8.5;p--){
       if(p===0 || sentenceEnd.test(clean[p-1].text) || clean[p].start-clean[p-1].end>0.72){si=p;break;}
     }
     // Include the immediately preceding question when a candidate opens with its answer.
     let precedingQuestion=-1;
-    for(let p=si-1;p>=0&&clean[si].start-clean[p].start<=3.5;p--){if(sentenceEnd.test(clean[p].text)&&/[?¿]/.test(clean[p].text)){precedingQuestion=p;break;}}
+    for(let p=si-1;p>=0&&clean[si].start-clean[p].start<=8.5;p--){if(sentenceEnd.test(clean[p].text)&&/[?¿]/.test(clean[p].text)){precedingQuestion=p;break;}}
     if(precedingQuestion>=0){let q=precedingQuestion;while(q>0&&clean[precedingQuestion].start-clean[q-1].start<=3.5&&!sentenceEnd.test(clean[q-1].text))q--;si=q;}
     const start=clean[si].start;
     if(start>videoDuration-minLen) break;
