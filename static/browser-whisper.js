@@ -430,7 +430,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     return {clip:c,selectionScore:c.score+(laterNearDuplicate?12:0)+(preservesContext?3:0)};
   }).sort((a,b)=>b.selectionScore-a.selectionScore);
   const firstStart=clean[0].start;
-  const lastEnd=clean[clean.length-1].end;
+  const lastEnd=Math.max(clean[clean.length-1].end,videoDuration);
   const quarter=(lastEnd-firstStart)/4;
   const chosen=[];
   const fits=c=>chosen.every(x=>c.end<=x.start-2.5||c.start>=x.end+2.5);
