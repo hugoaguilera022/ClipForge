@@ -87,3 +87,23 @@ for (let i = 1; i < audioOnly.length; i++) {
   assert.ok(audioOnly[i].start >= audioOnly[i - 1].end + 1, 'audio-only clips must not overlap');
 }
 console.log('Audio-only ranker passed: four distributed, non-overlapping clips without speech.');
+
+
+// Non-speech source regression: music, gameplay and scenic footage must not
+// require Whisper to return words before ClipForge can propose moments.
+const audioSamples = new Float32Array(16000 * 180);
+for (let i = 0; i < audioSamples.length; i++) {
+  const time = i / 16000;
+  const amplitude = Math.floor(time / 24) % 2 === 0 ? 0.42 : 0.08;
+  audioSamples[i] = (Math.sin(2 * Math.PI * 180 * time) + 0.25 * Math.sin(2 * Math.PI * 510 * time)) * amplitude;
+}
+const audioOnly = context.rank([], 180, audioSamples, 16000);
+assert.equal(audioOnly.length, 4, 'non-speech video must still produce four moments');
+for (const clip of audioOnly) {
+  assert.ok(clip.duration >= 15 && clip.duration <= 45, 'audio-only clip duration must be valid');
+  assert.ok(clip.reasons.includes('momento sin diálogo'), 'fallback reason must be visible');
+}
+for (let i = 1; i < audioOnly.length; i++) {
+  assert.ok(audioOnly[i].start >= audioOnly[i - 1].end + 1, 'audio-only clips must not overlap');
+}
+console.log('Audio-only ranker passed: four distributed, non-overlapping clips without speech.');
