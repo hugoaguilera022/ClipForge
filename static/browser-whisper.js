@@ -1152,7 +1152,7 @@ async function aiEditorialSelect(candidates, limit = 4, onProgress = () => {}) {
       onProgress('El modelo semántico opcional no está disponible; continúa el juez editorial principal…');
     }
   }
-  const firstVote=await askEditorialModel(engine,finalPool,limit,onProgress,'Primera votación editorial: eligiendo los cuatro mejores clips entre todos los finalistas…');
+  const firstVote=await askEditorialModel(engine,finalPool,limit,onProgress,'Primera votación editorial: eligiendo los '+limit+' mejores clips entre todos los finalistas…');
   // A separate, adversarial editorial pass audits the complete finalist set.
   // It is deliberately blind to the first vote's scores and reasons: it sees
   // only the candidate evidence and which IDs were provisionally selected.
@@ -1377,7 +1377,8 @@ runButton?.addEventListener('click', async () => {
           if(candidatePool.length<4)throw new Error('No se han generado cuatro ventanas válidas para comparar.');
           const dailyBudget=getDailyClipBudget();
           if(dailyBudget.remaining<1)throw new Error('Has alcanzado el límite diario estimado de '+dailyBudget.max+' clips IA. Se reinicia mañana; el contador es local a este navegador.');
-          const requested=Math.min(12,dailyBudget.remaining,candidatePool.length);
+          const finalistCapacity=candidatePool.length<=12?candidatePool.length:Math.min(16,2*Math.ceil(candidatePool.length/12));
+          const requested=Math.min(12,dailyBudget.remaining,finalistCapacity);
           if(requested<1)throw new Error('No quedan clips en el presupuesto diario de IA.');
           say(`Se han preparado ${candidatePool.length} ventanas. La IA comparará los candidatos y podrá elegir ${requested} clips en este vídeo. Presupuesto diario: ${dailyBudget.used}/${dailyBudget.max} usados.`);
           candidatePool = await aiEditorialSelect(candidatePool, requested, say);
