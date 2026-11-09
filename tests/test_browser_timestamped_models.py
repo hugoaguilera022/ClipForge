@@ -18,7 +18,7 @@ def test_browser_whisper_uses_word_and_phrase_timestamp_modes():
     assert 'Small no pudo cargarse o generar tiempos utilizables. Cambiando automáticamente a Base' in js
     assert 'if (!asr || asrModelId !== modelId)' in js
     html = (ROOT / 'static/index.html').read_text()
-    assert 'value="whisper-small" selected' in html
-    assert 'value="whisper-base" selected' not in html
+    assert 'value="whisper-base" selected' in html
+    assert 'value="whisper-small" selected' not in html
     assert 'src="/browser-whisper.js"' in html
     assert 'whisper-small' in html and 'vuelve automáticamente a Base' in html
