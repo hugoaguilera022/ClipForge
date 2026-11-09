@@ -667,7 +667,7 @@ function getColabEditorConfig(){
   }catch{return null;}
 }
 function createRemoteEditorialEngine(config){
-  return {chat:{completions:{create:async(request)=>{
+  return {isRemote:true,chat:{completions:{create:async(request)=>{
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),300000);
     try{
       const response=await fetch(config.url+'/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+config.token},body:JSON.stringify(request),signal:controller.signal,cache:'no-store'});
@@ -765,7 +765,7 @@ async function updateVideoCapacity(file) {
   el('videoCapacity').dataset.level=estimate.status;
 }
 
-function parseEditorialDecision(raw, candidates, limit = 4) {
+function parseEditorialDecision(raw, candidates, limit = 4, requireAudit = false, selectionMethod = 'local_generative_editor') {
   const text = String(raw || '').replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
   const match = text.match(/\{[\s\S]*\}/);
   if (!match) throw new Error('El editor IA no devolvió una selección estructurada.');
@@ -776,6 +776,8 @@ function parseEditorialDecision(raw, candidates, limit = 4) {
     const id = Number(item.id);
     if (!Number.isInteger(id) || id < 1 || id > candidates.length || used.has(id)) continue;
     const clip = candidates[id - 1];
+    const auditFlags=Array.isArray(item.audit_flags)?item.audit_flags.map(flag=>String(flag).slice(0,80)):[];
+    if(requireAudit&&(item.audit_verdict!=='pass'||auditFlags.length>0))continue;
     // Reject overlapping editorial selections; timestamps always come from ASR.
     if (selected.some(other => clip.start < other.end + 1 && clip.end > other.start - 1)) continue;
     used.add(id);
@@ -794,7 +796,9 @@ function parseEditorialDecision(raw, candidates, limit = 4) {
       ai_editorial_score: Math.max(0,Math.min(100,editorialScore)),
       ai_editorial_rubric: validRubric?Object.fromEntries(rubricKeys.map(key=>[key,Number(rubric[key])])):null,
       ai_editorial_reason: String(item.reason || '').slice(0, 240),
-      selection_method: 'local_generative_editor'
+      selection_method: selectionMethod,
+      ai_editorial_audit_verdict:requireAudit?item.audit_verdict:null,
+      ai_editorial_audit_flags:requireAudit?auditFlags:[]
     });
     if (selected.length >= Math.max(1, Math.min(4, limit))) break;
   }
@@ -948,7 +952,7 @@ async function askEditorialModel(engine, pool, count, onProgress, phase) {
     response_format:{type:'json_object'}
   });
   const raw=response?.choices?.[0]?.message?.content||'';
-  try{return parseEditorialDecision(raw,pool,count);}
+  try{return parseEditorialDecision(raw,pool,count,false,engine.isRemote?'remote_generative_editor':'local_generative_editor');}
   catch(firstError){
     // Small local models sometimes return overlapping IDs even when instructed
     // not to. Give them one constrained repair pass instead of abandoning the
@@ -962,7 +966,7 @@ async function askEditorialModel(engine, pool, count, onProgress, phase) {
         {role:'user',content:'La selección anterior ha sido rechazada: '+String(firstError.message||firstError)+'. Vuelve a evaluar la lista completa y devuelve exactamente '+count+' IDs válidos, todos distintos y sin solapamiento temporal (deja al menos 1 segundo entre clips). No repitas la selección anterior si contiene solapamientos. Devuelve el mismo JSON con la rúbrica editorial completa.'}
       ],temperature:0.08,max_tokens:700,response_format:{type:'json_object'}
     });
-    return parseEditorialDecision(retry?.choices?.[0]?.message?.content||'',pool,count);
+    return parseEditorialDecision(retry?.choices?.[0]?.message?.content||'',pool,count,false,engine.isRemote?'remote_generative_editor':'local_generative_editor');
   }
 }
 
@@ -1030,7 +1034,7 @@ async function aiEditorialSelect(candidates, limit = 4, onProgress = () => {}) {
     {role:'system',content:'Actúas como revisor editorial independiente. Busca motivos para DESCARTAR, no para confirmar. Responde solo JSON válido.'},
     {role:'user',content:auditPrompt}
   ],temperature:0.05,max_tokens:700,response_format:{type:'json_object'}});
-  const audited=parseEditorialDecision(audit?.choices?.[0]?.message?.content||'',finalPool,limit);
+  const audited=parseEditorialDecision(audit?.choices?.[0]?.message?.content||'',finalPool,limit,true,engine.isRemote?'remote_generative_editor':'local_generative_editor');
   const firstKeys=new Set(firstVote.map(c=>`${c.start.toFixed(1)}-${c.end.toFixed(1)}`));
   return audited.map((clip,index)=>({...clip,
     ai_editorial_audit:'independent_critic_pass',
@@ -1090,7 +1094,7 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
  };
  editableCandidates.forEach((c,i)=>{
   const card=document.createElement('article');card.className='candidate-card';
-  const heading=document.createElement('strong');heading.textContent=c.selection_method==='local_generative_editor'?(c.title+' · valoración IA '+c.ai_editorial_score+'/100'):(c.title+' · candidato para revisión');
+  const heading=document.createElement('strong');heading.textContent=(c.selection_method==='local_generative_editor'||c.selection_method==='remote_generative_editor')?(c.title+' · valoración IA '+c.ai_editorial_score+'/100'):(c.title+' · candidato para revisión');
   const rationale=document.createElement('small');rationale.className='candidate-rationale';rationale.textContent=c.ai_editorial_reason || (c.reasons||[]).join(' · ') || 'Fragmento propuesto para evaluación';
   const preview=document.createElement('button');preview.type='button';preview.className='secondary preview-clip-candidate';preview.textContent='Vista previa';preview.addEventListener('click',()=>window.clipforgeEditorBridge?.previewClip?.(c));
   const selectLabel=document.createElement('label');selectLabel.className='candidate-select';
