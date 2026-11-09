@@ -426,7 +426,8 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     const peakEnergy = acoustic.length ? Math.max(...acoustic.map(x=>x.rms)) : 0;
     const energyLift = energy.length ? Math.max(0,Math.min(1,(meanEnergy-energyFloor)/energySpan)) : 0;
     const energyContrast = energy.length ? Math.max(0,Math.min(1,(peakEnergy-meanEnergy)/energySpan)) : 0;
-    const acousticScore = energy.length ? Math.round(activeRatio*5 + energyLift*4 + energyContrast*3) : 0;\n    const visualChanges=visualSamples.filter(x=>x.t>=start&&x.t<end).map(x=>x.change);\n    const visualMean=visualChanges.length?visualChanges.reduce((a,b)=>a+b,0)/visualChanges.length:0;\n    const visualScore=visualChanges.length?Math.round(Math.min(10,visualMean*50)):0;
+    const acousticScore = energy.length ? Math.round(activeRatio*5 + energyLift*4 + energyContrast*3) : 0;
+    const visualChanges=visualSamples.filter(x=>x.t>=start&&x.t<end).map(x=>x.change);\n    const visualMean=visualChanges.length?visualChanges.reduce((a,b)=>a+b,0)/visualChanges.length:0;\n    const visualScore=visualChanges.length?Math.round(Math.min(10,visualMean*50)):0;
     const paceScore=Math.max(0,Math.min(1,(wordsPerSecond-1.15)/2.1));
     const lexicalScore=Math.max(0,Math.min(1,(uniqueRatio-.28)/.42));
     const rawScore = 15 + durationScore*10 + paceScore*12 + lexicalScore*8 +
