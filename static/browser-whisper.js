@@ -565,7 +565,7 @@ function rerankWithSemanticEmbeddings(candidates, embeddings, limit = 4) {
       title: `Clip ${index + 1}`,
       score: Math.max(0, Math.min(100, Math.round(item.finalScore))),
       semanticScore: Math.round(item.diversity * 100),
-      reasons: [...new Set([...(item.clip.reasons || []), item.maxSimilarity > 0.82 ? 'contenido diferenciado frente a los otros clips' : 'diversidad temática revisada'])].slice(0, 4),
+      reasons: [...new Set([...(item.clip.reasons || []), item.maxSimilarity > 0.82 ? 'tema parecido a otro candidato; se penalizó la duplicidad' : 'diversidad temática revisada'])].slice(0, 4),
       selected: true
     }));
 }
