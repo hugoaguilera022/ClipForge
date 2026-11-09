@@ -773,7 +773,14 @@ function buildEditorialCandidatePool(segments, videoDuration, audioSamples = nul
       visual_change:Number(visualChange.toFixed(3)),
       visual_samples:visual.length
     };
-    pool.push({start,end,duration:end-start,text,title:'Candidato editorial',selected:false,selection_method:'neutral_transcript_window',media_evidence:evidence});
+    // Give the judge a little surrounding dialogue so it can tell whether a
+    // candidate depends on a setup just outside its boundaries. These words
+    // are context only: the model may select this candidate, never extend it.
+    const contextBefore=clean.filter(x=>x.end<=start&&x.end>=start-8.5).slice(-5)
+      .map(x=>x.text).join(' ').replace(/\s+/g,' ').trim().slice(-360);
+    const contextAfter=clean.filter(x=>x.start>=end&&x.start<=end+7)
+      .slice(0,5).map(x=>x.text).join(' ').replace(/\s+/g,' ').trim().slice(0,360);
+    pool.push({start,end,duration:end-start,text,context_before:contextBefore,context_after:contextAfter,title:'Candidato editorial',selected:false,selection_method:'neutral_transcript_window',media_evidence:evidence});
   }
   return pool;
 }
@@ -782,6 +789,8 @@ async function askEditorialModel(engine, pool, count, onProgress, phase) {
   const shortlist=pool.map((clip,index)=>({
     id:index+1,start:Number(clip.start.toFixed(1)),end:Number(clip.end.toFixed(1)),
     transcript:String(clip.text).replace(/\s+/g,' ').slice(0,760),
+    context_before:String(clip.context_before||'').replace(/\s+/g,' ').slice(-360),
+    context_after:String(clip.context_after||'').replace(/\s+/g,' ').slice(0,360),
     media_evidence:clip.media_evidence||null
   }));
   const prompt=[
@@ -791,6 +800,7 @@ async function askEditorialModel(engine, pool, count, onProgress, phase) {
     'Puntúa mentalmente cada momento en cinco dimensiones: gancho inicial; interés narrativo/emocional/cómico; claridad y autonomía; desarrollo con payoff; potencial de mantener atención. No confundas volumen de voz con interés.',
     'Prioriza anécdotas con giro o remate, bromas con reacción, revelaciones, desacuerdo con argumentos, respuestas inesperadas, opiniones memorables y momentos emocionales genuinos.',
     'Penaliza inicios a mitad de frase, preguntas sin respuesta, introducciones, charla de transición, bromas internas sin contexto, repeticiones, promoción y finales sin cierre.',
+    'Cada candidato incluye context_before y context_after: son frases cercanas FUERA del corte propuesto y solo sirven para entender la conversación. No las cuentes como contenido del clip ni cambies sus tiempos. Si el gancho, la explicación o el remate dependen demasiado de ese contexto externo, penaliza el candidato o prefiere otro que contenga el intercambio completo.',
     'Prefiere el fragmento completo más corto que conserve la premisa y el remate. Busca variedad de temas y formatos. El idioma puede ser español o inglés.',
     'No inventes hechos ni cambies los tiempos. Solo puedes elegir IDs de esta lista.',
     'En esta ronda elige exactamente '+count+' fragmentos. '+phase,
