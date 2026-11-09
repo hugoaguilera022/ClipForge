@@ -760,3 +760,15 @@ class BrowserWhisperDefaultTests(unittest.TestCase):
  def test_browser_language_defaults_to_automatic_spanish_or_english_detection(self):
   html=(ROOT/'static'/'index.html').read_text()
   self.assertIn('<option value="auto" selected>Detectar automáticamente (español o inglés)</option>',html)
+
+
+class BrowserAudioExtractionRobustnessTests(unittest.TestCase):
+ def test_missing_mp4_duration_metadata_falls_back_to_audio_track_duration(self):
+  source=(ROOT/'static'/'browser-whisper.js').read_text()
+  self.assertIn('const metadataDuration = await input.getDurationFromMetadata();',source)
+  self.assertIn(': await track.computeDuration();',source)
+
+ def test_mediabunny_input_is_disposed_on_success_and_failure(self):
+  source=(ROOT/'static'/'browser-whisper.js').read_text()
+  self.assertIn('} finally {\n    // Explicitly release demuxer/decoder resources',source)
+  self.assertIn('input.dispose();',source)
