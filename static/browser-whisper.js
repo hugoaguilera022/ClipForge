@@ -699,7 +699,7 @@ async function connectColabEditorialEngine(){
 document.querySelector('#connectColabEditor')?.addEventListener('click',connectColabEditorialEngine);
 (function restoreColabEditorConnection(){
   const config=getColabEditorConfig();const url=document.querySelector('#colabEditorUrl'),status=document.querySelector('#colabEditorStatus');
-  if(config&&url){url.value=config.url;if(status)status.textContent='Hay una conexión guardada en esta pestaña. Pulsa «Comprobar y conectar» para validar que Colab siga activa.';}
+  if(config&&url){url.value=config.url;const token=document.querySelector('#colabEditorToken');if(token)token.value=config.token;if(status)status.textContent='Hay una conexión guardada en esta pestaña. Pulsa «Comprobar y conectar» para validar que Colab siga activa.';}
 })();
 async function loadEditorialJudge(onProgress = () => {}) {
   const remote=getColabEditorConfig();
