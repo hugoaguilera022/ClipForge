@@ -143,7 +143,7 @@ async function toMono16k(blob) {
 // bounded windows so long interviews do not require one huge inference buffer.
 // A 2-second overlap protects words at boundaries; duplicate words are removed
 // by their absolute timestamps and normalized text.
-async function transcribeAudioInChunks(asr, audio, onProgress = () => {}) {
+async function transcribeAudioInChunks(asr, audio, onProgress = () => {}, language = 'auto') {
   const sampleRate = 16000;
   const windowSeconds = 28;
   const overlapSeconds = 2;
@@ -156,11 +156,9 @@ async function transcribeAudioInChunks(asr, audio, onProgress = () => {}) {
 
   for (let startSample = 0, part = 0; startSample < audio.length; startSample += stepSamples, part++) {
     const endSample = Math.min(audio.length, startSample + windowSamples);
-    const result = await asr(audio.subarray(startSample, endSample), {
-      language: 'spanish',
-      task: 'transcribe',
-      return_timestamps: 'word'
-    });
+    const options = { task: 'transcribe', return_timestamps: 'word' };
+    if (language && language !== 'auto') options.language = language;
+    const result = await asr(audio.subarray(startSample, endSample), options);
     const offset = startSample / sampleRate;
     const chunkText = String(result.text || '').trim();
     if (chunkText) fullText.push(chunkText);
@@ -219,11 +217,25 @@ function makeVtt(segments) {
 }
 
 // Las puntuaciones heurísticas no equivalen a una predicción de viralidad.
-function rankClipCandidates(words, videoDuration) {
+function detectTranscriptLanguage(text) {
+  const tokens = String(text || '').toLocaleLowerCase().match(/[a-záéíóúüñ']+/g) || [];
+  const spanish = new Set(['que','de','la','el','y','en','no','es','un','una','por','con','para','pero','como','yo','me','mi','lo','se','porque','muy','más','qué']);
+  const english = new Set(['the','and','you','i','to','of','it','that','was','is','in','for','but','with','what','why','how','we','they','he','she','this','not','so','my']);
+  let es = 0, en = 0;
+  for (const token of tokens) { if (spanish.has(token)) es++; if (english.has(token)) en++; }
+  return en > es ? 'en' : 'es';
+}
+
+function rankClipCandidates(words, videoDuration, language = 'es') {
   const minLen = 18, maxLen = 45, candidates = [];
   const sentenceEnd = /[.!?…][”’"')\]]?$/;
-  const hooks = /\b(por qué|cómo|qué pasa|no me digas|madre mía|increíble|imagina|resulta que|la verdad|nunca|siempre|pero|entonces|porque|jaj|risas|hostia|ostras|buah|flipante|brutal|vergüenza|miedo|problema|secreto|historia|me dijo|te juro|no sabía|de repente|al final|lo que pasa|y va y|fíjate|en serio|es que|¿)\b/gi;
-  const emotional = /\b(risa|risas|llor|miedo|vergüenza|enfado|cabreo|sorpresa|increíble|brutal|absurdo|ridículo|flipante|hostia|joder|buah|ostras|madre mía|qué fuerte)\b/gi;
+  const english = language === 'en' || language === 'english';
+  const hooks = english
+    ? /\b(why|how|what happens|no way|oh my god|incredible|imagine|turns out|the truth|never|always|but|then|because|laugh|laughing|crazy|wild|brutal|embarrassing|afraid|problem|secret|story|told me|i swear|didn't know|suddenly|in the end|here's what|seriously|you know)\b/gi
+    : /\b(por qué|cómo|qué pasa|no me digas|madre mía|increíble|imagina|resulta que|la verdad|nunca|siempre|pero|entonces|porque|jaj|risas|hostia|ostras|buah|flipante|brutal|vergüenza|miedo|problema|secreto|historia|me dijo|te juro|no sabía|de repente|al final|lo que pasa|y va y|fíjate|en serio|es que|¿)\b/gi;
+  const emotional = english
+    ? /\b(laugh|laughing|cry|crying|fear|embarrassed|angry|furious|surprised|incredible|brutal|absurd|ridiculous|crazy|wild|shocking|unbelievable)\b/gi
+    : /\b(risa|risas|llor|miedo|vergüenza|enfado|cabreo|sorpresa|increíble|brutal|absurdo|ridículo|flipante|hostia|joder|buah|ostras|madre mía|qué fuerte)\b/gi;
   const starts = words.filter(w => Number.isFinite(w.start) && Number.isFinite(w.end) && w.end > w.start && String(w.text||'').trim()).sort((a,b)=>a.start-b.start);
   if (!starts.length) return [];
   const step = 4;
@@ -255,11 +267,11 @@ function rankClipCandidates(words, videoDuration) {
     const hookCount = (text.match(hooks) || []).length;
     const emotionCount = (text.match(emotional) || []).length;
     const questions = (text.match(/[¿?]/g) || []).length;
-    const personalStory = (text.match(/\b(yo|me|mi|mío|mía|nosotros|a mí|cuando era|una vez|me pasó|conocí|estuve)\b/gi)||[]).length;
-    const turns = (text.match(/\b(pero|aunque|sin embargo|de repente|entonces|al final|resulta que|y va|y me dice|me dijo)\b/gi)||[]).length;
+    const personalStory = (text.match(english ? /\b(i|me|my|mine|we|us|our|once|when i was|happened to me|i met|i went)\b/gi : /\b(yo|me|mi|mío|mía|nosotros|a mí|cuando era|una vez|me pasó|conocí|estuve)\b/gi)||[]).length;
+    const turns = (text.match(english ? /\b(but|although|however|suddenly|then|in the end|turns out|and he said|she told me|i said)\b/gi : /\b(pero|aunque|sin embargo|de repente|entonces|al final|resulta que|y va|y me dice|me dijo)\b/gi)||[]).length;
     const ending = String(group[group.length-1].text||'').trim();
     const completeEnding = sentenceEnd.test(ending) ? 1 : 0;
-    const abruptEnding = /\b(y|pero|porque|que|cuando|si|aunque|entonces|de)\s*$/i.test(text) ? 1 : 0;
+    const abruptEnding = (english ? /\b(and|but|because|that|when|if|although|then|of|to|with)\s*$/i : /\b(y|pero|porque|que|cuando|si|aunque|entonces|de)\s*$/i).test(text) ? 1 : 0;
     const speechDensity = group.length / Math.max(1, duration);
     const lexicalQuality = Math.min(1, uniqueRatio / .62);
     const score = Math.max(0,Math.min(100,
@@ -279,10 +291,10 @@ function rankClipCandidates(words, videoDuration) {
 }
 
 let editableCandidates=[];
-function showClipCandidates(words,duration,restoredCandidates=null) {
+function showClipCandidates(words,duration,restoredCandidates=null,language='es') {
  const panel=document.querySelector('#browserCandidates'),list=document.querySelector('#browserCandidateList');
  if(!panel||!list)return;
- editableCandidates=(restoredCandidates || rankClipCandidates(words,duration)).map((c,i)=>({...c,title:c.title||`Clip ${i+1}`,selected:c.selected!==false}));
+ editableCandidates=(restoredCandidates || rankClipCandidates(words,duration,language)).map((c,i)=>({...c,title:c.title||`Clip ${i+1}`,selected:c.selected!==false}));
  panel.hidden=false;list.replaceChildren();
  if(!editableCandidates.length){list.textContent='No hay suficientes marcas de tiempo.';const field=document.querySelector('[name="selected_clip_ranges"]');if(field)field.value='';return;}
  const sync=()=>{
@@ -355,12 +367,14 @@ runButton?.addEventListener('click', async () => {
       }
     });
     say('Transcribiendo en fragmentos para reducir memoria y evitar límites de 30 segundos…');
+    const selectedLanguage = document.querySelector('#browserWhisperLanguage')?.value || 'auto';
     const result = await transcribeAudioInChunks(asr, audio, (percent, current, total) => {
-      say(`Transcribiendo entrevista: ${percent}% · fragmento ${current}/${total}`);
-    });
+      say(`Transcribiendo vídeo: ${percent}% · fragmento ${current}/${total}`);
+    }, selectedLanguage);
     const chunks = result.chunks || [];
+    const detectedLanguage = selectedLanguage === 'english' ? 'en' : (selectedLanguage === 'spanish' ? 'es' : detectTranscriptLanguage(result.text));
     transcriptData = {
-      source: file.name, model: modelId, language: 'es',
+      source: file.name, model: modelId, language: detectedLanguage,
       generated_at: new Date().toISOString(), text: result.text || '',
       // transcribeAudioInChunks already converts model-local timestamps to
       // absolute source-video seconds and returns {start, end, text} objects.
@@ -376,7 +390,7 @@ runButton?.addEventListener('click', async () => {
       ? transcriptData.segments.map(s => `[${s.start.toFixed(2)}–${s.end.toFixed(2)}] ${s.text}`).join('\n')
       : (result.text || 'El modelo no devolvió texto temporizado.');
     if (transcriptData.segments.length) {
-      showClipCandidates(transcriptData.segments, audio.length / 16000);
+      showClipCandidates(transcriptData.segments, audio.length / 16000, null, detectedLanguage);
       const vtt = makeVtt(transcriptData.segments);
       const attached = attachTranscriptToJobForm(vtt);
       say(`Transcripción lista: ${transcriptData.segments.length} fragmentos temporizados. ${attached ? 'Subtítulos y cortes seleccionados conectados al formulario de producción.' : 'Descarga el JSON para conservarla.'} Whisper no identifica hablantes.`);
@@ -427,7 +441,7 @@ document.querySelector('#video')?.addEventListener('change', async () => {
       const probe=document.createElement('video'); probe.preload='metadata'; probe.src=metadataUrl;
       const duration=await new Promise(resolve=>{probe.onloadedmetadata=()=>resolve(probe.duration);probe.onerror=()=>resolve(Math.max(0,...editableCandidates.map(c=>Number(c.end))));});
       URL.revokeObjectURL(metadataUrl);
-      showClipCandidates([], Number.isFinite(duration)?duration:Math.max(0,...editableCandidates.map(c=>Number(c.end))), editableCandidates);
+      showClipCandidates([], Number.isFinite(duration)?duration:Math.max(0,...editableCandidates.map(c=>Number(c.end))), editableCandidates, transcriptData?.language || 'es');
       importedProjectPendingSource=false;
       say(`Vídeo original vinculado al proyecto: ${file.name}. Se han conservado ${editableCandidates.length} cortes y la transcripción.`);
       return;
@@ -511,7 +525,7 @@ document.querySelector('#browserProjectImport')?.addEventListener('change', asyn
       }
     }
     const duration=Math.max(0,...editableCandidates.map(c=>Number(c.end)));
-    showClipCandidates([],duration,editableCandidates);
+    showClipCandidates([],duration,editableCandidates,transcriptData?.language || 'es');
     localStorage.setItem('clipforge.browser.project.v1',JSON.stringify(project));
     say(`Proyecto recuperado: ${editableCandidates.length} clips${transcriptData?.segments?.length ? ' y transcripción' : ''}. Selecciona el vídeo original y podrás continuar editando.`);
   } catch(error) { say(`No se pudo abrir el proyecto: ${error.message}`); }
