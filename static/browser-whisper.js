@@ -684,10 +684,8 @@ function parseEditorialDecision(raw, candidates, limit = 4) {
     const id = Number(item.id);
     if (!Number.isInteger(id) || id < 1 || id > candidates.length || used.has(id)) continue;
     const clip = candidates[id - 1];
-    if (selected.some(other => !(clip.end <= other.end && clip.end <= other.start - 1 || clip.start >= other.end + 1))) {
-      // Reject overlapping editorial selections; timestamps always come from ASR.
-      if (selected.some(other => clip.start < other.end + 1 && clip.end > other.start - 1)) continue;
-    }
+    // Reject overlapping editorial selections; timestamps always come from ASR.
+    if (selected.some(other => clip.start < other.end + 1 && clip.end > other.start - 1)) continue;
     used.add(id);
     selected.push({
       ...clip,
@@ -909,12 +907,13 @@ runButton?.addEventListener('click', async () => {
       let candidatePool = rankClipCandidates(transcriptData.segments, audio.length / 16000, audio, 16000, visualSamples, 12);
       if (candidatePool.length > 1) {
         try {
-          say('Evaluando la coherencia y diversidad de los momentos con un modelo semántico gratuito en este dispositivo…');
-          candidatePool = await semanticRerankCandidates(candidatePool, 4, say);
-        } catch (semanticError) {
-          console.warn('El reranker semántico no está disponible; se conserva la selección heurística.', semanticError);
-          candidatePool = rerankWithoutEmbeddings(candidatePool, 4);
-          say('Modelo semántico no disponible; usando selección local con diversidad léxica y separación temporal.');
+          say('Iniciando editor IA generativo local. La selección se decide leyendo el contenido, no por puntuaciones heurísticas…');
+          candidatePool = await aiEditorialSelect(candidatePool, 4, say);
+        } catch (editorError) {
+          console.error('El editor IA local no está disponible o no ha devuelto una selección válida.', editorError);
+          showClipCandidates(transcriptData.segments, audio.length / 16000, [], audio, visualSamples);
+          say(`No se ha confirmado una selección profesional: ${editorError.message}. Se conservan la transcripción y el vídeo; no se presentan cortes heurísticos como selección IA. Prueba con Chrome o Edge actualizado y WebGPU activado.`);
+          return;
         }
       }
       showClipCandidates(transcriptData.segments, audio.length / 16000, candidatePool, audio, visualSamples);
