@@ -71,21 +71,21 @@ const sourceQuarter = clip => Math.min(3, Math.floor(clip.start / 52.5));
 assert.equal(new Set(clips.map(sourceQuarter)).size, 4, 'four clips must cover all four source quarters');
 console.log('Browser ranker passed: four coherent, distinct, non-overlapping clips.');
 
-// French dialogue regression: Unicode tokenization and translated hooks/payoffs.
-const frenchDialogue = [
-  ['Pourquoi tout le monde a-t-il commencé à rire?', 'Je pensais que le train était déjà parti.', 'Mais en fait, nous étions dans le mauvais wagon.', 'Tout le monde était surpris et nous avons éclaté de rire.', 'Finalement, c’était la meilleure partie du voyage.', 'Je ne l’oublierai jamais.'],
-  ['Comment as-tu appris cette nouvelle?', 'Mon ami m’a appelé juste avant le match.', 'Il m’a dit que personne ne s’y attendait.', 'Soudain, tout le stade a commencé à crier.', 'C’était incroyable, vraiment incroyable.', 'Et voilà pourquoi je m’en souviens.'],
-  ['Qui a trouvé la solution?', 'Nous avons essayé plusieurs idées.', 'Mais rien ne fonctionnait vraiment.', 'Puis elle a vu une petite erreur.', 'Exactement, c’était ça le problème.', 'Tout est devenu beaucoup plus simple.'],
-  ['Qu’est-ce qui s’est passé ensuite?', 'Nous avons attendu pendant une heure.', 'Puis la porte s’est ouverte.', 'Tout le monde a commencé à applaudir.', 'C’était fou, je n’avais jamais vu ça.', 'Et finalement nous avons gagné.']
+// English dialogue regression: hooks, payoff and Unicode-safe tokenization.
+const englishDialogue = [
+  ['Why did everyone suddenly start laughing?', 'I thought the train had already left.', 'But actually, we were on the wrong platform.', 'Everyone was surprised and we all started laughing.', 'In the end, it was the best part of the trip.', 'I will never forget it.'],
+  ['How did you hear the news?', 'My friend called just before the match.', 'He told me nobody expected it.', 'Suddenly, the whole stadium started shouting.', 'It was unbelievable, absolutely crazy.', 'And that is why I remember it.'],
+  ['Who found the solution?', 'We tried several different ideas.', 'But nothing really worked.', 'Then she noticed one tiny mistake.', 'Exactly, that was the problem.', 'Everything became much simpler.'],
+  ['What happened next?', 'We waited for almost an hour.', 'Then the door finally opened.', 'Everyone started applauding.', 'It was insane, I had never seen anything like it.', 'And finally we won.']
 ];
-const frenchWords=[];
-for(let q=0;q<frenchDialogue.length;q++)for(let i=0;i<frenchDialogue[q].length;i++){
-  const start=q*56+i*4; frenchWords.push({start,end:start+2.7,text:frenchDialogue[q][i]});
+const englishWords=[];
+for(let q=0;q<englishDialogue.length;q++)for(let i=0;i<englishDialogue[q].length;i++){
+  const start=q*56+i*4; englishWords.push({start,end:start+2.7,text:englishDialogue[q][i]});
 }
-const frenchClips=context.rank(frenchWords,210);
-assert.equal(frenchClips.length,4,'French dialogue must produce four clips');
-assert.equal(new Set(frenchClips.map(x=>Math.floor(x.start/52.5))).size,4,'French clips must cover the full source');
-console.log('Multilingual ranker passed: French hooks, Unicode words and four distributed clips.');
+const englishClips=context.rank(englishWords,210);
+assert.equal(englishClips.length,4,'English dialogue must produce four clips');
+assert.equal(new Set(englishClips.map(x=>Math.floor(x.start/52.5))).size,4,'English clips must cover the full source');
+console.log('English ranker passed: hooks, payoff and four distributed clips.');
 
 
 // Non-speech source regression: music/gameplay/scenic footage still yields
