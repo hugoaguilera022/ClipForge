@@ -158,7 +158,8 @@ async function transcribeAudioInChunks(asr, audio, onProgress = () => {}, timest
   for (let startSample = 0, part = 0; startSample < audio.length; startSample += stepSamples, part++) {
     const endSample = Math.min(audio.length, startSample + windowSamples);
     const result = await asr(audio.subarray(startSample, endSample), {
-      language: 'spanish',
+      // Leave language unset: Whisper detects the spoken language per chunk.
+      // Forcing Spanish made every non-Spanish source produce bad transcripts.
       task: 'transcribe',
       return_timestamps: timestampMode
     });
@@ -176,10 +177,10 @@ async function transcribeAudioInChunks(asr, audio, onProgress = () => {}, timest
       if (absoluteEnd <= absoluteStart) continue;
       // Keep words recognized only in the next window's overlap.
       // Deduplicate matching words by timestamp rather than discarding the overlap.
-      const normalized = text.toLocaleLowerCase('es').replace(/\s+/g, ' ').trim();
+      const normalized = text.toLowerCase().replace(/\s+/g, ' ').trim();
       const duplicate = allChunks.some(previous =>
         Math.abs(previous.start - absoluteStart) < 0.45 &&
-        previous.text.toLocaleLowerCase('es').replace(/\s+/g, ' ').trim() === normalized
+        previous.text.toLowerCase().replace(/\s+/g, ' ').trim() === normalized
       );
       if (!duplicate) allChunks.push({ start: absoluteStart, end: absoluteEnd, text });
     }
@@ -261,7 +262,6 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     const minAudioLen=15, maxAudioLen=45;
     const windowLen=Math.min(maxAudioLen,Math.max(minAudioLen,Math.min(24,videoDuration/4)));
     const hop=Math.max(2.5,windowLen/3);
-    const activity=energy.map(x=>Math.max(0,Math.min(1,(x.rms-energyFloor)/energySpan)));
     const candidates=[];
     for(let start=0;start+minAudioLen<=videoDuration+.001;start+=hop){
       const end=Math.min(videoDuration,start+windowLen);
@@ -529,7 +529,7 @@ runButton?.addEventListener('click', async () => {
       asrModelId = id;
     };
     const reportProgress = (percent, current, total) => {
-      say(`Transcribiendo entrevista: ${percent}% · fragmento ${current}/${total}`);
+      say(`Transcribiendo vídeo: ${percent}% · fragmento ${current}/${total}`);
     };
     let activeModelId = modelId;
     let result;
@@ -558,7 +558,7 @@ runButton?.addEventListener('click', async () => {
     }
     const chunks = result.chunks || [];
     transcriptData = {
-      source: file.name, model: activeModelId, language: 'es',
+      source: file.name, model: activeModelId, language: result.language || 'auto',
       generated_at: new Date().toISOString(), text: result.text || '',
       // transcribeAudioInChunks already converts model-local timestamps to
       // absolute source-video seconds and returns {start, end, text} objects.
@@ -591,7 +591,12 @@ runButton?.addEventListener('click', async () => {
         }
       }
     } else {
-      say('Whisper devolvió texto sin marcas de tiempo utilizables. No se ha adjuntado una transcripción vacía.');
+      // A silent transcript is still a valid input for the non-speech ranker.
+      // It uses audio activity to suggest moments for music, gameplay and B-roll.
+      showClipCandidates([], audio.length / 16000, null, audio);
+      say(editableCandidates.length
+        ? `No se detectó diálogo temporizado. Se han propuesto ${editableCandidates.length} momentos mediante actividad sonora; revisa los cortes antes de exportar.`
+        : 'No se detectó diálogo ni suficiente actividad sonora para proponer cortes.');
     }
     if (download) download.disabled = !result.text;
     if (saveProjectButton) saveProjectButton.disabled = !transcriptData?.segments?.length;
