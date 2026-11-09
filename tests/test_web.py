@@ -578,11 +578,27 @@ class BrowserClipCandidateTests(unittest.TestCase):
   module=(ROOT/'static'/'browser-whisper.js').read_text()
   self.assertIn('function buildEditorialCandidatePool',module)
   self.assertIn('function aiEditorialSelect',module)
-  self.assertIn('No heuristic score decides which candidates survive',module)
+  self.assertIn('const batchSize=12;',module)
+  self.assertIn('const keep=Math.min(2,batch.length);',module)
+  self.assertIn('const maxCandidates=96;',module)
+  self.assertIn('if(!validRubric)continue;',module)
+  self.assertIn("audit_verdict!=='pass'",module)
   self.assertIn('candidatePool = await aiEditorialSelect(candidatePool, 4, say)',module)
   self.assertIn('Qwen3-1.7B-q4f16_1-MLC',module)
   self.assertIn('function estimateVideoCapacity(options)',module)
   self.assertIn('updateVideoCapacity(file)',module)
+
+ def test_small_candidate_pools_still_receive_final_vote_and_critic_audit(self):
+  module=(ROOT/'static'/'browser-whisper.js').read_text()
+  self.assertIn('if(pool.length<=batchSize){',module)
+  self.assertIn('finalists.push(...pool);',module)
+  self.assertIn('Juez editorial de control: auditando contexto, gancho y remate',module)
+  self.assertNotIn('if(pool.length<=8)return askEditorialModel',module)
+
+ def test_incomplete_ai_rubrics_are_rejected_instead_of_scored_as_fallback(self):
+  module=(ROOT/'static'/'browser-whisper.js').read_text()
+  self.assertIn('if(!validRubric)continue;',module)
+  self.assertIn('repair pass',module)
 
  def test_candidate_ranker_supports_english_hooks_and_dialogue_turns(self):
   module=(ROOT/'static'/'browser-whisper.js').read_text()
