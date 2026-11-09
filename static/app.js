@@ -33,7 +33,7 @@ async function loadPlatforms(){
   $('#platforms').innerHTML=platforms.map(p=>`<div class="platform"><span class="ico">${({youtube:'▶',instagram:'◎',facebook:'f',tiktok:'♪',x:'X'})[p.id]}</span><div><b>${esc(p.name)}</b><small>${esc(p.free)}</small></div><span class="state">Pendiente</span></div>`).join('');
  }catch{$('#platforms').textContent='No se pudo cargar el estado de las plataformas.'}
 }
-$('#video').addEventListener('change',e=>$('#filename').textContent=e.target.files[0]?.name||'MP4, MOV, MKV o WEBM · máximo 512 MB');
+$('#video').addEventListener('change',e=>$('#filename').textContent=e.target.files[0]?.name||'MP4, MOV, MKV, WEBM, AVI, M4V y más · máximo 512 MB');
 $('#transcript').addEventListener('change',e=>$('#transcriptname').textContent=e.target.files[0]?.name||'SRT o VTT · permite trabajar sin instalar Whisper');
 $('#jobForm').addEventListener('submit',async e=>{
  e.preventDefault();if(document.body.dataset.browserOnly==='true'){const out=$('#jobResult');out.classList.remove('hidden');out.textContent='Estás usando ClipForge en modo navegador independiente. No se necesita el servidor Python: utiliza “Transcribir archivo seleccionado” y después “Exportar clips MP4 en este navegador”.';document.querySelector('#browserEngine')?.scrollIntoView({behavior:'smooth',block:'start'});return;}const form=e.currentTarget;const file=$('#video').files[0];const url=$('#video_url').value.trim();if(!file&&!url){alert('Pega una URL de YouTube o selecciona un vídeo.');return;}
