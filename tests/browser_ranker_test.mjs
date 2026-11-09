@@ -149,7 +149,7 @@ assert.ok(neutralPool.some(x=>x.context_before.length>0),'candidates after the o
 assert.ok(neutralPool.some(x=>x.context_after.length>0),'candidates before the ending must include following conversational context');
 assert.ok(neutralPool.every(x=>x.context_before.length<=360&&x.context_after.length<=360),'surrounding context must remain bounded');
 const askStart=source.indexOf('async function askEditorialModel(');
-const askEnd=source.indexOf('\\nasync function aiEditorialSelect(',askStart);
+const askEnd=source.indexOf('async function aiEditorialSelect(',askStart);
 assert.ok(askStart>=0&&askEnd>askStart,'editorial model request builder must exist');
 const askSandbox={JSON,Math,String,parseEditorialDecision:context.parseDecision};vm.createContext(askSandbox);
 vm.runInContext(source.slice(askStart,askEnd)+';this.ask=askEditorialModel;',askSandbox);
