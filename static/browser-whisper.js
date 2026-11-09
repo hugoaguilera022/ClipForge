@@ -290,7 +290,8 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
   const sortedRms = energy.map(x => x.rms).sort((a,b) => a-b);
   const quantile = q => sortedRms.length ? sortedRms[Math.min(sortedRms.length-1, Math.floor((sortedRms.length-1)*q))] : 0;
   const energyFloor = quantile(.2), energyMedian = quantile(.5), energyTop = quantile(.9);
-  const energySpan = Math.max(1e-5, energyTop - energyFloor);\n  const visualAvailable=visualSamples.length>1;
+  const energySpan = Math.max(1e-5, energyTop - energyFloor);
+  const visualAvailable=visualSamples.length>1;
 
   const minLen = 15, maxLen = 45, targetLen = 24;
   const sentenceEnd = /[.!?…][”’"')\]]?$/;
