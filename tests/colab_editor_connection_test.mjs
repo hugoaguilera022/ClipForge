@@ -19,7 +19,7 @@ const fields={
   '#colabEditorUrl':{value:'https://clipforge-test.trycloudflare.com'},
   '#colabEditorToken':{value:'secret-token'},
   '#colabEditorStatus':{textContent:''},
-  '#connectColabEditor':{disabled:false,textContent:'Comprobar y conectar'}
+  '#connectColabEditor':{disabled:false,textContent:'Comprobar y conectar',addEventListener:()=>{}}
 };
 const requests=[];
 const context={
