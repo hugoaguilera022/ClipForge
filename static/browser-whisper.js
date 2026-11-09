@@ -299,6 +299,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
   const strongHook = /\b(¿qué|quién|cómo|por qué|qué pasa|no me digas|madre mía|increíble|imagina|resulta que|la verdad|nunca|jamás|te juro|no sabía|de repente|en serio|qué fuerte|qué locura|qué dices|what|who|how|why|guess what|you will not believe|unbelievable|imagine|turns out|never|suddenly|seriously|that is crazy|no way|pourquoi|comment|qui|incroyable|jamais|soudain|sérieusement|c’est fou|résultat|por que|como|quem|incrível|nunca|de repente|imagina|por quê|warum|wie|wer|unglaublich|niemals|plötzlich|stell dir vor|perché|chi|incredibile|mai|all’improvviso)\b/i;
   const payoff = /\b(al final|resulta que|y entonces|por eso|exactamente|efectivamente|claro|ya te avisaremos|te avisaremos|no|sí|eso|ahí|pues|ya está|lo consiguió|lo he hecho|no puede ser|in the end|turns out|that is why|exactly|actually|that is it|he did it|I did it|cannot believe|there it is|finalement|en fait|exactement|bien sûr|voilà|c’est ça|por fim|no final|na verdade|exatamente|no fim|am ende|genau|natürlich|tatsächlich|so ist es|ecco|alla fine|esattamente|certo|è così)\b/i;
   const emotional = /\b(risa|risas|riendo|llor|miedo|vergüenza|sorpresa|increíble|brutal|absurdo|ridículo|flipante|hostia|joder|buah|ostras|madre mía|qué fuerte|dios|ja ja|jajaja|puf|potencia|a huevo|bolas|laugh|laughing|cry|scared|embarrassed|surprised|insane|crazy|ridiculous|awesome|damn|wow|oh my god|no way|rire|rires|mort de rire|fou|incroyable|peur|honte|surpris|wahnsinn|verrückt|angst|peinlich|überrascht|lachen|risada|risadas|louco|medo|vergonha|surpreso|risate|pazzesco|paura|imbarazzo|sorpreso)\b/i;
+  const promotionalPattern = /\b(suscr[ií]bete|suscr[ií]banse|s[ií]guenos|s[ií]gueme|dale like|darle like|regalamos|sorteo|participa(r|ci[oó]n)|papeletas extras|c[oó]digo de descuento|link en la descripci[oó]n|patrocinado|colaboraci[oó]n pagada|iphone\s*\d+|subscribe|follow us|follow me|giveaway|enter to win|use code|discount code|link in bio|sponsored|paid partnership|free iphone)\b/i;
   const filler = /\b(este|esto|eh|em|mmm|pues|vale|bueno|a ver|en plan|o sea|uh|um|erm|like|you know|I mean|well|euh|ben|bah|enfin|genre|tu sais|donc|also|äh|ähm|na ja|halt|sozusagen|tipo|né|então|assim|quer dizer|cioè|allora|diciamo|insomma)\b/gi;
   const reactionWord = /\b(puf|potencia|dios|bolas|a huevo|jaj+a+|risas?|hostia|buah|ostras|flipante|brutal|wow|damn|no way|oh my god|insane|awesome|rires?|mort de rire|incroyable|wahnsinn|verrückt|risadas?|incrível|pazzesco|risate)\b/gi;
   const storyPivot = /\b(se acabó|lo más importante|tienes que saber|para acabar|una preguntita|esto es|y entonces|ahora|here is the thing|the point is|what happened next|and then|but then|long story short|here is why|voici le truc|et puis|tout à coup|en fait|voilà pourquoi|a questão é|e então|de repente|a verdade é|hier ist der punkt|und dann|plötzlich|am ende|il punto è|e poi|all’improvviso|alla fine)\b/i;
@@ -391,6 +392,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     endIndex=possible.sort((x,y)=>endpointCost(x)-endpointCost(y))[0];
     const group=clean.slice(si,endIndex+1), end=group[group.length-1].end, duration=end-start;
     const text=group.map(w=>w.text).join(' '), lower=text.toLowerCase();
+    const promotional=promotionalPattern.test(text);
     const tokens=lower.match(/[\p{L}\p{N}]{2,}/gu)||[];
     const uniqueRatio=new Set(tokens).size/Math.max(1,tokens.length);
     const wordsPerSecond=tokens.length/Math.max(1,duration);
@@ -436,7 +438,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
       (hookAtStart?12:0) + (questionAtStart?6:0) + Math.min(6,questionCount*1.5) + Math.min(10,exclamationCount*2.5) + turnScore +
       Math.min(14,laughCount*7) + Math.min(18,reactionCount*4) + (pivot?8:0) + (hasSetup?6:0) + (hasTurn?6:0) +
       (payoffAtEnd?8:0) + (questionAnswered?16:0) + (answerClosedAtEnd?12:0) + (completeEnd?7:0) + acousticScore + visualScore - Math.min(12,fillerCount*.8) -
-      (abruptStart?8:0) - (fragmentStart?14:0) - (wordsPerSecond<1.1?8:0);
+      (abruptStart?18:0) - (fragmentStart?14:0) - (!completeEnd?8:0) - (promotional?55:0) - (wordsPerSecond<1.1?8:0);
     // Compress the raw weighted sum to avoid the previous ceiling effect where
     // several very different moments all received 100/100.
     const score = Math.max(0, Math.min(100, Math.round(rawScore / 1.5)));
@@ -453,7 +455,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     if(completeEnd)reasons.push('cierre natural');
     if(energy.length && acousticScore >= 8)reasons.push('energía y dinámica de audio');
     if(visualChanges.length && visualScore>=3)reasons.push('movimiento y cambios visuales');
-    candidates.push({start,end,duration,score,text,reasons:[...new Set(reasons)].slice(0,3)});
+    candidates.push({start,end,duration,score,text,promotional,reasons:[...new Set(reasons)].slice(0,3)});
     nextStart=start+stepSeconds;
   }
   // Add a small boundary bonus when a slightly earlier window preserves
@@ -464,7 +466,8 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     const overlap=Math.max(0,Math.min(a.end,b.end)-Math.max(a.start,b.start));
     return overlap/Math.max(.001,Math.min(a.duration,b.duration));
   };
-  const ranked=candidates.map(c=>{
+  const editorialCandidates=candidates.filter(c=>!c.promotional);
+  const ranked=editorialCandidates.map(c=>{
     const laterNearDuplicate=candidates.some(other=>
       other.start>c.start&&other.start-c.start<=18&&overlapRatio(c,other)>=.5&&other.score>=c.score&&other.score<=c.score+6
     );
