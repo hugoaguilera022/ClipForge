@@ -38,7 +38,7 @@ loadButton?.addEventListener('click',async()=>{
 // YouTube pages are not directly readable by browser fetch because of CORS.
 // A tiny, temporary importer downloads only an explicitly authorized video;
 // transcription, selection, editing and MP4 export remain local in this browser.
-const YOUTUBE_INGEST_API = 'https://clipforge-youtube-ingest.onrender.com';
+const YOUTUBE_INGEST_API = 'https://clipforge-youtube-importer.onrender.com';
 const youtubeInput = document.querySelector('#browserYoutubeUrl');
 const youtubeButton = document.querySelector('#loadBrowserYoutube');
 const youtubeRights = document.querySelector('#browserYoutubeRights');
