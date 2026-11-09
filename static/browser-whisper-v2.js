@@ -681,7 +681,7 @@ function createRemoteEditorialEngine(config){
 async function connectColabEditorialEngine(){
   const urlField=document.querySelector('#colabEditorUrl'),tokenField=document.querySelector('#colabEditorToken'),status=document.querySelector('#colabEditorStatus'),button=document.querySelector('#connectColabEditor');
   if(!urlField||!tokenField||!status||!button)return;
-  const url=String(urlField.value||'').trim().replace(/\\/+$/,'');const token=String(tokenField.value||'').trim();
+  const url=String(urlField.value||'').trim().replace(/\/+$/,'');const token=String(tokenField.value||'').trim();
   let parsed;try{parsed=new URL(url);}catch{status.textContent='Introduce la URL HTTPS temporal que muestra Google Colab.';return;}
   if(parsed.protocol!=='https:'||!parsed.hostname.endsWith('.trycloudflare.com')||!token){status.textContent='La URL debe ser HTTPS de trycloudflare.com y el token no puede estar vacío.';return;}
   button.disabled=true;status.textContent='Comprobando el motor, el modelo y la sesión…';
