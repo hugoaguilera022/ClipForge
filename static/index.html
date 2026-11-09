@@ -27,6 +27,17 @@ los crea automáticamente</span><input id="transcript" name="transcript" type="f
 <div><small>Memoria RAM</small><b id="capacityRam">—</b></div><div><small>Memoria gráfica</small><b id="capacityGpu">—</b></div><div><small>Espacio libre</small><b id="capacityDisk">—</b></div><div><small>Modelo editorial</small><b id="capacityModel">Qwen3 local / Colab 4B–8B</b></div>
 </div>
 <small id="capacityDetails" class="muted">Estimación por duración, tamaño y modelo Whisper. No se puede medir con precisión la RAM libre, VRAM ni espacio real desde el navegador.</small>
+  <section class="colab-editor-connection" aria-labelledby="colabEditorTitle">
+    <b id="colabEditorTitle">Motor editorial IA gratuito en la nube (opcional)</b>
+    <p class="muted">Conecta una sesión temporal de Google Colab: usa Qwen3 8B si hay GPU suficiente y Qwen3 4B como alternativa. No necesita API de pago. La sesión gratuita puede desconectarse y no es ilimitada; si no está conectada, ClipForge intenta el motor local compatible.</p>
+    <a href="https://colab.research.google.com/github/hugoaguilera022/ClipForge/blob/integrated-web-final/colab/ClipForge_Editorial_Engine.ipynb" target="_blank" rel="noopener">Abrir y ejecutar el motor gratuito en Google Colab</a>
+    <label for="colabEditorUrl">URL temporal del motor (trycloudflare)</label>
+    <input id="colabEditorUrl" type="url" inputmode="url" placeholder="https://….trycloudflare.com" autocomplete="url">
+    <label for="colabEditorToken">Token temporal de esta sesión</label>
+    <input id="colabEditorToken" type="password" placeholder="Pega el token que muestra Colab" autocomplete="off">
+    <button type="button" class="secondary" id="connectColabEditor">Comprobar y conectar motor</button>
+    <small id="colabEditorStatus" role="status">El token se conserva solo en esta pestaña y no se envía a ClipForge/Render. La URL y el token caducan al reiniciar Colab.</small>
+  </section>
 </section>
 <div class="engine-progress" id="browserWhisperStatus" role="status" aria-live="polite">Esperando un vídeo seleccionado.</div>
 <textarea id="browserTranscript" rows="8" placeholder="La transcripción aparecerá aquí…" spellcheck="false" aria-label="Transcripción editable con marcas de tiempo"></textarea>
@@ -43,17 +54,6 @@ los crea automáticamente</span><input id="transcript" name="transcript" type="f
 <div class="browser-candidates" id="browserCandidates" hidden>
   <div class="section-head"><div><span class="step">MOTOR 02 / SELECCIÓN</span><h3>Momentos candidatos</h3></div><span class="tag">Selección editorial IA</span></div>
   <p class="muted">El juez generativo compara los momentos del vídeo y un modelo semántico ayuda a evitar repeticiones. Si el dispositivo no puede ejecutar el juez IA, ClipForge identifica expresamente los candidatos de respaldo.</p>
-  <section class="colab-editor-connection" aria-labelledby="colabEditorTitle">
-    <b id="colabEditorTitle">Motor editorial IA gratuito en la nube (opcional)</b>
-    <p class="muted">Conecta una sesión temporal de Google Colab: usa Qwen3 8B si hay GPU suficiente y Qwen3 4B como alternativa. No necesita API de pago. La sesión gratuita puede desconectarse y no es ilimitada; si no está conectada, ClipForge intenta el motor local compatible.</p>
-    <a href="https://colab.research.google.com/github/hugoaguilera022/ClipForge/blob/integrated-web-final/colab/ClipForge_Editorial_Engine.ipynb" target="_blank" rel="noopener">Abrir y ejecutar el motor gratuito en Google Colab</a>
-    <label for="colabEditorUrl">URL temporal del motor (trycloudflare)</label>
-    <input id="colabEditorUrl" type="url" inputmode="url" placeholder="https://….trycloudflare.com" autocomplete="url">
-    <label for="colabEditorToken">Token temporal de esta sesión</label>
-    <input id="colabEditorToken" type="password" placeholder="Pega el token que muestra Colab" autocomplete="off">
-    <button type="button" class="secondary" id="connectColabEditor">Comprobar y conectar motor</button>
-    <small id="colabEditorStatus" role="status">El token se conserva solo en esta pestaña y no se envía a ClipForge/Render. La URL y el token caducan al reiniciar Colab.</small>
-  </section>
   <div class="project-transfer">
     <label for="browserProjectImport">Recuperar proyecto editable (.json)</label>
     <input id="browserProjectImport" type="file" accept="application/json,.json">
