@@ -923,10 +923,11 @@ function parseEditorialDecision(raw, candidates, limit = 4, requireAudit = false
     // A generative selection is only accepted when the model supplies the complete editorial rubric.
     // Missing dimensions trigger the constrained repair pass; they never become a silent score fallback.
     if(!validRubric)continue;
+    if(requireAudit&&Number(rubric.importance)<6.5)continue; // Reject moments that are not materially important.
     const editorialScore=validRubric?Math.round((
-      Number(rubric.hook)*1.3+Number(rubric.story)*.9+Number(rubric.payoff)*1.8+
-      Number(rubric.clarity)*1.3+Number(rubric.completeness)*1.7+Number(rubric.emotion)*.5+
-      Number(rubric.pacing)*.4+Number(rubric.originality)*.6+Number(rubric.importance)*1.5
+      Number(rubric.importance)*2.5+Number(rubric.payoff)*1.6+Number(rubric.completeness)*1.6+
+      Number(rubric.story)*1.2+Number(rubric.clarity)*1+Number(rubric.hook)*.8+
+      Number(rubric.emotion)*.5+Number(rubric.originality)*.5+Number(rubric.pacing)*.3
     )*1):Math.max(0,Math.min(100,Number(item.score)||0));
     selected.push({
       ...clip,
