@@ -10,6 +10,19 @@ let importedProjectPendingSource = false;
 let editorTracks = [];
 const say = (message) => { if (status) status.textContent = message; };
 
+async function releaseWhisperModel() {
+  const active = asr;
+  try {
+    if (typeof active?.model?.dispose === 'function') await active.model.dispose();
+    else if (typeof active?.dispose === 'function') await active.dispose();
+  } catch (error) {
+    console.warn('Whisper model cleanup was not available:', error);
+  } finally {
+    asr = null;
+    asrModelId = null;
+  }
+}
+
 function timeVtt(seconds) {
   const ms = Math.max(0, Math.round(seconds * 1000));
   const h = Math.floor(ms / 3600000);
@@ -421,19 +434,15 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
   const quarter=(lastEnd-firstStart)/4;
   const chosen=[];
   const fits=c=>chosen.every(x=>c.end<=x.start-2.5||c.start>=x.end+2.5);
-  // Prefer a spread across the source without forcing a weak clip from a
-  // quiet quarter. A soft diversity penalty lets a stronger moment replace
-  // a low-scoring regional pick while still discouraging near-duplicates.
+  const bucketOf=c=>Math.min(3,Math.max(0,Math.floor((c.start-firstStart)/Math.max(quarter,.001))));
+  // Guarantee source coverage: first take the strongest valid candidate from
+  // each quarter. Then fill any missing slot globally without overlap.
+  for(let bucket=0;bucket<4;bucket++){
+    const regional=ranked.find(item=>bucketOf(item.clip)===bucket&&fits(item.clip));
+    if(regional)chosen.push(regional.clip);
+  }
   while(chosen.length<4){
-    let best=null,bestScore=-Infinity;
-    for(const item of ranked){
-      const c=item.clip;
-      if(chosen.includes(c)||!fits(c))continue;
-      const bucket=Math.min(3,Math.floor((c.start-firstStart)/Math.max(quarter,.001)));
-      const sameQuarter=chosen.filter(x=>Math.min(3,Math.floor((x.start-firstStart)/Math.max(quarter,.001)))===bucket).length;
-      const diversityAdjusted=item.selectionScore-sameQuarter*11;
-      if(diversityAdjusted>bestScore){best=item;bestScore=diversityAdjusted;}
-    }
+    const best=ranked.find(item=>!chosen.includes(item.clip)&&fits(item.clip));
     if(!best)break;
     chosen.push(best.clip);
   }
@@ -550,14 +559,16 @@ runButton?.addEventListener('click', async () => {
       if (model !== 'whisper-small') throw transcriptionError;
       activeModelId = 'onnx-community/whisper-base_timestamped';
       say('Small no pudo cargarse o generar tiempos utilizables. Cambiando automáticamente a Base para conservar los cortes sincronizados…');
-      asr = null;
-      asrModelId = null;
+      await releaseWhisperModel();
       await loadModel(activeModelId);
       result = await transcribeAudioInChunks(asr, audio, reportProgress, 'word', sourceLanguage);
       if (!(result.chunks || []).length) {
         throw new Error(`Whisper Base tampoco devolvió marcas de tiempo. Error de Small: ${transcriptionError.message}`);
       }
     }
+    // Free the large ONNX/Whisper session before video rendering. Keeping it
+    // alive caused Chromium to run out of memory while exporting long clips.
+    await releaseWhisperModel();
     const chunks = result.chunks || [];
     transcriptData = {
       source: file.name, model: activeModelId, language: result.language || sourceLanguage,
