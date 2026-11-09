@@ -164,12 +164,12 @@ for(let i=0;i<3600;i++){
   longVideo.push({start,end:start+1.7,text:i%5===0?'What happened next?':i%5===1?'Then something unexpected happened.':i%5===2?'Everyone started laughing.':i%5===3?'We could not believe it.':'That was the whole story.'});
 }
 const longPool=context.buildPool(longVideo,7400);
-assert.ok(longPool.length<=64,'long videos must cap AI candidates to keep local inference bounded');
-assert.ok(longPool.length>=60,'long-video sampling should retain broad temporal coverage');
+assert.ok(longPool.length<=96,'long videos must cap AI candidates to keep local inference bounded');
+assert.ok(longPool.length>=90,'long-video sampling should retain broad temporal coverage');
 assert.ok(longPool[0].start<30,'long-video sample must retain the opening');
 assert.ok(longPool.at(-1).end>7300,'long-video sample must retain the ending');
 assert.ok(longPool[Math.floor(longPool.length/2)].start>3500&&longPool[Math.floor(longPool.length/2)].start<3900,'long-video sample must retain the middle');
-console.log('Long-video coverage passed: at most 64 uniformly distributed candidates across the full source.');
+console.log('Long-video coverage passed: at most 96 uniformly distributed candidates across the full source.');
 console.log('Neutral candidate generation passed: broad coverage, bounded surrounding context, and no heuristic pre-ranking.');
 assert.ok(source.includes('showClipCandidates(transcriptData.segments, audio.length / 16000, null, audio, visualSamples);'),'WebGPU failure must retain a usable local fallback');
 assert.ok(source.includes('candidatos de respaldo mediante reglas locales'),'fallback must be disclosed as heuristic, not generative AI');
