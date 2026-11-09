@@ -24,8 +24,8 @@ def test_chunked_transcription_restores_absolute_timestamps_and_progress():
 def test_overlap_words_are_not_added_twice():
     js = (ROOT / 'static/browser-whisper.js').read_text()
     assert 'if (part > 0 && absoluteStart < offset + overlapSeconds) continue' not in js
-    assert 'Math.abs(previous.start - absoluteStart) < 0.45' in js
-    assert 'Math.abs(previous.start - absoluteStart) < 0.45' in js
+    assert 'Math.abs(previous.start-absoluteStart)<0.45' in js
+    assert 'overlapRatio>=0.55 && textSimilarity>=0.82' in js
 
 
 def test_transcription_no_longer_sends_full_three_minute_audio_as_one_request():
