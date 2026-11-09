@@ -841,3 +841,25 @@ class ConversationalPunchlineFallbackTests(unittest.TestCase):
   self.assertIn('answerWords<=9&&followupReaction',source)
   self.assertIn('(questionAnswerExchange?14:0)',source)
   self.assertIn('pregunta, respuesta breve y réplica inmediata',source)
+
+class EditorialMomentQualityTests(unittest.TestCase):
+ def test_fallback_rewards_complete_multi_turn_conversations(self):
+  source=(ROOT/'static'/'browser-whisper.js').read_text()
+  self.assertIn('const completeConversationBeat=',source)
+  self.assertIn('const multiTurnExchange=utteranceCount>=4',source)
+  self.assertIn('(completeConversationBeat?13:0)',source)
+  self.assertIn('(dialogueProgression?6:0)',source)
+  self.assertIn('intercambio completo: pregunta, respuesta y reacción',source)
+
+ def test_fallback_penalizes_intros_and_transition_only_windows(self):
+  source=(ROOT/'static'/'browser-whisper.js').read_text()
+  self.assertIn('const weakOpening=',source)
+  self.assertIn('const transitionOnly=',source)
+  self.assertIn('(weakOpening?18:0)',source)
+  self.assertIn('(transitionOnly?22:0)',source)
+
+ def test_four_clip_selection_penalizes_near_duplicate_topics(self):
+  source=(ROOT/'static'/'browser-whisper.js').read_text()
+  self.assertIn('const lexicalSimilarity=',source)
+  self.assertIn('const duplicatePenalty=Math.max(0,maxSimilarity-.34)*28',source)
+  self.assertIn('const noveltyBonus=',source)
