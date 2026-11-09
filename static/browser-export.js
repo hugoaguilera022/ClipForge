@@ -176,13 +176,11 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
               const desired=seen[0].center*sourceWidth;
               lastFaceCenter=lastFaceCenter===null?desired:lastFaceCenter*.78+desired*.22;
             }else if(seen.length>1){
-              const leader=[...seen].filter(t=>t.samples>=2).sort((x,y)=>y.activity-x.activity)[0]||seen[0];
-              // Hysteresis prevents the crop jumping between faces on every
-              // frame when both people move or the mouth signal is ambiguous.
-              if(!activeSpeakerTrack||!seen.includes(activeSpeakerTrack)||leader===activeSpeakerTrack||leader.activity>activeSpeakerTrack.activity*1.18+.015)activeSpeakerTrack=leader;
-              const active=seen.includes(activeSpeakerTrack)?activeSpeakerTrack:leader;
-              const desired=active.center*sourceWidth;
-              lastFaceCenter=lastFaceCenter===null?desired:lastFaceCenter*.78+desired*.22;
+              // In a multi-person shot, mouth motion alone is not reliable
+              // diarization. Do not guess which face is speaking: preserve the
+              // complete group in the portrait canvas with a blurred fill.
+              lastFaceCenter=null;
+              activeSpeakerTrack=null;
             }else if(!seen.length&&poseLandmarker){
               const poseResult=poseLandmarker.detectForVideo(sourceCanvas,Math.max(0,Math.round(stamp*1000)));
               const poses=poseResult?.landmarks||[];
