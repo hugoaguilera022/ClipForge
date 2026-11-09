@@ -94,7 +94,7 @@ const semanticVectors=[[1,0,0],[.99,.01,0],[0,1,0],[0,0,1],[-1,0,0]];
 const semanticSelected=context.semanticRerank(semanticCandidates,semanticVectors,4);
 assert.equal(semanticSelected.length,4,'semantic reranker must return four clips');
 assert.ok(!semanticSelected.some(clip=>clip.text.startsWith('The same lost train')),'near-duplicate clip must lose its slot to a distinct topic');
-assert.ok(semanticSelected.every(clip=>Number.isFinite(clip.semanticScore)),'semantic diversity scores must be available');
+assert.ok(semanticSelected.every(clip=>Number.isFinite(clip.semanticScore)&&clip.semanticScore>=0&&clip.semanticScore<=100),'semantic diversity scores must stay within 0–100');
 console.log('Semantic reranker passed: four clips selected with duplicate-topic suppression.');
 
 
