@@ -29,11 +29,12 @@ const candidates=Array.from({length:64},(_,i)=>({
 const seen=new Set(),calls=[];
 const engine={chat:{completions:{create:async({messages})=>{
   const prompt=messages[1].content;
-  const json=prompt.split('CANDIDATOS:')[1]?.trim();
+  const marker=prompt.includes('FINALISTAS PARA AUDITAR:')?'FINALISTAS PARA AUDITAR:':'CANDIDATOS:';
+  const json=prompt.split(marker)[1]?.trim();
   assert.ok(json,'candidate payload must be included in every model request');
   const batch=JSON.parse(json);
   for(const item of batch)seen.add(item.start);
-  const count=Number(prompt.match(/elige exactamente (\d+)/)?.[1]);
+  const count=Number(prompt.match(/(?:elige exactamente |exactamente )(\d+)/)?.[1]);
   assert.ok(count>0,'each model round must specify its requested selection count');
   calls.push({size:batch.length,count,ids:batch.map(x=>x.id)});
   const chosen=[...batch].reverse().slice(0,count).map((item,index)=>({id:item.id,score:90-index,title:`Clip ${item.id}`,reason:'Complete narrative with a payoff.'}));
@@ -49,10 +50,11 @@ for(const name of ['parseEditorialDecision','askEditorialModel','aiEditorialSele
 }
 const selected=await context.aiEditorialSelect(candidates,4,()=>{});
 assert.equal(seen.size,64,'the generative judge must see every neutral candidate across batches');
-assert.equal(calls.length,9,'64 candidates must be evaluated in eight batches plus a final comparison');
+assert.equal(calls.length,10,'64 candidates must be evaluated in eight batches, a first vote and an independent critic audit');
 assert.equal(semanticInputCount,24,'three finalists per batch should reach semantic diversity review');
 assert.equal(semanticLimit,6,'semantic review should narrow to six finalists');
 assert.equal(selected.length,4,'final model round must return four clips');
 assert.ok(selected.every(x=>x.selection_method==='local_generative_editor'),'all final clips must be marked as generative selections');
+assert.ok(selected.every(x=>x.ai_editorial_audit==='independent_critic_pass'),'all final clips must pass the critic audit');
 for(let i=1;i<selected.length;i++)assert.ok(selected[i].start>=selected[i-1].end+1,'final clips must not overlap');
-console.log('Editorial selector integration passed: 64/64 candidates reviewed, 24 finalists, semantic diversity stage and four grounded final clips.');
+console.log('Editorial selector integration passed: 64/64 candidates reviewed, 24 finalists, semantic diversity stage, first vote, independent critic audit and four grounded final clips.');
