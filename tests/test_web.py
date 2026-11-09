@@ -557,7 +557,10 @@ class BrowserFaceTrackingTests(unittest.TestCase):
   self.assertIn('landmarks[13]',module)
   self.assertIn('frameNumber%6===1',module)
   self.assertNotIn('frameNumber%6===1||lastFaceCenter===null',module)
-  self.assertIn('activeSpeakerTrack.activity*1.18+.015',module)
+  group=module.split('}else if(seen.length>1){',1)[1].split('}else if(!seen.length&&poseLandmarker){',1)[0]
+  self.assertIn('lastFaceCenter=null;',group)
+  self.assertIn('activeSpeakerTrack=null;',group)
+  self.assertIn('mouth motion alone is not reliable',group)
   self.assertIn('lastFaceCenter*.78+desired*.22',module)
   self.assertIn('ctx.drawImage(sourceCanvas,-left*scale,0,sourceCanvas.width*scale,1920)',module)
   self.assertIn('instead of clamping',module)
