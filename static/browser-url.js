@@ -33,3 +33,71 @@ loadButton?.addEventListener('click',async()=>{
     if(urlStatus)urlStatus.textContent=`No se pudo cargar la URL: ${error.message} Comprueba que sea un enlace directo y que el servidor permita CORS.`;
   }finally{loadButton.disabled=false;}
 });
+
+
+// YouTube pages are not directly readable by browser fetch because of CORS.
+// A tiny, temporary importer downloads only an explicitly authorized video;
+// transcription, selection, editing and MP4 export remain local in this browser.
+const YOUTUBE_INGEST_API = 'https://clipforge-youtube-ingest.onrender.com';
+const youtubeInput = document.querySelector('#browserYoutubeUrl');
+const youtubeButton = document.querySelector('#loadBrowserYoutube');
+const youtubeRights = document.querySelector('#browserYoutubeRights');
+const youtubeStatus = document.querySelector('#browserYoutubeStatus');
+youtubeButton?.addEventListener('click', async () => {
+  const url = youtubeInput?.value.trim();
+  if (!url) { if (youtubeStatus) youtubeStatus.textContent = 'Pega primero un enlace de YouTube.'; return; }
+  if (!youtubeRights?.checked) { if (youtubeStatus) youtubeStatus.textContent = 'Confirma que tienes autorización para descargar y editar este vídeo.'; return; }
+  youtubeButton.disabled = true;
+  if (youtubeStatus) youtubeStatus.textContent = 'Conectando con el importador gratuito de YouTube…';
+  try {
+    const response = await fetch(`${YOUTUBE_INGEST_API}/api/youtube/download`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({url, rights_confirmed: true})
+    });
+    if (!response.ok) {
+      let message = `El importador respondió HTTP ${response.status}.`;
+      try { message = (await response.json()).error || message; } catch {}
+      throw new Error(message);
+    }
+    const expected = Number(response.headers.get('content-length') || 0);
+    if (expected > 512 * 1024 * 1024) throw new Error('El vídeo supera el límite de 512 MB.');
+    const chunks = [];
+    let received = 0;
+    if (response.body?.getReader) {
+      const reader = response.body.getReader();
+      while (true) {
+        const {done, value} = await reader.read();
+        if (done) break;
+        received += value.byteLength;
+        if (received > 512 * 1024 * 1024) { await reader.cancel(); throw new Error('El vídeo supera el límite de 512 MB.'); }
+        chunks.push(value);
+        if (youtubeStatus) youtubeStatus.textContent = `Descargando vídeo autorizado: ${(received / 1048576).toFixed(1)} MB${expected ? ` / ${(expected / 1048576).toFixed(1)} MB` : ''}…`;
+      }
+    } else {
+      const blob = await response.blob();
+      received = blob.size;
+      chunks.push(blob);
+    }
+    if (!received) throw new Error('YouTube devolvió un archivo vacío.');
+    const disposition = response.headers.get('content-disposition') || '';
+    const encodedName = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+    const filename = encodedName ? decodeURIComponent(encodedName) : 'clipforge-youtube.mp4';
+    const file = new File([new Blob(chunks, {type: 'video/mp4'})], filename, {type: 'video/mp4'});
+    const input = document.querySelector('#video');
+    if (!input) throw new Error('No se encontró el selector de vídeo.');
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    input.files = transfer.files;
+    input.dispatchEvent(new Event('change', {bubbles: true}));
+    const label = document.querySelector('#filename');
+    if (label) label.textContent = `${filename} · ${(file.size / 1048576).toFixed(1)} MB · importado desde YouTube`;
+    if (youtubeStatus) youtubeStatus.textContent = 'Vídeo importado. La transcripción, selección de cuatro momentos y exportación se ejecutarán localmente en tu navegador.';
+    document.querySelector('#browserEngine')?.scrollIntoView({behavior:'smooth',block:'start'});
+  } catch (error) {
+    console.error(error);
+    if (youtubeStatus) youtubeStatus.textContent = `No se pudo importar el vídeo: ${error.message}`;
+  } finally {
+    youtubeButton.disabled = false;
+  }
+});
