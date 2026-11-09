@@ -483,6 +483,11 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     const revelation=/\b(resulta que|no me esperaba|nadie sabía|nunca pensé|jamás pensé|la verdad es que|te voy a contar|no te imaginas|de repente|al final descubrí|turns out|i never expected|nobody knew|the truth is|i never thought|what happened was|all of a sudden)\b/i.test(text);
     const conflict=/\b(no estoy de acuerdo|estás equivocado|es una locura|me parece fatal|no tiene sentido|estoy harto|no soporto|polémica|controversia|i disagree|you're wrong|that's insane|makes no sense|i'm fed up|can't stand|controversial)\b/i.test(text);
     const stakes=/\b(gané|perdí|eliminad[oa]|descalificad[oa]|me echaron|me despidieron|decidimos|decidió|se acabó|rompimos|descubrimos|won|lost|eliminated|disqualified|fired me|we decided|it was over|we broke up|discovered)\b/i.test(text);
+    // Story signals look for an actual anecdote arc, not just isolated viral-sounding words.
+    const anecdote=/\b(una vez|el otro día|hace unos días|cuando era|cuando fui|me pasó|me ocurrió|estaba en|íbamos|fui a|one time|the other day|a few days ago|when i was|when i went|it happened to me|i was at|we were going|i went to)\b/i.test(text);
+    const progression=/\b(hasta que|pero entonces|y de repente|al cabo de|después de eso|al final|and then|until suddenly|but then|after that|eventually|in the end)\b/i.test(text);
+    const strongOpinion=/\b(para mí|en mi opinión|yo creo que|lo mejor es|lo peor es|me parece que|i think|in my opinion|for me|the best part|the worst part|i believe)\b/i.test(text);
+    const closingReaction=/\b(jaj+a+|risas?|carcajadas?|no puede ser|qué fuerte|madre mía|hostia|buah|wow|no way|oh my god|you are kidding|are you serious|that's crazy)\b/i.test(closingTokens);
     const concreteDetail=(text.match(/(?:\b\d{1,4}(?:[.,]\d+)?\s?(?:euros?|€|dólares?|\$|por ciento|%|años?|días?|horas?|kilos?|kg)\b|\b\d{2,4}\b)/gi)||[]).length;
     const specificityScore=Math.min(5,concreteDetail*1.5);
     const fillerCount=(text.match(filler)||[]).length;
@@ -508,7 +513,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     const rawScore = 15 + durationScore*10 + paceScore*12 + lexicalScore*8 +
       (hookAtStart?12:0) + (questionAtStart?12:0) + Math.min(6,questionCount*1.5) + Math.min(10,exclamationCount*2.5) + turnScore +
       Math.min(14,laughCount*7) + Math.min(18,reactionCount*4) + (pivot?8:0) + (hasSetup?6:0) + (hasTurn?6:0) +
-      (payoffAtEnd?8:0) + (questionAnswered?16:0) + (shortAnswerReaction?18:0) + (answerClosedAtEnd?12:0) + (questionHasAnswer?8:0) + (pivot&&completeEnd?5:0) + (completeEnd?7:0) + (revelation?10:0) + (conflict?7:0) + (stakes?9:0) + specificityScore + acousticScore + visualScore - Math.min(12,fillerCount*.8) -
+      (payoffAtEnd?8:0) + (questionAnswered?16:0) + (shortAnswerReaction?18:0) + (answerClosedAtEnd?12:0) + (questionHasAnswer?8:0) + (pivot&&completeEnd?5:0) + (completeEnd?7:0) + (revelation?10:0) + (conflict?7:0) + (stakes?9:0) + (anecdote?7:0) + (progression?8:0) + (strongOpinion?4:0) + (closingReaction?5:0) + specificityScore + acousticScore + visualScore - Math.min(12,fillerCount*.8) -
       (questionAtStart&&!questionHasAnswer?9:0) - (questionCount>=3&&!questionAnswered?5:0) - (abruptStart?18:0) - (fragmentStart?14:0) - (!completeEnd?8:0) - (promotional?55:0) - (wordsPerSecond<1.1?8:0);
     // Compress the raw weighted sum to avoid the previous ceiling effect where
     // several very different moments all received 100/100.
@@ -527,6 +532,10 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     if(revelation)reasons.push('revelación o giro narrativo');
     if(conflict)reasons.push('conflicto u opinión contundente');
     if(stakes)reasons.push('resultado o consecuencia relevante');
+    if(anecdote&&progression)reasons.push('anécdota con desarrollo narrativo');
+    else if(anecdote)reasons.push('experiencia personal concreta');
+    if(strongOpinion)reasons.push('opinión definida');
+    if(closingReaction)reasons.push('reacción o remate al cierre');
     if(specificityScore>=3)reasons.push('detalle concreto que aporta contexto');
     if(completeEnd)reasons.push('cierre natural');
     if(energy.length && acousticScore >= 8)reasons.push('energía y dinámica de audio');
