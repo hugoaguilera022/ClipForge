@@ -899,7 +899,8 @@ function parseEditorialDecision(raw, candidates, limit = 4, requireAudit = false
   if (!match) throw new Error('El editor IA no devolvió una selección estructurada.');
   const data = JSON.parse(match[0]);
   if (!Array.isArray(data.selected)) throw new Error('La respuesta del editor IA no contiene una lista de selección.');
-  const selectionLimit=Math.max(1,Math.min(12,Math.floor(Number(limit)||4)));\n  const used = new Set(), selected = [];
+  const selectionLimit=Math.max(1,Math.min(12,Math.floor(Number(limit)||4)));
+  const used = new Set(), selected = [];
   for (const item of data.selected) {
     const id = Number(item.id);
     if (!Number.isInteger(id) || id < 1 || id > candidates.length || used.has(id)) continue;
