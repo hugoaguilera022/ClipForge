@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
-const source=fs.readFileSync('static/browser-whisper-v2.js','utf8');
+const source=fs.readFileSync('static/browser-whisper.js','utf8');
 function extract(name){const sync=source.indexOf(`function ${name}(`),async=source.indexOf(`async function ${name}(`),a=async>=0&&(sync<0||async<sync)?async:sync;assert.ok(a>=0,name);const body=source.indexOf(') {',a)+2;let d=0,b=-1;for(let i=body;i<source.length;i++){if(source[i]==='{')d++;else if(source[i]==='}'&&--d===0){b=i+1;break;}}assert.ok(b>a,name+' parses');return source.slice(a,b);}
 const ctx={console,Set,Math,Number,String,Array,JSON};vm.createContext(ctx);
 for(const name of ['buildEditorialCandidatePool','parseEditorialDecision','askEditorialModel','aiEditorialSelect'])vm.runInContext(extract(name)+`;this.${name}=${name};`,ctx);
