@@ -858,6 +858,13 @@ class EditorialMomentQualityTests(unittest.TestCase):
   self.assertIn('(weakOpening?18:0)',source)
   self.assertIn('(transitionOnly?22:0)',source)
 
+ def test_fallback_penalizes_clips_that_stitch_next_speaker_intro_to_prior_punchline(self):
+  source=(ROOT/'static'/'browser-whisper.js').read_text()
+  self.assertIn('const handoffIntroMatch=',source)
+  self.assertIn('const newSceneTail=',source)
+  self.assertIn('(newSceneTail?22:0)',source)
+  self.assertIn('pregunta sin respuesta ni remate',source)
+
  def test_four_clip_selection_penalizes_near_duplicate_topics(self):
   source=(ROOT/'static'/'browser-whisper.js').read_text()
   self.assertIn('const lexicalSimilarity=',source)
