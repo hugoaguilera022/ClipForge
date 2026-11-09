@@ -659,7 +659,7 @@ function rerankWithSemanticEmbeddings(candidates, embeddings, limit = 4) {
 // Runs locally through WebGPU: no API key, no paid inference endpoint, no upload.
 let editorialEnginePromise = null;
 async function loadEditorialJudge(onProgress = () => {}) {
-  const remoteUrl=String(document.querySelector('#editorialRemoteUrl')?.value||localStorage.getItem('clipforge.editorial.remoteUrl')||'').trim().replace(/\\/$/,'');
+  const remoteUrl=String(document.querySelector('#editorialRemoteUrl')?.value||localStorage.getItem('clipforge.editorial.remoteUrl')||'').trim().replace(/\/$/,'');
   const remoteToken=String(document.querySelector('#editorialRemoteToken')?.value||localStorage.getItem('clipforge.editorial.remoteToken')||'').trim();
   if(remoteUrl&&remoteToken){
     if(!/^https:\/\//i.test(remoteUrl))throw new Error('La URL del motor remoto debe comenzar por https://');
@@ -1246,7 +1246,7 @@ window.dispatchEvent(new CustomEvent('clipforge:editor-ready'));
 // ClipForge multilingual editorial engine revision 94094108.
 
 document.querySelector('#saveEditorialRemote')?.addEventListener('click',()=>{
-  const url=String(document.querySelector('#editorialRemoteUrl')?.value||'').trim().replace(/\\/$/,'');
+  const url=String(document.querySelector('#editorialRemoteUrl')?.value||'').trim().replace(/\/$/,'');
   const token=String(document.querySelector('#editorialRemoteToken')?.value||'').trim();
   if(url&&!/^https:\/\//i.test(url)){say('La URL debe comenzar por https://');return;}
   if(Boolean(url)!==Boolean(token)){say('Introduce tanto la URL como la clave temporal de Colab.');return;}
