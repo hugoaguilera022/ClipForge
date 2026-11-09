@@ -797,7 +797,8 @@ function readFreeAIKeys(){try{return JSON.parse(localStorage.getItem(FREE_AI_KEY
 function saveFreeAIKeys(values){const clean={};for(const id of Object.keys(FREE_AI_PROVIDERS)){const key=String(values[id]||'').trim();if(key)clean[id]=key;}localStorage.setItem(FREE_AI_KEYS,JSON.stringify(clean));return clean;}
 function configuredFreeAIProviders(){const keys=readFreeAIKeys();return Object.keys(FREE_AI_PROVIDERS).filter(id=>keys[id]).map(id=>({id,...FREE_AI_PROVIDERS[id],key:keys[id]}));}
 let freeAIRoundRobin=0;
-function createFederatedFreeAIEngine(providers,onProgress){
+function createFederatedFreeAIEngine(providers,onProgress,localFallback=null){
+ let localEnginePromise=null;
  const cooldown=new Map();
  return {isRemote:true,providerChain:providers.map(p=>p.id),chat:{completions:{create:async options=>{
   const now=Date.now(),ready=providers.filter(p=>(cooldown.get(p.id)||0)<=now);
@@ -814,6 +815,7 @@ function createFederatedFreeAIEngine(providers,onProgress){
     return data;
    }catch(error){errors.push(String(error.message||error));cooldown.set(provider.id,Math.max(cooldown.get(provider.id)||0,Date.now()+30000));}
   }
+  if(localFallback){onProgress('Cuotas externas agotadas: activando Qwen3 local como último juez…');localEnginePromise=localEnginePromise||localFallback();const local=await localEnginePromise;return local.chat.completions.create(options);}
   throw new Error('Todos los proveedores IA gratuitos configurados están temporalmente indisponibles. '+errors.join(' | '));
  }}}};
 }
@@ -829,26 +831,29 @@ function initFreeAIProviderSettings(){
  if(status)status.textContent=Object.keys(readFreeAIKeys()).length+' proveedor(es) configurado(s). Las claves nunca se envían a ClipForge/Render.';
 }
 initFreeAIProviderSettings();
+async function loadLocalEditorialJudge(onProgress=()=>{}){
+ if(!navigator.gpu)throw new Error('No hay WebGPU para el modelo local Qwen3.');
+ const adapter=await navigator.gpu.requestAdapter({powerPreference:'high-performance'});
+ if(!adapter)throw new Error('No se ha encontrado una GPU compatible con WebGPU.');
+ if(!editorialEnginePromise){
+  editorialEnginePromise=(async()=>{
+   onProgress('Preparando el editor IA local Qwen3-1.7B…');
+   const webllm=await import('https://esm.sh/@mlc-ai/web-llm@0.2.87');
+   const modelId='Qwen3-1.7B-q4f16_1-MLC';
+   const record=webllm.prebuiltAppConfig.model_list.find(item=>item.model_id===modelId);
+   if(!record)throw new Error('La versión instalada de WebLLM no incluye Qwen3-1.7B compatible.');
+   const appConfig={...webllm.prebuiltAppConfig,cacheBackend:'opfs',opfsAccessMode:'auto'};
+   return await webllm.CreateMLCEngine(modelId,{appConfig,initProgressCallback:report=>onProgress(report?.text||'Descargando el modelo editorial IA…')});
+  })().catch(error=>{editorialEnginePromise=null;throw error;});
+ }
+ return editorialEnginePromise;
+}
 async function loadEditorialJudge(onProgress = () => {}) {
-  const freeProviders=configuredFreeAIProviders();
-  if(freeProviders.length)return createFederatedFreeAIEngine(freeProviders,onProgress);
-  const remote=getColabEditorConfig();
-  if(remote){onProgress('Conectando con Qwen3 4B en tu sesión temporal de Colab…');return createRemoteEditorialEngine(remote);}
-  if (!navigator.gpu) throw new Error('No hay conexión a Colab y este navegador no ofrece WebGPU. Abre Google Colab, inicia el motor gratuito y conecta su URL y token aquí; o usa un navegador/dispositivo compatible con WebGPU.');
-  const adapter=await navigator.gpu.requestAdapter({powerPreference:'high-performance'});
-  if(!adapter)throw new Error('No se ha encontrado una GPU compatible con WebGPU. Puedes conectar el motor gratuito de Google Colab.');
-  if (!editorialEnginePromise) {
-    editorialEnginePromise = (async () => {
-      onProgress('Preparando el editor IA local Qwen3-1.7B…');
-      const webllm = await import('https://esm.sh/@mlc-ai/web-llm@0.2.87');
-      const modelId = 'Qwen3-1.7B-q4f16_1-MLC';
-      const record=webllm.prebuiltAppConfig.model_list.find(item=>item.model_id===modelId);
-      if(!record)throw new Error('La versión instalada de WebLLM no incluye el modelo editorial Qwen3-1.7B compatible.');
-      const appConfig = {...webllm.prebuiltAppConfig, cacheBackend:'opfs', opfsAccessMode:'auto'};
-      return await webllm.CreateMLCEngine(modelId,{appConfig,initProgressCallback:report=>onProgress(report?.text||'Descargando el modelo editorial IA…')});
-    })().catch(error=>{editorialEnginePromise=null;throw error;});
-  }
-  return editorialEnginePromise;
+ const freeProviders=configuredFreeAIProviders();
+ if(freeProviders.length)return createFederatedFreeAIEngine(freeProviders,onProgress,()=>loadLocalEditorialJudge(onProgress));
+ const remote=getColabEditorConfig();
+ if(remote){onProgress('Conectando con Qwen3 4B en tu sesión temporal de Colab…');return createRemoteEditorialEngine(remote);}
+ return loadLocalEditorialJudge(onProgress);
 }
 
 // Approximate per-video resource estimate. Browsers do not expose exact free RAM,
