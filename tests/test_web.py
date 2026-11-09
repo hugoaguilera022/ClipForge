@@ -863,3 +863,14 @@ class EditorialMomentQualityTests(unittest.TestCase):
   self.assertIn('const lexicalSimilarity=',source)
   self.assertIn('const duplicatePenalty=Math.max(0,maxSimilarity-.34)*28',source)
   self.assertIn('const noveltyBonus=',source)
+
+ def test_short_answer_followup_detects_question_reaction_and_confirmation(self):
+  source=(ROOT/'static'/'browser-whisper.js').read_text()
+  self.assertIn('const confirmationReaction=',source)
+  self.assertIn('const shortAnswerFollowup=utterances.some',source)
+  self.assertIn('answerWords<=12&&followup',source)
+  self.assertIn('(shortAnswerFollowup?18:0)',source)
+
+ def test_fallback_samples_moments_at_finer_intervals(self):
+  source=(ROOT/'static'/'browser-whisper.js').read_text()
+  self.assertIn('const stepSeconds=1.25;',source)
