@@ -1099,7 +1099,7 @@ async function aiEditorialSelect(candidates, limit = 4, onProgress = () => {}) {
   if(finalists.length>limit){
     try{
       onProgress('Segundo modelo IA: comparando similitud semántica y diversidad temática…');
-      finalPool=await semanticRerankCandidates(finalists,Math.min(6,finalists.length),onProgress);
+      finalPool=await semanticRerankCandidates(finalists,Math.min(Math.max(6,limit),finalists.length),onProgress);
     }catch(semanticError){
       console.warn('Modelo semántico opcional no disponible; continúa el juez editorial principal.',semanticError);
       onProgress('El modelo semántico opcional no está disponible; continúa el juez editorial principal…');
@@ -1130,7 +1130,7 @@ async function aiEditorialSelect(candidates, limit = 4, onProgress = () => {}) {
   const audit=await engine.chat.completions.create({messages:[
     {role:'system',content:'Actúas como revisor editorial independiente. Busca motivos para DESCARTAR, no para confirmar. Responde solo JSON válido.'},
     {role:'user',content:auditPrompt}
-  ],temperature:0.05,max_tokens:700,response_format:{type:'json_object'}});
+  ],temperature:0.05,max_tokens:Math.min(4096,700+limit*260),response_format:{type:'json_object'}});
   const audited=parseEditorialDecision(audit?.choices?.[0]?.message?.content||'',finalPool,limit,true,engine.isRemote?'remote_generative_editor':'local_generative_editor');
   const firstKeys=new Set(firstVote.map(c=>`${c.start.toFixed(1)}-${c.end.toFixed(1)}`));
   return audited.map((clip,index)=>({...clip,
@@ -1176,6 +1176,22 @@ async function semanticRerankCandidates(candidates, limit = 4, onProgress = () =
   }
 }
 
+// Daily AI clip budget: local device-based cap, persisted per browser profile.
+const DAILY_CLIP_BUDGET_KEY='clipforge.ai-clips-daily.v1';
+function getDailyClipBudget(){
+  const memory=Number(navigator.deviceMemory)||4;
+  const max=memory>=8?90:memory>=4?60:30;
+  const today=new Date().toISOString().slice(0,10);
+  let record={date:today,used:0};
+  try{const saved=JSON.parse(localStorage.getItem(DAILY_CLIP_BUDGET_KEY)||'null');if(saved?.date===today)record={date:today,used:Math.max(0,Math.floor(Number(saved.used)||0))};}catch{}
+  return {date:today,used:record.used,max,remaining:Math.max(0,max-record.used)};
+}
+function recordDailyAIClips(count){
+  const budget=getDailyClipBudget();
+  const used=Math.min(budget.max,budget.used+Math.max(0,Math.floor(Number(count)||0)));
+  try{localStorage.setItem(DAILY_CLIP_BUDGET_KEY,JSON.stringify({date:budget.date,used}));}catch{}
+  return getDailyClipBudget();
+}
 let editableCandidates=[];
 function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=null,visualSamples=[]) {
  const panel=document.querySelector('#browserCandidates'),list=document.querySelector('#browserCandidateList');
@@ -1311,8 +1327,14 @@ runButton?.addEventListener('click', async () => {
       if (candidatePool.length > 0) {
         try {
           if(candidatePool.length<4)throw new Error('No se han generado cuatro ventanas válidas para comparar.');
-          say(`Se han preparado ${candidatePool.length} ventanas neutrales. El editor IA comparará todas, sin preselección por puntuación heurística…`);
-          candidatePool = await aiEditorialSelect(candidatePool, 4, say);
+          const dailyBudget=getDailyClipBudget();
+          if(dailyBudget.remaining<1)throw new Error('Has alcanzado el límite diario estimado de '+dailyBudget.max+' clips IA. Se reinicia mañana; el contador es local a este navegador.');
+          const requested=Math.min(12,dailyBudget.remaining,candidatePool.length);
+          if(requested<1)throw new Error('No quedan clips en el presupuesto diario de IA.');
+          say(`Se han preparado ${candidatePool.length} ventanas. La IA comparará los candidatos y podrá elegir ${requested} clips en este vídeo. Presupuesto diario: ${dailyBudget.used}/${dailyBudget.max} usados.`);
+          candidatePool = await aiEditorialSelect(candidatePool, requested, say);
+          const updatedBudget=recordDailyAIClips(candidatePool.length);
+          say(`Selección IA completada: ${candidatePool.length} clips. Presupuesto diario: ${updatedBudget.used}/${updatedBudget.max}; quedan ${updatedBudget.remaining}.`);
         } catch (editorError) {
           console.error('El editor IA local no está disponible o no ha devuelto una selección válida.', editorError);
           // Keep the workflow usable when WebGPU or the local generative model
