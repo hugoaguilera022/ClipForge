@@ -4,7 +4,8 @@ import vm from 'node:vm';
 
 const source=fs.readFileSync('static/browser-whisper-v2.js','utf8');
 function extract(name){
-  const asyncStart=source.indexOf(`async function ${name}(`);\n  const start=asyncStart>=0?asyncStart:source.indexOf(`function ${name}(`);
+  const asyncStart=source.indexOf(`async function ${name}(`);
+  const start=asyncStart>=0?asyncStart:source.indexOf(`function ${name}(`);
   assert.ok(start>=0,name);
   let depth=0,end=-1,body=source.indexOf(') {',start)+2;
   for(let i=body;i<source.length;i++){
