@@ -416,7 +416,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     const openingTokens=(text.match(/\S+/g)||[]).slice(0,8).join(' ');
     const closingTokens=(text.match(/\S+/g)||[]).slice(-8).join(' ');
     const hookAtStart=strongHook.test(openingTokens);
-    const questionAtStart=/^\\s*[¿]/.test(text);
+    const questionAtStart=/^\s*[¿]/.test(text);
     const payoffAtEnd=payoff.test(closingTokens);
     const questionAnswered=/[¿?]/.test(text)&&/\b(claro|efectivamente|exactamente|ya te avisaremos|te avisaremos|te lo digo|así es|eso es|there it is|turns out)\b/i.test(text);
     const answerClosedAtEnd=/\b(avisaremos|te lo digo|así es|eso es|there it is|turns out)\s*[.!?]?$/i.test(closingTokens);
@@ -488,7 +488,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
   const editorialCandidates=candidates.filter(c=>!c.promotional);
   const ranked=editorialCandidates.map(c=>{
     const laterNearDuplicate=candidates.some(other=>
-      other.start>c.start&&other.start-c.start<=18&&overlapRatio(c,other)>=.5&&other.score>=c.score&&other.score<=c.score+6&&(strongHook.test(c.text.slice(0,90))||/^\\s*[¿]/.test(c.text))
+      other.start>c.start&&other.start-c.start<=18&&overlapRatio(c,other)>=.5&&other.score>=c.score&&other.score<=c.score+6&&(strongHook.test(c.text.slice(0,90))||/^\s*[¿]/.test(c.text))
     );
     const preservesContext=candidates.some(other=>
       other.start>c.start&&other.start-c.start<=18&&overlapRatio(c,other)>=.5&&c.duration>=other.duration+5
