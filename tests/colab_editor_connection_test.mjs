@@ -34,6 +34,7 @@ const context={
   }
 };
 vm.createContext(context);
+vm.runInContext("const COLAB_EDITOR_KEY='clipforge.colab.editor.v1'; let editorialEnginePromise=null;",context);
 for(const name of ['getColabEditorConfig','createRemoteEditorialEngine','connectColabEditorialEngine','loadEditorialJudge']){
   vm.runInContext(extract(name)+`;this.${name}=${name};`,context);
 }
