@@ -934,8 +934,8 @@ function parseEditorialDecision(raw, candidates, limit = 4, requireAudit = false
     });
     if (selected.length >= selectionLimit) break;
   }
-  if (selected.length !== Math.min(4, candidates.length, Math.max(1, limit))) {
-    throw new Error('El editor IA no ha devuelto cuatro candidatos válidos y distintos.');
+  if (selected.length !== Math.min(selectionLimit, candidates.length)) {
+    throw new Error('El editor IA no ha devuelto '+selectionLimit+' candidatos válidos y distintos.');
   }
   return selected.sort((a,b) => a.start - b.start).map((clip,i) => ({...clip,title:clip.title || `Clip ${i+1}`}));
 }
