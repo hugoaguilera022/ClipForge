@@ -269,7 +269,8 @@ function makeVtt(segments) {
   }catch(error){console.warn('Análisis visual local no disponible:',error);return [];}
   finally{video.removeAttribute('src');video.load();URL.revokeObjectURL(url);}
  }
-\n// Editorial ranking: balanced hooks, coherent setup/payoff, dialogue, pace and clean boundaries.
+
+// Editorial ranking: balanced hooks, coherent setup/payoff, dialogue, pace and clean boundaries.
 // Las puntuaciones heurísticas no equivalen a una predicción de viralidad.
 // It is a transparent local editorial score, not a promise of virality or a copy of OpusClip's model.
 function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRate = 16000, visualSamples = []) {
