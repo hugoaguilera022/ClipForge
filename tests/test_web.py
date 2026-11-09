@@ -602,6 +602,10 @@ class BrowserClipCandidateTests(unittest.TestCase):
   self.assertIn('Prefer a natural endpoint around 24–30 seconds',module)
   self.assertIn('if(chosen.length<selectionLimit)',module)
   self.assertIn('let candidatePool = rankClipCandidates(transcriptData.segments, audio.length / 16000, audio, 16000, visualSamples, 12)',module)
+  self.assertIn('candidatePool = await aiEditorialSelect(candidatePool, 4, say)',module)
+  self.assertIn('Qwen3-1.7B-q4f16_1-MLC',module)
+  self.assertIn('selection_method: \'local_generative_editor\'',module)
+  self.assertIn('no se presentan cortes heurísticos como selección IA',module)
   self.assertIn('const shortQuestion=',module)
   self.assertIn('const sentenceEnd = /(?<![.])[.!?]',module)
 
