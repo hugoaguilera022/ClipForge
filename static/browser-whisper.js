@@ -394,7 +394,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
       const nextText=clean.slice(index+1,Math.min(clean.length,index+10)).map(w=>w.text).join(' ');
       const nextGap=index+1<clean.length?clean[index+1].start-clean[index].end:99;
       const followupReaction=nextGap<2.5&&(/[!¡]/.test(nextText)||/\b(uy|hala|ahí va|wow|no way|oh my god)\b/i.test(nextText));
-      const handoff=/\b(pásale al siguiente|pasamos al siguiente|vamos con el siguiente|momento de descartar|continúa el vídeo|siguiente|next one|next person|moving on)\b/i.test(ending);
+      const handoff=/\b(pásale al siguiente|pasamos al siguiente|vamos con el siguiente|momento de descartar|continúa el vídeo|siguiente|next one|next person|moving on)\b/i.test(whole);
       return Math.abs((clean[index].end-start)-targetLen)-semanticBonus-(complete?1.5:0)+(followupReaction?8:0)+(handoff?18:0)+(unfinishedFollowup?12:0);
     };
     endIndex=possible.sort((x,y)=>endpointCost(x)-endpointCost(y))[0];
