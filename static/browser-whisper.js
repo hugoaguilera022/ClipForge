@@ -613,7 +613,9 @@ runButton?.addEventListener('click', async () => {
     // Free the large ONNX/Whisper session before video rendering. Keeping it
     // alive caused Chromium to run out of memory while exporting long clips.
     await releaseWhisperModel();
-    const chunks = result.chunks || [];\n    say('Analizando cambios visuales del vídeo localmente para complementar la transcripción…');\n    const visualSamples = await captureVisualActivity(file,audio.length/16000,4);
+    const chunks = result.chunks || [];
+    say('Analizando cambios visuales del vídeo localmente para complementar la transcripción…');
+    const visualSamples = await captureVisualActivity(file,audio.length/16000,4);
     transcriptData = {
       source: file.name, model: activeModelId, language: result.language || sourceLanguage,
       generated_at: new Date().toISOString(), text: result.text || '',
