@@ -747,6 +747,6 @@ class YouTubeProxyValidationTests(unittest.TestCase):
   self.assertIn('id="browserYoutubeUrl"',html)
   self.assertIn('id="browserYoutubeRights"',html)
   self.assertIn('id="loadBrowserYoutube"',html)
-  self.assertIn('clipforge-youtube-ingest.onrender.com',module)
+  self.assertIn('clipforge-youtube-importer.onrender.com',module)
   self.assertIn("rights_confirmed: true",module)
   self.assertIn("new File([new Blob(chunks, {type: 'video/mp4'})]",module)
