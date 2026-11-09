@@ -91,7 +91,7 @@ class ServiceWorkerCacheRegressionTests(unittest.TestCase):
  def test_service_worker_invalidates_old_cache_and_prefers_network(self):
   source=(ROOT/"static/sw.js").read_text()
   self.assertIn("clipforge-web-v144",source)
-  self.assertIn("clipforge-web-v179",source)
+  self.assertIn("clipforge-web-v180",source)
   self.assertIn("'/browser-whisper.js'",source)
   self.assertIn("self.addEventListener('activate'",source)
   self.assertIn("key.startsWith('clipforge-web-')&&key!==CACHE",source)
@@ -522,12 +522,12 @@ class RuntimeTruthfulnessTests(unittest.TestCase):
 class BrowserWhisperIntegrationTests(unittest.TestCase):
  def test_browser_transcriber_module_is_served_by_static_route(self):
   source=(ROOT/'server.py').read_text()
-  self.assertIn("'browser-whisper-v2.js'",source)
-  self.assertIn("'browser-whisper-v2.js':'text/javascript'",source)
+  self.assertIn("'browser-whisper.js'",source)
+  self.assertIn("'browser-whisper.js':'text/javascript'",source)
   html=(ROOT/'static/index.html').read_text()
   self.assertIn('id="browserTranscribe"',html)
-  self.assertIn('type="module" src="/browser-whisper-v2.js"',html)
-  module=(ROOT/'static/browser-whisper-v2.js').read_text()
+  self.assertIn('type="module" src="/browser-whisper.js"',html)
+  module=(ROOT/'static/browser-whisper.js').read_text()
   self.assertIn("import('https://esm.sh/@huggingface/transformers@3.7.2')",module)
   self.assertIn("language: result.language || sourceLanguage",module)
   self.assertIn("return_timestamps: timestampMode",module)
@@ -575,7 +575,7 @@ class BrowserFaceTrackingTests(unittest.TestCase):
 
 class BrowserClipCandidateTests(unittest.TestCase):
  def test_browser_candidate_ranker_uses_timestamps_and_returns_four_non_overlapping_clips(self):
-  module=(ROOT/'static'/'browser-whisper-v2.js').read_text()
+  module=(ROOT/'static'/'browser-whisper.js').read_text()
   self.assertIn('function buildEditorialCandidatePool',module)
   self.assertIn('function aiEditorialSelect',module)
   self.assertIn('No heuristic score decides which candidates survive',module)
@@ -595,7 +595,7 @@ class BrowserClipCandidateTests(unittest.TestCase):
 
  def test_candidate_ui_labels_heuristic_scores_honestly(self):
   html=(ROOT/'static'/'index.html').read_text()
-  module=(ROOT/'static'/'browser-whisper-v2.js').read_text()
+  module=(ROOT/'static'/'browser-whisper.js').read_text()
   self.assertIn('Selección editorial IA',html)
   self.assertIn('no se presentan cortes heurísticos como selección IA',module)
   self.assertIn('id="videoCapacity"',html)
