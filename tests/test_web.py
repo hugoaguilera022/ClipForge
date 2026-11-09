@@ -680,14 +680,15 @@ class BroadVideoContainerSupportTests(unittest.TestCase):
 
 
 class MultilingualBrowserTranscriptionTests(unittest.TestCase):
- def test_browser_whisper_does_not_force_spanish_for_every_source(self):
+ def test_browser_whisper_uses_the_selected_source_language(self):
   source=(ROOT/"static"/"browser-whisper.js").read_text()
-  self.assertIn("language,\\n      task: 'transcribe'",source)
-  self.assertIn("const sourceLanguage = document.querySelector('[name=\\\"language\\\"]')?.value || 'es'",source)
+  self.assertIn("async function transcribeAudioInChunks(asr, audio, onProgress = () => {}, timestampMode = 'word', language = 'es')",source)
+  self.assertIn("language,",source)
+  self.assertIn("const sourceLanguage",source)
   self.assertNotIn("language: 'spanish'",source)
   self.assertIn("text.toLowerCase()",source)
   html=(ROOT/"static"/"index.html").read_text()
   for code in ("fr","de","pt","it","ja","zh","ar","ru","hi","ko"):
-   self.assertIn(f'value=\\\"{code}\\\"',html)
+   self.assertIn(f'value="{code}"',html)
   backend=(ROOT/"server.py").read_text()
   self.assertIn("language not in SUPPORTED_LANGUAGES",backend)
