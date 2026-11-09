@@ -839,7 +839,7 @@ class ConversationalPunchlineFallbackTests(unittest.TestCase):
   source=(ROOT/'static'/'browser-whisper.js').read_text()
   self.assertIn('const questionAnswerExchange=utterances.some',source)
   self.assertIn('answerWords<=9&&followupReaction',source)
-  self.assertIn('(questionAnswerExchange?14:0)',source)
+  self.assertIn('(questionAnswerExchange?22:0)',source)
   self.assertIn('pregunta, respuesta breve y réplica inmediata',source)
 
 class EditorialMomentQualityTests(unittest.TestCase):
@@ -847,7 +847,7 @@ class EditorialMomentQualityTests(unittest.TestCase):
   source=(ROOT/'static'/'browser-whisper.js').read_text()
   self.assertIn('const completeConversationBeat=',source)
   self.assertIn('const multiTurnExchange=utteranceCount>=4',source)
-  self.assertIn('(completeConversationBeat?13:0)',source)
+  self.assertIn('(completeConversationBeat?15:0)',source)
   self.assertIn('(dialogueProgression?6:0)',source)
   self.assertIn('intercambio completo: pregunta, respuesta y reacción',source)
 
