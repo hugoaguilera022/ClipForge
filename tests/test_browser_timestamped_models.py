@@ -14,7 +14,8 @@ def test_browser_whisper_uses_word_and_phrase_timestamp_modes():
     assert 'onnx-community/whisper-base\'' not in js
     assert 'const minLen = 15, maxLen = 45, targetLen = 24;' in js
     assert 'buildEditorialCandidatePool(transcriptData.segments, audio.length / 16000, audio, visualSamples, 16000)' in js
-    assert 'candidatePool = await aiEditorialSelect(candidatePool, 4, say)' in js
+    assert 'candidatePool = await aiEditorialSelect(candidatePool, requested, say)' in js
+    assert 'const requested=4;' in js
     assert 'no se presentan cortes heurísticos como selección IA' in js
     assert 'let asrModelId = null;' in js
     assert 'asrModelId !== modelId' in js
