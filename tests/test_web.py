@@ -685,6 +685,7 @@ class MultilingualBrowserTranscriptionTests(unittest.TestCase):
   self.assertIn("async function transcribeAudioInChunks(asr, audio, onProgress = () => {}, timestampMode = 'word', language = 'es')",source)
   self.assertIn("language,",source)
   self.assertIn("const sourceLanguage",source)
+  self.assertIn('id="browserWhisperLanguage"',(ROOT/"static"/"index.html").read_text())
   self.assertNotIn("language: 'spanish'",source)
   self.assertIn("text.toLowerCase()",source)
   html=(ROOT/"static"/"index.html").read_text()
