@@ -573,7 +573,7 @@ class BrowserFaceTrackingTests(unittest.TestCase):
 class BrowserClipCandidateTests(unittest.TestCase):
  def test_browser_candidate_ranker_uses_timestamps_and_returns_four_non_overlapping_clips(self):
   module=(ROOT/'static'/'browser-whisper.js').read_text()
-  self.assertIn('function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRate = 16000)',module)
+  self.assertIn('function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRate = 16000, visualSamples = [])',module)
   self.assertIn('overlapRatio(c,other)>=.5',module)
   self.assertIn('const lastEnd=Math.max(clean[clean.length-1].end,videoDuration)',module)
   self.assertIn('const quarter=(lastEnd-firstStart)/4',module)
@@ -596,7 +596,7 @@ class BrowserClipCandidateTests(unittest.TestCase):
   self.assertIn('claro|ya te avisaremos|te avisaremos|no|sí',module)
   self.assertIn('Prefer a natural endpoint around 24–30 seconds',module)
   self.assertIn('if(chosen.length<4)',module)
-  self.assertIn('showClipCandidates(transcriptData.segments, audio.length / 16000, null, audio)',module)
+  self.assertIn('showClipCandidates(transcriptData.segments, audio.length / 16000, null, audio, visualSamples)',module)
 
  def test_candidate_ranker_supports_english_hooks_and_dialogue_turns(self):
   module=(ROOT/'static'/'browser-whisper.js').read_text()
@@ -647,7 +647,7 @@ class ManualBrowserRenderIntegrationTests(unittest.TestCase):
 class ProjectRestoreRegressionTests(unittest.TestCase):
  def test_imported_project_reuses_same_editable_candidate_controls(self):
   module=(ROOT/'static'/'browser-whisper.js').read_text()
-  self.assertIn('function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=null)',module)
+  self.assertIn('function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=null,visualSamples=[])',module)
   self.assertIn('showClipCandidates([],duration,editableCandidates)',module)
   self.assertIn('Selección local basada en transcripción, coherencia, interacción, ritmo, energía de audio y cierre',module)
  def test_import_no_longer_restores_read_only_cards(self):
@@ -684,7 +684,7 @@ class MultilingualBrowserTranscriptionTests(unittest.TestCase):
   source=(ROOT/"static"/"browser-whisper.js").read_text()
   self.assertIn("async function transcribeAudioInChunks(asr, audio, onProgress = () => {}, timestampMode = 'word', language = 'es')",source)
   self.assertIn("language,",source)
-  self.assertIn("const sourceLanguage",source)
+  self.assertIn("const sourceLanguage",source)\n  self.assertIn('function captureVisualActivity(file, duration, stepSeconds = 4)',source)\n  self.assertIn('movimiento y cambios visuales',source)
   self.assertIn('id="browserWhisperLanguage"',(ROOT/"static"/"index.html").read_text())
   self.assertNotIn("language: 'spanish'",source)
   self.assertIn("text.toLowerCase()",source)
