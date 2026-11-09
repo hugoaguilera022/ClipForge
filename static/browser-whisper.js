@@ -313,7 +313,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
   const selectionLimit=Math.max(1,Math.min(12,Math.floor(Number(limit)||4)));
 
   const minLen = 15, maxLen = 45, targetLen = 24;
-  const sentenceEnd = /[.!?][”’\"')\]]?$/;
+  const sentenceEnd = /(?<![.])[.!?](?![.])[”’\"')\]]?$/;
   const strongHook = /(?<![\p{L}\p{N}_])(¿qué|quién|cómo|por qué|qué pasa|no me digas|madre mía|increíble|imagina|resulta que|la verdad|nunca|jamás|te juro|no sabía|de repente|en serio|qué fuerte|qué locura|qué dices|a ver si|dime|tell me|what|who|how|why|guess what|you will not believe|unbelievable|imagine|turns out|never|suddenly|seriously|that is crazy|no way)(?![\p{L}\p{N}_])/iu;
   const payoff = /(?<![\p{L}\p{N}_])(al final|resulta que|y entonces|por eso|exactamente|efectivamente|claro|ya te avisaremos|te avisaremos|no|sí|eso|ahí|pues|ya está|lo consiguió|lo he hecho|no puede ser|in the end|turns out|that is why|exactly|actually|that is it|he did it|I did it|cannot believe|there it is|finalement|en fait|exactement|bien sûr|voilà|c’est ça|por fim|no final|na verdade|exatamente|no fim|am ende|genau|natürlich|tatsächlich|so ist es|ecco|alla fine|esattamente|certo|è così)(?![\p{L}\p{N}_])/iu;
   const emotional = /(?<![\p{L}\p{N}_])(risa|risas|riendo|llor|miedo|vergüenza|sorpresa|increíble|brutal|absurdo|ridículo|flipante|hostia|joder|buah|ostras|madre mía|qué fuerte|dios|ja ja|jajaja|puf|potencia|a huevo|bolas|laugh|laughing|cry|scared|embarrassed|surprised|insane|crazy|ridiculous|awesome|damn|wow|oh my god|no way|rire|rires|mort de rire|fou|incroyable|peur|honte|surpris|wahnsinn|verrückt|angst|peinlich|überrascht|lachen|risada|risadas|louco|medo|vergonha|surpreso|risate|pazzesco|paura|imbarazzo|sorpreso)(?![\p{L}\p{N}_])/iu;
@@ -393,7 +393,8 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     const firstUtterance=clean.slice(si,firstUtteranceEnd+1).map(w=>w.text).join(' ').trim();
     const firstUtteranceWords=(firstUtterance.match(/[\\p{L}\\p{N}]{2,}/gu)||[]).length;
     const terseReply=/^(?:sí|si|no|claro|vale|exacto|exactamente|eso|ya|ajá|aja|right|yeah|yes|nope|exactly|sure|okay|ok|of course)[.!?,…]*$/i.test(firstUtterance);
-    if(terseReply&&firstUtteranceWords<=3){
+    const shortQuestion=/^(?:¿?(?:cómo es|qué es|quién es|qué pasó|qué|quién|cómo|why|what|who|how)\??)$/i.test(firstUtterance);
+    if((terseReply&&firstUtteranceWords<=3)||(shortQuestion&&firstUtteranceWords<=4)){
       let contextStart=si;
       for(let p=si-1;p>=0&&clean[si].start-clean[p].start<=8.5;p--){
         if(clean[p+1].start-clean[p].end>1.2)break;
