@@ -379,17 +379,21 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
   const quarter=(lastEnd-firstStart)/4;
   const chosen=[];
   const fits=c=>chosen.every(x=>c.end<=x.start-2.5||c.start>=x.end+2.5);
-  for(let bucket=0;bucket<4;bucket++){
-    const low=firstStart+quarter*bucket;
-    const high=bucket===3?lastEnd+0.001:low+quarter;
-    const best=ranked.find(x=>x.clip.start>=low&&x.clip.start<high&&fits(x.clip));
-    if(best)chosen.push(best.clip);
-  }
-  if(chosen.length<4){
+  // Prefer a spread across the source without forcing a weak clip from a
+  // quiet quarter. A soft diversity penalty lets a stronger moment replace
+  // a low-scoring regional pick while still discouraging near-duplicates.
+  while(chosen.length<4){
+    let best=null,bestScore=-Infinity;
     for(const item of ranked){
-      if(chosen.length===4)break;
-      if(!chosen.includes(item.clip)&&fits(item.clip))chosen.push(item.clip);
+      const c=item.clip;
+      if(chosen.includes(c)||!fits(c))continue;
+      const bucket=Math.min(3,Math.floor((c.start-firstStart)/Math.max(quarter,.001)));
+      const sameQuarter=chosen.filter(x=>Math.min(3,Math.floor((x.start-firstStart)/Math.max(quarter,.001)))===bucket).length;
+      const diversityAdjusted=item.selectionScore-sameQuarter*11;
+      if(diversityAdjusted>bestScore){best=item;bestScore=diversityAdjusted;}
     }
+    if(!best)break;
+    chosen.push(best.clip);
   }
   return chosen.sort((a,b)=>a.start-b.start).map((c,i)=>({...c,title:`Momento ${i+1}`}));
 }
