@@ -659,7 +659,21 @@ function rerankWithSemanticEmbeddings(candidates, embeddings, limit = 4) {
 // Runs locally through WebGPU: no API key, no paid inference endpoint, no upload.
 let editorialEnginePromise = null;
 async function loadEditorialJudge(onProgress = () => {}) {
-  if (!navigator.gpu) throw new Error('Este navegador no ofrece WebGPU. Para usar el editor IA local, abre ClipForge en Chrome o Edge actualizado.');
+  const remoteUrl=String(document.querySelector('#editorialRemoteUrl')?.value||localStorage.getItem('clipforge.editorial.remoteUrl')||'').trim().replace(/\\/$/,'');
+  const remoteToken=String(document.querySelector('#editorialRemoteToken')?.value||localStorage.getItem('clipforge.editorial.remoteToken')||'').trim();
+  if(remoteUrl&&remoteToken){
+    if(!/^https:\/\//i.test(remoteUrl))throw new Error('La URL del motor remoto debe comenzar por https://');
+    onProgress('Conectando con el motor editorial de Google Colab…');
+    return {chat:{completions:{create:async({messages,temperature=0.12,max_tokens=700,response_format})=>{
+      const response=await fetch(remoteUrl,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+remoteToken},body:JSON.stringify({model:'qwen2.5:3b-instruct-q4_K_M',messages,stream:false,options:{temperature,num_predict:max_tokens},...(response_format?.type==='json_object'?{format:'json'}:{})})});
+      if(!response.ok)throw new Error('Motor Colab respondió HTTP '+response.status+'. Comprueba que la sesión siga activa y que la URL y el token sean correctos.');
+      const data=await response.json();
+      const content=data?.message?.content;
+      if(!content)throw new Error('El motor Colab no devolvió contenido editorial.');
+      return {choices:[{message:{content}}]};
+    }}}};
+  }
+  if (!navigator.gpu) throw new Error('No hay motor editorial remoto configurado y este navegador no ofrece WebGPU. Abre Chrome/Edge con WebGPU o conecta Google Colab.');
   const adapter=await navigator.gpu.requestAdapter();
   if(!adapter)throw new Error('No se ha encontrado un adaptador WebGPU disponible en este dispositivo.');
   if (!editorialEnginePromise) {
