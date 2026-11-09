@@ -791,3 +791,13 @@ class BrowserMultiPersonTrackingFallbackTests(unittest.TestCase):
   source=(ROOT/'static'/'browser-export.js').read_text()
   self.assertIn('}else if(!seen.length&&poseLandmarker){',source)
   self.assertNotIn('}else if(!faces.length&&poseLandmarker){',source)
+
+
+class BrowserGroupFramingSafetyTests(unittest.TestCase):
+ def test_multiple_visible_faces_do_not_trigger_ambiguous_single_face_crop(self):
+  source=(ROOT/'static'/'browser-export.js').read_text()
+  self.assertIn('}else if(seen.length>1){',source)
+  group=source.split('}else if(seen.length>1){',1)[1].split('}else if(!seen.length&&poseLandmarker){',1)[0]
+  self.assertIn('lastFaceCenter=null;',group)
+  self.assertIn('activeSpeakerTrack=null;',group)
+  self.assertIn('mouth motion alone is not reliable',group)
