@@ -157,7 +157,7 @@ async function toMono16k(blob) {
 // bounded windows so long interviews do not require one huge inference buffer.
 // A 2-second overlap protects words at boundaries; duplicate words are removed
 // by their absolute timestamps and normalized text.
-async function transcribeAudioInChunks(asr, audio, onProgress = () => {}, timestampMode = 'word', language = 'es') {
+async function transcribeAudioInChunks(asr, audio, onProgress = () => {}, timestampMode = 'word', language = null) {
   const sampleRate = 16000;
   const windowSeconds = 28;
   const overlapSeconds = 2;
@@ -171,9 +171,9 @@ async function transcribeAudioInChunks(asr, audio, onProgress = () => {}, timest
   for (let startSample = 0, part = 0; startSample < audio.length; startSample += stepSamples, part++) {
     const endSample = Math.min(audio.length, startSample + windowSamples);
     const result = await asr(audio.subarray(startSample, endSample), {
-      // Explicit source language avoids Whisper's English default corrupting
-      // Spanish and other non-English videos. Accept common Whisper language codes.
-      language,
+      // A selected language improves consistency; undefined lets Whisper detect
+      // whether the source is Spanish or English automatically.
+      language: language || undefined,
       task: 'transcribe',
       return_timestamps: timestampMode
     });
@@ -610,7 +610,8 @@ runButton?.addEventListener('click', async () => {
     const reportProgress = (percent, current, total) => {
       say(`Transcribiendo vídeo: ${percent}% · fragmento ${current}/${total}`);
     };
-    const sourceLanguage = document.querySelector('#browserWhisperLanguage')?.value || document.querySelector('[name="language"]')?.value || 'es';
+    const selectedLanguage = document.querySelector('#browserWhisperLanguage')?.value || 'auto';
+    const sourceLanguage = selectedLanguage === 'auto' ? undefined : selectedLanguage;
     let activeModelId = modelId;
     let result;
     try {
