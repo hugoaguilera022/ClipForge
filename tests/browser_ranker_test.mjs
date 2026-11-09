@@ -97,6 +97,33 @@ assert.ok(!semanticSelected.some(clip=>clip.text.startsWith('The same lost train
 assert.ok(semanticSelected.every(clip=>Number.isFinite(clip.semanticScore)&&clip.semanticScore>=0&&clip.semanticScore<=100),'semantic diversity scores must stay within 0–100');
 console.log('Semantic reranker passed: four clips selected with duplicate-topic suppression.');
 
+// When the optional embedding download fails, the local fallback must still
+// select four high-quality, non-overlapping and lexically distinct moments.
+const fallbackStart=source.indexOf('function rerankWithoutEmbeddings(');
+assert.notEqual(fallbackStart,-1,'local no-network fallback must exist');
+let fallbackDepth=0,fallbackEnd=-1;
+for(let i=source.indexOf('{',fallbackStart);i<source.length;i++){
+  if(source[i]==='{')fallbackDepth++;
+  else if(source[i]==='}'&&--fallbackDepth===0){fallbackEnd=i+1;break;}
+}
+assert.notEqual(fallbackEnd,-1,'local fallback must parse as a complete function');
+vm.runInContext(source.slice(fallbackStart,fallbackEnd)+'; this.localFallback=rerankWithoutEmbeddings;',context);
+const fallbackCandidates=[
+ {start:0,end:20,score:96,text:'The lost train story and the funny mistake at the station.'},
+ {start:22,end:42,score:94,text:'The same lost train story and funny mistake at the station.'},
+ {start:50,end:70,score:88,text:'A surprise birthday party with everyone cheering loudly.'},
+ {start:80,end:100,score:85,text:'The coach explains the final goal and team celebration.'},
+ {start:110,end:130,score:83,text:'A chef reveals the secret ingredient in a chocolate cake.'},
+ {start:140,end:160,score:80,text:'A storm suddenly changes the sailing trip at sea.'}
+];
+const fallbackSelected=context.localFallback(fallbackCandidates,4);
+assert.equal(fallbackSelected.length,4,'local fallback must return four clips');
+assert.ok(!fallbackSelected.some(c=>c.text.startsWith('The same lost train')),'local fallback must penalize repeated topics');
+for(let i=1;i<fallbackSelected.length;i++)assert.ok(fallbackSelected[i].start>=fallbackSelected[i-1].end+1,'local fallback clips must not overlap');
+assert.ok(fallbackSelected.every(c=>c.selected===true),'local fallback must mark selected clips for export');
+console.log('Local fallback passed: four distinct clips without downloading semantic embeddings.');
+
+
 
 // English dialogue regression: hooks, payoff and Unicode-safe tokenization.
 const englishDialogue = [
