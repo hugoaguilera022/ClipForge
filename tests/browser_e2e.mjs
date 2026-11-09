@@ -15,7 +15,7 @@ try {
   await page.waitForFunction(() => document.body.dataset.browserOnly === 'true', undefined, {timeout:10000});
   const browserMode = await page.evaluate(() => ({
     hiddenServerPanels: ['.publish','.channel-panel','.inbox-panel','.history-panel'].every(selector => document.querySelector(selector)?.hidden),
-    hiddenServerControls: ['.url-source','.transcript-drop','.form-grid','#submit','.browser-auto-generate'].every(selector => document.querySelector(selector)?.hidden),
+    hiddenServerControls: ['.url-source','.transcript-drop','.form-grid','#submit','.browser-auto-generate'].every(selector => !document.querySelector(selector) || document.querySelector(selector).hidden),
     directUrlVisible: !document.querySelector('.browser-url-import')?.hidden,
     filePickerVisible: !!document.querySelector('#video') && !document.querySelector('#video').disabled
   }));
