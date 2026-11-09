@@ -832,3 +832,12 @@ class ViralMomentFallbackSignalsTests(unittest.TestCase):
   self.assertIn('(progression?8:0)',source)
   self.assertIn('anécdota con desarrollo narrativo',source)
 
+
+
+class ConversationalPunchlineFallbackTests(unittest.TestCase):
+ def test_short_question_answer_followup_is_scored_as_a_complete_editorial_beat(self):
+  source=(ROOT/'static'/'browser-whisper.js').read_text()
+  self.assertIn('const questionAnswerExchange=utterances.some',source)
+  self.assertIn('answerWords<=9&&followupReaction',source)
+  self.assertIn('(questionAnswerExchange?14:0)',source)
+  self.assertIn('pregunta, respuesta breve y réplica inmediata',source)
