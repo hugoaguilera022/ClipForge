@@ -273,7 +273,7 @@ function makeVtt(segments) {
 // Editorial ranking: balanced hooks, coherent setup/payoff, dialogue, pace and clean boundaries.
 // Las puntuaciones heurísticas no equivalen a una predicción de viralidad.
 // It is a transparent local editorial score, not a promise of virality or a copy of OpusClip's model.
-function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRate = 16000, visualSamples = []) {
+function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRate = 16000, visualSamples = [], limit = 4) {
   // Lightweight acoustic profile from the already-decoded audio. It adds a
   // free, on-device signal for energetic moments and avoids sending media away.
   const audioWindow = 0.5;
@@ -293,6 +293,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
   const energyFloor = quantile(.2), energyMedian = quantile(.5), energyTop = quantile(.9);
   const energySpan = Math.max(1e-5, energyTop - energyFloor);
   const visualAvailable=visualSamples.length>1;
+  const selectionLimit=Math.max(1,Math.min(12,Math.floor(Number(limit)||4)));
 
   const minLen = 15, maxLen = 45, targetLen = 24;
   const sentenceEnd = /[.!?…][”’"')\]]?$/;
@@ -340,7 +341,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
       if(options.length)chosen.push(options.sort((a,b)=>b.score-a.score)[0]);
     }
     for(const c of [...candidates].sort((a,b)=>b.score-a.score)){
-      if(chosen.length>=Math.min(4,candidates.length))break;
+      if(chosen.length>=Math.min(selectionLimit,candidates.length))break;
       if(!chosen.some(x=>c.start<x.end+1&&c.end>x.start-1))chosen.push(c);
     }
     return chosen.sort((a,b)=>a.start-b.start).map((c,i)=>({...c,title:`Momento ${i+1}`}));
@@ -504,7 +505,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
   // Coverage is a soft preference, never a hard quota: forcing one weak clip
   // into every quarter can make the result worse than choosing four genuinely
   // strong moments. Each uncovered quarter gets a small diversity bonus.
-  while(chosen.length<4){
+  while(chosen.length<selectionLimit){
     const represented=new Set(chosen.map(bucketOf));
     const options=ranked.filter(item=>!chosen.includes(item.clip)&&fits(item.clip));
     if(!options.length)break;
@@ -517,15 +518,92 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
   }
   // If long edits leave fewer than four slots, make one second pass with a
   // tighter one-second breathing gap. Never overlap clips or fabricate cuts.
-  if(chosen.length<4){
+  if(chosen.length<selectionLimit){
     for(const item of ranked){
-      if(chosen.length>=4)break;
+      if(chosen.length>=selectionLimit)break;
       const c=item.clip;
       if(chosen.includes(c)||chosen.some(x=>!(c.end<=x.start-1||c.start>=x.end+1)))continue;
       chosen.push(c);
     }
   }
   return chosen.sort((a,b)=>a.start-b.start).map((c,i)=>({...c,title:`Momento ${i+1}`}));
+}
+
+function rerankWithSemanticEmbeddings(candidates, embeddings, limit = 4) {
+  if (!Array.isArray(candidates) || !Array.isArray(embeddings) || candidates.length !== embeddings.length) {
+    return (candidates || []).slice(0, limit);
+  }
+  const cosine = (a, b) => {
+    if (!a?.length || a.length !== b?.length) return 0;
+    let dot = 0, aa = 0, bb = 0;
+    for (let i = 0; i < a.length; i++) {
+      const x = Number(a[i]), y = Number(b[i]);
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return 0;
+      dot += x * y; aa += x * x; bb += y * y;
+    }
+    return dot / Math.max(1e-9, Math.sqrt(aa * bb));
+  };
+  const remaining = candidates.map((clip, index) => ({clip, index}));
+  const chosen = [];
+  const count = Math.max(1, Math.min(4, Math.floor(Number(limit) || 4)));
+  while (chosen.length < count && remaining.length) {
+    const ranked = remaining.map(item => {
+      const similarities = chosen.map(previous => cosine(embeddings[item.index], embeddings[previous.index]));
+      const maxSimilarity = similarities.length ? Math.max(...similarities) : 0;
+      const diversity = similarities.length ? Math.max(0, 1 - maxSimilarity) : 1;
+      const penalty = similarities.length ? Math.max(0, maxSimilarity - 0.78) * 34 : 0;
+      const bonus = similarities.length ? diversity * 8 : 0;
+      return {...item, maxSimilarity, diversity, finalScore: Number(item.clip.score || 0) + bonus - penalty};
+    }).sort((a, b) => b.finalScore - a.finalScore);
+    chosen.push(ranked[0]);
+    remaining.splice(remaining.findIndex(item => item.index === ranked[0].index), 1);
+  }
+  return chosen
+    .sort((a, b) => Number(a.clip.start) - Number(b.clip.start))
+    .map((item, index) => ({
+      ...item.clip,
+      title: `Clip ${index + 1}`,
+      score: Math.max(0, Math.min(100, Math.round(item.finalScore))),
+      semanticScore: Math.round(item.diversity * 100),
+      reasons: [...new Set([...(item.clip.reasons || []), item.maxSimilarity > 0.82 ? 'contenido diferenciado frente a los otros clips' : 'diversidad temática revisada'])].slice(0, 4),
+      selected: true
+    }));
+}
+
+async function semanticRerankCandidates(candidates, limit = 4, onProgress = () => {}) {
+  if (!Array.isArray(candidates) || candidates.length < 2 || !candidates.some(clip => String(clip.text || '').trim())) {
+    return (candidates || []).slice(0, limit);
+  }
+  const {pipeline, env} = await import('https://esm.sh/@huggingface/transformers@3.7.2');
+  env.allowLocalModels = false;
+  env.useBrowserCache = true;
+  const extractor = await pipeline(
+    'feature-extraction',
+    'Xenova/paraphrase-multilingual-MiniLM-L12-v2',
+    {
+      dtype: 'q8',
+      progress_callback: progress => {
+        if (progress.status === 'progress') onProgress(`Descargando modelo semántico gratuito: ${progress.file || ''} · ${Math.round(progress.progress || 0)}%`);
+        else if (progress.status) onProgress(`Modelo semántico: ${progress.status}`);
+      }
+    }
+  );
+  try {
+    const embeddings = [];
+    for (let i = 0; i < candidates.length; i++) {
+      onProgress(`Comparando el sentido de los candidatos: ${i + 1}/${candidates.length}…`);
+      const text = String(candidates[i].text || '').trim().slice(0, 2200);
+      const output = await extractor(text, {pooling: 'mean', normalize: true});
+      const vector = Array.from(output.data || []);
+      if (!vector.length || vector.some(value => !Number.isFinite(value))) {
+        throw new Error('El modelo semántico no devolvió un vector válido.');
+      }
+      embeddings.push(vector);
+    }
+    return rerankWithSemanticEmbeddings(candidates, embeddings, limit);
+  } finally {
+    try { await extractor.dispose?.(); } catch {}
+  }
 }
 
 let editableCandidates=[];
@@ -543,7 +621,7 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
  };
  editableCandidates.forEach((c,i)=>{
   const card=document.createElement('article');card.className='candidate-card';
-  const heading=document.createElement('strong');heading.textContent=`${c.title} · potencial editorial (heurístico) ${c.score}/100`;
+  const heading=document.createElement('strong');heading.textContent=`${c.title} · potencial editorial ${c.score}/100${Number.isFinite(c.semanticScore)?` · diversidad semántica ${c.semanticScore}/100`:''}`;
   const rationale=document.createElement('small');rationale.className='candidate-rationale';rationale.textContent=(c.reasons||[]).join(' · ')||'Conversación con cierre natural';
   const preview=document.createElement('button');preview.type='button';preview.className='secondary preview-clip-candidate';preview.textContent='Vista previa';preview.addEventListener('click',()=>window.clipforgeEditorBridge?.previewClip?.(c));
   const selectLabel=document.createElement('label');selectLabel.className='candidate-select';
@@ -559,7 +637,7 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
   a.addEventListener('change',update);b.addEventListener('change',update);note.addEventListener('input',update);
   row.append(a,b);card.append(heading,rationale,preview,selectLabel,row,note);list.append(card);
  });
- const info=document.createElement('p');info.textContent='Selección local basada en transcripción, coherencia, interacción, ritmo, energía de audio y cierre. Revisa los cuatro momentos: la puntuación orienta, no predice viralidad.';list.append(info);sync();
+ const info=document.createElement('p');info.textContent='Selección local basada en transcripción, coherencia, interacción, ritmo, energía de audio y diversidad semántica cuando el modelo gratuito está disponible. Revisa los cuatro momentos: la puntuación orienta, no predice viralidad.';list.append(info);sync();
  window.dispatchEvent(new CustomEvent('clipforge:clips-updated'));
 }
 
@@ -659,7 +737,18 @@ runButton?.addEventListener('click', async () => {
       ? transcriptData.segments.map(s => `[${s.start.toFixed(2)}–${s.end.toFixed(2)}] ${s.text}`).join('\n')
       : (result.text || 'El modelo no devolvió texto temporizado.');
     if (transcriptData.segments.length) {
-      showClipCandidates(transcriptData.segments, audio.length / 16000, null, audio, visualSamples);
+      let candidatePool = rankClipCandidates(transcriptData.segments, audio.length / 16000, audio, 16000, visualSamples, 8);
+      if (candidatePool.length > 1) {
+        try {
+          say('Evaluando la coherencia y diversidad de los momentos con un modelo semántico gratuito en este dispositivo…');
+          candidatePool = await semanticRerankCandidates(candidatePool, 4, say);
+        } catch (semanticError) {
+          console.warn('El reranker semántico no está disponible; se conserva la selección heurística.', semanticError);
+          candidatePool = candidatePool.slice(0, 4);
+          say('Modelo semántico no disponible; usando selección heurística local.');
+        }
+      }
+      showClipCandidates(transcriptData.segments, audio.length / 16000, candidatePool, audio, visualSamples);
       const vtt = makeVtt(transcriptData.segments);
       const attached = attachTranscriptToJobForm(vtt);
       say(`Transcripción lista: ${transcriptData.segments.length} fragmentos temporizados. ${attached ? 'Subtítulos y cortes seleccionados conectados al formulario de producción.' : 'Descarga el JSON para conservarla.'} Whisper no identifica hablantes.`);
