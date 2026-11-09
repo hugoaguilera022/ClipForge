@@ -1027,8 +1027,11 @@ runButton?.addEventListener('click', async () => {
           candidatePool = await aiEditorialSelect(candidatePool, 4, say);
         } catch (editorError) {
           console.error('El editor IA local no está disponible o no ha devuelto una selección válida.', editorError);
-          showClipCandidates(transcriptData.segments, audio.length / 16000, [], audio, visualSamples);
-          say(`No se ha confirmado una selección profesional: ${editorError.message}. Se conservan la transcripción y el vídeo; no se presentan cortes heurísticos como selección IA. Prueba con Chrome o Edge actualizado y WebGPU activado.`);
+          // Keep the workflow usable when WebGPU or the local generative model
+          // is unavailable. This is an explicitly labelled heuristic fallback,
+          // never presented as an AI editorial decision.
+          showClipCandidates(transcriptData.segments, audio.length / 16000, null, audio, visualSamples);
+          say(`El editor IA local no está disponible (${editorError.message}). Se han generado candidatos de respaldo mediante reglas locales para que puedas revisarlos y exportarlos; no se presentan como selección editorial IA. Para la selección generativa, usa Chrome/Edge actualizado con WebGPU.`);
           return;
         }
       }
