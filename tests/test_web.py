@@ -576,6 +576,8 @@ class BrowserClipCandidateTests(unittest.TestCase):
   self.assertIn('const quarter=(lastEnd-firstStart)/4',module)
   self.assertIn('const diversityAdjusted=item.selectionScore-sameQuarter*11',module)
   self.assertIn('while(chosen.length<4)',module)
+  versioned=(ROOT/'static'/'browser-whisper-v178.js').read_text()
+  self.assertIn('const diversityAdjusted=item.selectionScore-sameQuarter*11',versioned)
   self.assertIn('other.score<=c.score+6',module)
   self.assertIn('c.start>=x.end+2.5',module)
   self.assertIn('selectionScore:c.score+',module)
