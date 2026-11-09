@@ -446,7 +446,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
       if(index<1||index>=utterances.length-1)return false;
       const before=utteranceText(utterances[index-1]),answer=utteranceText(items),after=utteranceText(utterances[index+1]);
       const answerWords=(answer.match(/[\p{L}\p{N}]{2,}/gu)||[]).length;
-      return /[?¿]\s*[”’\"')\]]?$/.test(before)&&answerWords>=1&&answerWords<=5&&(/[!¡]/.test(after)||new RegExp(reactionWord.source,reactionWord.flags).test(after));
+      return /[?¿]\s*[”’\"')\]]?$/.test(before)&&answerWords>=1&&answerWords<=5&&(/[!¡]/.test(after)||new RegExp(reactionWord.source,reactionWord.flags.replace('g','')).test(after));
     });
     const hasSetup=/\b(pero|porque|cuando|si|aunque|resulta que|me dijo|y entonces|imagina|una vez)\b/i.test(text);
     const hasTurn=/\b(pero|aunque|sin embargo|de repente|entonces|al final|resulta que|y va|me dijo|y me dice)\b/i.test(text);
