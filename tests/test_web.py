@@ -772,3 +772,15 @@ class BrowserAudioExtractionRobustnessTests(unittest.TestCase):
   source=(ROOT/'static'/'browser-whisper.js').read_text()
   self.assertIn('} finally {\n    // Explicitly release demuxer/decoder resources',source)
   self.assertIn('input.dispose();',source)
+
+
+class BrowserVideoExportRobustnessTests(unittest.TestCase):
+ def test_mov_export_falls_back_to_measured_video_track_duration(self):
+  source=(ROOT/'static'/'browser-export.js').read_text()
+  self.assertIn('const metadataDuration=await input.getDurationFromMetadata();',source)
+  self.assertIn(': await sourceTrack?.computeDuration();',source)
+  self.assertIn('mediante metadatos ni midiendo la pista de vídeo',source)
+
+ def test_export_releases_mediabunny_input_after_conversion(self):
+  source=(ROOT/'static'/'browser-export.js').read_text()
+  self.assertIn('poseLandmarker?.close?.();input.dispose();',source)
