@@ -144,7 +144,7 @@ async function toMono16k(blob) {
 // bounded windows so long interviews do not require one huge inference buffer.
 // A 2-second overlap protects words at boundaries; duplicate words are removed
 // by their absolute timestamps and normalized text.
-async function transcribeAudioInChunks(asr, audio, onProgress = () => {}, timestampMode = 'word') {
+async function transcribeAudioInChunks(asr, audio, onProgress = () => {}, timestampMode = 'word', language = 'es') {
   const sampleRate = 16000;
   const windowSeconds = 28;
   const overlapSeconds = 2;
@@ -158,8 +158,9 @@ async function transcribeAudioInChunks(asr, audio, onProgress = () => {}, timest
   for (let startSample = 0, part = 0; startSample < audio.length; startSample += stepSamples, part++) {
     const endSample = Math.min(audio.length, startSample + windowSamples);
     const result = await asr(audio.subarray(startSample, endSample), {
-      // Leave language unset: Whisper detects the spoken language per chunk.
-      // Forcing Spanish made every non-Spanish source produce bad transcripts.
+      // Explicit source language avoids Whisper's English default corrupting
+      // Spanish and other non-English videos. Accept common Whisper language codes.
+      language,
       task: 'transcribe',
       return_timestamps: timestampMode
     });
@@ -531,6 +532,7 @@ runButton?.addEventListener('click', async () => {
     const reportProgress = (percent, current, total) => {
       say(`Transcribiendo vídeo: ${percent}% · fragmento ${current}/${total}`);
     };
+    const sourceLanguage = document.querySelector('[name="language"]')?.value || 'es';
     let activeModelId = modelId;
     let result;
     try {
@@ -540,7 +542,7 @@ runButton?.addEventListener('click', async () => {
         await loadModel(modelId);
       }
       say('Transcribiendo en fragmentos para reducir memoria y evitar límites de 30 segundos…');
-      result = await transcribeAudioInChunks(asr, audio, reportProgress, model === 'whisper-small' ? true : 'word');
+      result = await transcribeAudioInChunks(asr, audio, reportProgress, model === 'whisper-small' ? true : 'word', sourceLanguage);
       if (model === 'whisper-small' && !(result.chunks || []).length) {
         throw new Error('Whisper Small no devolvió marcas de tiempo utilizables.');
       }
@@ -551,14 +553,14 @@ runButton?.addEventListener('click', async () => {
       asr = null;
       asrModelId = null;
       await loadModel(activeModelId);
-      result = await transcribeAudioInChunks(asr, audio, reportProgress, 'word');
+      result = await transcribeAudioInChunks(asr, audio, reportProgress, 'word', sourceLanguage);
       if (!(result.chunks || []).length) {
         throw new Error(`Whisper Base tampoco devolvió marcas de tiempo. Error de Small: ${transcriptionError.message}`);
       }
     }
     const chunks = result.chunks || [];
     transcriptData = {
-      source: file.name, model: activeModelId, language: result.language || 'auto',
+      source: file.name, model: activeModelId, language: result.language || sourceLanguage,
       generated_at: new Date().toISOString(), text: result.text || '',
       // transcribeAudioInChunks already converts model-local timestamps to
       // absolute source-video seconds and returns {start, end, text} objects.
