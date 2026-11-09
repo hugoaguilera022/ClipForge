@@ -478,13 +478,26 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
       const followupReaction=/[?¿!¡]/.test(after)||new RegExp(reactionWord.source,reactionWord.flags.replace('g','')).test(after)||/\\b(no|pero|cómo|por qué|en serio|de verdad|really|wait|but)\\b/i.test(after);
       return /[?¿]\\s*[”’\"')\\]]?$/.test(before)&&answerWords>=1&&answerWords<=9&&followupReaction;
     });
+    // Score the shape of the conversation, not just isolated words.
+    // A complete exchange has a setup, an answer and a reaction/follow-up;
+    // a longer back-and-forth is stronger evidence of a real moment.
+    const utteranceCount=utterances.length;
+    const hasQuestionUtterance=utterances.some(items=>/[?¿]/.test(utteranceText(items)));
+    const hasAnswerUtterance=utterances.some((items,index)=>index>0&&index<utterances.length-1&&
+      (utteranceText(items).match(/[\p{L}\p{N}]{2,}/gu)||[]).length>=1);
+    const hasReactionUtterance=utterances.some((items,index)=>index>0&&
+      (/[!¡]/.test(utteranceText(items))||new RegExp(reactionWord.source,reactionWord.flags.replace('g','')).test(utteranceText(items))));
+    const completeConversationBeat=hasQuestionUtterance&&hasAnswerUtterance&&hasReactionUtterance;
+    const multiTurnExchange=utteranceCount>=4;
+    const dialogueProgression=utteranceCount>=3&&turnCount>=(phraseTimed?2:4);
     // Questions are only strong short-form moments when the selected window
-    // also contains an intelligible answer or a clear payoff. A question mark
-    // by itself is not an editorial hook.
+    // also contains an intelligible answer or a clear payoff.
     const questionHasAnswer=questionCount>0&&(
-      questionAnswered||shortAnswerReaction||answerClosedAtEnd||
+      questionAnswered||shortAnswerReaction||questionAnswerExchange||answerClosedAtEnd||
       /\b(porque|por eso|resulta que|la razón|es que|because|that's why|the reason|turns out|actually)\b/i.test(text)
     );
+    const weakOpening=/^(?:bienvenidos|buenas(?: tardes| noches)?|hola,? buenas|formato nuevo|arrancamos|empezamos|antes de que continúe|oye,? antes de|welcome back|hello everyone|new format|let's get started)\b/i.test(text.trim());
+    const transitionOnly=/\b(?:pasamos al siguiente|vamos con el siguiente|siguiente participante|continuamos con|momento de publicidad|antes de continuar el vídeo|moving on to the next|next contestant)\b/i.test(text.trim());
     const hasSetup=/\b(pero|porque|cuando|si|aunque|resulta que|me dijo|y entonces|imagina|una vez)\b/i.test(text);
     const hasTurn=/\b(pero|aunque|sin embargo|de repente|entonces|al final|resulta que|y va|me dijo|y me dice)\b/i.test(text);
     // Additional capped editorial signals: narrative reveal, conflict, stakes
@@ -523,8 +536,8 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     const rawScore = 15 + durationScore*10 + paceScore*12 + lexicalScore*8 +
       (hookAtStart?12:0) + (questionAtStart?12:0) + Math.min(6,questionCount*1.5) + Math.min(10,exclamationCount*2.5) + turnScore +
       Math.min(14,laughCount*7) + Math.min(18,reactionCount*4) + (pivot?8:0) + (hasSetup?6:0) + (hasTurn?6:0) +
-      (payoffAtEnd?8:0) + (questionAnswered?16:0) + (shortAnswerReaction?18:0) + (questionAnswerExchange?14:0) + (answerClosedAtEnd?12:0) + (questionHasAnswer?8:0) + (pivot&&completeEnd?5:0) + (completeEnd?7:0) + (revelation?10:0) + (conflict?7:0) + (stakes?9:0) + (anecdote?7:0) + (progression?8:0) + (strongOpinion?4:0) + (closingReaction?5:0) + specificityScore + acousticScore + visualScore - Math.min(12,fillerCount*.8) -
-      (questionAtStart&&!questionHasAnswer?9:0) - (questionCount>=3&&!questionAnswered?5:0) - (abruptStart?18:0) - (fragmentStart?14:0) - (!completeEnd?8:0) - (promotional?55:0) - (wordsPerSecond<1.1?8:0);
+      (payoffAtEnd?8:0) + (questionAnswered?16:0) + (shortAnswerReaction?18:0) + (questionAnswerExchange?14:0) + (completeConversationBeat?13:0) + (multiTurnExchange?5:0) + (dialogueProgression?6:0) + (answerClosedAtEnd?12:0) + (questionHasAnswer?8:0) + (pivot&&completeEnd?5:0) + (completeEnd?7:0) + (revelation?10:0) + (conflict?7:0) + (stakes?9:0) + (anecdote?7:0) + (progression?8:0) + (strongOpinion?4:0) + (closingReaction?5:0) + specificityScore + acousticScore + visualScore - Math.min(12,fillerCount*.8) -
+      (questionAtStart&&!questionHasAnswer?9:0) - (questionCount>=3&&!questionAnswered?5:0) - (abruptStart?18:0) - (fragmentStart?14:0) - (!completeEnd?8:0) - (promotional?55:0) - (weakOpening?18:0) - (transitionOnly?22:0) - (wordsPerSecond<1.1?8:0);
     // Compress the raw weighted sum to avoid the previous ceiling effect where
     // several very different moments all received 100/100.
     const score = Math.max(0, Math.min(100, Math.round(rawScore / 1.5)));
@@ -539,6 +552,8 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     if(questionAnswered)reasons.push('pregunta y respuesta');
     if(shortAnswerReaction)reasons.push('respuesta breve con reacción');
     if(questionAnswerExchange)reasons.push('pregunta, respuesta breve y réplica inmediata');
+    if(completeConversationBeat)reasons.push('intercambio completo: pregunta, respuesta y reacción');
+    if(multiTurnExchange&&dialogueProgression)reasons.push('conversación con desarrollo y varios turnos');
     if(answerClosedAtEnd)reasons.push('remate completo al final');
     if(revelation)reasons.push('revelación o giro narrativo');
     if(conflict)reasons.push('conflicto u opinión contundente');
@@ -551,7 +566,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     if(completeEnd)reasons.push('cierre natural');
     if(energy.length && acousticScore >= 8)reasons.push('energía y dinámica de audio');
     if(visualChanges.length && visualScore>=3)reasons.push('movimiento y cambios visuales');
-    candidates.push({start,end,duration,score,text,promotional,reasons:[...new Set(reasons)].slice(0,3)});
+    candidates.push({start,end,duration,score,text,promotional,editorial_signals:{complete_conversation_beat:completeConversationBeat,multi_turn_exchange:multiTurnExchange,dialogue_progression:dialogueProgression,weak_opening:weakOpening,transition_only:transitionOnly},reasons:[...new Set(reasons)].slice(0,4)});
     nextStart=start+stepSeconds;
   }
   // Add a small boundary bonus when a slightly earlier window preserves
@@ -572,6 +587,17 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     );
     return {clip:c,selectionScore:c.score+(laterNearDuplicate?12:0)+(preservesContext?3:0)};
   }).sort((a,b)=>b.selectionScore-a.selectionScore);
+  // Token overlap is a lightweight topic-duplication guard for the free local
+  // fallback. It is deliberately applied during the four-clip selection,
+  // rather than after ranking, so the best four are diverse as a set.
+  const diversityStopWords=new Set('the and for that with this from have your you are was were but then when what why how who where como que para por una uno unos unas los las del con sin sus pero porque cuando donde quien cual este esta esto eso ellos ellas nosotros vosotros ella de y a en un es se al lo mi tu me te yo'.split(' '));
+  const diversityTokens=value=>new Set((String(value||'').toLocaleLowerCase().match(/[\p{L}\p{N}]{2,}/gu)||[]).filter(token=>!diversityStopWords.has(token)));
+  const lexicalSimilarity=(left,right)=>{
+    const a=diversityTokens(left),b=diversityTokens(right);
+    if(!a.size||!b.size)return 0;
+    let shared=0;for(const token of a)if(b.has(token))shared++;
+    return shared/Math.max(1,a.size+b.size-shared);
+  };
   const firstStart=clean[0].start;
   const lastEnd=Math.max(clean[clean.length-1].end,videoDuration);
   const quarter=(lastEnd-firstStart)/4;
@@ -586,9 +612,15 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     const options=ranked.filter(item=>!chosen.includes(item.clip)&&fits(item.clip));
     if(!options.length)break;
     options.sort((a,b)=>{
-      const scoreA=a.selectionScore+(represented.has(bucketOf(a.clip))?0:3);
-      const scoreB=b.selectionScore+(represented.has(bucketOf(b.clip))?0:3);
-      return scoreB-scoreA;
+      const marginal=item=>{
+        const similarities=chosen.map(previous=>lexicalSimilarity(item.clip.text,previous.text));
+        const maxSimilarity=similarities.length?Math.max(...similarities):0;
+        const duplicatePenalty=Math.max(0,maxSimilarity-.34)*28;
+        const noveltyBonus=similarities.length?(1-maxSimilarity)*2:0;
+        const coverageBonus=represented.has(bucketOf(item.clip))?0:3;
+        return item.selectionScore+noveltyBonus+coverageBonus-duplicatePenalty;
+      };
+      return marginal(b)-marginal(a);
     });
     chosen.push(options[0].clip);
   }
