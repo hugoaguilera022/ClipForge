@@ -1244,3 +1244,18 @@ window.clipforgeEditorBridge = {
 window.dispatchEvent(new CustomEvent('clipforge:editor-ready'));
 
 // ClipForge multilingual editorial engine revision 94094108.
+
+document.querySelector('#saveEditorialRemote')?.addEventListener('click',()=>{
+  const url=String(document.querySelector('#editorialRemoteUrl')?.value||'').trim().replace(/\\/$/,'');
+  const token=String(document.querySelector('#editorialRemoteToken')?.value||'').trim();
+  if(url&&!/^https:\/\//i.test(url)){say('La URL debe comenzar por https://');return;}
+  if(Boolean(url)!==Boolean(token)){say('Introduce tanto la URL como la clave temporal de Colab.');return;}
+  if(url){localStorage.setItem('clipforge.editorial.remoteUrl',url);localStorage.setItem('clipforge.editorial.remoteToken',token);say('Motor editorial de Colab guardado. La próxima selección utilizará Qwen en la nube.');}
+  else{localStorage.removeItem('clipforge.editorial.remoteUrl');localStorage.removeItem('clipforge.editorial.remoteToken');say('Conexión remota eliminada. Se utilizará el motor local si está disponible.');}
+});
+(()=>{
+ const url=localStorage.getItem('clipforge.editorial.remoteUrl');
+ const token=localStorage.getItem('clipforge.editorial.remoteToken');
+ const u=document.querySelector('#editorialRemoteUrl'),t=document.querySelector('#editorialRemoteToken');
+ if(u&&url)u.value=url;if(t&&token)t.value=token;
+})();
