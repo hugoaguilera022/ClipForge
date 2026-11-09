@@ -740,3 +740,13 @@ class YouTubeProxyValidationTests(unittest.TestCase):
   self.assertNotIn('\\\\',name)
   self.assertTrue(name.endswith('.mp4'))
   self.assertLessEqual(len(name),125)
+
+ def test_browser_ui_exposes_authorized_youtube_import_and_client_connection(self):
+  html=(ROOT/'static'/'index.html').read_text()
+  module=(ROOT/'static'/'browser-url.js').read_text()
+  self.assertIn('id="browserYoutubeUrl"',html)
+  self.assertIn('id="browserYoutubeRights"',html)
+  self.assertIn('id="loadBrowserYoutube"',html)
+  self.assertIn('clipforge-youtube-ingest.onrender.com',module)
+  self.assertIn("rights_confirmed: true",module)
+  self.assertIn("new File([new Blob(chunks, {type: 'video/mp4'})]",module)
