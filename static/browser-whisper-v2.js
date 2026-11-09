@@ -854,12 +854,13 @@ async function aiEditorialSelect(candidates, limit = 4, onProgress = () => {}) {
   }
   if(finalists.length<limit)throw new Error('La evaluación por bloques no produjo suficientes finalistas.');
   // Independent multilingual embedding judge detects near-duplicate topics.
+  // It narrows the finalists to six varied options before the final editorial vote.
   // Narrative quality remains the responsibility of the generative editor.
   let finalPool=finalists;
   if(finalists.length>limit){
     try{
       onProgress('Segundo modelo IA: comparando similitud semántica y diversidad temática…');
-      finalPool=await semanticRerankCandidates(finalists,Math.min(8,finalists.length),onProgress);
+      finalPool=await semanticRerankCandidates(finalists,Math.min(6,finalists.length),onProgress);
     }catch(semanticError){
       console.warn('Modelo semántico opcional no disponible; continúa el juez editorial principal.',semanticError);
       onProgress('El modelo semántico opcional no está disponible; continúa el juez editorial principal…');
