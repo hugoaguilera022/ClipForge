@@ -45,9 +45,57 @@ const dialogue = [
     'Que tenga paciencia y que no quiera correr demasiado.',
     'Al principio cuesta aprender todas las tareas.',
     'Pero cada día descubres una cosa nueva.',
-    'Lo importan
-…[1 chars truncated — re-run with head/grep/tail for full output]…
-te(clip.semanticScore)&&clip.semanticScore>=0&&clip.semanticScore<=100),'semantic diversity scores must stay within 0–100');
+    'Lo importante es disfrutar y preguntar cuando no sabes.',
+    'Así mejoras mucho más rápido.'
+  ]
+];
+const words = [];
+for (let quarter = 0; quarter < dialogue.length; quarter++) {
+  for (let i = 0; i < dialogue[quarter].length; i++) {
+    const start = quarter * 56 + i * 4 + (quarter === 3 ? 10 : 0);
+    words.push({ start, end: start + 2.7, text: dialogue[quarter][i] });
+  }
+}
+assert.ok(!/todos los gitanos/i.test(source.slice(start, end)), 'general Spanish hooks must not be biased toward the supplied test video');
+const clips = context.rank(words, 210);
+console.log('RANKER_DEBUG', JSON.stringify(clips.map(c => ({start:c.start,end:c.end,score:c.score}))));
+assert.equal(clips.length, 4, 'must return four distinct clips when four coherent beats exist');
+for (const clip of clips) {
+  assert.ok(clip.duration >= 15 && clip.duration <= 45, 'clip duration must stay within editorial bounds');
+  assert.ok(clip.end > clip.start, 'clip boundaries must be valid');
+}
+for (let i = 1; i < clips.length; i++) {
+  assert.ok(clips[i].start >= clips[i - 1].end + 1, 'selected clips must not overlap');
+}
+assert.ok(new Set(clips.map(clip => clip.text.slice(0, 25))).size === 4, 'selected moments must not be duplicates');
+const sourceQuarter = clip => Math.min(3, Math.floor(clip.start / 52.5));
+assert.equal(new Set(clips.map(sourceQuarter)).size, 4, 'four clips must cover all four source quarters');
+
+console.log('Browser ranker passed: four coherent, distinct, non-overlapping clips.');
+
+// Semantic diversity reranker: choose four editorially strong moments without
+// wasting a slot on a near-duplicate when other topics are available.
+const semanticStart=source.indexOf('function rerankWithSemanticEmbeddings(');
+assert.notEqual(semanticStart,-1,'semantic diversity reranker must exist');
+let semanticDepth=0,semanticEnd=-1;
+for(let i=source.indexOf('{',semanticStart);i<source.length;i++){
+  if(source[i]==='{')semanticDepth++;
+  else if(source[i]==='}'&&--semanticDepth===0){semanticEnd=i+1;break;}
+}
+assert.notEqual(semanticEnd,-1,'semantic reranker must parse as a complete function');
+vm.runInContext(source.slice(semanticStart,semanticEnd)+'; this.semanticRerank=rerankWithSemanticEmbeddings;',context);
+const semanticCandidates=[
+  {start:0,end:20,score:92,text:'A story about a lost train and a funny mistake.'},
+  {start:25,end:45,score:90,text:'The same lost train story and the same funny mistake.'},
+  {start:50,end:70,score:84,text:'A surprise birthday party and everyone cheering.'},
+  {start:75,end:95,score:82,text:'The coach explains the final goal and the team celebration.'},
+  {start:100,end:120,score:80,text:'A chef reveals the secret ingredient in a recipe.'}
+];
+const semanticVectors=[[1,0,0],[.99,.01,0],[0,1,0],[0,0,1],[-1,0,0]];
+const semanticSelected=context.semanticRerank(semanticCandidates,semanticVectors,4);
+assert.equal(semanticSelected.length,4,'semantic reranker must return four clips');
+assert.ok(!semanticSelected.some(clip=>clip.text.startsWith('The same lost train')),'near-duplicate clip must lose its slot to a distinct topic');
+assert.ok(semanticSelected.every(clip=>Number.isFinite(clip.semanticScore)&&clip.semanticScore>=0&&clip.semanticScore<=100),'semantic diversity scores must stay within 0–100');
 console.log('Semantic reranker passed: four clips selected with duplicate-topic suppression.');
 
 // Generative editor output validation: only existing candidate IDs and
@@ -74,7 +122,7 @@ assert.equal(judged.length,4);
 assert.equal(judged[0].selection_method,'local_generative_editor');
 assert.equal(judged[0].start,0,'AI cannot invent or alter source timestamps');
 assert.throws(()=>context.parseDecision(JSON.stringify({selected:[1,1,3,4].map(id=>({id}))}),judgePool,4),/candidatos válidos/);
-assert.throws(()=>context.parseDecision(JSON.stringify({selected:[1,2,3,99].map(id=>({id}))}),judgePool,4),/candidatos válidos/);
+assert.throws(()=>context.parseDecision(JSON.stringify({selected:[1,2,3,99].map(id=>({id}))}),judgePool,4),/cuatro candidatos válidos/);
 console.log('Generative editor validation passed: only grounded IDs and non-overlapping source times are accepted.');
 
 // Candidate generation creates a broad, neutral transcript grid and does not
