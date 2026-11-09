@@ -573,7 +573,7 @@ class BrowserFaceTrackingTests(unittest.TestCase):
 class BrowserClipCandidateTests(unittest.TestCase):
  def test_browser_candidate_ranker_uses_timestamps_and_returns_four_non_overlapping_clips(self):
   module=(ROOT/'static'/'browser-whisper.js').read_text()
-  self.assertIn('function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRate = 16000, visualSamples = [])',module)
+  self.assertIn('function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRate = 16000, visualSamples = [], limit = 4)',module)
   self.assertIn('overlapRatio(c,other)>=.5',module)
   self.assertIn('const lastEnd=Math.max(clean[clean.length-1].end,videoDuration)',module)
   self.assertIn('const quarter=(lastEnd-firstStart)/4',module)
@@ -581,7 +581,7 @@ class BrowserClipCandidateTests(unittest.TestCase):
   self.assertIn('const represented=new Set(chosen.map(bucketOf))',module)
   self.assertIn('represented.has(bucketOf(a.clip))?0:3',module)
   self.assertNotIn('for(let bucket=0;bucket<4;bucket++)',module)
-  self.assertIn('while(chosen.length<4)',module)
+  self.assertIn('while(chosen.length<selectionLimit)',module)
   self.assertIn('other.score<=c.score+6',module)
   self.assertIn('c.start>=x.end+2.5',module)
   self.assertIn('selectionScore:c.score+',module)
@@ -597,8 +597,8 @@ class BrowserClipCandidateTests(unittest.TestCase):
   self.assertIn('avisaremos|te lo digo',module)
   self.assertIn('claro|ya te avisaremos|te avisaremos|no|sí',module)
   self.assertIn('Prefer a natural endpoint around 24–30 seconds',module)
-  self.assertIn('if(chosen.length<4)',module)
-  self.assertIn('showClipCandidates(transcriptData.segments, audio.length / 16000, null, audio, visualSamples)',module)
+  self.assertIn('if(chosen.length<selectionLimit)',module)
+  self.assertIn('let candidatePool = rankClipCandidates(transcriptData.segments, audio.length / 16000, audio, 16000, visualSamples, 8)',module)
 
  def test_candidate_ranker_supports_english_hooks_and_dialogue_turns(self):
   module=(ROOT/'static'/'browser-whisper.js').read_text()
@@ -612,7 +612,7 @@ class BrowserClipCandidateTests(unittest.TestCase):
  def test_candidate_ui_labels_heuristic_scores_honestly(self):
   html=(ROOT/'static'/'index.html').read_text()
   module=(ROOT/'static'/'browser-whisper.js').read_text()
-  self.assertIn('Puntuación heurística',html)
+  self.assertIn('Heurística + semántica local',html)
   self.assertIn('no equivalen a una predicción de viralidad',module)
 
 class BrowserProjectImportTests(unittest.TestCase):
@@ -651,7 +651,7 @@ class ProjectRestoreRegressionTests(unittest.TestCase):
   module=(ROOT/'static'/'browser-whisper.js').read_text()
   self.assertIn('function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=null,visualSamples=[])',module)
   self.assertIn('showClipCandidates([],duration,editableCandidates)',module)
-  self.assertIn('Selección local basada en transcripción, coherencia, interacción, ritmo, energía de audio y cierre',module)
+  self.assertIn('Selección local basada en transcripción, coherencia, interacción, ritmo, energía de audio y diversidad semántica',module)
  def test_import_no_longer_restores_read_only_cards(self):
   module=(ROOT/'static'/'browser-whisper.js').read_text()
   import_section=module[module.index('// Importación explícita'):]
