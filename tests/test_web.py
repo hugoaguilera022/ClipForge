@@ -721,7 +721,7 @@ class BrowserModelPreferenceTests(unittest.TestCase):
   source=(ROOT/"static"/"browser-whisper.js").read_text()
   self.assertIn("overlapRatio>=0.55 && textSimilarity>=0.82",source)
   self.assertIn("const previousTokens=new Set(previousText.split(' '))",source)
-  chunking=source.split("async function transcribeAudioInChunks",1)[1].split("\\nfunction makeVtt",1)[0]
+  chunking=source.split("async function transcribeAudioInChunks",1)[1].split("\nfunction makeVtt",1)[0]
   self.assertIn("let recentChunks = [];",chunking)
   self.assertIn("recentChunks = recentChunks.filter(previous => previous.end >= absoluteStart - 0.45);",chunking)
   self.assertIn("recentChunks.some(previous =>",chunking)
