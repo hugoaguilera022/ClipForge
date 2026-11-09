@@ -145,7 +145,20 @@ const neutralPool=context.buildPool(longTranscript,455);
 assert.ok(neutralPool.length>=12,'AI must receive a broad set of transcript windows');
 assert.ok(neutralPool.every(x=>x.selection_method==='neutral_transcript_window'),'candidate generation must not label heuristic scores as AI selections');
 assert.ok(neutralPool.every(x=>x.end-x.start>=18&&x.end-x.start<=45),'candidate windows must have usable clip durations');
-console.log('Neutral candidate generation passed: broad coverage without heuristic ranking.');
+assert.ok(neutralPool.some(x=>x.context_before.length>0),'candidates after the opening must include preceding conversational context');
+assert.ok(neutralPool.some(x=>x.context_after.length>0),'candidates before the ending must include following conversational context');
+assert.ok(neutralPool.every(x=>x.context_before.length<=360&&x.context_after.length<=360),'surrounding context must remain bounded');
+const askStart=source.indexOf('async function askEditorialModel(');
+const askEnd=source.indexOf('\\nasync function aiEditorialSelect(',askStart);
+assert.ok(askStart>=0&&askEnd>askStart,'editorial model request builder must exist');
+const askSandbox={JSON,Math,String,parseEditorialDecision:context.parseDecision};vm.createContext(askSandbox);
+vm.runInContext(source.slice(askStart,askEnd)+';this.ask=askEditorialModel;',askSandbox);
+let capturedPrompt='';
+const fakeEngine={chat:{completions:{create:async request=>{capturedPrompt=request.messages[1].content;return {choices:[{message:{content:JSON.stringify({selected:[{id:1,score:90,title:'Candidate',reason:'Complete beat'}]})}}]};}}}};
+await askSandbox.ask(fakeEngine,[{start:0,end:20,text:'Candidate transcript',context_before:'Earlier setup',context_after:'Later reaction'}],1,()=>{},'test');
+assert.ok(capturedPrompt.includes('Earlier setup')&&capturedPrompt.includes('Later reaction'),'editorial judge must receive context outside each candidate');
+assert.ok(capturedPrompt.includes('FUERA del corte propuesto'),'editorial prompt must distinguish surrounding context from clip content');
+console.log('Neutral candidate generation passed: broad coverage, bounded surrounding context, and no heuristic pre-ranking.');
 
 
 
