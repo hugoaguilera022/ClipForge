@@ -1042,7 +1042,7 @@ async function askEditorialModel(engine, pool, count, onProgress, phase) {
       {role:'user',content:prompt}
     ],
     temperature:0.12,
-    max_tokens:700,
+    max_tokens:Math.min(4096,700+count*260),
     response_format:{type:'json_object'}
   });
   const raw=response?.choices?.[0]?.message?.content||'';
