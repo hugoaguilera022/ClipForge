@@ -66,6 +66,8 @@ for (let i = 1; i < clips.length; i++) {
   assert.ok(clips[i].start >= clips[i - 1].end + 1, 'selected clips must not overlap');
 }
 assert.ok(new Set(clips.map(clip => clip.text.slice(0, 25))).size === 4, 'selected moments must not be duplicates');
+const sourceQuarter = clip => Math.min(3, Math.floor(clip.start / 52.5));
+assert.equal(new Set(clips.map(sourceQuarter)).size, 4, 'four clips must cover all four source quarters');
 console.log('Browser ranker passed: four coherent, distinct, non-overlapping clips.');
 
 
