@@ -829,7 +829,8 @@ function initFreeAIProviderSettings(){
 }
 initFreeAIProviderSettings();
 async function loadEditorialJudge(onProgress = () => {}) {
-  const freeProviders=configuredFreeAIProviders();\n  if(freeProviders.length)return createFederatedFreeAIEngine(freeProviders,onProgress);
+  const freeProviders=configuredFreeAIProviders();
+  if(freeProviders.length)return createFederatedFreeAIEngine(freeProviders,onProgress);
   const remote=getColabEditorConfig();
   if(remote){onProgress('Conectando con Qwen3 4B en tu sesión temporal de Colab…');return createRemoteEditorialEngine(remote);}
   if (!navigator.gpu) throw new Error('No hay conexión a Colab y este navegador no ofrece WebGPU. Abre Google Colab, inicia el motor gratuito y conecta su URL y token aquí; o usa un navegador/dispositivo compatible con WebGPU.');
