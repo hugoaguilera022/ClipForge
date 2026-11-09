@@ -125,6 +125,29 @@ assert.throws(()=>context.parseDecision(JSON.stringify({selected:[1,1,3,4].map(i
 assert.throws(()=>context.parseDecision(JSON.stringify({selected:[1,2,3,99].map(id=>({id}))}),judgePool,4),/cuatro candidatos válidos/);
 console.log('Generative editor validation passed: only grounded IDs and non-overlapping source times are accepted.');
 
+// Candidate generation creates a broad, neutral transcript grid and does not
+// call the heuristic scoring ranker to decide which moments reach the AI.
+const poolStart=source.indexOf('function buildEditorialCandidatePool(');
+assert.notEqual(poolStart,-1,'neutral transcript-window builder must exist');
+let poolDepth=0,poolEnd=-1;
+for(let i=source.indexOf('{',poolStart);i<source.length;i++){
+  if(source[i]==='{')poolDepth++;
+  else if(source[i]==='}'&&--poolDepth===0){poolEnd=i+1;break;}
+}
+assert.notEqual(poolEnd,-1,'neutral candidate builder must be complete');
+vm.runInContext(source.slice(poolStart,poolEnd)+'; this.buildPool=buildEditorialCandidatePool;',context);
+const longTranscript=[];
+for(let i=0;i<220;i++){
+  const start=i*2.05;
+  longTranscript.push({start,end:start+1.7,text:i%7===0?'¿Qué ocurrió después?':i%7===1?'Entonces pasó algo inesperado.':i%7===2?'Todos empezaron a reírse.':i%7===3?'No podíamos creerlo.':i%7===4?'Y esa fue la historia completa.':'Seguimos hablando del tema.'});
+}
+const neutralPool=context.buildPool(longTranscript,455);
+assert.ok(neutralPool.length>=12,'AI must receive a broad set of transcript windows');
+assert.ok(neutralPool.every(x=>x.selection_method==='neutral_transcript_window'),'candidate generation must not label heuristic scores as AI selections');
+assert.ok(neutralPool.every(x=>x.end-x.start>=18&&x.end-x.start<=45),'candidate windows must have usable clip durations');
+console.log('Neutral candidate generation passed: broad coverage without heuristic ranking.');
+
+
 
 // When the optional embedding download fails, the local fallback must still
 // select four high-quality, non-overlapping and lexically distinct moments.
