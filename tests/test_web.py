@@ -91,7 +91,7 @@ class ServiceWorkerCacheRegressionTests(unittest.TestCase):
  def test_service_worker_invalidates_old_cache_and_prefers_network(self):
   source=(ROOT/"static/sw.js").read_text()
   self.assertIn("clipforge-web-v144",source)
-  self.assertIn("clipforge-web-v180",source)
+  self.assertIn("clipforge-web-v181",source)
   self.assertIn("'/browser-whisper.js'",source)
   self.assertIn("self.addEventListener('activate'",source)
   self.assertIn("key.startsWith('clipforge-web-')&&key!==CACHE",source)
