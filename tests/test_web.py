@@ -603,8 +603,8 @@ class BrowserClipCandidateTests(unittest.TestCase):
   self.assertIn('guess what|you will not believe',module)
   self.assertIn('here is the thing|the point is',module)
   self.assertIn('turnCount>=(phraseTimed?2:5)',module)
-  self.assertIn('questionAtStart=/[¿?]/.test(openingTokens)',module)
-  self.assertIn('(questionAtStart?6:0)',module)
+  self.assertIn('questionAtStart=/^\\s*[¿]/.test(text)',module)
+  self.assertIn('(questionAtStart?12:0)',module)
   self.assertIn('turnScore=Math.min(10,turnCount*1.25)',module)
 
  def test_candidate_ui_labels_heuristic_scores_honestly(self):
