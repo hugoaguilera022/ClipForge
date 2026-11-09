@@ -696,3 +696,17 @@ class MultilingualBrowserTranscriptionTests(unittest.TestCase):
    self.assertIn(f'value="{code}"',html)
   backend=(ROOT/"server.py").read_text()
   self.assertIn("language not in SUPPORTED_LANGUAGES",backend)
+
+
+class BrowserModelPreferenceTests(unittest.TestCase):
+ def test_higher_accuracy_small_model_is_default_with_base_fallback(self):
+  html=(ROOT/"static"/"index.html").read_text()
+  model=html.split('id="browserWhisperModel"',1)[1].split('</select>',1)[0]
+  self.assertIn('value="whisper-small" selected',model)
+  self.assertNotIn('value="whisper-base" selected',model)
+  self.assertIn("await loadModel(activeModelId)", (ROOT/"static"/"browser-whisper.js").read_text())
+
+ def test_phrase_overlap_deduplication_uses_time_and_token_similarity(self):
+  source=(ROOT/"static"/"browser-whisper.js").read_text()
+  self.assertIn("overlapRatio>=0.55 && textSimilarity>=0.82",source)
+  self.assertIn("const previousTokens=new Set(previousText.split(' '))",source)
