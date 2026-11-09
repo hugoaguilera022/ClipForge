@@ -959,7 +959,39 @@ async function aiEditorialSelect(candidates, limit = 4, onProgress = () => {}) {
       onProgress('El modelo semántico opcional no está disponible; continúa el juez editorial principal…');
     }
   }
-  return askEditorialModel(engine,finalPool,limit,onProgress,'Comparación final IA: eligiendo los cuatro mejores clips entre todos los finalistas…');
+  const firstVote=await askEditorialModel(engine,finalPool,limit,onProgress,'Primera votación editorial: eligiendo los cuatro mejores clips entre todos los finalistas…');
+  // A separate, adversarial editorial pass audits the complete finalist set.
+  // It is deliberately blind to the first vote's scores and reasons: it sees
+  // only the candidate evidence and which IDs were provisionally selected.
+  // This is an independent judgment pass, not a claim of a second model.
+  onProgress('Juez editorial de control: auditando contexto, gancho y remate…');
+  const auditInput=finalPool.map((clip,index)=>({
+    id:index+1,start:Number(clip.start.toFixed(1)),end:Number(clip.end.toFixed(1)),
+    transcript:String(clip.text||'').replace(/\\s+/g,' ').slice(0,620),
+    context_before:String(clip.context_before||'').replace(/\\s+/g,' ').slice(-160),
+    context_after:String(clip.context_after||'').replace(/\\s+/g,' ').slice(0,160),
+    provisional:firstVote.some(p=>Math.abs(p.start-clip.start)<0.05&&Math.abs(p.end-clip.end)<0.05)
+  }));
+  const auditPrompt=[
+    'Eres un auditor editorial independiente y escéptico. No eres el editor que hizo la primera selección.',
+    'Audita TODOS los finalistas desde cero. No favorezcas provisional=true: puede ser un error de la primera votación.',
+    'Tu prioridad es evitar falsos positivos: un clip solo pasa si tiene gancho comprensible, desarrollo suficiente, payoff dentro del corte y cierre natural. Rechaza cortes que dependan de contexto externo, respuestas sin pregunta, premisas incompletas, remates posteriores al final, ASR ininteligible, relleno y duplicados.',
+    'Compara calidad real, no popularidad del tema. Evalúa claridad, autonomía, retención probable, ritmo y singularidad. Si un provisional es peor que una alternativa, sustitúyelo. No inventes palabras ni cambies timestamps.',
+    'Devuelve exactamente '+limit+' IDs distintos y no solapados. Incluye la rúbrica completa hook, story, payoff, clarity, completeness, emotion, pacing, originality (0-10), title y reason. Añade audit_verdict="pass" y audit_flags=[] si no detectas defecto; si hay defectos en otros candidatos, no los selecciones.',
+    'Devuelve SOLO JSON válido con la misma estructura {"selected":[...]}.',
+    'FINALISTAS PARA AUDITAR:',JSON.stringify(auditInput)
+  ].join('\\n');
+  const audit=await engine.chat.completions.create({messages:[
+    {role:'system',content:'Actúas como revisor editorial independiente. Busca motivos para DESCARTAR, no para confirmar. Responde solo JSON válido.'},
+    {role:'user',content:auditPrompt}
+  ],temperature:0.05,max_tokens:700,response_format:{type:'json_object'}});
+  const audited=parseEditorialDecision(audit?.choices?.[0]?.message?.content||'',finalPool,limit);
+  const firstKeys=new Set(firstVote.map(c=>`${c.start.toFixed(1)}-${c.end.toFixed(1)}`));
+  return audited.map((clip,index)=>({...clip,
+    ai_editorial_audit:'independent_critic_pass',
+    ai_editorial_consensus:firstKeys.has(`${clip.start.toFixed(1)}-${clip.end.toFixed(1)}`)?'both_passes':'critic_replacement',
+    ai_editorial_rank:index+1
+  }));
 }
 
 async function semanticRerankCandidates(candidates, limit = 4, onProgress = () => {}) {
