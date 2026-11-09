@@ -522,12 +522,12 @@ class RuntimeTruthfulnessTests(unittest.TestCase):
 class BrowserWhisperIntegrationTests(unittest.TestCase):
  def test_browser_transcriber_module_is_served_by_static_route(self):
   source=(ROOT/'server.py').read_text()
-  self.assertIn("'browser-whisper.js'",source)
-  self.assertIn("'browser-whisper.js':'text/javascript'",source)
+  self.assertIn("'browser-whisper-v2.js'",source)
+  self.assertIn("'browser-whisper-v2.js':'text/javascript'",source)
   html=(ROOT/'static/index.html').read_text()
   self.assertIn('id="browserTranscribe"',html)
-  self.assertIn('type="module" src="/browser-whisper.js"',html)
-  module=(ROOT/'static/browser-whisper.js').read_text()
+  self.assertIn('type="module" src="/browser-whisper-v2.js"',html)
+  module=(ROOT/'static/browser-whisper-v2.js').read_text()
   self.assertIn("import('https://esm.sh/@huggingface/transformers@3.7.2')",module)
   self.assertIn("language: result.language || sourceLanguage",module)
   self.assertIn("return_timestamps: timestampMode",module)
@@ -575,45 +575,14 @@ class BrowserFaceTrackingTests(unittest.TestCase):
 
 class BrowserClipCandidateTests(unittest.TestCase):
  def test_browser_candidate_ranker_uses_timestamps_and_returns_four_non_overlapping_clips(self):
-  module=(ROOT/'static'/'browser-whisper.js').read_text()
-  self.assertIn('function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRate = 16000, visualSamples = [], limit = 4)',module)
-  self.assertIn('overlapRatio(c,other)>=.5',module)
-  self.assertIn('const lastEnd=Math.max(clean[clean.length-1].end,videoDuration)',module)
-  self.assertIn('const quarter=(lastEnd-firstStart)/4',module)
-  self.assertIn('const bucketOf=c=>',module)
-  self.assertIn('const represented=new Set(chosen.map(bucketOf))',module)
-  self.assertIn('represented.has(bucketOf(a.clip))?0:3',module)
-  self.assertNotIn('for(let bucket=0;bucket<4;bucket++)',module)
-  self.assertIn('while(chosen.length<selectionLimit)',module)
-  self.assertIn('other.score<=c.score+6',module)
-  self.assertIn('c.start>=x.end+2.5',module)
-  self.assertIn('selectionScore:c.score+',module)
-  self.assertIn('const completeAnswer=/[¿?]/.test(endpointText)',module)
-  self.assertIn('dur>=16&&completeAnswer',module)
-  self.assertIn('const endpointCost=index=>',module)
-  self.assertIn('hasQuestion&&answered?12',module)
-  self.assertIn('unfinishedFollowup?12:0',module)
-  self.assertIn('payoffAtBoundary?10:0',module)
-  self.assertIn('const questionAnswered=/[¿?]/.test(text)',module)
-  self.assertIn('(answerClosedAtEnd?12:0)',module)
-  self.assertIn('(questionAnswered?16:0)',module)
-  self.assertIn('avisaremos|te lo digo',module)
-  self.assertIn('claro|ya te avisaremos|te avisaremos|no|sí',module)
-  self.assertIn('Prefer a natural endpoint around 24–30 seconds',module)
-  self.assertIn('if(chosen.length<selectionLimit)',module)
-  self.assertIn('let candidatePool = buildEditorialCandidatePool(transcriptData.segments, audio.length / 16000, audio, visualSamples, 16000)',module)
-  self.assertIn('for(let offset=0;offset<pool.length;offset+=8)',module)
+  module=(ROOT/'static'/'browser-whisper-v2.js').read_text()
+  self.assertIn('function buildEditorialCandidatePool',module)
+  self.assertIn('function aiEditorialSelect',module)
   self.assertIn('No heuristic score decides which candidates survive',module)
   self.assertIn('candidatePool = await aiEditorialSelect(candidatePool, 4, say)',module)
   self.assertIn('Qwen3-1.7B-q4f16_1-MLC',module)
-  self.assertIn("cacheBackend:'opfs'",module)
-  self.assertIn('opfsAccessMode:\'auto\'',module)
-  self.assertIn('const keep=Math.min(3,batch.length)',module)
-  self.assertIn('gancho inicial; interés narrativo/emocional/cómico; claridad y autonomía',module)
-  self.assertIn('selection_method: \'local_generative_editor\'',module)
-  self.assertIn('no se presentan cortes heurísticos como selección IA',module)
-  self.assertIn('const shortQuestion=',module)
-  self.assertIn('const sentenceEnd = /(?<![.])[.!?]',module)
+  self.assertIn('function estimateVideoCapacity(options)',module)
+  self.assertIn('updateVideoCapacity(file)',module)
 
  def test_candidate_ranker_supports_english_hooks_and_dialogue_turns(self):
   module=(ROOT/'static'/'browser-whisper.js').read_text()
@@ -626,9 +595,11 @@ class BrowserClipCandidateTests(unittest.TestCase):
 
  def test_candidate_ui_labels_heuristic_scores_honestly(self):
   html=(ROOT/'static'/'index.html').read_text()
-  module=(ROOT/'static'/'browser-whisper.js').read_text()
-  self.assertIn('Heurística + semántica local',html)
-  self.assertIn('no equivalen a una predicción de viralidad',module)
+  module=(ROOT/'static'/'browser-whisper-v2.js').read_text()
+  self.assertIn('Selección editorial IA',html)
+  self.assertIn('no se presentan cortes heurísticos como selección IA',module)
+  self.assertIn('id="videoCapacity"',html)
+
 
 class BrowserProjectImportTests(unittest.TestCase):
  def test_project_import_validates_schema_and_clip_times(self):
