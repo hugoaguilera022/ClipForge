@@ -786,6 +786,7 @@ document.querySelector('#connectColabEditor')?.addEventListener('click',connectC
 // Federated free-tier LLM router. API keys remain in this browser's localStorage;
 // they are sent only to the provider selected for the current inference request.
 const FREE_AI_PROVIDERS={
+ gemini:{label:'Google Gemini',endpoint:'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',model:'gemini-3.8-flash'},
  groq:{label:'Groq',endpoint:'https://api.groq.com/openai/v1/chat/completions',model:'openai/gpt-oss-120b'},
  cerebras:{label:'Cerebras',endpoint:'https://api.cerebras.ai/v1/chat/completions',model:'gpt-oss-120b'},
  mistral:{label:'Mistral',endpoint:'https://api.mistral.ai/v1/chat/completions',model:'mistral-small-latest'},
