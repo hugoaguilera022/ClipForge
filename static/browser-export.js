@@ -75,9 +75,19 @@ function drawKaraokeCaption(ctx,cues,sourceTime,width,height,settings={}){
 async function exportOne(file,clip,segments,tracks,index,total,settings={}){
   const {Input,Output,Conversion,ALL_FORMATS,BlobSource,Mp4OutputFormat,BufferTarget,Quality}=await import('https://esm.sh/mediabunny@1.65.2');
   const input=new Input({source:new BlobSource(file),formats:ALL_FORMATS});
-  const sourceDuration=await input.getDurationFromMetadata();
-  if(!Number.isFinite(sourceDuration)||sourceDuration<=0)throw new Error('No se pudo verificar la duración del vídeo original.');
+  // MOV/MP4 files can be valid even when the container omits duration metadata.
+  // Measure the primary video track before rejecting a usable source.
+  const sourceTrack=await input.getPrimaryVideoTrack();
+  const metadataDuration=await input.getDurationFromMetadata();
+  const sourceDuration=Number.isFinite(metadataDuration)&&metadataDuration>0
+    ? metadataDuration
+    : await sourceTrack?.computeDuration();
+  if(!Number.isFinite(sourceDuration)||sourceDuration<=0||sourceDuration>6*60*60){
+    input.dispose();
+    throw new Error('No se pudo verificar la duración del vídeo original mediante metadatos ni midiendo la pista de vídeo.');
+  }
   if(clip.start<0||clip.end<=clip.start||clip.start>=sourceDuration||clip.end>sourceDuration+.05){
+    input.dispose();
     throw new Error(`El corte ${index+1} (${clip.start.toFixed(2)}–${clip.end.toFixed(2)} s) queda fuera de la duración real del vídeo (${sourceDuration.toFixed(2)} s).`);
   }
   // Keep the original compressed audio track whenever MP4 supports it.
@@ -88,7 +98,6 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
   let lastFaceCenter=null,frameNumber=0,faceSamples=0,poseSamples=0,trackingMode='sin seguimiento';
   const speakerTracks=[];
   let activeSpeakerTrack=null;
-  const sourceTrack=await input.getPrimaryVideoTrack();
   const sourceWidth=Number(sourceTrack?.displayWidth||sourceTrack?.width||1920);
   const sourceHeight=Number(sourceTrack?.displayHeight||sourceTrack?.height||1080);
   const portraitCropWidth=sourceHeight*9/16;
@@ -229,7 +238,7 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
     throw new Error(`El navegador no puede codificar todas las pistas MP4 de este vídeo (${reasons||'códec no compatible'}).`);
   }
   conversion.onProgress=p=>sayExport(`Clip ${index+1}/${total}: renderizando ${Math.round(p*100)}%…`);
-  try{await conversion.execute();}finally{faceLandmarker?.close?.();poseLandmarker?.close?.();}
+  try{await conversion.execute();}finally{faceLandmarker?.close?.();poseLandmarker?.close?.();input.dispose();}
   const buffer=output.target.buffer;
   if(!buffer||buffer.byteLength<1024)throw new Error('El render terminó sin generar un MP4 válido.');
   const blob=new Blob([buffer],{type:'video/mp4'});
