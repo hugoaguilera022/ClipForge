@@ -158,6 +158,18 @@ const fakeEngine={chat:{completions:{create:async request=>{capturedPrompt=reque
 await askSandbox.ask(fakeEngine,[{start:0,end:20,text:'Candidate transcript',context_before:'Earlier setup',context_after:'Later reaction'}],1,()=>{},'test');
 assert.ok(capturedPrompt.includes('Earlier setup')&&capturedPrompt.includes('Later reaction'),'editorial judge must receive context outside each candidate');
 assert.ok(capturedPrompt.includes('FUERA del corte propuesto'),'editorial prompt must distinguish surrounding context from clip content');
+const longVideo=[];
+for(let i=0;i<3600;i++){
+  const start=i*2.05;
+  longVideo.push({start,end:start+1.7,text:i%5===0?'What happened next?':i%5===1?'Then something unexpected happened.':i%5===2?'Everyone started laughing.':i%5===3?'We could not believe it.':'That was the whole story.'});
+}
+const longPool=context.buildPool(longVideo,7400);
+assert.ok(longPool.length<=64,'long videos must cap AI candidates to keep local inference bounded');
+assert.ok(longPool.length>=60,'long-video sampling should retain broad temporal coverage');
+assert.ok(longPool[0].start<30,'long-video sample must retain the opening');
+assert.ok(longPool.at(-1).end>7300,'long-video sample must retain the ending');
+assert.ok(longPool[Math.floor(longPool.length/2)].start>3500&&longPool[Math.floor(longPool.length/2)].start<3900,'long-video sample must retain the middle');
+console.log('Long-video coverage passed: at most 64 uniformly distributed candidates across the full source.');
 console.log('Neutral candidate generation passed: broad coverage, bounded surrounding context, and no heuristic pre-ranking.');
 
 
