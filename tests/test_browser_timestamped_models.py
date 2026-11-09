@@ -12,7 +12,11 @@ def test_browser_whisper_uses_word_and_phrase_timestamp_modes():
     assert 'averageTokensPerSegment>1.7' in js
     assert 'phraseTimed?1.15:.55' in js
     assert 'onnx-community/whisper-base\'' not in js
-    assert 'const minLen = 18, maxLen = 38, targetLen = 27;' in js
+    assert 'const minLen = 15, maxLen = 45, targetLen = 24;' in js
+    assert 'let asrModelId = null;' in js
+    assert 'asrModelId !== modelId' in js
+    assert 'Small no pudo cargarse o generar tiempos utilizables. Cambiando automáticamente a Base' in js
     html = (ROOT / 'static/index.html').read_text()
-    assert 'value="whisper-small" selected' in html
-    assert 'whisper-small' in html and 'subtítulos por frase' in html
+    assert 'value="whisper-base" selected' in html
+    assert 'src="/browser-whisper.js"' in html
+    assert 'whisper-small' in html and 'vuelve automáticamente a Base' in html

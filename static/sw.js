@@ -1,8 +1,8 @@
-// Invalidates legacy cache versions including clipforge-web-v144.
-// Replaces clipforge-web-v144 with the fixed native macOS speech callback handling.
-// Replaces clipforge-web-v144 and v127 with editable browser export caption and framing controls.
-const CACHE='clipforge-web-v178';
-const FILES=['/','/styles.css','/app.js','/browser-whisper-v178.js','/editor.js','/browser-export.js','/browser-url.js','/manifest.webmanifest'];
+// Invalidates legacy caches including clipforge-web-v144 so the current browser engine loads.
+// Browser engine is served from the single canonical /browser-whisper.js source.
+// v179 also refreshes the browser transcription model cache.
+const CACHE='clipforge-web-v179';
+const FILES=['/','/styles.css','/app.js','/browser-whisper.js','/editor.js','/browser-export.js','/browser-url.js','/manifest.webmanifest'];
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(FILES)).then(()=>self.skipWaiting()));
 });

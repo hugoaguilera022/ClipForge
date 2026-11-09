@@ -5,6 +5,7 @@ const download = document.querySelector('#downloadBrowserTranscript');
 const saveProjectButton = document.querySelector('#saveBrowserProject');
 let transcriptData = null;
 let asr = null;
+let asrModelId = null;
 let importedProjectPendingSource = false;
 let editorTracks = [];
 const say = (message) => { if (status) status.textContent = message; };
@@ -241,7 +242,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
   const energyFloor = quantile(.2), energyMedian = quantile(.5), energyTop = quantile(.9);
   const energySpan = Math.max(1e-5, energyTop - energyFloor);
 
-  const minLen = 18, maxLen = 38, targetLen = 27;
+  const minLen = 15, maxLen = 45, targetLen = 24;
   const sentenceEnd = /[.!?…][”’"')\]]?$/;
   const strongHook = /\b(¿qué|quién|cómo|por qué|qué pasa|no me digas|madre mía|increíble|imagina|resulta que|la verdad|nunca|jamás|te juro|no sabía|de repente|en serio|qué fuerte|qué locura|qué dices|what|who|how|why|guess what|you will not believe|unbelievable|imagine|turns out|never|suddenly|seriously|that is crazy|no way)\b/i;
   const payoff = /\b(al final|resulta que|y entonces|por eso|exactamente|efectivamente|claro|ya te avisaremos|te avisaremos|no|sí|eso|ahí|pues|ya está|lo consiguió|lo he hecho|no puede ser|in the end|turns out|that is why|exactly|actually|that is it|he did it|I did it|cannot believe|there it is)\b/i;
@@ -259,7 +260,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
   const averageTokensPerSegment=clean.reduce((n,w)=>n+(w.text.match(/\S+/g)||[]).length,0)/clean.length;
   const phraseTimed=averageTokensPerSegment>1.7;
   const candidates=[];
-  const stepSeconds=3.5;
+  const stepSeconds=2.5;
   let nextStart=clean[0].start;
   for(let i=0;i<clean.length;i++){
     if(clean[i].start+0.05<nextStart) continue;
@@ -395,6 +396,16 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     if(!best)break;
     chosen.push(best.clip);
   }
+  // If long edits leave fewer than four slots, make one second pass with a
+  // tighter one-second breathing gap. Never overlap clips or fabricate cuts.
+  if(chosen.length<4){
+    for(const item of ranked){
+      if(chosen.length>=4)break;
+      const c=item.clip;
+      if(chosen.includes(c)||chosen.some(x=>!(c.end<=x.start-1||c.start>=x.end+1)))continue;
+      chosen.push(c);
+    }
+  }
   return chosen.sort((a,b)=>a.start-b.start).map((c,i)=>({...c,title:`Momento ${i+1}`}));
 }
 
@@ -469,20 +480,45 @@ runButton?.addEventListener('click', async () => {
     const model = document.querySelector('#browserWhisperModel')?.value || 'whisper-base';
     const modelId = ({ 'whisper-tiny': 'onnx-community/whisper-tiny_timestamped', 'whisper-base': 'onnx-community/whisper-base_timestamped', 'whisper-small': 'onnx-community/whisper-small_timestamped' })[model];
     if (!modelId) throw new Error('El modelo seleccionado todavía no tiene soporte verificado para marcas de tiempo por palabra.');
-    if (!asr) asr = await pipeline('automatic-speech-recognition', modelId, {
-      dtype: 'q8',
-      progress_callback: p => {
-        if (p.status === 'progress') say(`Descargando modelo ${p.file || ''}: ${Math.round(p.progress || 0)}%`);
-        else if (p.status) say(`Modelo Whisper: ${p.status}`);
-      }
-    });
-    say('Transcribiendo en fragmentos para reducir memoria y evitar límites de 30 segundos…');
-    const result = await transcribeAudioInChunks(asr, audio, (percent, current, total) => {
+    const progress = p => {
+      if (p.status === 'progress') say(`Descargando modelo ${p.file || ''}: ${Math.round(p.progress || 0)}%`);
+      else if (p.status) say(`Modelo Whisper: ${p.status}`);
+    };
+    const loadModel = async id => {
+      asr = await pipeline('automatic-speech-recognition', id, { dtype: 'q8', progress_callback: progress });
+      asrModelId = id;
+    };
+    const reportProgress = (percent, current, total) => {
       say(`Transcribiendo entrevista: ${percent}% · fragmento ${current}/${total}`);
-    }, model === 'whisper-small' ? true : 'word');
+    };
+    let activeModelId = modelId;
+    let result;
+    try {
+      if (!asr || asrModelId !== modelId) {
+        asr = null;
+        asrModelId = null;
+        await loadModel(modelId);
+      }
+      say('Transcribiendo en fragmentos para reducir memoria y evitar límites de 30 segundos…');
+      result = await transcribeAudioInChunks(asr, audio, reportProgress, model === 'whisper-small' ? true : 'word');
+      if (model === 'whisper-small' && !(result.chunks || []).length) {
+        throw new Error('Whisper Small no devolvió marcas de tiempo utilizables.');
+      }
+    } catch (transcriptionError) {
+      if (model !== 'whisper-small') throw transcriptionError;
+      activeModelId = 'onnx-community/whisper-base_timestamped';
+      say('Small no pudo cargarse o generar tiempos utilizables. Cambiando automáticamente a Base para conservar los cortes sincronizados…');
+      asr = null;
+      asrModelId = null;
+      await loadModel(activeModelId);
+      result = await transcribeAudioInChunks(asr, audio, reportProgress, 'word');
+      if (!(result.chunks || []).length) {
+        throw new Error(`Whisper Base tampoco devolvió marcas de tiempo. Error de Small: ${transcriptionError.message}`);
+      }
+    }
     const chunks = result.chunks || [];
     transcriptData = {
-      source: file.name, model: modelId, language: 'es',
+      source: file.name, model: activeModelId, language: 'es',
       generated_at: new Date().toISOString(), text: result.text || '',
       // transcribeAudioInChunks already converts model-local timestamps to
       // absolute source-video seconds and returns {start, end, text} objects.
