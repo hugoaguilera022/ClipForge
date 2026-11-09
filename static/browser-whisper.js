@@ -659,6 +659,8 @@ function rerankWithSemanticEmbeddings(candidates, embeddings, limit = 4) {
 let editorialEnginePromise = null;
 async function loadEditorialJudge(onProgress = () => {}) {
   if (!navigator.gpu) throw new Error('Este navegador no ofrece WebGPU. Para usar el editor IA local, abre ClipForge en Chrome o Edge actualizado.');
+  const adapter=await navigator.gpu.requestAdapter();
+  if(!adapter)throw new Error('No se ha encontrado un adaptador WebGPU disponible en este dispositivo.');
   if (!editorialEnginePromise) {
     editorialEnginePromise = (async () => {
       onProgress('Preparando el editor IA local Qwen3…');
@@ -961,8 +963,9 @@ runButton?.addEventListener('click', async () => {
       : (result.text || 'El modelo no devolvió texto temporizado.');
     if (transcriptData.segments.length) {
       let candidatePool = buildEditorialCandidatePool(transcriptData.segments, audio.length / 16000);
-      if (candidatePool.length > 1) {
+      if (candidatePool.length > 0) {
         try {
+          if(candidatePool.length<4)throw new Error('No se han generado cuatro ventanas válidas para comparar.');
           say(`Se han preparado ${candidatePool.length} ventanas neutrales. El editor IA comparará todas, sin preselección por puntuación heurística…`);
           candidatePool = await aiEditorialSelect(candidatePool, 4, say);
         } catch (editorError) {
