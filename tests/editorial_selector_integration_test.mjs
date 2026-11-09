@@ -50,11 +50,11 @@ for(const name of ['parseEditorialDecision','askEditorialModel','aiEditorialSele
 }
 const selected=await context.aiEditorialSelect(candidates,4,()=>{});
 assert.equal(seen.size,96,'the generative judge must see every neutral candidate across batches');
-assert.equal(calls.length,14,'96 candidates must be evaluated in twelve batches, a first vote and an independent critic audit');
-assert.equal(semanticInputCount,36,'three finalists per batch should reach semantic diversity review');
-assert.equal(semanticLimit,6,'semantic review should narrow to six finalists');
+assert.equal(calls.length,6,'96 candidates must be evaluated in four batches, a first vote and an independent critic audit');
+assert.equal(semanticInputCount,0,'no embedding model should be downloaded for selection');
+assert.equal(semanticLimit,0,'global editorial vote compares finalists directly');
 assert.equal(selected.length,4,'final model round must return four clips');
 assert.ok(selected.every(x=>x.selection_method==='local_generative_editor'),'all final clips must be marked as generative selections');
 assert.ok(selected.every(x=>x.ai_editorial_audit==='independent_critic_pass'),'all final clips must pass the critic audit');
 for(let i=1;i<selected.length;i++)assert.ok(selected[i].start>=selected[i-1].end+1,'final clips must not overlap');
-console.log('Editorial selector integration passed: 96/96 candidates reviewed, 36 finalists, semantic diversity stage, first vote, independent critic audit and four grounded final clips.');
+console.log('Editorial selector integration passed: 96/96 candidates reviewed in four batches, four finalists, global vote, independent critic audit and four grounded final clips.');
