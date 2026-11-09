@@ -12,6 +12,19 @@ page.on('console', message => { if (message.type() === 'error') browserLogs.push
 try {
   const response = await page.goto(base, { waitUntil: 'networkidle', timeout: 30000 });
   if (!response?.ok()) throw new Error(`Web app returned HTTP ${response?.status()}`);
+  await page.waitForFunction(() => document.body.dataset.browserOnly === 'true', undefined, {timeout:10000});
+  const browserMode = await page.evaluate(() => ({
+    hiddenServerPanels: ['.publish','.channel-panel','.inbox-panel','.history-panel'].every(selector => document.querySelector(selector)?.hidden),
+    hiddenServerControls: ['.url-source','.transcript-drop','.form-grid','#submit','.browser-auto-generate'].every(selector => document.querySelector(selector)?.hidden),
+    directUrlVisible: !document.querySelector('.browser-url-import')?.hidden,
+    filePickerVisible: !!document.querySelector('#video') && !document.querySelector('#video').disabled
+  }));
+  if (!browserMode.hiddenServerPanels || !browserMode.hiddenServerControls || !browserMode.directUrlVisible || !browserMode.filePickerVisible) {
+    throw new Error('Browser-only mode exposed unavailable server controls: '+JSON.stringify(browserMode));
+  }
+  if (await page.locator('#browserWhisperLanguage').inputValue() !== 'auto') {
+    throw new Error('Browser transcription must default to automatic Spanish/English language detection.');
+  }
   await page.locator('#video').setInputFiles('test-output/e2e-source.mkv');
   const project = {
     schema: 'clipforge-browser-project-v1',
