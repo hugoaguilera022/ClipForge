@@ -95,7 +95,7 @@ def persist_jobs_locked()->None:
 
 # Container extensions accepted by FFmpeg/FFprobe. The actual streams are
 # validated before queueing, so an extension alone never makes a corrupt file valid.
-SUPPORTED_LANGUAGES={'es','en','fr','de','pt','it','ja','zh','ar','ru','hi','ko','nl','pl','tr','uk','sv','da','no','fi','el','cs','ro','hu','id','vi','th','he'}
+SUPPORTED_LANGUAGES={'es','en'}
 
 ALLOWED={'.mp4','.m4v','.mov','.mkv','.webm','.avi','.mpg','.mpeg','.m2v',
          '.mts','.m2ts','.ts','.3gp','.3g2','.flv','.wmv','.ogv','.vob',
