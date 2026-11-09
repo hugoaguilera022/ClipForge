@@ -252,7 +252,44 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
   const storyPivot = /\b(se acabó|lo más importante|tienes que saber|para acabar|una preguntita|esto es|y entonces|ahora|here is the thing|the point is|what happened next|and then|but then|long story short|here is why)\b/i;
   const clean = words.filter(w => Number.isFinite(w.start) && Number.isFinite(w.end) && w.end > w.start && String(w.text||'').trim())
     .map(w=>({start:Number(w.start),end:Number(w.end),text:String(w.text).trim()})).sort((a,b)=>a.start-b.start);
-  if (!clean.length) return [];
+  // Non-speech media (music, gameplay, sports, scenic footage, sound design)
+  // must not fail just because Whisper has nothing to transcribe. In that case
+  // rank evenly distributed windows from the actual audio activity profile.
+  // This is deliberately a fallback, not a claim of semantic highlight detection.
+  if (!clean.length) {
+    if (!energy.length || !Number.isFinite(videoDuration) || videoDuration < 15) return [];
+    const minAudioLen=15, maxAudioLen=45;
+    const windowLen=Math.min(maxAudioLen,Math.max(minAudioLen,Math.min(24,videoDuration/4)));
+    const hop=Math.max(2.5,windowLen/3);
+    const activity=energy.map(x=>Math.max(0,Math.min(1,(x.rms-energyFloor)/energySpan)));
+    const candidates=[];
+    for(let start=0;start+minAudioLen<=videoDuration+.001;start+=hop){
+      const end=Math.min(videoDuration,start+windowLen);
+      if(end-start<minAudioLen)continue;
+      const slice=energy.filter(x=>x.t>=start&&x.t<end);
+      if(!slice.length)continue;
+      const values=slice.map(x=>Math.max(0,Math.min(1,(x.rms-energyFloor)/energySpan)));
+      const mean=values.reduce((a,b)=>a+b,0)/values.length;
+      const active=values.filter(v=>v>.2).length/values.length;
+      const peaks=values.filter(v=>v>.72).length/values.length;
+      const transitions=values.slice(1).filter((v,i)=>Math.abs(v-values[i])>.22).length/Math.max(1,values.length-1);
+      const score=Math.round(Math.max(0,Math.min(100,mean*48+active*24+peaks*18+transitions*10)));
+      candidates.push({start,end,duration:end-start,score,text:'',reasons:['actividad sonora','momento sin diálogo']});
+    }
+    const chosen=[];
+    // Prefer coverage across the whole source, then fill with strongest
+    // remaining windows without overlap. A quiet source still gets candidates.
+    const quarters=Array.from({length:4},(_,i)=>({a:videoDuration*i/4,b:videoDuration*(i+1)/4}));
+    for(const q of quarters){
+      const options=candidates.filter(c=>c.start<q.b&&c.end>q.a&&!chosen.some(x=>c.start<x.end+1&&c.end>x.start-1));
+      if(options.length)chosen.push(options.sort((a,b)=>b.score-a.score)[0]);
+    }
+    for(const c of [...candidates].sort((a,b)=>b.score-a.score)){
+      if(chosen.length>=Math.min(4,candidates.length))break;
+      if(!chosen.some(x=>c.start<x.end+1&&c.end>x.start-1))chosen.push(c);
+    }
+    return chosen.sort((a,b)=>a.start-b.start).map((c,i)=>({...c,title:`Momento ${i+1}`}));
+  }
   // Whisper Small in Transformers.js returns reliable phrase-level timestamps
   // without cross-attention export. Detect that shape so editorial features
   // count actual words, not phrase chunks, and don't mistake every subtitle
