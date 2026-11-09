@@ -458,13 +458,6 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     const payoffAtEnd=payoff.test(closingTokens);
     const questionAnswered=/[¿?]/.test(text)&&/\b(claro|efectivamente|exactamente|ya te avisaremos|te avisaremos|te lo digo|así es|eso es|there it is|turns out)\b/i.test(text);
     const answerClosedAtEnd=/\b(avisaremos|te lo digo|así es|eso es|there it is|turns out)\s*[.!?]?$/i.test(closingTokens);
-    // Questions are only strong short-form moments when the selected window
-    // also contains an intelligible answer or a clear payoff. A question mark
-    // by itself is not an editorial hook.
-    const questionHasAnswer=questionCount>0&&(
-      questionAnswered||shortAnswerReaction||answerClosedAtEnd||
-      /\b(porque|por eso|resulta que|la razón|es que|because|that's why|the reason|turns out|actually)\b/i.test(text)
-    );
     const utterances=[];let utterance=[];
     for(let u=0;u<group.length;u++){const item=group[u],previous=group[u-1];if(utterance.length&&previous&&(sentenceEnd.test(previous.text)||item.start-previous.end>.78)){utterances.push(utterance);utterance=[];}utterance.push(item);}
     if(utterance.length)utterances.push(utterance);
@@ -475,6 +468,13 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
       const answerWords=(answer.match(/[\p{L}\p{N}]{2,}/gu)||[]).length;
       return /[?¿]\s*[”’\"')\]]?$/.test(before)&&answerWords>=1&&answerWords<=5&&(/[!¡]/.test(after)||new RegExp(reactionWord.source,reactionWord.flags.replace('g','')).test(after));
     });
+    // Questions are only strong short-form moments when the selected window
+    // also contains an intelligible answer or a clear payoff. A question mark
+    // by itself is not an editorial hook.
+    const questionHasAnswer=questionCount>0&&(
+      questionAnswered||shortAnswerReaction||answerClosedAtEnd||
+      /\b(porque|por eso|resulta que|la razón|es que|because|that's why|the reason|turns out|actually)\b/i.test(text)
+    );
     const hasSetup=/\b(pero|porque|cuando|si|aunque|resulta que|me dijo|y entonces|imagina|una vez)\b/i.test(text);
     const hasTurn=/\b(pero|aunque|sin embargo|de repente|entonces|al final|resulta que|y va|me dijo|y me dice)\b/i.test(text);
     const fillerCount=(text.match(filler)||[]).length;
