@@ -316,14 +316,17 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
       const end=Math.min(videoDuration,start+windowLen);
       if(end-start<minAudioLen)continue;
       const slice=energy.filter(x=>x.t>=start&&x.t<end);
-      if(!slice.length)continue;
       const values=slice.map(x=>Math.max(0,Math.min(1,(x.rms-energyFloor)/energySpan)));
-      const mean=values.reduce((a,b)=>a+b,0)/values.length;
-      const active=values.filter(v=>v>.2).length/values.length;
-      const peaks=values.filter(v=>v>.72).length/values.length;
+      const mean=values.length?values.reduce((a,b)=>a+b,0)/values.length:0;
+      const active=values.length?values.filter(v=>v>.2).length/values.length:0;
+      const peaks=values.length?values.filter(v=>v>.72).length/values.length:0;
       const transitions=values.slice(1).filter((v,i)=>Math.abs(v-values[i])>.22).length/Math.max(1,values.length-1);
-      const score=Math.round(Math.max(0,Math.min(100,mean*48+active*24+peaks*18+transitions*10)));
-      candidates.push({start,end,duration:end-start,score,text:'',reasons:['actividad sonora','momento sin diálogo']});
+      const visualChanges=visualSamples.filter(x=>x.t>=start&&x.t<end).map(x=>x.change);
+      const visualMean=visualChanges.length?visualChanges.reduce((a,b)=>a+b,0)/visualChanges.length:0;
+      if(!slice.length&&!visualChanges.length)continue;
+      const score=Math.round(Math.max(0,Math.min(100,mean*38+active*18+peaks*14+transitions*8+Math.min(1,visualMean*5)*22)));
+      const reasons=[];if(energy.length)reasons.push('actividad sonora');if(visualChanges.length)reasons.push('movimiento y cambios visuales');reasons.push('momento sin diálogo');
+      candidates.push({start,end,duration:end-start,score,text:'',reasons});
     }
     const chosen=[];
     // Prefer coverage across the whole source, then fill with strongest
