@@ -95,6 +95,8 @@ def persist_jobs_locked()->None:
 
 # Container extensions accepted by FFmpeg/FFprobe. The actual streams are
 # validated before queueing, so an extension alone never makes a corrupt file valid.
+SUPPORTED_LANGUAGES={'es','en','fr','de','pt','it','ja','zh','ar','ru','hi','ko','nl','pl','tr','uk','sv','da','no','fi','el','cs','ro','hu','id','vi','th','he'}
+
 ALLOWED={'.mp4','.m4v','.mov','.mkv','.webm','.avi','.mpg','.mpeg','.m2v',
          '.mts','.m2ts','.ts','.3gp','.3g2','.flv','.wmv','.ogv','.vob',
          '.asf','.divx','.f4v','.mxf'}
@@ -484,7 +486,7 @@ class Handler(BaseHTTPRequestHandler):
   try:
    clips=int(fields.get('clips','5')); min_seconds=float(fields.get('min_seconds','25')); max_seconds=float(fields.get('max_seconds','45'))
   except ValueError: src.unlink(missing_ok=True); return self.json(400,{'error':'invalid_production_settings'})
-  if language not in {'es','en'} or model not in {'tiny','base','small','medium'} or not 1<=clips<=10 or not 10<=min_seconds<=max_seconds<=180:
+  if language not in SUPPORTED_LANGUAGES or model not in {'tiny','base','small','medium'} or not 1<=clips<=10 or not 10<=min_seconds<=max_seconds<=180:
    src.unlink(missing_ok=True); return self.json(400,{'error':'production_settings_out_of_range'})
   resolution=fields.get('resolution','1080x1920'); crop=fields.get('crop','face')
   fps=fields.get('fps','30'); quality=fields.get('quality','high')
@@ -626,7 +628,7 @@ def _inbox_manifest(video_path:Path, manifest_path:Path)->dict:
  if data.get('rights_confirmed') is not True or len(rights_holder)<3 or len(permission_reference)<5 or any(p in (rights_holder+' '+permission_reference).lower() for p in placeholders):
   raise ValueError('explicit_rights_confirmation_required')
  language=data.get('language','es'); clips=int(data.get('clips',5)); min_seconds=float(data.get('min_seconds',20)); max_seconds=float(data.get('max_seconds',45))
- if language not in {'es','en'} or data.get('model','small') not in {'tiny','base','small','medium'} or not 1<=clips<=10 or not 10<=min_seconds<=max_seconds<=180:
+ if language not in SUPPORTED_LANGUAGES or data.get('model','small') not in {'tiny','base','small','medium'} or not 1<=clips<=10 or not 10<=min_seconds<=max_seconds<=180:
   raise ValueError('invalid_production_settings')
  resolution=data.get('resolution','1080x1920'); crop=data.get('crop','face'); fps=str(data.get('fps',30)); quality=data.get('quality','high')
  crf={'high':'18','balanced':'20','compact':'23'}.get(quality)
