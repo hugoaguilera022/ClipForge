@@ -711,7 +711,7 @@ function parseEditorialDecision(raw, candidates, limit = 4) {
 
 // Build neutral transcript windows for the AI editor. This stage only places
 // legal, sentence-aware candidate boundaries; it does not score or rank moments.
-function buildEditorialCandidatePool(segments, videoDuration) {
+function buildEditorialCandidatePool(segments, videoDuration, audioSamples = null, visualSamples = [], sampleRate = 16000) {
   const clean=(Array.isArray(segments)?segments:[])
     .filter(x=>Number.isFinite(Number(x.start))&&Number.isFinite(Number(x.end))&&Number(x.end)>Number(x.start)&&String(x.text||'').trim())
     .map(x=>({start:Number(x.start),end:Number(x.end),text:String(x.text).trim()}))
@@ -725,6 +725,20 @@ function buildEditorialCandidatePool(segments, videoDuration) {
     starts.push(i);
     next=clean[i].start+9;
   }
+  const audioProfile=[];
+  if(audioSamples&&audioSamples.length){
+    const windowSamples=Math.max(1,Math.floor(sampleRate*.5));
+    for(let offset=0;offset<audioSamples.length;offset+=windowSamples){
+      let sum=0,peak=0,count=0;
+      for(let i=offset;i<Math.min(audioSamples.length,offset+windowSamples);i++){
+        const v=Number(audioSamples[i])||0;sum+=v*v;peak=Math.max(peak,Math.abs(v));count++;
+      }
+      audioProfile.push({t:offset/sampleRate,rms:Math.sqrt(sum/Math.max(1,count)),peak});
+    }
+  }
+  const rmsSorted=audioProfile.map(x=>x.rms).sort((a,b)=>a-b);
+  const percentile=q=>rmsSorted.length?rmsSorted[Math.floor((rmsSorted.length-1)*q)]:0;
+  const rmsFloor=percentile(.2),rmsMedian=percentile(.5),rmsTop=percentile(.9);
   const pool=[];
   for(const si of starts){
     const start=clean[si].start;
@@ -745,7 +759,21 @@ function buildEditorialCandidatePool(segments, videoDuration) {
     const text=group.map(x=>x.text).join(' ').replace(/\s+/g,' ').trim();
     if(end-start<18||!text)continue;
     if(pool.some(x=>Math.abs(x.start-start)<5&&Math.abs(x.end-end)<8))continue;
-    pool.push({start,end,duration:end-start,text,title:'Candidato editorial',selected:false,selection_method:'neutral_transcript_window'});
+    const audio=audioProfile.filter(x=>x.t>=start&&x.t<end);
+    const rms=audio.length?audio.reduce((a,x)=>a+x.rms,0)/audio.length:0;
+    const active=audio.length?audio.filter(x=>x.rms>rmsMedian).length/audio.length:0;
+    const peaks=audio.length?audio.filter(x=>x.rms>=rmsTop).length/audio.length:0;
+    const visual=visualSamples.filter(x=>x.t>=start&&x.t<end);
+    const visualChange=visual.length?visual.reduce((a,x)=>a+Number(x.change||0),0)/visual.length:0;
+    const audioActivity=audio.length?Math.max(0,Math.min(1,(rms-rmsFloor)/Math.max(.00001,rmsTop-rmsFloor))):null;
+    const evidence={
+      audio_activity:audioActivity===null?null:Number(audioActivity.toFixed(2)),
+      audio_dynamic_peaks:Number(peaks.toFixed(2)),
+      audio_active_ratio:Number(active.toFixed(2)),
+      visual_change:Number(visualChange.toFixed(3)),
+      visual_samples:visual.length
+    };
+    pool.push({start,end,duration:end-start,text,title:'Candidato editorial',selected:false,selection_method:'neutral_transcript_window',media_evidence:evidence});
   }
   return pool;
 }
@@ -753,11 +781,13 @@ function buildEditorialCandidatePool(segments, videoDuration) {
 async function askEditorialModel(engine, pool, count, onProgress, phase) {
   const shortlist=pool.map((clip,index)=>({
     id:index+1,start:Number(clip.start.toFixed(1)),end:Number(clip.end.toFixed(1)),
-    transcript:String(clip.text).replace(/\s+/g,' ').slice(0,520)
+    transcript:String(clip.text).replace(/\s+/g,' ').slice(0,760),
+    media_evidence:clip.media_evidence||null
   }));
   const prompt=[
     'Eres el editor jefe de una productora profesional de clips verticales para redes sociales.',
-    'Evalúa cada fragmento como un editor de short-form profesional, usando su contenido y su contexto conversacional. No uses popularidad de palabras ni señales superficiales.',
+    'Evalúa cada fragmento como un editor de short-form profesional, usando el diálogo y las señales de audio y vídeo adjuntas. No uses popularidad de palabras ni señales superficiales.',
+    'Las señales media_evidence son medidas de actividad, no etiquetas semánticas: audio_activity y audio_dynamic_peaks pueden señalar énfasis o reacción; visual_change indica cambios de plano/movimiento, pero no demuestra interés por sí solo. Úsalas solo como evidencia secundaria.',
     'Puntúa mentalmente cada momento en cinco dimensiones: gancho inicial; interés narrativo/emocional/cómico; claridad y autonomía; desarrollo con payoff; potencial de mantener atención. No confundas volumen de voz con interés.',
     'Prioriza anécdotas con giro o remate, bromas con reacción, revelaciones, desacuerdo con argumentos, respuestas inesperadas, opiniones memorables y momentos emocionales genuinos.',
     'Penaliza inicios a mitad de frase, preguntas sin respuesta, introducciones, charla de transición, bromas internas sin contexto, repeticiones, promoción y finales sin cierre.',
@@ -967,7 +997,7 @@ runButton?.addEventListener('click', async () => {
       ? transcriptData.segments.map(s => `[${s.start.toFixed(2)}–${s.end.toFixed(2)}] ${s.text}`).join('\n')
       : (result.text || 'El modelo no devolvió texto temporizado.');
     if (transcriptData.segments.length) {
-      let candidatePool = buildEditorialCandidatePool(transcriptData.segments, audio.length / 16000);
+      let candidatePool = buildEditorialCandidatePool(transcriptData.segments, audio.length / 16000, audio, visualSamples, 16000);
       if (candidatePool.length > 0) {
         try {
           if(candidatePool.length<4)throw new Error('No se han generado cuatro ventanas válidas para comparar.');
