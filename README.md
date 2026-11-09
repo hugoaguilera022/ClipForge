@@ -46,6 +46,14 @@ python server.py
 
 La primera descarga requiere Internet. En Apple Silicon el modelo predeterminado es `large-v3-turbo` si se define `CLIPFORGE_MLX_MODEL=large-v3-turbo`; se puede cambiar a `small`, `medium` o `tiny`. El software y los modelos se ejecutan localmente; no se envía el audio a una API. No se promete velocidad en tiempo real: depende de CPU, memoria y duración del vídeo.
 
+## Juez editorial generativo gratuito
+
+En la web estática, la selección generativa puede ejecutarse localmente con WebGPU (Qwen3 1.7B) o conectarse a una sesión temporal de Google Colab con Ollama. El cuaderno `colab/ClipForge_Editorial_Engine.ipynb` selecciona Qwen3 8B si detecta al menos 12 GB de VRAM, y Qwen3 4B como alternativa. La conexión está protegida con token, usa HTTPS temporal y envía solo el texto de candidatos/contexto, no el vídeo.
+
+La sesión gratuita de Colab **no es ilimitada ni permanente**: disponibilidad de GPU, cuotas, duración y desconexiones dependen de Google. Al reiniciar Colab hay que volver a iniciar el cuaderno y pegar la nueva URL/token en ClipForge. Sin Colab, el selector generativo local requiere WebGPU; el fallback heurístico se etiqueta como tal y no se presenta como IA.
+
+El selector revisa ventanas neutrales de todo el vídeo, genera finalistas, compara diversidad y exige que el pase crítico devuelva veredicto `pass` sin flags para cada clip. Los tests automáticos validan estructura, tiempos, solapamientos y el puente de conexión; **no prueban por sí solos la calidad semántica de Qwen ni equivalencia con OpusClip**.
+
 ## Selección semántica local opcional
 
 ClipForge consulta únicamente `http://127.0.0.1:11434` (Ollama local). Si existe el modelo `qwen2.5:3b`, reordena candidatos usando sus textos y contexto; devuelve IDs, nunca timestamps, para impedir que el LLM invente tiempos. Si Ollama o el modelo no están disponibles, la selección heurística sigue funcionando sin bloquear el trabajo. Puedes cambiar el modelo con `CLIPFORGE_OLLAMA_MODEL` y el endpoint con `CLIPFORGE_OLLAMA_URL`.
