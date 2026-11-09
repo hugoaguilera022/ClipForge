@@ -12,6 +12,12 @@ page.on('console', message => { if (message.type() === 'error') browserLogs.push
 try {
   const response = await page.goto(base, { waitUntil: 'networkidle', timeout: 30000 });
   if (!response?.ok()) throw new Error(`Web app returned HTTP ${response?.status()}`);
+  const languageControl = page.locator('#browserWhisperLanguage');
+  await languageControl.waitFor({ state: 'visible' });
+  await languageControl.selectOption('english');
+  await languageControl.selectOption('auto');
+  const modelOptions = await page.locator('#browserWhisperModel option').evaluateAll(options => options.map(option => option.value));
+  if (!modelOptions.includes('whisper-small')) throw new Error('Browser Whisper Small option is missing.');
   await page.locator('#video').setInputFiles('test-output/e2e-source.mkv');
   const project = {
     schema: 'clipforge-browser-project-v1',
