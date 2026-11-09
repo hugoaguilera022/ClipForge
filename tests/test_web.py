@@ -663,3 +663,17 @@ class BrowserEditorPreviewTests(unittest.TestCase):
   module=(ROOT/'static'/'editor.js').read_text()
   self.assertIn('id="editorPreviewVideo"',html)
   self.assertIn('function previewClip(clip)',module)
+
+
+class BroadVideoContainerSupportTests(unittest.TestCase):
+ def test_common_video_containers_are_accepted_and_validated_by_ffprobe(self):
+  source=(ROOT/"server.py").read_text()
+  for suffix in (".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v", ".mpg", ".mpeg", ".mts", ".m2ts", ".ts", ".3gp", ".flv", ".wmv", ".ogv", ".vob", ".mxf"):
+   self.assertIn(repr(suffix), source)
+  self.assertIn("media=inspect_media(src)",source)
+  self.assertIn("ffprobe",source)
+
+ def test_browser_file_picker_is_not_limited_to_four_mime_types(self):
+  html=(ROOT/"static/index.html").read_text()
+  self.assertIn('accept="video/*',html)
+  self.assertIn("AVI, M4V",html)
