@@ -908,6 +908,14 @@ function buildEditorialCandidatePool(segments, videoDuration, audioSamples = nul
     if(sampled.length<maxCandidates){
       for(const candidate of ordered){if(used.has(candidate))continue;sampled.push(candidate);used.add(candidate);if(sampled.length>=maxCandidates)break;}
     }
+    // Preserve the literal beginning and ending as mandatory anchors. A
+    // duration-preference choice inside the first temporal bucket must not
+    // silently discard the opening context of the source video.
+    if(ordered.length){
+      const opening=ordered[0],ending=ordered[ordered.length-1];
+      if(!used.has(opening)){sampled[0]=opening;used.add(opening);}
+      if(!used.has(ending)){sampled[sampled.length-1]=ending;used.add(ending);}
+    }
     return sampled.sort((a,b)=>a.start-b.start).slice(0,maxCandidates);
   }
   return pool;
