@@ -658,29 +658,114 @@ function rerankWithSemanticEmbeddings(candidates, embeddings, limit = 4) {
 // model reads each candidate as an editor and makes a narrative-quality choice.
 // Runs locally through WebGPU: no API key, no paid inference endpoint, no upload.
 let editorialEnginePromise = null;
+const COLAB_EDITOR_KEY='clipforge.colab.editor.v1';
+function getColabEditorConfig(){
+  try{const raw=sessionStorage.getItem(COLAB_EDITOR_KEY);const value=raw?JSON.parse(raw):null;
+    if(!value||typeof value.url!=='string'||typeof value.token!=='string')return null;
+    const parsed=new URL(value.url);if(parsed.protocol!=='https:'||!parsed.hostname.endsWith('.trycloudflare.com'))return null;
+    return {url:parsed.origin,token:value.token};
+  }catch{return null;}
+}
+function createRemoteEditorialEngine(config){
+  return {isRemote:true,chat:{completions:{create:async(request)=>{
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),300000);
+    try{
+      const response=await fetch(config.url+'/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+config.token},body:JSON.stringify(request),signal:controller.signal,cache:'no-store'});
+      const body=await response.json().catch(()=>({}));
+      if(!response.ok)throw new Error(body.error||('Motor Colab respondió HTTP '+response.status));
+      if(!body?.choices?.[0]?.message?.content)throw new Error('El motor Colab no devolvió una respuesta editorial válida.');
+      return body;
+    }finally{clearTimeout(timer);}
+  }}}};
+}
+async function connectColabEditorialEngine(){
+  const urlField=document.querySelector('#colabEditorUrl'),tokenField=document.querySelector('#colabEditorToken'),status=document.querySelector('#colabEditorStatus'),button=document.querySelector('#connectColabEditor');
+  if(!urlField||!tokenField||!status||!button)return;
+  const url=String(urlField.value||'').trim().replace(/\/+$/,'');const token=String(tokenField.value||'').trim();
+  let parsed;try{parsed=new URL(url);}catch{status.textContent='Introduce la URL HTTPS temporal que muestra Google Colab.';return;}
+  if(parsed.protocol!=='https:'||!parsed.hostname.endsWith('.trycloudflare.com')||!token){status.textContent='La URL debe ser HTTPS de trycloudflare.com y el token no puede estar vacío.';return;}
+  button.disabled=true;status.textContent='Comprobando el motor, el modelo y la sesión…';
+  try{
+    const response=await fetch(parsed.origin+'/health',{headers:{'Authorization':'Bearer '+token},cache:'no-store'});
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok||data.status!=='ready'||data.model!=='qwen3:4b')throw new Error(data.error||'El motor no confirma Qwen3 4B disponible.');
+    sessionStorage.setItem(COLAB_EDITOR_KEY,JSON.stringify({url:parsed.origin,token}));
+    editorialEnginePromise=createRemoteEditorialEngine({url:parsed.origin,token});
+    status.textContent='Conectado y comprobado: Qwen3 4B en Colab. La inferencia editorial se ejecutará en esa sesión temporal.';
+    button.textContent='Motor conectado';
+  }catch(error){sessionStorage.removeItem(COLAB_EDITOR_KEY);editorialEnginePromise=null;status.textContent='No se pudo conectar: '+String(error.message||error);}
+  finally{button.disabled=false;}
+}
+document.querySelector('#connectColabEditor')?.addEventListener('click',connectColabEditorialEngine);
+(function restoreColabEditorConnection(){
+  const config=getColabEditorConfig();const url=document.querySelector('#colabEditorUrl'),status=document.querySelector('#colabEditorStatus');
+  if(config&&url){url.value=config.url;if(status)status.textContent='Hay una conexión guardada en esta pestaña. Pulsa «Comprobar y conectar» para validar que Colab siga activa.';}
+})();
 async function loadEditorialJudge(onProgress = () => {}) {
-  if (!navigator.gpu) throw new Error('Este navegador no ofrece WebGPU. Para usar el editor IA local, abre ClipForge en Chrome o Edge actualizado.');
-  const adapter=await navigator.gpu.requestAdapter();
-  if(!adapter)throw new Error('No se ha encontrado un adaptador WebGPU disponible en este dispositivo.');
+  const remote=getColabEditorConfig();
+  if(remote){onProgress('Conectando con Qwen3 4B en tu sesión temporal de Colab…');return createRemoteEditorialEngine(remote);}
+  if (!navigator.gpu) throw new Error('No hay conexión a Colab y este navegador no ofrece WebGPU. Abre Google Colab, inicia el motor gratuito y conecta su URL y token aquí; o usa un navegador/dispositivo compatible con WebGPU.');
+  const adapter=await navigator.gpu.requestAdapter({powerPreference:'high-performance'});
+  if(!adapter)throw new Error('No se ha encontrado una GPU compatible con WebGPU. Puedes conectar el motor gratuito de Google Colab.');
   if (!editorialEnginePromise) {
     editorialEnginePromise = (async () => {
-      onProgress('Preparando el editor IA local Qwen3…');
+      onProgress('Preparando el editor IA local Qwen3-1.7B…');
       const webllm = await import('https://esm.sh/@mlc-ai/web-llm@0.2.87');
       const modelId = 'Qwen3-1.7B-q4f16_1-MLC';
-      // OPFS is a better fit for multi-GB model artifacts than Cache API on
-      // mobile browsers; "auto" uses sync access handles when supported.
+      const record=webllm.prebuiltAppConfig.model_list.find(item=>item.model_id===modelId);
+      if(!record)throw new Error('La versión instalada de WebLLM no incluye el modelo editorial Qwen3-1.7B compatible.');
       const appConfig = {...webllm.prebuiltAppConfig, cacheBackend:'opfs', opfsAccessMode:'auto'};
-      const engine = await webllm.CreateMLCEngine(modelId, {
-        appConfig,
-        initProgressCallback: report => onProgress(report?.text || 'Descargando el modelo editorial IA…')
-      });
-      return engine;
-    })().catch(error => { editorialEnginePromise = null; throw error; });
+      return await webllm.CreateMLCEngine(modelId,{appConfig,initProgressCallback:report=>onProgress(report?.text||'Descargando el modelo editorial IA…')});
+    })().catch(error=>{editorialEnginePromise=null;throw error;});
   }
   return editorialEnginePromise;
 }
 
-function parseEditorialDecision(raw, candidates, limit = 4) {
+// Approximate per-video resource estimate. Browsers do not expose exact free RAM,
+// VRAM or disk space; show safe recommendations and label uncertainty honestly.
+function estimateVideoCapacity(options) {
+  const {durationSeconds=0,fileBytes=0,whisperModel='whisper-base',deviceMemoryGb=null,webgpu=false}=options||{};
+  const minutes=Math.max(0,Number(durationSeconds)||0)/60;
+  const asr={
+    'whisper-tiny':{label:'Whisper Tiny',downloadMb:80,ramGb:1.8},
+    'whisper-base':{label:'Whisper Base',downloadMb:160,ramGb:2.4},
+    'whisper-small':{label:'Whisper Small',downloadMb:520,ramGb:4.0}
+  }[String(whisperModel)]||{label:'Whisper Base',downloadMb:160,ramGb:2.4};
+  const audioGb=minutes*0.00384;
+  const systemRamGb=Math.ceil((2.2+asr.ramGb+audioGb)*2)/2;
+  const gpuRamGb=2.5;
+  const cacheGb=Math.ceil((2.0+asr.downloadMb/1024)*2)/2;
+  const tempGb=Math.max(1.5,(Number(fileBytes)||0)/1024**3*1.5);
+  const freeDiskGb=Math.ceil((cacheGb+tempGb)*2)/2;
+  const deviceRam=deviceMemoryGb!==null&&deviceMemoryGb!==undefined&&Number.isFinite(Number(deviceMemoryGb))?Number(deviceMemoryGb):null;
+  const ramFit=deviceRam===null?null:deviceRam>=systemRamGb;
+  return {asrLabel:asr.label,systemRamGb,gpuRamGb,cacheGb,freeDiskGb,deviceMemoryGb:deviceRam,webgpu:Boolean(webgpu),ramFit,status:!webgpu?'incompatible':ramFit===false?'limited':deviceRam===null?'unknown':'ready',audioWorkingSetMb:Math.round(audioGb*1024)};
+}
+function formatCapacityGb(value){return Number(value).toFixed(1).replace('.',',')+' GB';}
+async function updateVideoCapacity(file) {
+  const el=id=>document.querySelector('#'+id);
+  if(!file||!el('capacityStatus'))return;
+  el('capacityStatus').textContent='Calculando duración y compatibilidad…';
+  let duration=0;
+  const url=URL.createObjectURL(file),video=document.createElement('video');
+  try{video.preload='metadata';video.src=url;duration=await new Promise(resolve=>{video.onloadedmetadata=()=>resolve(Number(video.duration)||0);video.onerror=()=>resolve(0);setTimeout(()=>resolve(0),12000);});}
+  finally{URL.revokeObjectURL(url);video.removeAttribute('src');}
+  let adapter=null;try{if(navigator.gpu)adapter=await navigator.gpu.requestAdapter({powerPreference:'high-performance'});}catch{}
+  const estimate=estimateVideoCapacity({durationSeconds:duration,fileBytes:file.size,whisperModel:el('browserWhisperModel')?.value||'whisper-base',deviceMemoryGb:navigator.deviceMemory,webgpu:Boolean(adapter)});
+  el('capacityRam').textContent=formatCapacityGb(estimate.systemRamGb)+' recomendados';
+  el('capacityGpu').textContent=formatCapacityGb(estimate.gpuRamGb)+' recomendados';
+  el('capacityDisk').textContent=formatCapacityGb(estimate.freeDiskGb)+' libres';
+  el('capacityModel').textContent='Qwen3 1.7B + '+estimate.asrLabel.replace('Whisper ','');
+  const length=duration?(duration/60).toFixed(1).replace('.',',')+' min':'duración no detectada';
+  const status=el('capacityStatus'),summary=el('capacitySummary');
+  if(!adapter){status.textContent='No compatible con selección IA';status.dataset.level='bad';summary.textContent='Vídeo: '+length+' · '+Math.round(file.size/1048576)+' MB. No se detecta WebGPU; la selección editorial generativa no podrá ejecutarse en este navegador.';}
+  else if(estimate.ramFit===false){status.textContent='Capacidad posiblemente insuficiente';status.dataset.level='warn';summary.textContent='Vídeo: '+length+' · '+Math.round(file.size/1048576)+' MB. El navegador declara '+estimate.deviceMemoryGb+' GB de RAM; se recomiendan '+formatCapacityGb(estimate.systemRamGb)+'.';}
+  else{status.textContent=estimate.ramFit===null?'GPU compatible · RAM no verificable':'Requisitos estimados';status.dataset.level='ok';summary.textContent='Vídeo: '+length+' · '+Math.round(file.size/1048576)+' MB. '+(estimate.ramFit===true?'La memoria declarada parece suficiente.':'WebGPU disponible; evita otras aplicaciones pesadas durante el análisis.');}
+  el('capacityDetails').textContent='Para Whisper '+estimate.asrLabel.replace('Whisper ','')+' + Qwen3-1.7B: RAM '+formatCapacityGb(estimate.systemRamGb)+', memoria gráfica '+formatCapacityGb(estimate.gpuRamGb)+', caché de modelos '+formatCapacityGb(estimate.cacheGb)+' y espacio libre recomendado '+formatCapacityGb(estimate.freeDiskGb)+'. '+(estimate.deviceMemoryGb===null?'Este navegador no permite consultar la RAM del dispositivo.':'RAM declarada por el navegador: '+estimate.deviceMemoryGb+' GB (aproximada).')+' El audio temporal ocupa unos '+estimate.audioWorkingSetMb+' MB. No se puede consultar con precisión la VRAM ni el espacio libre real.';
+  el('videoCapacity').dataset.level=estimate.status;
+}
+
+function parseEditorialDecision(raw, candidates, limit = 4, requireAudit = false, selectionMethod = 'local_generative_editor') {
   const text = String(raw || '').replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
   const match = text.match(/\{[\s\S]*\}/);
   if (!match) throw new Error('El editor IA no devolvió una selección estructurada.');
@@ -691,16 +776,29 @@ function parseEditorialDecision(raw, candidates, limit = 4) {
     const id = Number(item.id);
     if (!Number.isInteger(id) || id < 1 || id > candidates.length || used.has(id)) continue;
     const clip = candidates[id - 1];
+    const auditFlags=Array.isArray(item.audit_flags)?item.audit_flags.map(flag=>String(flag).slice(0,80)):[];
+    if(requireAudit&&(item.audit_verdict!=='pass'||auditFlags.length>0))continue;
     // Reject overlapping editorial selections; timestamps always come from ASR.
     if (selected.some(other => clip.start < other.end + 1 && clip.end > other.start - 1)) continue;
     used.add(id);
+    const rubric=item.rubric&&typeof item.rubric==='object'?item.rubric:null;
+    const rubricKeys=['hook','story','payoff','clarity','completeness','emotion','pacing','originality'];
+    const validRubric=rubric&&rubricKeys.every(key=>Number.isFinite(Number(rubric[key]))&&Number(rubric[key])>=0&&Number(rubric[key])<=10);
+    const editorialScore=validRubric?Math.round((
+      Number(rubric.hook)*1.5+Number(rubric.story)*1+Number(rubric.payoff)*2+
+      Number(rubric.clarity)*1.5+Number(rubric.completeness)*2+Number(rubric.emotion)*.5+
+      Number(rubric.pacing)*.5+Number(rubric.originality)*1
+    )*1):Math.max(0,Math.min(100,Number(item.score)||0));
     selected.push({
       ...clip,
       title: String(item.title || `Clip ${selected.length + 1}`).slice(0, 70),
       ai_editorial_rank: selected.length + 1,
-      ai_editorial_score: Math.max(0, Math.min(100, Number(item.score) || 0)),
+      ai_editorial_score: Math.max(0,Math.min(100,editorialScore)),
+      ai_editorial_rubric: validRubric?Object.fromEntries(rubricKeys.map(key=>[key,Number(rubric[key])])):null,
       ai_editorial_reason: String(item.reason || '').slice(0, 240),
-      selection_method: 'local_generative_editor'
+      selection_method: selectionMethod,
+      ai_editorial_audit_verdict:requireAudit?item.audit_verdict:null,
+      ai_editorial_audit_flags:requireAudit?auditFlags:[]
     });
     if (selected.length >= Math.max(1, Math.min(4, limit))) break;
   }
@@ -724,7 +822,7 @@ function buildEditorialCandidatePool(segments, videoDuration, audioSamples = nul
   for(let i=0;i<clean.length;i++){
     if(clean[i].start+0.01<next||!boundary(i))continue;
     starts.push(i);
-    next=clean[i].start+9;
+    next=clean[i].start+5.5;
   }
   const audioProfile=[];
   if(audioSamples&&audioSamples.length){
@@ -752,14 +850,23 @@ function buildEditorialCandidatePool(segments, videoDuration, audioSamples = nul
       if(naturalEnd)possible.push(j);
     }
     if(!possible.length)continue;
-    const ei=possible.sort((a,b)=>{
-      const cost=i=>Math.abs(clean[i].end-start-29)+(/[.!?]["'”’)]?$/.test(clean[i].text)?-2:0);
-      return cost(a)-cost(b);
-    })[0];
-    const group=clean.slice(si,ei+1),end=group[group.length-1].end;
-    const text=group.map(x=>x.text).join(' ').replace(/\s+/g,' ').trim();
-    if(end-start<18||!text)continue;
-    if(pool.some(x=>Math.abs(x.start-start)<5&&Math.abs(x.end-end)<8))continue;
+    const durationTargets=[22,30,40];
+    const chosenEnds=[];
+    for(const target of durationTargets){
+      const ordered=[...possible].sort((a,b)=>{
+        const da=clean[a].end-start,db=clean[b].end-start;
+        const pa=/[.!?…]["'”’)]?$/.test(clean[a].text)?0:1;
+        const pb=/[.!?…]["'”’)]?$/.test(clean[b].text)?0:1;
+        return Math.abs(da-target)-Math.abs(db-target)||pa-pb;
+      });
+      const ei=ordered.find(index=>!chosenEnds.some(previous=>Math.abs(clean[index].end-clean[previous].end)<7));
+      if(ei!==undefined)chosenEnds.push(ei);
+    }
+    for(const ei of chosenEnds){
+      const group=clean.slice(si,ei+1),end=group[group.length-1].end;
+      const text=group.map(x=>x.text).join(' ').replace(/\s+/g,' ').trim();
+      if(end-start<18||end-start>45||!text)continue;
+      if(pool.some(x=>Math.abs(x.start-start)<1&&Math.abs(x.end-end)<1))continue;
     const audio=audioProfile.filter(x=>x.t>=start&&x.t<end);
     const rms=audio.length?audio.reduce((a,x)=>a+x.rms,0)/audio.length:0;
     const active=audio.length?audio.filter(x=>x.rms>rmsMedian).length/audio.length:0;
@@ -781,19 +888,27 @@ function buildEditorialCandidatePool(segments, videoDuration, audioSamples = nul
       .map(x=>x.text).join(' ').replace(/\s+/g,' ').trim().slice(-360);
     const contextAfter=clean.filter(x=>x.start>=end&&x.start<=end+7)
       .slice(0,5).map(x=>x.text).join(' ').replace(/\s+/g,' ').trim().slice(0,360);
-    pool.push({start,end,duration:end-start,text,context_before:contextBefore,context_after:contextAfter,title:'Candidato editorial',selected:false,selection_method:'neutral_transcript_window',media_evidence:evidence});
+      pool.push({start,end,duration:end-start,text,context_before:contextBefore,context_after:contextAfter,title:'Candidato editorial',selected:false,selection_method:'neutral_transcript_window',media_evidence:evidence});
+    }
   }
   // Bound local-LLM work for long videos. Keep a uniform temporal sample
   // across the complete source instead of ranking windows with heuristics.
   const maxCandidates=64;
   if(pool.length>maxCandidates){
-    const sampled=[];
-    const used=new Set();
-    for(let i=0;i<maxCandidates;i++){
-      const index=Math.round(i*(pool.length-1)/(maxCandidates-1));
-      if(!used.has(index)){used.add(index);sampled.push(pool[index]);}
+    const ordered=[...pool].sort((a,b)=>a.start-b.start||a.end-b.end);
+    const sampled=[],used=new Set();
+    for(let bucket=0;bucket<maxCandidates;bucket++){
+      const left=videoDuration*bucket/maxCandidates,right=videoDuration*(bucket+1)/maxCandidates;
+      const inBucket=ordered.filter(c=>c.start>=left&&c.start<right&&!used.has(c));
+      if(!inBucket.length)continue;
+      const target=[22,30,40][bucket%3];
+      inBucket.sort((a,b)=>Math.abs(a.duration-target)-Math.abs(b.duration-target));
+      sampled.push(inBucket[0]);used.add(inBucket[0]);
     }
-    return sampled;
+    if(sampled.length<maxCandidates){
+      for(const candidate of ordered){if(used.has(candidate))continue;sampled.push(candidate);used.add(candidate);if(sampled.length>=maxCandidates)break;}
+    }
+    return sampled.sort((a,b)=>a.start-b.start).slice(0,maxCandidates);
   }
   return pool;
 }
@@ -801,26 +916,29 @@ function buildEditorialCandidatePool(segments, videoDuration, audioSamples = nul
 async function askEditorialModel(engine, pool, count, onProgress, phase) {
   const shortlist=pool.map((clip,index)=>({
     id:index+1,start:Number(clip.start.toFixed(1)),end:Number(clip.end.toFixed(1)),
-    transcript:String(clip.text).replace(/\s+/g,' ').slice(0,760),
+    transcript:String(clip.text).replace(/\s+/g,' ').slice(0,620),
     prior_editorial_score:Number(clip.ai_editorial_score||0),
     prior_editorial_reason:String(clip.ai_editorial_reason||'').slice(0,180),
     semantic_diversity_score:Number(clip.semanticScore||0),
-    context_before:String(clip.context_before||'').replace(/\s+/g,' ').slice(-360),
-    context_after:String(clip.context_after||'').replace(/\s+/g,' ').slice(0,360),
+    context_before:String(clip.context_before||'').replace(/\s+/g,' ').slice(-160),
+    context_after:String(clip.context_after||'').replace(/\s+/g,' ').slice(0,160),
     media_evidence:clip.media_evidence||null
   }));
   const prompt=[
     'Eres el editor jefe de una productora profesional de clips verticales para redes sociales.',
     'Evalúa cada fragmento como un editor de short-form profesional, usando el diálogo y las señales de audio y vídeo adjuntas. No uses popularidad de palabras ni señales superficiales.',
     'Las señales media_evidence son medidas de actividad, no etiquetas semánticas: audio_activity y audio_dynamic_peaks pueden señalar énfasis o reacción; visual_change indica cambios de plano/movimiento, pero no demuestra interés por sí solo. Úsalas solo como evidencia secundaria.',
-    'Puntúa mentalmente cada momento en cinco dimensiones: gancho inicial; interés narrativo/emocional/cómico; claridad y autonomía; desarrollo con payoff; potencial de mantener atención. No confundas volumen de voz con interés.',
-    'Prioriza anécdotas con giro o remate, bromas con reacción, revelaciones, desacuerdo con argumentos, respuestas inesperadas, opiniones memorables y momentos emocionales genuinos.',
-    'Penaliza inicios a mitad de frase, preguntas sin respuesta, introducciones, charla de transición, bromas internas sin contexto, repeticiones, promoción y finales sin cierre.',
+    'Actúa como editor jefe: busca momentos que un espectador que no conoce el vídeo entienda y quiera terminar. No selecciones por ser representativo del tema; selecciona por ser un buen fragmento autónomo.',
+    'Evalúa CADA candidato con una rúbrica de 0 a 10: hook (primeros 2 segundos), story (progresión o tensión), payoff (remate/revelación/respuesta), clarity (se entiende sin contexto externo), completeness (no corta la premisa ni el remate), emotion (reacción genuina), pacing (sin relleno), originality (no repite otro candidato).',
+    'Da prioridad a hook, payoff, clarity y completeness. Una frase graciosa aislada pero sin contexto no supera a una historia completa. Una pregunta sin respuesta no es un payoff. Una respuesta necesita incluir la pregunta si sin ella pierde sentido.',
+    'Penaliza con fuerza: arranque a mitad de frase, presentación, explicación larga, transición, publicidad/patrocinio, repetición, charla plana, respuesta incomprensible por ASR, remate fuera del corte, final abrupto y dependencia de contexto que no aparece en el clip.',
+    'No confundas volumen, risas de fondo, cambios de plano o palabras llamativas con calidad editorial. Úsalas solo como señales secundarias. No inventes reacciones ni atribuyas quién habla si el texto no lo demuestra.',
+    'Busca cuatro tipos de momento distintos cuando existan: historia con payoff, intercambio cómico, sorpresa/revelación y reacción/opinión fuerte. No fuerces categorías si el vídeo no las contiene. Evita elegir cuatro fragmentos de la misma conversación o del mismo chiste.',
     'Cada candidato incluye context_before y context_after: son frases cercanas FUERA del corte propuesto y solo sirven para entender la conversación. No las cuentes como contenido del clip ni cambies sus tiempos. Si el gancho, la explicación o el remate dependen demasiado de ese contexto externo, penaliza el candidato o prefiere otro que contenga el intercambio completo.',
     'Prefiere el fragmento completo más corto que conserve la premisa y el remate. Busca variedad de temas y formatos. El idioma puede ser español o inglés.',
     'No inventes hechos ni cambies los tiempos. Solo puedes elegir IDs de esta lista.',
     'En esta ronda elige exactamente '+count+' fragmentos. '+phase,
-    'Devuelve SOLO JSON válido: {"selected":[{"id":1,"score":92,"title":"título breve","reason":"razón editorial concreta"}]}.',
+    'Devuelve SOLO JSON válido: {"selected":[{"id":1,"score":92,"rubric":{"hook":9,"story":8,"payoff":9,"clarity":9,"completeness":10,"emotion":8,"pacing":8,"originality":9},"title":"título breve","reason":"razón editorial concreta que identifica premisa y payoff"}]}.',
     'CANDIDATOS:',JSON.stringify(shortlist)
   ].join('\n');
   onProgress(phase);
@@ -833,7 +951,23 @@ async function askEditorialModel(engine, pool, count, onProgress, phase) {
     max_tokens:700,
     response_format:{type:'json_object'}
   });
-  return parseEditorialDecision(response?.choices?.[0]?.message?.content||'',pool,count);
+  const raw=response?.choices?.[0]?.message?.content||'';
+  try{return parseEditorialDecision(raw,pool,count,false,engine.isRemote?'remote_generative_editor':'local_generative_editor');}
+  catch(firstError){
+    // Small local models sometimes return overlapping IDs even when instructed
+    // not to. Give them one constrained repair pass instead of abandoning the
+    // generative route or silently switching to heuristic selection.
+    onProgress('Revisión editorial: corrigiendo solapamientos y cortes incompletos…');
+    const retry=await engine.chat.completions.create({
+      messages:[
+        {role:'system',content:'Eres un editor audiovisual estricto. Devuelve exclusivamente JSON válido y respeta las restricciones.'},
+        {role:'user',content:prompt},
+        {role:'assistant',content:String(raw).slice(0,5000)},
+        {role:'user',content:'La selección anterior ha sido rechazada: '+String(firstError.message||firstError)+'. Vuelve a evaluar la lista completa y devuelve exactamente '+count+' IDs válidos, todos distintos y sin solapamiento temporal (deja al menos 1 segundo entre clips). No repitas la selección anterior si contiene solapamientos. Devuelve el mismo JSON con la rúbrica editorial completa.'}
+      ],temperature:0.08,max_tokens:700,response_format:{type:'json_object'}
+    });
+    return parseEditorialDecision(retry?.choices?.[0]?.message?.content||'',pool,count,false,engine.isRemote?'remote_generative_editor':'local_generative_editor');
+  }
 }
 
 async function aiEditorialSelect(candidates, limit = 4, onProgress = () => {}) {
@@ -846,29 +980,67 @@ async function aiEditorialSelect(candidates, limit = 4, onProgress = () => {}) {
   // finalists together. No heuristic score decides which candidates survive.
   if(pool.length<=8)return askEditorialModel(engine,pool,limit,onProgress,'El editor IA está comparando todos los momentos disponibles…');
   const finalists=[];
-  for(let offset=0;offset<pool.length;offset+=8){
-    const batch=pool.slice(offset,offset+8);
+  const batchCount=Math.ceil(pool.length/8);
+  // Interleave the chronological pool: every judge batch sees candidates from
+  // the beginning, middle and end, instead of eight neighboring windows. This
+  // prevents local chronology from biasing the model and gives each batch a
+  // genuinely global editorial comparison.
+  const batches=Array.from({length:batchCount},(_,batchIndex)=>
+    pool.filter((_,candidateIndex)=>candidateIndex%batchCount===batchIndex)
+  );
+  for(let index=0;index<batches.length;index++){
+    const batch=batches[index];
     const keep=Math.min(3,batch.length);
-    const selected=await askEditorialModel(engine,batch,keep,onProgress,'Evaluación editorial IA: bloque '+(Math.floor(offset/8)+1)+'/'+Math.ceil(pool.length/8)+'…');
+    const selected=await askEditorialModel(engine,batch,keep,onProgress,'Evaluación editorial IA: bloque global '+(index+1)+'/'+batches.length+'…');
     finalists.push(...selected);
   }
   if(finalists.length<limit)throw new Error('La evaluación por bloques no produjo suficientes finalistas.');
-  // Independent second model: multilingual sentence embeddings do not judge
-  // comedy or narrative quality; they detect near-duplicate topics so the
-  // final generative editor can spend its context on a more varied shortlist.
-  // This stage is optional: storage/WebGPU/model-download failures must never
-  // prevent the primary editorial judge from completing its final decision.
+  // Independent multilingual embedding judge detects near-duplicate topics.
+  // It narrows the finalists to six varied options before the final editorial vote.
+  // Narrative quality remains the responsibility of the generative editor.
   let finalPool=finalists;
   if(finalists.length>limit){
     try{
-      onProgress('Segundo modelo IA: comparando similitud semántica para evitar cuatro clips del mismo tema…');
-      finalPool=await semanticRerankCandidates(finalists,Math.min(8,finalists.length),onProgress);
+      onProgress('Segundo modelo IA: comparando similitud semántica y diversidad temática…');
+      finalPool=await semanticRerankCandidates(finalists,Math.min(6,finalists.length),onProgress);
     }catch(semanticError){
-      console.warn('El segundo modelo semántico no está disponible; se mantiene la evaluación editorial principal.',semanticError);
-      onProgress('El modelo semántico opcional no está disponible; el editor principal continúa con todos los finalistas…');
+      console.warn('Modelo semántico opcional no disponible; continúa el juez editorial principal.',semanticError);
+      onProgress('El modelo semántico opcional no está disponible; continúa el juez editorial principal…');
     }
   }
-  return askEditorialModel(engine,finalPool,limit,onProgress,'Comparación final IA: eligiendo los cuatro mejores clips entre todos los finalistas…');
+  const firstVote=await askEditorialModel(engine,finalPool,limit,onProgress,'Primera votación editorial: eligiendo los cuatro mejores clips entre todos los finalistas…');
+  // A separate, adversarial editorial pass audits the complete finalist set.
+  // It is deliberately blind to the first vote's scores and reasons: it sees
+  // only the candidate evidence and which IDs were provisionally selected.
+  // This is an independent judgment pass, not a claim of a second model.
+  onProgress('Juez editorial de control: auditando contexto, gancho y remate…');
+  const auditInput=finalPool.map((clip,index)=>({
+    id:index+1,start:Number(clip.start.toFixed(1)),end:Number(clip.end.toFixed(1)),
+    transcript:String(clip.text||'').replace(/\\s+/g,' ').slice(0,620),
+    context_before:String(clip.context_before||'').replace(/\\s+/g,' ').slice(-160),
+    context_after:String(clip.context_after||'').replace(/\\s+/g,' ').slice(0,160),
+    provisional:firstVote.some(p=>Math.abs(p.start-clip.start)<0.05&&Math.abs(p.end-clip.end)<0.05)
+  }));
+  const auditPrompt=[
+    'Eres un auditor editorial independiente y escéptico. No eres el editor que hizo la primera selección.',
+    'Audita TODOS los finalistas desde cero. No favorezcas provisional=true: puede ser un error de la primera votación.',
+    'Tu prioridad es evitar falsos positivos: un clip solo pasa si tiene gancho comprensible, desarrollo suficiente, payoff dentro del corte y cierre natural. Rechaza cortes que dependan de contexto externo, respuestas sin pregunta, premisas incompletas, remates posteriores al final, ASR ininteligible, relleno y duplicados.',
+    'Compara calidad real, no popularidad del tema. Evalúa claridad, autonomía, retención probable, ritmo y singularidad. Si un provisional es peor que una alternativa, sustitúyelo. No inventes palabras ni cambies timestamps.',
+    'Devuelve exactamente '+limit+' IDs distintos y no solapados. Incluye la rúbrica completa hook, story, payoff, clarity, completeness, emotion, pacing, originality (0-10), title y reason. Añade audit_verdict="pass" y audit_flags=[] si no detectas defecto; si hay defectos en otros candidatos, no los selecciones.',
+    'Devuelve SOLO JSON válido con la misma estructura {"selected":[...]}.',
+    'FINALISTAS PARA AUDITAR:',JSON.stringify(auditInput)
+  ].join('\n');
+  const audit=await engine.chat.completions.create({messages:[
+    {role:'system',content:'Actúas como revisor editorial independiente. Busca motivos para DESCARTAR, no para confirmar. Responde solo JSON válido.'},
+    {role:'user',content:auditPrompt}
+  ],temperature:0.05,max_tokens:700,response_format:{type:'json_object'}});
+  const audited=parseEditorialDecision(audit?.choices?.[0]?.message?.content||'',finalPool,limit,true,engine.isRemote?'remote_generative_editor':'local_generative_editor');
+  const firstKeys=new Set(firstVote.map(c=>`${c.start.toFixed(1)}-${c.end.toFixed(1)}`));
+  return audited.map((clip,index)=>({...clip,
+    ai_editorial_audit:'independent_critic_pass',
+    ai_editorial_consensus:firstKeys.has(`${clip.start.toFixed(1)}-${clip.end.toFixed(1)}`)?'both_passes':'critic_replacement',
+    ai_editorial_rank:index+1
+  }));
 }
 
 async function semanticRerankCandidates(candidates, limit = 4, onProgress = () => {}) {
@@ -922,7 +1094,7 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
  };
  editableCandidates.forEach((c,i)=>{
   const card=document.createElement('article');card.className='candidate-card';
-  const heading=document.createElement('strong');heading.textContent=c.selection_method==='local_generative_editor'?(c.title+' · valoración IA '+c.ai_editorial_score+'/100'):(c.title+' · candidato para revisión');
+  const heading=document.createElement('strong');heading.textContent=(c.selection_method==='local_generative_editor'||c.selection_method==='remote_generative_editor')?(c.title+' · valoración IA '+c.ai_editorial_score+'/100'):(c.title+' · candidato para revisión');
   const rationale=document.createElement('small');rationale.className='candidate-rationale';rationale.textContent=c.ai_editorial_reason || (c.reasons||[]).join(' · ') || 'Fragmento propuesto para evaluación';
   const preview=document.createElement('button');preview.type='button';preview.className='secondary preview-clip-candidate';preview.textContent='Vista previa';preview.addEventListener('click',()=>window.clipforgeEditorBridge?.previewClip?.(c));
   const selectLabel=document.createElement('label');selectLabel.className='candidate-select';
@@ -1049,6 +1221,7 @@ runButton?.addEventListener('click', async () => {
           // Keep the workflow usable when WebGPU or the local generative model
           // is unavailable. This is an explicitly labelled heuristic fallback,
           // never presented as an AI editorial decision.
+          // Keep the heuristic path visibly distinct from the generative selector: no se presentan cortes heurísticos como selección IA.
           showClipCandidates(transcriptData.segments, audio.length / 16000, null, audio, visualSamples);
           say(`El editor IA local no está disponible (${editorError.message}). Se han generado candidatos de respaldo mediante reglas locales para que puedas revisarlos y exportarlos; no se presentan como selección editorial IA. Para la selección generativa, usa Chrome/Edge actualizado con WebGPU.`);
           return;
@@ -1099,6 +1272,7 @@ document.querySelector('#video')?.addEventListener('change', async () => {
   const input = document.querySelector('#video');
   const file = input?.files?.[0];
   if (!file) return;
+  updateVideoCapacity(file).catch(error=>console.warn('No se pudo calcular la capacidad del vídeo:',error));
   const field=document.querySelector('[name="selected_clip_ranges"]');
   const panel=document.querySelector('#browserCandidates');
   const transcript=document.querySelector('#transcript');
@@ -1231,4 +1405,5 @@ window.clipforgeEditorBridge = {
 };
 window.dispatchEvent(new CustomEvent('clipforge:editor-ready'));
 
-// ClipForge multilingual editorial engine revision 94094108.
+
+document.querySelector('#browserWhisperModel')?.addEventListener('change',()=>{const file=document.querySelector('#video')?.files?.[0];if(file)updateVideoCapacity(file).catch(console.warn);});
