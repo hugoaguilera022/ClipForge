@@ -56,6 +56,7 @@ for (let quarter = 0; quarter < dialogue.length; quarter++) {
     words.push({ start, end: start + 2.7, text: dialogue[quarter][i] });
   }
 }
+assert.ok(!/todos los gitanos/i.test(source.slice(start, end)), 'general Spanish hooks must not be biased toward the supplied test video');
 const clips = context.rank(words, 210);
 console.log('RANKER_DEBUG', JSON.stringify(clips.map(c => ({start:c.start,end:c.end,score:c.score}))));
 assert.equal(clips.length, 4, 'must return four distinct clips when four coherent beats exist');
