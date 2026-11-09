@@ -674,8 +674,8 @@ async function loadEditorialJudge(onProgress = () => {}) {
 }
 
 function parseEditorialDecision(raw, candidates, limit = 4) {
-  const text = String(raw || '').replace(/<think>[\\s\\S]*?<\\/think>/gi, '').trim();
-  const match = text.match(/\\{[\\s\\S]*\\}/);
+  const text = String(raw || '').replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+  const match = text.match(/\{[\s\S]*\}/);
   if (!match) throw new Error('El editor IA no devolvió una selección estructurada.');
   const data = JSON.parse(match[0]);
   if (!Array.isArray(data.selected)) throw new Error('La respuesta del editor IA no contiene una lista de selección.');
@@ -711,7 +711,7 @@ async function aiEditorialSelect(candidates, limit = 4, onProgress = () => {}) {
   const engine = await loadEditorialJudge(onProgress);
   const shortlist = pool.slice(0, 16).map((clip,index) => ({
     id:index+1, start:Number(clip.start.toFixed(1)), end:Number(clip.end.toFixed(1)),
-    transcript:String(clip.text).replace(/\\s+/g,' ').slice(0,520)
+    transcript:String(clip.text).replace(/\s+/g,' ').slice(0,520)
   }));
   const prompt = [
     'Eres el editor jefe de una productora profesional de clips verticales para redes sociales.',
@@ -722,7 +722,7 @@ async function aiEditorialSelect(candidates, limit = 4, onProgress = () => {}) {
     'No inventes hechos ni cambies los tiempos. Solo puedes seleccionar IDs de la lista. No selecciones por puntuación heurística.',
     'Devuelve SOLO JSON válido con esta forma: {"selected":[{"id":1,"score":92,"title":"título breve","reason":"por qué funciona editorialmente"}]}. Ordena por calidad editorial. Exactamente cuatro IDs distintos.',
     'CANDIDATOS:', JSON.stringify(shortlist)
-  ].join('\\n');
+  ].join('\n');
   onProgress('El editor IA está leyendo y comparando los momentos…');
   const response = await engine.chat.completions.create({
     messages:[
