@@ -296,12 +296,12 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
 
   const minLen = 15, maxLen = 45, targetLen = 24;
   const sentenceEnd = /[.!?…][”’"')\]]?$/;
-  const strongHook = /\b(¿qué|quién|cómo|por qué|qué pasa|no me digas|madre mía|increíble|imagina|resulta que|la verdad|nunca|jamás|te juro|no sabía|de repente|en serio|qué fuerte|qué locura|qué dices|what|who|how|why|guess what|you will not believe|unbelievable|imagine|turns out|never|suddenly|seriously|that is crazy|no way)\b/i;
-  const payoff = /\b(al final|resulta que|y entonces|por eso|exactamente|efectivamente|claro|ya te avisaremos|te avisaremos|no|sí|eso|ahí|pues|ya está|lo consiguió|lo he hecho|no puede ser|in the end|turns out|that is why|exactly|actually|that is it|he did it|I did it|cannot believe|there it is)\b/i;
-  const emotional = /\b(risa|risas|riendo|llor|miedo|vergüenza|sorpresa|increíble|brutal|absurdo|ridículo|flipante|hostia|joder|buah|ostras|madre mía|qué fuerte|dios|ja ja|jajaja|puf|potencia|a huevo|bolas|laugh|laughing|cry|scared|embarrassed|surprised|insane|crazy|ridiculous|awesome|damn|wow|oh my god|no way)\b/i;
-  const filler = /\b(este|esto|eh|em|mmm|pues|vale|bueno|a ver|en plan|o sea|uh|um|erm|like|you know|I mean|well)\b/gi;
-  const reactionWord = /\b(puf|potencia|dios|bolas|a huevo|jaj+a+|risas?|hostia|buah|ostras|flipante|brutal|wow|damn|no way|oh my god|insane|awesome|laughing)\b/gi;
-  const storyPivot = /\b(se acabó|lo más importante|tienes que saber|para acabar|una preguntita|esto es|y entonces|ahora|here is the thing|the point is|what happened next|and then|but then|long story short|here is why)\b/i;
+  const strongHook = /\b(¿qué|quién|cómo|por qué|qué pasa|no me digas|madre mía|increíble|imagina|resulta que|la verdad|nunca|jamás|te juro|no sabía|de repente|en serio|qué fuerte|qué locura|qué dices|what|who|how|why|guess what|you will not believe|unbelievable|imagine|turns out|never|suddenly|seriously|that is crazy|no way|pourquoi|comment|qui|incroyable|jamais|soudain|sérieusement|c’est fou|résultat|por que|como|quem|incrível|nunca|de repente|imagina|por quê|warum|wie|wer|unglaublich|niemals|plötzlich|stell dir vor|perché|chi|incredibile|mai|all’improvviso)\b/i;
+  const payoff = /\b(al final|resulta que|y entonces|por eso|exactamente|efectivamente|claro|ya te avisaremos|te avisaremos|no|sí|eso|ahí|pues|ya está|lo consiguió|lo he hecho|no puede ser|in the end|turns out|that is why|exactly|actually|that is it|he did it|I did it|cannot believe|there it is|finalement|en fait|exactement|bien sûr|voilà|c’est ça|por fim|no final|na verdade|exatamente|no fim|am ende|genau|natürlich|tatsächlich|so ist es|ecco|alla fine|esattamente|certo|è così)\b/i;
+  const emotional = /\b(risa|risas|riendo|llor|miedo|vergüenza|sorpresa|increíble|brutal|absurdo|ridículo|flipante|hostia|joder|buah|ostras|madre mía|qué fuerte|dios|ja ja|jajaja|puf|potencia|a huevo|bolas|laugh|laughing|cry|scared|embarrassed|surprised|insane|crazy|ridiculous|awesome|damn|wow|oh my god|no way|rire|rires|mort de rire|fou|incroyable|peur|honte|surpris|wahnsinn|verrückt|angst|peinlich|überrascht|lachen|risada|risadas|louco|medo|vergonha|surpreso|risate|pazzesco|paura|imbarazzo|sorpreso)\b/i;
+  const filler = /\b(este|esto|eh|em|mmm|pues|vale|bueno|a ver|en plan|o sea|uh|um|erm|like|you know|I mean|well|euh|ben|bah|enfin|genre|tu sais|donc|also|äh|ähm|na ja|halt|sozusagen|tipo|né|então|assim|quer dizer|cioè|allora|diciamo|insomma)\b/gi;
+  const reactionWord = /\b(puf|potencia|dios|bolas|a huevo|jaj+a+|risas?|hostia|buah|ostras|flipante|brutal|wow|damn|no way|oh my god|insane|awesome|rires?|mort de rire|incroyable|wahnsinn|verrückt|risadas?|incrível|pazzesco|risate)\b/gi;
+  const storyPivot = /\b(se acabó|lo más importante|tienes que saber|para acabar|una preguntita|esto es|y entonces|ahora|here is the thing|the point is|what happened next|and then|but then|long story short|here is why|voici le truc|et puis|tout à coup|en fait|voilà pourquoi|a questão é|e então|de repente|a verdade é|hier ist der punkt|und dann|plötzlich|am ende|il punto è|e poi|all’improvviso|alla fine)\b/i;
   const clean = words.filter(w => Number.isFinite(w.start) && Number.isFinite(w.end) && w.end > w.start && String(w.text||'').trim())
     .map(w=>({start:Number(w.start),end:Number(w.end),text:String(w.text).trim()})).sort((a,b)=>a.start-b.start);
   // Non-speech media (music, gameplay, sports, scenic footage, sound design)
@@ -390,8 +390,8 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     };
     endIndex=possible.sort((x,y)=>endpointCost(x)-endpointCost(y))[0];
     const group=clean.slice(si,endIndex+1), end=group[group.length-1].end, duration=end-start;
-    const text=group.map(w=>w.text).join(' '), lower=text.toLocaleLowerCase('es');
-    const tokens=lower.match(/[a-záéíóúüñ]{2,}/g)||[];
+    const text=group.map(w=>w.text).join(' '), lower=text.toLowerCase();
+    const tokens=lower.match(/[\p{L}\p{N}]{2,}/gu)||[];
     const uniqueRatio=new Set(tokens).size/Math.max(1,tokens.length);
     const wordsPerSecond=tokens.length/Math.max(1,duration);
     const questionCount=(text.match(/[¿?]/g)||[]).length;
