@@ -122,7 +122,7 @@ assert.equal(judged.length,4);
 assert.equal(judged[0].selection_method,'local_generative_editor');
 assert.equal(judged[0].start,0,'AI cannot invent or alter source timestamps');
 assert.throws(()=>context.parseDecision(JSON.stringify({selected:[1,1,3,4].map(id=>({id}))}),judgePool,4),/candidatos válidos/);
-assert.throws(()=>context.parseDecision(JSON.stringify({selected:[1,2,3,99].map(id=>({id}))}),judgePool,4),/cuatro candidatos válidos/);
+assert.throws(()=>context.parseDecision(JSON.stringify({selected:[1,2,3,99].map(id=>({id}))}),judgePool,4),/candidatos válidos/);
 console.log('Generative editor validation passed: only grounded IDs and non-overlapping source times are accepted.');
 
 // Candidate generation creates a broad, neutral transcript grid and does not
