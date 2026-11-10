@@ -997,11 +997,13 @@ async function loadLocalEditorialJudge(onProgress=()=>{}){
  if(!adapter)throw new Error('No se ha encontrado una GPU compatible con WebGPU.');
  if(!editorialEnginePromise){
   editorialEnginePromise=(async()=>{
-   onProgress('Preparando el editor IA local Qwen3-1.7B…');
+   // Use the compact 0.6B model by default: it has a materially lower
+   // WebGPU/OPFS footprint and avoids the quota failure seen with 1.7B.
+   onProgress('Preparando el editor IA local Qwen3 compacto (0.6B)…');
    const webllm=await import('https://esm.sh/@mlc-ai/web-llm@0.2.87');
-   const modelId='Qwen3-1.7B-q4f16_1-MLC';
+   const modelId='Qwen3-0.6B-q4f16_1-MLC';
    const record=webllm.prebuiltAppConfig.model_list.find(item=>item.model_id===modelId);
-   if(!record)throw new Error('La versión instalada de WebLLM no incluye Qwen3-1.7B compatible.');
+   if(!record)throw new Error('La versión instalada de WebLLM no incluye Qwen3-0.6B compatible.');
    const appConfig={...webllm.prebuiltAppConfig,cacheBackend:'opfs',opfsAccessMode:'auto'};
    return await webllm.CreateMLCEngine(modelId,{appConfig,initProgressCallback:report=>onProgress(report?.text||'Descargando el modelo editorial IA…')});
   })().catch(error=>{editorialEnginePromise=null;throw error;});
