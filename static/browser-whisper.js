@@ -195,8 +195,8 @@ async function extractAudioWithMediabunny(file) {
     const duration = Number.isFinite(metadataDuration) && metadataDuration > 0
       ? metadataDuration
       : await track.computeDuration();
-    if (!Number.isFinite(duration) || duration <= 0 || duration > 6 * 60 * 60) {
-      throw new Error('La duración del audio del MP4 no es válida.');
+    if (!Number.isFinite(duration) || duration <= 0 || duration > 60 * 60) {
+      throw new Error('ClipForge admite vídeos de hasta 60 minutos. Divide el vídeo si supera una hora.');
     }
     const mono = new Float32Array(Math.ceil(duration * 16000));
     const sink = new AudioSampleSink(track);
@@ -1524,7 +1524,10 @@ runButton?.addEventListener('click', async () => {
     await releaseWhisperModel();
     const chunks = result.chunks || [];
     say('Analizando cambios visuales del vídeo localmente para complementar la transcripción…');
-    const visualSamples = await captureVisualActivity(file,audio.length/16000,4);
+    const sourceDuration=audio.length/16000;
+    const visualStep=sourceDuration>1800?20:sourceDuration>600?10:4;
+    say(`Analizando cambios visuales cada ${visualStep} segundos para adaptar el proceso a un vídeo de ${Math.round(sourceDuration/60)} minutos…`);
+    const visualSamples = await captureVisualActivity(file,sourceDuration,visualStep);
     transcriptData = {
       source: file.name, model: activeModelId, language: result.language || sourceLanguage,
       generated_at: new Date().toISOString(), text: result.text || '',
