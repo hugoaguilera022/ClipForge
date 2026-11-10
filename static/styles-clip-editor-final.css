@@ -1071,3 +1071,17 @@ body.cf-stage-editor .candidate-card.is-open .cf-clip-timeline{min-width:0}
 #cfWorkspace .cf-clip-subtitle-block{position:absolute;top:5px;bottom:5px;min-width:18px;overflow:hidden;padding:0 6px;border:1px solid #5b8cba;border-radius:6px;background:#315f87;color:#fff;font-size:11px;font-weight:700;text-align:left;white-space:nowrap;text-overflow:ellipsis;cursor:pointer}
 #cfWorkspace .cf-clip-subtitle-block:hover,#cfWorkspace .cf-clip-subtitle-block:focus-visible{background:#247f9d;outline:2px solid #29c9b7;outline-offset:1px}
 #cfWorkspace .cf-subtitle-row.is-active{outline:2px solid #25cdbb;border-radius:8px}
+
+/* Active clip workspace: portrait preview and subtitle lane */
+body.cf-stage-editor .candidate-card.is-open .candidate-filmstrip{display:block;width:min(100%,420px);height:auto;max-height:72vh;aspect-ratio:9/16;object-fit:cover;object-position:center;background:#050507;margin:0 auto;border-radius:12px}
+body.cf-stage-editor .candidate-card.is-open .cf-inline-player{display:flex;flex-direction:column;align-items:center;gap:10px}
+body.cf-stage-editor .candidate-card.is-open .cf-inline-player-controls{width:min(100%,420px)}
+body.cf-stage-editor .cf-subtitle-timeline-wrap{display:grid;gap:10px;margin:18px 0;padding:14px;border:1px solid #3b3b49;border-radius:14px;background:#17171f}
+body.cf-stage-editor .cf-subtitle-timeline-wrap>strong{font-size:15px;color:#e8e8f0}
+body.cf-stage-editor .cf-clip-subtitle-track{display:grid;gap:8px;min-width:0}
+body.cf-stage-editor .cf-subtitle-track-ruler{position:relative;height:20px;color:#9ca3b4;font-size:11px}
+body.cf-stage-editor .cf-subtitle-track-ruler span{position:absolute;transform:translateX(-50%);white-space:nowrap}
+body.cf-stage-editor .cf-subtitle-track-rail{position:relative;min-height:48px;border-radius:9px;background:repeating-linear-gradient(90deg,#252633 0,#252633 calc(25% - 1px),#383947 25%);overflow:hidden}
+body.cf-stage-editor .cf-clip-subtitle-block{position:absolute;top:5px;bottom:5px;min-width:18px;overflow:hidden;padding:0 6px;border:1px solid #5b8cba;border-radius:6px;background:#315f87;color:#fff;font-size:11px;font-weight:700;text-align:left;white-space:nowrap;text-overflow:ellipsis;cursor:pointer}
+body.cf-stage-editor .cf-clip-subtitle-block:hover,body.cf-stage-editor .cf-clip-subtitle-block:focus-visible{background:#247f9d;outline:2px solid #29c9b7;outline-offset:1px}
+body.cf-stage-editor .cf-subtitle-row.is-active{outline:2px solid #25cdbb;border-radius:8px}
