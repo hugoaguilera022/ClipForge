@@ -793,3 +793,20 @@ body.cf-opus-body #cfWorkspace .cf-opus-upload-row .cf-opus-drop-slot .drop inpu
 body.cf-opus-body #cfWorkspace .cf-opus-upload-row .cf-opus-primary-action #browserTranscribe{background:#fff!important;color:#101014!important;border:0!important;border-radius:40px!important;box-shadow:none!important}
 body.cf-opus-body #cfWorkspace .cf-opus-showcase{background:radial-gradient(ellipse at 50% 18%,#303136 0%,#1b1b1f 48%,#131316 100%)!important}
 body.cf-opus-body #cfWorkspace .cf-opus-demo-clip{background:linear-gradient(160deg,#36363d,#141419 70%)!important}
+
+
+/* Per-clip full-source trim timeline with accessible draggable in/out handles */
+#cfWorkspace .cf-clip-timeline{width:100%;margin:2px 0 8px;padding:10px 10px 8px;border:1px solid #343746;border-radius:10px;background:#11131a;box-sizing:border-box}
+#cfWorkspace .cf-clip-timeline-head{display:flex;justify-content:space-between;gap:8px;margin-bottom:9px;color:#a5a8b5;font-size:10px}
+#cfWorkspace .cf-clip-timeline-head strong{color:#36d9c2;font-variant-numeric:tabular-nums}
+#cfWorkspace .cf-clip-timeline-rail{position:relative;height:24px;border-radius:5px;background:#303440;touch-action:pan-y;overflow:visible}
+#cfWorkspace .cf-clip-timeline-full{position:absolute;inset:0;border-radius:5px;background:repeating-linear-gradient(90deg,#3b414e 0,#3b414e 1px,#303440 1px,#303440 10px)}
+#cfWorkspace .cf-clip-timeline-selected{position:absolute;top:0;bottom:0;min-width:2px;background:linear-gradient(90deg,#13bdb6,#47e0b7);border-top:2px solid #8cf6df;border-bottom:2px solid #8cf6df;box-sizing:border-box;pointer-events:none}
+#cfWorkspace .cf-clip-timeline-handle{position:absolute;z-index:2;top:-5px;width:14px;height:34px;min-height:34px;padding:0;transform:translateX(-50%);border:2px solid #e8fff9;border-radius:5px;background:#16c9bb;box-shadow:0 1px 7px #0008;cursor:ew-resize;touch-action:none}
+#cfWorkspace .cf-clip-timeline-handle:after{content:"";position:absolute;left:4px;top:9px;height:12px;border-left:2px solid #073d3b}
+#cfWorkspace .cf-clip-timeline-handle:focus-visible{outline:3px solid #fff;outline-offset:2px}
+#cfWorkspace .cf-clip-timeline-ruler{position:relative;height:17px;margin-top:7px;color:#777d8d;font-size:9px;font-variant-numeric:tabular-nums}
+#cfWorkspace .cf-clip-timeline-ruler span{position:absolute;transform:translateX(-50%);white-space:nowrap}
+#cfWorkspace .cf-clip-timeline-ruler .at-start{transform:none}
+#cfWorkspace .cf-clip-timeline-ruler .at-end{transform:translateX(-100%)}
+@media(max-width:700px){#cfWorkspace .cf-clip-timeline{padding:9px 8px}#cfWorkspace .cf-clip-timeline-ruler{font-size:8px}}
