@@ -509,3 +509,9 @@ body[data-browser-only="true"] .cf-page[data-page="settings"] .publish{display:n
  #cfWorkspace.cf-single-page .editor-preview video{height:440px;max-height:58vh}
  #cfWorkspace.cf-single-page .cf-editor-inspector{grid-column:1}
 }
+
+#cfWorkspace.cf-single-page .cf-source-tabs button{width:auto;min-width:145px;padding:8px 13px;background:#101a25;border:1px solid #303f4d;border-radius:7px;color:#aab8c6;font-size:11px;font-weight:650;box-shadow:none}
+#cfWorkspace.cf-single-page .cf-source-tabs button.active{background:#183039;border-color:#32817d;color:#75e4dc}
+#cfWorkspace.cf-single-page .cf-source-tabs button:hover{transform:none;filter:brightness(1.1)}
+#cfWorkspace.cf-single-page .cf-production .browser-youtube-import .check{display:flex!important;margin:6px 0;color:#aab8c6}
+#cfWorkspace.cf-single-page .cf-production .browser-youtube-import small{display:block!important;color:#8293a4;font-size:10px}
