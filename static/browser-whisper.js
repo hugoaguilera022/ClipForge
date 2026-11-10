@@ -8,7 +8,12 @@ let asr = null;
 let asrModelId = null;
 let importedProjectPendingSource = false;
 let editorTracks = [];
-const say = (message) => { if (status) status.textContent = message; };
+let candidatePreviewUrl = null;
+let candidatePreviewKey = null;
+const say = (message) => {
+  if (status) status.textContent = message;
+  window.dispatchEvent(new CustomEvent('clipforge:transcription-progress',{detail:{message}}));
+};
 
 async function releaseWhisperModel() {
   const active = asr;
@@ -1303,6 +1308,18 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
  };
  editableCandidates.forEach((c,i)=>{
   const card=document.createElement('article');card.className='candidate-card';
+  const sourceFile=document.querySelector('#video')?.files?.[0];
+  if(sourceFile){
+    const key=`${sourceFile.name}:${sourceFile.size}:${sourceFile.lastModified}`;
+    if(key!==candidatePreviewKey){if(candidatePreviewUrl)URL.revokeObjectURL(candidatePreviewUrl);candidatePreviewUrl=URL.createObjectURL(sourceFile);candidatePreviewKey=key;}
+  }
+  const film=document.createElement('video');film.className='candidate-filmstrip';film.muted=true;film.playsInline=true;film.preload='metadata';film.setAttribute('aria-label','Vista previa del clip vertical');
+  if(candidatePreviewUrl){
+    film.src=candidatePreviewUrl;
+    film.addEventListener('loadedmetadata',()=>{film.currentTime=Math.min(Math.max(0,Number(c.start)||0),Math.max(0,film.duration-.1));},{once:true});
+    film.addEventListener('seeked',()=>film.pause(),{once:true});
+    film.addEventListener('click',()=>window.clipforgeEditorBridge?.previewClip?.(c));
+  }
   const heading=document.createElement('strong');heading.textContent=(c.selection_method==='local_generative_editor'||c.selection_method==='remote_generative_editor')?(c.title+' · valoración IA '+c.ai_editorial_score+'/100'):(c.title+' · candidato para revisión');
   const rationale=document.createElement('small');rationale.className='candidate-rationale';rationale.textContent=[c.ai_editorial_reason,c.ai_editorial_importance_evidence?('Evidencia: «'+c.ai_editorial_importance_evidence+'»'):null].filter(Boolean).join(' · ') || (c.reasons||[]).join(' · ') || 'Fragmento propuesto para evaluación';
   const preview=document.createElement('button');preview.type='button';preview.className='secondary preview-clip-candidate';preview.textContent='Vista previa';preview.addEventListener('click',()=>window.clipforgeEditorBridge?.previewClip?.(c));
@@ -1318,7 +1335,7 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
   const note=document.createElement('textarea');note.value=String(c.text || '');note.rows=3;note.setAttribute('aria-label','Texto del clip');
   const update=()=>{const x=Number(a.value),y=Number(b.value);if(a.value.trim()===''||b.value.trim()===''||!Number.isFinite(x)||!Number.isFinite(y)||x<0||y<=x||y>duration){card.classList.add('candidate-invalid');return;}card.classList.remove('candidate-invalid');editableCandidates[i]={...editableCandidates[i],start:x,end:y,duration:y-x,text:note.value};sync();};
   a.addEventListener('change',update);b.addEventListener('change',update);note.addEventListener('input',update);
-  row.append(a,b);card.append(heading,rationale,preview,exportSingle,selectLabel,row,note);list.append(card);
+  row.append(a,b);card.append(film,heading,rationale,preview,exportSingle,selectLabel,row,note);list.append(card);
  });
  const info=document.createElement('p');info.textContent=editableCandidates.every(c=>c.selection_method==='local_generative_editor'||c.selection_method==='remote_generative_editor')?'Selección editorial realizada por un modelo generativo. Cada clip incluye evidencia textual que justifica su importancia y supera una segunda pasada de auditoría; revisa el resultado antes de exportar.':'Candidatos de respaldo sin selección editorial generativa confirmada.';list.append(info);
  const openEditor=document.createElement('button');openEditor.type='button';openEditor.className='secondary';openEditor.textContent='Editar clips ahora en el editor (sin descargar)';
