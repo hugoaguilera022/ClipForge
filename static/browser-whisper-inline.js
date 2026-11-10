@@ -269,8 +269,10 @@ async function toMono16k(blob) {
 // by their absolute timestamps and normalized text.
 async function transcribeAudioInChunks(asr, audio, onProgress = () => {}, timestampMode = 'word', language = null) {
   const sampleRate = 16000;
-  const windowSeconds = 28;
-  const overlapSeconds = 2;
+  // Whisper accepts up to 30 seconds per inference. Use almost the full
+  // context and a short overlap to reduce sequential model calls on long videos.
+  const windowSeconds = 30;
+  const overlapSeconds = 1.25;
   const windowSamples = windowSeconds * sampleRate;
   const stepSamples = (windowSeconds - overlapSeconds) * sampleRate;
   const totalSeconds = audio.length / sampleRate;
@@ -1571,8 +1573,10 @@ runButton?.addEventListener('click', async () => {
         asrModelId = null;
         await loadModel(modelId);
       }
-      say('Transcribiendo en fragmentos para reducir memoria y evitar límites de 30 segundos…');
-      result = await transcribeAudioInChunks(asr, audio, reportProgress, model === 'whisper-small' ? true : 'word', sourceLanguage);
+      say('Transcribiendo con ventanas optimizadas de 30 segundos y marcas de tiempo por frase para acelerar el proceso…');
+      // Phrase-level timestamps are enough for editable captions and clip
+      // selection. Word-level alignment adds CPU work to every decode window.
+      result = await transcribeAudioInChunks(asr, audio, reportProgress, true, sourceLanguage);
       if (model === 'whisper-small' && !(result.chunks || []).length) {
         throw new Error('Whisper Small no devolvió marcas de tiempo utilizables.');
       }
