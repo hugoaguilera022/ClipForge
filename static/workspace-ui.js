@@ -9,6 +9,12 @@
   const transcribe=$('#browserTranscribe'),candidates=$('#browserCandidates');
   const editor=$('#projectEditor'),exportPanel=$('.browser-export');
   const language=$('#browserWhisperLanguage'),model=$('#browserWhisperModel');
+  // Capture nodes that live inside the original <main> before replacing it.
+  // Querying them afterwards returned null and silently detached the ASR output.
+  const whisperStatus=$('#browserWhisperStatus');
+  const transcriptOutput=$('#browserTranscript');
+  const downloadTranscript=$('#downloadBrowserTranscript');
+  const saveTranscript=$('#saveBrowserProject');
   if(language)language.value='es';
   if(model)model.value='whisper-small';
   if(urlImport){urlImport.hidden=true;urlImport.setAttribute('aria-hidden','true');}
@@ -50,7 +56,6 @@
   if(drop)app.querySelector('.cf-opus-drop-slot').append(drop);
   if(transcribe){transcribe.textContent='Generar mis 4 clips';app.querySelector('.cf-opus-primary-action').append(transcribe);}
   // Keep ASR output attached after replacing the original main container.
-  const transcriptOutput=$('#browserTranscript'),downloadTranscript=$('#downloadBrowserTranscript'),saveTranscript=$('#saveBrowserProject');
   const transcriptPanel=document.createElement('section');transcriptPanel.id='cfTranscriptPanel';transcriptPanel.className='cf-transcript-panel';transcriptPanel.hidden=true;
   transcriptPanel.innerHTML='<div class="cf-transcript-panel-head"><div><strong>Transcripción completa</strong><small>Texto reconocido por Whisper con marcas de tiempo. Puedes corregirlo antes de editar los subtítulos.</small></div><span class="cf-transcript-count">Pendiente</span></div>';
   if(transcriptOutput){transcriptOutput.setAttribute('aria-label','Transcripción completa con marcas de tiempo');transcriptPanel.append(transcriptOutput);}
@@ -58,7 +63,7 @@
   if(downloadTranscript)transcriptActions.append(downloadTranscript);if(saveTranscript)transcriptActions.append(saveTranscript);
   transcriptPanel.append(transcriptActions);app.querySelector('.cf-opus-hero').append(transcriptPanel);
   window.addEventListener('clipforge:transcript-ready',event=>{transcriptPanel.hidden=false;const d=event.detail||{};const count=transcriptPanel.querySelector('.cf-transcript-count');if(count)count.textContent=(d.words||0)+' palabras · '+(d.segments||0)+' segmentos temporizados';});
-  if(engine){const status=$('#browserWhisperStatus');if(status){status.classList.remove('cf-opus-internal');status.setAttribute('aria-live','polite');app.querySelector('.cf-opus-hero').append(status);}engine.hidden=true;engine.setAttribute('aria-hidden','true');}
+  if(engine){if(whisperStatus){whisperStatus.classList.remove('cf-opus-internal');whisperStatus.setAttribute('aria-live','polite');app.querySelector('.cf-opus-hero').append(whisperStatus);}engine.hidden=true;engine.setAttribute('aria-hidden','true');}
   if(candidates)app.querySelector('.cf-opus-candidates-slot').append(candidates);
   if(editor){
     editor.querySelector('.section-head')?.remove();editor.querySelector(':scope > p.muted')?.remove();
