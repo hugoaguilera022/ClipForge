@@ -1438,7 +1438,7 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
     times.append(st,en);
     const txt=document.createElement('textarea');txt.rows=2;txt.value=String(seg.text||'');txt.setAttribute('aria-label','Texto del subtítulo');
     const applySub=document.createElement('button');applySub.type='button';applySub.className='secondary';applySub.textContent='Aplicar';
-    applySub.addEventListener('click',()=>{const a=Number(st.value),b=Number(en.value);if(!Number.isFinite(a)||!Number.isFinite(b)||a<Number(c.start)||b>Number(c.end)||b<=a){say('Revisa los tiempos del subtítulo: deben quedar dentro del clip.');return;}const original=transcriptData?.segments?.[seg._sourceIndex];if(original){original.start=a;original.end=b;original.text=txt.value;seg.start=a;seg.end=b;seg.text=txt.value;sync();say('Subtítulo actualizado.');}});
+    applySub.addEventListener('click',()=>{const a=Number(st.value),b=Number(en.value);if(!Number.isFinite(a)||!Number.isFinite(b)||a<Number(c.start)||b>Number(c.end)||b<=a){say('Revisa los tiempos del subtítulo: deben quedar dentro del clip.');return;}const original=transcriptData?.segments?.[seg._sourceIndex];if(original){original.start=a;original.end=b;original.text=txt.value;seg.start=a;seg.end=b;seg.text=txt.value;paintSubtitleTrack();renderActiveSubtitle();sync();say('Subtítulo actualizado y sincronizado con su bloque en la línea de tiempo.');}});
     txt.addEventListener('input',()=>{subtitlePreview.textContent=txt.value||'Vista previa del subtítulo';});
     row.append(times,txt,applySub);subtitleRows.append(row);
   });
@@ -1458,9 +1458,27 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
   const zoomRight=document.createElement('button');zoomRight.type='button';zoomRight.className='cf-clip-timeline-handle is-end';zoomRight.setAttribute('aria-label','Ajustar final con precisión');
   zoomRail.append(zoomSelected,zoomLeft,zoomRight);
   zoomWrap.append(overviewHead,overviewRail,zoomTitle,zoomRail);timeline.append(zoomWrap);
+  const subtitleTrackWrap=document.createElement('section');subtitleTrackWrap.className='cf-subtitle-timeline-wrap';
+  const subtitleTrackTitle=document.createElement('strong');subtitleTrackTitle.textContent='Línea de tiempo · subtítulos';
   const subtitleTrack=document.createElement('div');subtitleTrack.className='cf-clip-subtitle-track';subtitleTrack.setAttribute('aria-label','Pista de subtítulos del clip');
-  subtitleSegments.forEach(seg=>{const block=document.createElement('div');block.className='cf-clip-subtitle-block';const left=Math.max(0,(Number(seg.start)-Number(c.start))/(Number(c.end)-Number(c.start))*100),width=Math.max(1,(Number(seg.end)-Number(seg.start))/(Number(c.end)-Number(c.start))*100);block.style.left=left+'%';block.style.width=Math.min(width,100-left)+'%';const label=document.createElement('span');label.textContent=String(seg.text||'').slice(0,36);block.append(label);block.title=String(seg.text||'');subtitleTrack.append(block);});
-  timeline.append(subtitleTrack);
+  const subtitleTrackRuler=document.createElement('div');subtitleTrackRuler.className='cf-subtitle-track-ruler';
+  for(let tick=0;tick<=4;tick++){const mark=document.createElement('span');mark.textContent=(Number(c.start)+(Number(c.end)-Number(c.start))*tick/4).toFixed(1)+'s';mark.style.left=(tick*25)+'%';subtitleTrackRuler.append(mark);}
+  const subtitleTrackRail=document.createElement('div');subtitleTrackRail.className='cf-subtitle-track-rail';
+  const paintSubtitleTrack=()=>{
+    subtitleTrackRail.replaceChildren();
+    subtitleSegments.forEach((seg,index)=>{
+      const block=document.createElement('button');block.type='button';block.className='cf-clip-subtitle-block';
+      const clipSpan=Math.max(.001,Number(c.end)-Number(c.start));
+      const left=Math.max(0,(Number(seg.start)-Number(c.start))/clipSpan*100),width=Math.max(1.2,(Number(seg.end)-Number(seg.start))/clipSpan*100);
+      block.style.left=left+'%';block.style.width=Math.min(width,100-left)+'%';
+      block.textContent=String(seg.text||'').slice(0,24);block.title=Number(seg.start).toFixed(2)+'–'+Number(seg.end).toFixed(2)+' s · '+String(seg.text||'');
+      block.addEventListener('click',()=>{film.pause();film.currentTime=Math.max(Number(c.start),Math.min(Number(c.end)-.01,Number(seg.start)));const row=subtitleRows.children[index];row?.scrollIntoView({behavior:'smooth',block:'nearest'});row?.classList.add('is-active');setTimeout(()=>row?.classList.remove('is-active'),900);});
+      subtitleTrackRail.append(block);
+    });
+  };
+  subtitleTrack.append(subtitleTrackRuler,subtitleTrackRail);
+  subtitleTrackWrap.append(subtitleTrackTitle,subtitleTrack);timeline.append(subtitleTrackWrap);
+  paintSubtitleTrack();
   const paintTimeline=()=>{const st=Math.max(0,Math.min(videoDuration-.1,Number(c.start)||0)),en=Math.max(st+.1,Math.min(videoDuration,Number(c.end)||st+.1));const pad=Math.max(8,(en-st)*.65),z0=Math.max(0,st-pad),z1=Math.min(videoDuration,en+pad),span=Math.max(.2,z1-z0),zl=(st-z0)/span*100,zr=(en-z0)/span*100;overviewSelected.style.left=(st/videoDuration*100)+'%';overviewSelected.style.width=((en-st)/videoDuration*100)+'%';zoomSelected.style.left=zl+'%';zoomSelected.style.width=(zr-zl)+'%';zoomLeft.style.left=zl+'%';zoomRight.style.left=zr+'%';};
   const changeEdge=(edge,value)=>{const t=Math.max(0,Math.min(videoDuration,value)),gap=Math.min(.1,videoDuration);if(edge==='start')c.start=Math.max(0,Math.min(t,c.end-gap));else c.end=Math.min(videoDuration,Math.max(t,c.start+gap));c.duration=c.end-c.start;editableCandidates[i]={...c};paintTimeline();sync();};
   const bindDrag=(handle,edge,target,zoomed=false)=>{handle.addEventListener('pointerdown',event=>{event.preventDefault();event.stopPropagation();handle.setPointerCapture?.(event.pointerId);const move=ev=>{const rect=target.getBoundingClientRect();let lo=0,hi=videoDuration;if(zoomed){const pad=Math.max(8,(c.end-c.start)*.65);lo=Math.max(0,c.start-pad);hi=Math.min(videoDuration,c.end+pad);}const f=Math.max(0,Math.min(1,(ev.clientX-rect.left)/Math.max(1,rect.width)));changeEdge(edge,lo+f*(hi-lo));};const stop=()=>{handle.removeEventListener('pointermove',move);handle.removeEventListener('pointerup',stop);handle.removeEventListener('pointercancel',stop);};handle.addEventListener('pointermove',move);handle.addEventListener('pointerup',stop);handle.addEventListener('pointercancel',stop);});handle.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight'].includes(event.key))return;event.preventDefault();const d=(event.shiftKey?1:.05)*(event.key==='ArrowLeft'?-1:1);changeEdge(edge,(edge==='start'?c.start:c.end)+d);});};
@@ -1576,7 +1594,7 @@ runButton?.addEventListener('click', async () => {
       say('Transcribiendo con ventanas optimizadas de 30 segundos y marcas de tiempo por frase para acelerar el proceso…');
       // Phrase-level timestamps are enough for editable captions and clip
       // selection. Word-level alignment adds CPU work to every decode window.
-      result = await transcribeAudioInChunks(asr, audio, reportProgress, true, sourceLanguage);
+      result = await transcribeAudioInChunks(asr, audio, reportProgress, 'word', sourceLanguage);
       if (model === 'whisper-small' && !(result.chunks || []).length) {
         throw new Error('Whisper Small no devolvió marcas de tiempo utilizables.');
       }
