@@ -111,6 +111,20 @@ function render() {
     const removeTrack=document.createElement('button');removeTrack.type='button';removeTrack.className='secondary';removeTrack.textContent='Eliminar pista';
     removeTrack.addEventListener('click',()=>{remember();tracks=tracks.filter(t=>t.id!==track.id);window.clipforgeEditorBridge?.setTracks(tracks);render();say('Pista eliminada.');});
     actions.append(removeTrack);head.append(title,count,actions); section.append(head);
+    const visual=document.createElement('div');visual.className='editor-timeline-lane';visual.setAttribute('role','group');visual.setAttribute('aria-label',`Línea de tiempo: ${track.name||track.type}`);
+    const extent=Math.max(1,...tracks.flatMap(t=>(t.items||[]).map(x=>Number(x.end)||0)),...clips.map(c=>Number(c.end)||0));
+    const ruler=document.createElement('div');ruler.className='editor-time-ruler';
+    for(let tick=0;tick<=4;tick++){const mark=document.createElement('span');mark.textContent=`${(extent*tick/4).toFixed(1)}s`;mark.style.left=`${tick*25}%`;ruler.append(mark);}
+    visual.append(ruler);
+    const rail=document.createElement('div');rail.className='editor-track-rail';
+    (track.items||[]).forEach((item,index)=>{
+      const a=Math.max(0,Number(item.start)||0),b=Math.max(a+.05,Number(item.end)||a+.05);
+      const block=document.createElement('button');block.type='button';block.className=`editor-timeline-block ${track.type==='subtitles'?'subtitle':track.type==='text'?'text-layer':track.type}`;
+      block.style.left=`${Math.min(99.5,a/extent*100)}%`;block.style.width=`${Math.max(1.2,Math.min(100-a/extent*100,(b-a)/extent*100))}%`;
+      block.textContent=String(item.text||item.title||`Elemento ${index+1}`).slice(0,46);block.title=`${a.toFixed(2)}–${b.toFixed(2)} s · ${block.text}`;
+      block.addEventListener('click',()=>previewClip(item));rail.append(block);
+    });
+    visual.append(rail);section.append(visual);
     const items = document.createElement('div'); items.className='editor-track-items';
     if (!track.items.length) {
       const empty = document.createElement('div'); empty.className='editor-empty muted'; empty.textContent='Pista vacía. Puedes añadir elementos desde los clips o transcripción.'; items.append(empty);
