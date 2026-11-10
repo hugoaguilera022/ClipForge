@@ -1528,12 +1528,44 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
       block.addEventListener('click',()=>{film.pause();film.currentTime=Math.max(Number(c.start),Math.min(Number(c.end)-.01,Number(seg.start)));const row=subtitleRows.children[index];row?.scrollIntoView({behavior:'smooth',block:'nearest'});row?.classList.add('is-active');setTimeout(()=>row?.classList.remove('is-active'),900);});
       subtitleTrackRail.append(block);
     });
+    subtitleTrackRail.append(subtitlePlayhead);
   };
-  subtitleTrackRail.append(subtitlePlayhead);
   subtitleTrack.addEventListener('click',event=>{if(event.target.closest('.cf-clip-subtitle-block'))return;const rect=subtitleTrackRail.getBoundingClientRect();const pct=Math.max(0,Math.min(1,(event.clientX-rect.left)/Math.max(1,rect.width)));film.currentTime=Math.max(Number(c.start),Math.min(Number(c.end)-.01,Number(c.start)+pct*(Number(c.end)-Number(c.start))));});
   subtitleTrack.append(subtitleTrackRuler,subtitleTrackRail);
   subtitleTrackWrap.append(subtitleTrackTitle,subtitleTrack);timeline.append(subtitleTrackWrap);
   paintSubtitleTrack();
+  // Video-thumbnail lane, like a conventional NLE timeline. Clicking a frame seeks the preview.
+  const videoTrackWrap=document.createElement('section');videoTrackWrap.className='cf-video-timeline-wrap';
+  const videoTrackTitle=document.createElement('strong');videoTrackTitle.className='cf-video-timeline-title';videoTrackTitle.textContent='Vídeo · pista principal';
+  const videoTrackRail=document.createElement('div');videoTrackRail.className='cf-video-track-rail';videoTrackRail.setAttribute('aria-label','Pista de vídeo con fotogramas');
+  const videoTrackPlayhead=document.createElement('div');videoTrackPlayhead.className='cf-video-track-playhead';
+  const paintVideoPlayhead=()=>{const span=Math.max(.001,Number(c.end)-Number(c.start));videoTrackPlayhead.style.left=Math.max(0,Math.min(100,(film.currentTime-Number(c.start))/span*100))+'%';};
+  film.addEventListener('timeupdate',paintVideoPlayhead);
+  const buildVideoThumbnails=async()=>{
+    if(!film.duration||!Number.isFinite(film.duration)||videoTrackRail.dataset.ready==='1')return;
+    videoTrackRail.dataset.ready='1';
+    const wasPaused=film.paused,oldTime=film.currentTime;
+    const count=12,canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');
+    canvas.width=120;canvas.height=68;
+    for(let n=0;n<count;n++){
+      const t=Number(c.start)+(Number(c.end)-Number(c.start))*((n+.5)/count);
+      try{
+        film.currentTime=Math.max(0,Math.min(film.duration-.05,t));
+        await new Promise(resolve=>{if(Math.abs(film.currentTime-t)<.08)return resolve();const done=()=>{film.removeEventListener('seeked',done);resolve();};film.addEventListener('seeked',done,{once:true});setTimeout(done,900);});
+        ctx?.drawImage(film,0,0,canvas.width,canvas.height);
+        const thumb=document.createElement('img');thumb.className='cf-video-track-thumb';thumb.alt='';thumb.src=canvas.toDataURL('image/jpeg',.65);thumb.dataset.time=String(t);
+        thumb.addEventListener('click',()=>{film.currentTime=t;});videoTrackRail.append(thumb);
+      }catch{const fallback=document.createElement('span');fallback.className='cf-video-track-thumb-fallback';fallback.textContent='▶';videoTrackRail.append(fallback);}
+    }
+    film.currentTime=oldTime;
+    if(!wasPaused)film.play().catch(()=>{});
+    paintVideoPlayhead();
+    videoTrackRail.append(videoTrackPlayhead);
+  };
+  film.addEventListener('loadedmetadata',buildVideoThumbnails,{once:true});
+  if(film.readyState>=1)buildVideoThumbnails();
+  videoTrackRail.addEventListener('click',event=>{if(event.target.closest('.cf-video-track-thumb'))return;const rect=videoTrackRail.getBoundingClientRect();const pct=Math.max(0,Math.min(1,(event.clientX-rect.left)/Math.max(1,rect.width)));film.currentTime=Number(c.start)+pct*(Number(c.end)-Number(c.start));});
+  videoTrackWrap.append(videoTrackTitle,videoTrackRail);timeline.append(videoTrackWrap);
   const paintTimeline=()=>{const st=Math.max(0,Math.min(videoDuration-.1,Number(c.start)||0)),en=Math.max(st+.1,Math.min(videoDuration,Number(c.end)||st+.1));const pad=Math.max(8,(en-st)*.65),z0=Math.max(0,st-pad),z1=Math.min(videoDuration,en+pad),span=Math.max(.2,z1-z0),zl=(st-z0)/span*100,zr=(en-z0)/span*100;overviewSelected.style.left=(st/videoDuration*100)+'%';overviewSelected.style.width=((en-st)/videoDuration*100)+'%';zoomSelected.style.left=zl+'%';zoomSelected.style.width=(zr-zl)+'%';zoomLeft.style.left=zl+'%';zoomRight.style.left=zr+'%';};
   const changeEdge=(edge,value)=>{const t=Math.max(0,Math.min(videoDuration,value)),gap=Math.min(.1,videoDuration);if(edge==='start')c.start=Math.max(0,Math.min(t,c.end-gap));else c.end=Math.min(videoDuration,Math.max(t,c.start+gap));c.duration=c.end-c.start;editableCandidates[i]={...c};paintTimeline();sync();};
   const bindDrag=(handle,edge,target,zoomed=false)=>{handle.addEventListener('pointerdown',event=>{event.preventDefault();event.stopPropagation();handle.setPointerCapture?.(event.pointerId);const move=ev=>{const rect=target.getBoundingClientRect();let lo=0,hi=videoDuration;if(zoomed){const pad=Math.max(8,(c.end-c.start)*.65);lo=Math.max(0,c.start-pad);hi=Math.min(videoDuration,c.end+pad);}const f=Math.max(0,Math.min(1,(ev.clientX-rect.left)/Math.max(1,rect.width)));changeEdge(edge,lo+f*(hi-lo));};const stop=()=>{handle.removeEventListener('pointermove',move);handle.removeEventListener('pointerup',stop);handle.removeEventListener('pointercancel',stop);};handle.addEventListener('pointermove',move);handle.addEventListener('pointerup',stop);handle.addEventListener('pointercancel',stop);});handle.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight'].includes(event.key))return;event.preventDefault();const d=(event.shiftKey?1:.05)*(event.key==='ArrowLeft'?-1:1);changeEdge(edge,(edge==='start'?c.start:c.end)+d);});};
