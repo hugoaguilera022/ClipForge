@@ -1388,49 +1388,46 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
     const key=`${sourceFile.name}:${sourceFile.size}:${sourceFile.lastModified}`;
     if(key!==candidatePreviewKey){if(candidatePreviewUrl)URL.revokeObjectURL(candidatePreviewUrl);candidatePreviewUrl=URL.createObjectURL(sourceFile);candidatePreviewKey=key;}
   }
-  const film=document.createElement('video');film.className='candidate-filmstrip';film.muted=true;film.playsInline=true;film.preload='metadata';film.setAttribute('aria-label','Vista previa del clip vertical');
-  if(candidatePreviewUrl){
-    film.src=candidatePreviewUrl;
-    film.addEventListener('loadedmetadata',()=>{film.currentTime=Math.min(Math.max(0,Number(c.start)||0),Math.max(0,film.duration-.1));},{once:true});
-    film.addEventListener('seeked',()=>film.pause(),{once:true});
-    film.addEventListener('click',()=>window.clipforgeEditorBridge?.previewClip?.(c));
-  }
-  // Full-source timeline with two draggable trim handles for this clip.
-  const timeline=document.createElement('div');timeline.className='cf-clip-timeline';timeline.setAttribute('aria-label','Línea de tiempo del vídeo completo y selección del clip');
+  const player=document.createElement('div');player.className='cf-inline-player';
+  const film=document.createElement('video');film.className='candidate-filmstrip';film.muted=false;film.volume=.8;film.playsInline=true;film.preload='metadata';film.controls=false;film.setAttribute('aria-label','Reproductor del clip seleccionado');
+  if(candidatePreviewUrl){film.src=candidatePreviewUrl;film.addEventListener('loadedmetadata',()=>{film.currentTime=Math.min(Math.max(0,Number(c.start)||0),Math.max(0,film.duration-.1));},{once:true});film.addEventListener('seeked',()=>film.pause(),{once:true});}
+  const playerBar=document.createElement('div');playerBar.className='cf-inline-player-controls';
+  const play=document.createElement('button');play.type='button';play.className='cf-player-play';play.textContent='▶';play.setAttribute('aria-label','Reproducir');play.addEventListener('click',async()=>{if(film.paused){try{await film.play();}catch{} }else film.pause();});
+  film.addEventListener('play',()=>{play.textContent='Ⅱ';play.setAttribute('aria-label','Pausar');});film.addEventListener('pause',()=>{play.textContent='▶';play.setAttribute('aria-label','Reproducir');});
+  const volumeIcon=document.createElement('span');volumeIcon.className='cf-player-volume-icon';volumeIcon.textContent='🔊';
+  const volume=document.createElement('input');volume.type='range';volume.className='cf-player-volume';volume.min='0';volume.max='1';volume.step='.01';volume.value='.8';volume.setAttribute('aria-label','Volumen');volume.addEventListener('input',()=>{film.volume=Number(volume.value);film.muted=film.volume===0;volumeIcon.textContent=film.muted?'🔇':'🔊';});
+  playerBar.append(play,volumeIcon,volume);player.append(film,playerBar);
+  const timeline=document.createElement('div');timeline.className='cf-clip-timeline';timeline.setAttribute('aria-label','Ajuste preciso de inicio y final');
   const timelineTop=document.createElement('div');timelineTop.className='cf-clip-timeline-head';
   const fullLabel=document.createElement('span');fullLabel.textContent='Vídeo completo';
-  const selectedLabel=document.createElement('strong');selectedLabel.textContent=timeLabel(c.start)+' – '+timeLabel(c.end);
-  timelineTop.append(fullLabel,selectedLabel);
+  const selectedLabel=document.createElement('strong');timelineTop.append(fullLabel,selectedLabel);
   const rail=document.createElement('div');rail.className='cf-clip-timeline-rail';
   const fullTrack=document.createElement('div');fullTrack.className='cf-clip-timeline-full';
   const selected=document.createElement('div');selected.className='cf-clip-timeline-selected';
-  const leftHandle=document.createElement('button');leftHandle.type='button';leftHandle.className='cf-clip-timeline-handle is-start';leftHandle.setAttribute('aria-label','Arrastrar inicio del clip');leftHandle.title='Arrastra para cambiar el inicio';
-  const rightHandle=document.createElement('button');rightHandle.type='button';rightHandle.className='cf-clip-timeline-handle is-end';rightHandle.setAttribute('aria-label','Arrastrar final del clip');rightHandle.title='Arrastra para cambiar el final';
-  const ruler=document.createElement('div');ruler.className='cf-clip-timeline-ruler';
-  [0,.25,.5,.75,1].forEach((fraction,index)=>{const tick=document.createElement('span');tick.textContent=timeLabel(videoDuration*fraction);tick.style.left=(fraction*100)+'%';if(index===0)tick.classList.add('at-start');if(index===4)tick.classList.add('at-end');ruler.append(tick);});
-  rail.append(fullTrack,selected,leftHandle,rightHandle);timeline.append(timelineTop,rail,ruler);
-  const paintTimeline=()=>{const start=Math.max(0,Math.min(videoDuration-0.1,Number(c.start)||0));const end=Math.max(start+0.1,Math.min(videoDuration,Number(c.end)||start+0.1));const left=start/videoDuration*100,right=end/videoDuration*100;selected.style.left=left+'%';selected.style.width=(right-left)+'%';leftHandle.style.left=left+'%';rightHandle.style.left=right+'%';selectedLabel.textContent=timeLabel(start)+' – '+timeLabel(end);a.value=start.toFixed(2);b.value=end.toFixed(2);};
-  const drag=(handle,edge,event)=>{event.preventDefault();event.stopPropagation();handle.setPointerCapture?.(event.pointerId);const move=ev=>{const rect=rail.getBoundingClientRect();const fraction=Math.max(0,Math.min(1,(ev.clientX-rect.left)/Math.max(1,rect.width)));const value=fraction*videoDuration;const minGap=Math.min(1,videoDuration);if(edge==='start')c.start=Math.max(0,Math.min(value,c.end-minGap));else c.end=Math.min(videoDuration,Math.max(value,c.start+minGap));c.duration=c.end-c.start;editableCandidates[i]={...c};paintTimeline();sync();};const stop=()=>{handle.removeEventListener('pointermove',move);handle.removeEventListener('pointerup',stop);handle.removeEventListener('pointercancel',stop);};handle.addEventListener('pointermove',move);handle.addEventListener('pointerup',stop);handle.addEventListener('pointercancel',stop);};
-  leftHandle.addEventListener('pointerdown',event=>drag(leftHandle,'start',event));rightHandle.addEventListener('pointerdown',event=>drag(rightHandle,'end',event));
-  const keyboard=(edge,event)=>{if(!['ArrowLeft','ArrowRight'].includes(event.key))return;event.preventDefault();const delta=(event.shiftKey?5:0.5)*(event.key==='ArrowLeft'?-1:1);if(edge==='start')c.start=Math.max(0,Math.min(c.end-0.1,c.start+delta));else c.end=Math.min(videoDuration,Math.max(c.start+0.1,c.end+delta));c.duration=c.end-c.start;editableCandidates[i]={...c};paintTimeline();sync();};
-  leftHandle.addEventListener('keydown',event=>keyboard('start',event));rightHandle.addEventListener('keydown',event=>keyboard('end',event));
+  const leftHandle=document.createElement('button');leftHandle.type='button';leftHandle.className='cf-clip-timeline-handle is-start';leftHandle.setAttribute('aria-label','Arrastrar inicio del clip');
+  const rightHandle=document.createElement('button');rightHandle.type='button';rightHandle.className='cf-clip-timeline-handle is-end';rightHandle.setAttribute('aria-label','Arrastrar final del clip');
+  rail.append(fullTrack,selected,leftHandle,rightHandle);
+  const zoomWrap=document.createElement('div');zoomWrap.className='cf-clip-zoom-wrap';
+  const zoomTitle=document.createElement('div');zoomTitle.className='cf-clip-zoom-title';zoomTitle.textContent='Selección ampliada · ajuste preciso';
+  const zoomRail=document.createElement('div');zoomRail.className='cf-clip-zoom-rail';
+  const zoomSelected=document.createElement('div');zoomSelected.className='cf-clip-zoom-selected';
+  const zoomLeft=document.createElement('button');zoomLeft.type='button';zoomLeft.className='cf-clip-timeline-handle is-start';zoomLeft.setAttribute('aria-label','Ajustar inicio con precisión');
+  const zoomRight=document.createElement('button');zoomRight.type='button';zoomRight.className='cf-clip-timeline-handle is-end';zoomRight.setAttribute('aria-label','Ajustar final con precisión');
+  zoomRail.append(zoomSelected,zoomLeft,zoomRight);zoomWrap.append(zoomTitle,zoomRail);timeline.append(timelineTop,rail,zoomWrap);
+  const paintTimeline=()=>{const st=Math.max(0,Math.min(videoDuration-.1,Number(c.start)||0)),en=Math.max(st+.1,Math.min(videoDuration,Number(c.end)||st+.1));const l=st/videoDuration*100,r=en/videoDuration*100;selected.style.left=l+'%';selected.style.width=(r-l)+'%';leftHandle.style.left=l+'%';rightHandle.style.left=r+'%';selectedLabel.textContent=timeLabel(st)+' – '+timeLabel(en);const pad=Math.max(8,(en-st)*.65),z0=Math.max(0,st-pad),z1=Math.min(videoDuration,en+pad),span=Math.max(.2,z1-z0),zl=(st-z0)/span*100,zr=(en-z0)/span*100;zoomSelected.style.left=zl+'%';zoomSelected.style.width=(zr-zl)+'%';zoomLeft.style.left=zl+'%';zoomRight.style.left=zr+'%';};
+  const changeEdge=(edge,value)=>{const t=Math.max(0,Math.min(videoDuration,value)),gap=Math.min(.1,videoDuration);if(edge==='start')c.start=Math.max(0,Math.min(t,c.end-gap));else c.end=Math.min(videoDuration,Math.max(t,c.start+gap));c.duration=c.end-c.start;editableCandidates[i]={...c};paintTimeline();sync();};
+  const bindDrag=(handle,edge,target,zoomed=false)=>{handle.addEventListener('pointerdown',event=>{event.preventDefault();event.stopPropagation();handle.setPointerCapture?.(event.pointerId);const move=ev=>{const rect=target.getBoundingClientRect();let lo=0,hi=videoDuration;if(zoomed){const pad=Math.max(8,(c.end-c.start)*.65);lo=Math.max(0,c.start-pad);hi=Math.min(videoDuration,c.end+pad);}const f=Math.max(0,Math.min(1,(ev.clientX-rect.left)/Math.max(1,rect.width)));changeEdge(edge,lo+f*(hi-lo));};const stop=()=>{handle.removeEventListener('pointermove',move);handle.removeEventListener('pointerup',stop);handle.removeEventListener('pointercancel',stop);};handle.addEventListener('pointermove',move);handle.addEventListener('pointerup',stop);handle.addEventListener('pointercancel',stop);});handle.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight'].includes(event.key))return;event.preventDefault();const d=(event.shiftKey?1:.05)*(event.key==='ArrowLeft'?-1:1);changeEdge(edge,(edge==='start'?c.start:c.end)+d);});};
+  bindDrag(leftHandle,'start',rail);bindDrag(rightHandle,'end',rail);bindDrag(zoomLeft,'start',zoomRail,true);bindDrag(zoomRight,'end',zoomRail,true);
   const heading=document.createElement('strong');heading.textContent=(c.selection_method==='local_generative_editor'||c.selection_method==='remote_generative_editor')?(c.title+' · valoración IA '+c.ai_editorial_score+'/100'):(c.title+' · candidato para revisión');
   const rationale=document.createElement('small');rationale.className='candidate-rationale';rationale.textContent=[c.ai_editorial_reason,c.ai_editorial_importance_evidence?('Evidencia: «'+c.ai_editorial_importance_evidence+'»'):null].filter(Boolean).join(' · ') || (c.reasons||[]).join(' · ') || 'Fragmento propuesto para evaluación';
-  const preview=document.createElement('button');preview.type='button';preview.className='secondary preview-clip-candidate';preview.textContent='Vista previa';preview.addEventListener('click',()=>window.clipforgeEditorBridge?.previewClip?.(c));
   const exportSingle=document.createElement('button');exportSingle.type='button';exportSingle.className='secondary candidate-export-one';exportSingle.textContent='Exportar este clip';exportSingle.addEventListener('click',()=>{editableCandidates.forEach((candidate,j)=>{const checkbox=list.children[j]?.querySelector('.candidate-select input');if(checkbox&&checkbox.checked!==(j===i)){checkbox.checked=j===i;checkbox.dispatchEvent(new Event('change',{bubbles:true}));}});document.querySelector('#browserExportClips')?.click();});
   const selectLabel=document.createElement('label');selectLabel.className='candidate-select';
   const select=document.createElement('input');select.type='checkbox';select.checked=c.selected!==false;
   select.setAttribute('aria-label','Incluir clip en exportación');
   select.addEventListener('change',()=>{editableCandidates[i]={...editableCandidates[i],selected:select.checked};sync();});
   selectLabel.append(select,document.createTextNode(' Incluir en exportación'));
-  const row=document.createElement('div');row.className='candidate-edit-grid';
-  const a=document.createElement('input');a.type='number';a.min='0';a.step='.1';a.value=Number(c.start).toFixed(2);a.setAttribute('aria-label','Inicio en segundos');
-  const b=document.createElement('input');b.type='number';b.min='0';b.step='.1';b.value=Number(c.end).toFixed(2);b.setAttribute('aria-label','Final en segundos');
   paintTimeline();
-  const note=document.createElement('textarea');note.value=String(c.text || '');note.rows=3;note.setAttribute('aria-label','Texto del clip');
-  const update=()=>{const x=Number(a.value),y=Number(b.value);if(a.value.trim()===''||b.value.trim()===''||!Number.isFinite(x)||!Number.isFinite(y)||x<0||y<=x||y>duration){card.classList.add('candidate-invalid');return;}card.classList.remove('candidate-invalid');editableCandidates[i]={...editableCandidates[i],start:x,end:y,duration:y-x,text:note.value};paintTimeline();sync();};
-  a.addEventListener('change',update);b.addEventListener('change',update);note.addEventListener('input',update);
-  row.append(a,b);card.append(film,timeline,heading,rationale,preview,exportSingle,selectLabel,row,note);list.append(card);
+  card.append(player,timeline,heading,rationale,exportSingle,selectLabel);list.append(card);
  });
  const info=document.createElement('p');info.textContent=editableCandidates.every(c=>c.selection_method==='local_generative_editor'||c.selection_method==='remote_generative_editor')?'Selección editorial realizada por un modelo generativo. Cada clip incluye evidencia textual que justifica su importancia y supera una segunda pasada de auditoría; revisa el resultado antes de exportar.':'Candidatos de respaldo sin selección editorial generativa confirmada.';list.append(info);
  const openEditor=document.createElement('button');openEditor.type='button';openEditor.className='secondary';openEditor.textContent='Editar clips ahora en el editor (sin descargar)';
