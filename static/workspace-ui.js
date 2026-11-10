@@ -49,6 +49,15 @@
   const health=header?.querySelector('#health');if(health)app.querySelector('#cfHealthSlot').append(health);header?.remove();
   if(drop)app.querySelector('.cf-opus-drop-slot').append(drop);
   if(transcribe){transcribe.textContent='Generar mis 4 clips';app.querySelector('.cf-opus-primary-action').append(transcribe);}
+  // Keep ASR output attached after replacing the original main container.
+  const transcriptOutput=$('#browserTranscript'),downloadTranscript=$('#downloadBrowserTranscript'),saveTranscript=$('#saveBrowserProject');
+  const transcriptPanel=document.createElement('section');transcriptPanel.id='cfTranscriptPanel';transcriptPanel.className='cf-transcript-panel';transcriptPanel.hidden=true;
+  transcriptPanel.innerHTML='<div class="cf-transcript-panel-head"><div><strong>Transcripción completa</strong><small>Texto reconocido por Whisper con marcas de tiempo. Puedes corregirlo antes de editar los subtítulos.</small></div><span class="cf-transcript-count">Pendiente</span></div>';
+  if(transcriptOutput){transcriptOutput.setAttribute('aria-label','Transcripción completa con marcas de tiempo');transcriptPanel.append(transcriptOutput);}
+  const transcriptActions=document.createElement('div');transcriptActions.className='cf-transcript-actions';
+  if(downloadTranscript)transcriptActions.append(downloadTranscript);if(saveTranscript)transcriptActions.append(saveTranscript);
+  transcriptPanel.append(transcriptActions);app.querySelector('.cf-opus-hero').append(transcriptPanel);
+  window.addEventListener('clipforge:transcript-ready',event=>{transcriptPanel.hidden=false;const d=event.detail||{};const count=transcriptPanel.querySelector('.cf-transcript-count');if(count)count.textContent=(d.words||0)+' palabras · '+(d.segments||0)+' segmentos temporizados';});
   if(engine){const status=$('#browserWhisperStatus');if(status){status.classList.remove('cf-opus-internal');status.setAttribute('aria-live','polite');app.querySelector('.cf-opus-hero').append(status);}engine.hidden=true;engine.setAttribute('aria-hidden','true');}
   if(candidates)app.querySelector('.cf-opus-candidates-slot').append(candidates);
   if(editor){
