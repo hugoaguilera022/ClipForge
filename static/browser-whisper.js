@@ -1274,6 +1274,7 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
   const form=document.querySelector('#video')?.form;
   if(!field&&form){field=document.createElement('input');field.type='hidden';field.name='selected_clip_ranges';form.append(field);}
   if(field)field.value=JSON.stringify(editableCandidates);
+  window.dispatchEvent(new CustomEvent('clipforge:candidate-edited'));
  };
  editableCandidates.forEach((c,i)=>{
   const card=document.createElement('article');card.className='candidate-card';
@@ -1293,7 +1294,10 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
   a.addEventListener('change',update);b.addEventListener('change',update);note.addEventListener('input',update);
   row.append(a,b);card.append(heading,rationale,preview,selectLabel,row,note);list.append(card);
  });
- const info=document.createElement('p');info.textContent=editableCandidates.every(c=>c.selection_method==='local_generative_editor'||c.selection_method==='remote_generative_editor')?'Selección editorial realizada por un modelo generativo. Cada clip incluye evidencia textual que justifica su importancia y supera una segunda pasada de auditoría; revisa el resultado antes de exportar.':'Candidatos de respaldo sin selección editorial generativa confirmada.';list.append(info);sync();
+ const info=document.createElement('p');info.textContent=editableCandidates.every(c=>c.selection_method==='local_generative_editor'||c.selection_method==='remote_generative_editor')?'Selección editorial realizada por un modelo generativo. Cada clip incluye evidencia textual que justifica su importancia y supera una segunda pasada de auditoría; revisa el resultado antes de exportar.':'Candidatos de respaldo sin selección editorial generativa confirmada.';list.append(info);
+ const openEditor=document.createElement('button');openEditor.type='button';openEditor.className='secondary';openEditor.textContent='Editar clips ahora en el editor (sin descargar)';
+ openEditor.addEventListener('click',()=>document.querySelector('#projectEditor')?.scrollIntoView({behavior:'smooth',block:'start'}));
+ list.append(openEditor);sync();
  window.dispatchEvent(new CustomEvent('clipforge:clips-updated'));
 }
 
