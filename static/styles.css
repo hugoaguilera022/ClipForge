@@ -923,3 +923,23 @@ body.cf-stage-editor #browserCandidateList>p{color:#a8afbd}
 .cf-clip-subtitle-block span{display:block;padding-left:3px;color:#17120f;font-size:8px;white-space:nowrap}
 @media(max-width:850px){body.cf-stage-editor .candidate-card.is-open{grid-template-columns:1fr;grid-template-areas:"title" "preview" "subtitles" "timeline" "actions"}body.cf-stage-editor .candidate-card.is-open .cf-inline-player{position:relative;top:auto}body.cf-stage-editor .candidate-filmstrip{max-height:520px}}
 @media(max-width:520px){body.cf-stage-results #browserEngine,body.cf-stage-editor #browserEngine{padding:0 10px}body.cf-stage-editor .candidate-card.is-open{padding:10px}body.cf-stage-editor .cf-subtitle-style-controls{grid-template-columns:1fr 68px 38px 38px 40px}}
+
+
+/* Keep clip trim and subtitle tracks visible in the compact editor. */
+body.cf-stage-editor .candidate-card.is-open .cf-clip-timeline{
+ display:block!important;visibility:visible!important;position:relative!important;
+ grid-area:timeline!important;min-height:104px!important;width:100%!important;
+ opacity:1!important;overflow:visible!important;
+}
+body.cf-stage-editor .candidate-card.is-open .cf-subtitle-timeline-wrap,
+body.cf-stage-editor .candidate-card.is-open .cf-clip-subtitle-track{
+ display:block!important;visibility:visible!important;
+}
+@media(max-width:850px){
+ body.cf-stage-editor .candidate-card.is-open{
+  grid-template-columns:minmax(0,1fr)!important;
+  grid-template-areas:"title" "preview" "timeline" "subtitles" "actions"!important;
+ }
+ body.cf-stage-editor .candidate-card.is-open .cf-clip-timeline{order:2;margin:8px 0 14px!important}
+ body.cf-stage-editor .candidate-card.is-open .cf-inline-subtitles{order:3}
+}
