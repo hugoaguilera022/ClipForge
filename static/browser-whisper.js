@@ -210,16 +210,20 @@ async function extractAudioWithMediabunny(file) {
         // Linear interpolation converts the FULL source block to 16 kHz while
         // retaining its original media timestamp (including small gaps).
         const sourceRate = buffer.sampleRate;
+        const channels = Array.from({length:buffer.numberOfChannels},(_,ch)=>buffer.getChannelData(ch));
+        const channelCount = Math.max(1,channels.length);
         const targetFrames = Math.min(Math.ceil(sourceFrames * 16000 / sourceRate), mono.length - offset);
+        // Cache channel views outside the hot loop: getChannelData() is a native
+        // boundary and calling it for every sample made long videos needlessly slow.
         for (let j = 0; j < targetFrames; j++) {
           const sourcePos = j * sourceRate / 16000;
           const lo = Math.min(Math.floor(sourcePos), sourceFrames - 1);
           const hi = Math.min(lo + 1, sourceFrames - 1);
           const frac = sourcePos - lo;
           let interpolated = 0;
-          for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
-            const channel = buffer.getChannelData(ch);
-            interpolated += (channel[lo] * (1 - frac) + channel[hi] * frac) / buffer.numberOfChannels;
+          for (let ch = 0; ch < channelCount; ch++) {
+            const channel = channels[ch];
+            interpolated += (channel[lo] * (1 - frac) + channel[hi] * frac) / channelCount;
           }
           mono[offset + j] = interpolated;
         }
@@ -1142,7 +1146,7 @@ function buildEditorialCandidatePool(segments, videoDuration, audioSamples = nul
   }
   // Bound local-LLM work for long videos. Keep a uniform temporal sample
   // across the complete source instead of ranking windows with heuristics.
-  const maxCandidates=96;
+  const maxCandidates=videoDuration>1800?72:96;
   if(pool.length>maxCandidates){
     const ordered=[...pool].sort((a,b)=>a.start-b.start||a.end-b.end);
     const sampled=[],used=new Set();
@@ -1525,7 +1529,7 @@ runButton?.addEventListener('click', async () => {
     const chunks = result.chunks || [];
     say('Analizando cambios visuales del vídeo localmente para complementar la transcripción…');
     const sourceDuration=audio.length/16000;
-    const visualStep=sourceDuration>1800?20:sourceDuration>600?10:4;
+    const visualStep=sourceDuration>1800?30:sourceDuration>600?10:4;
     say(`Analizando cambios visuales cada ${visualStep} segundos para adaptar el proceso a un vídeo de ${Math.round(sourceDuration/60)} minutos…`);
     const visualSamples = await captureVisualActivity(file,sourceDuration,visualStep);
     transcriptData = {
