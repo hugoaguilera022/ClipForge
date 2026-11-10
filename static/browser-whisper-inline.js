@@ -297,12 +297,27 @@ async function transcribeAudioInChunks(asr, audio, onProgress = () => {}, timest
     const chunkText = String(result.text || '').trim();
     if (chunkText) fullText.push(chunkText);
 
-    for (const chunk of (result.chunks || [])) {
-      const localStart = Number(chunk.timestamp?.[0]);
-      const localEnd = Number(chunk.timestamp?.[1]);
+    const rawChunks = Array.isArray(result.chunks) ? result.chunks : [];
+    for (let chunkIndex = 0; chunkIndex < rawChunks.length; chunkIndex++) {
+      const chunk = rawChunks[chunkIndex];
+      const rawTimestamp = chunk.timestamp ?? chunk.timestamps ?? chunk.time;
+      let rawStart = Array.isArray(rawTimestamp) ? rawTimestamp[0] : rawTimestamp?.start;
+      let rawEnd = Array.isArray(rawTimestamp) ? rawTimestamp[1] : rawTimestamp?.end;
+      // Some Whisper ONNX exports omit the final end timestamp (or emit null
+      // for a boundary token). Recover only from adjacent model timestamps;
+      // never invent evenly-spaced timings from the transcript text.
+      const nextChunk = rawChunks[chunkIndex + 1];
+      const nextTimestamp = nextChunk?.timestamp ?? nextChunk?.timestamps ?? nextChunk?.time;
+      const nextStart = Array.isArray(nextTimestamp) ? nextTimestamp[0] : nextTimestamp?.start;
+      const previous = allChunks[allChunks.length - 1];
+      let localStart = rawStart == null ? (previous ? previous.end - offset : 0) : Number(rawStart);
+      let localEnd = rawEnd == null ? (nextStart != null ? Number(nextStart) : endSample / sampleRate - offset) : Number(rawEnd);
       const text = String(chunk.text || '').trim();
-      if (!text || !Number.isFinite(localStart) || !Number.isFinite(localEnd)) continue;      const absoluteStart = Math.max(0, offset + localStart);
-      const absoluteEnd = Math.min(totalSeconds, offset + Math.max(localStart, localEnd));
+      if (!text || !Number.isFinite(localStart) || !Number.isFinite(localEnd)) continue;
+      localStart = Math.max(0, localStart);
+      localEnd = Math.min((endSample-startSample)/sampleRate, Math.max(localStart, localEnd));
+      const absoluteStart = Math.max(0, offset + localStart);
+      const absoluteEnd = Math.min(totalSeconds, offset + localEnd);
       if (absoluteEnd <= absoluteStart) continue;
       // Keep words recognized only in the next window's overlap.
       // Deduplicate matching words by timestamp rather than discarding the overlap.
@@ -1654,6 +1669,10 @@ runButton?.addEventListener('click', async () => {
       const segmented = await transcribeAudioInChunks(asr, audio, reportProgress, true, sourceLanguage);
       if ((segmented.chunks || []).length > (result.chunks || []).length) result = segmented;
     }
+    const transcriptWordCount = (String(result.text || '').match(/\S+/g) || []).length;
+    if (sourceDurationForTiming > 8 && transcriptWordCount > 12 && (result.chunks || []).length < 2) {
+      throw new Error('Whisper ha reconocido el texto, pero no ha generado suficientes marcas de tiempo para sincronizar los subtítulos. No se guardará como transcripción válida. Prueba Whisper Base o Small y vuelve a intentarlo.');
+    }
     // Free the large Whisper session before loading diarization and video rendering.
     await releaseWhisperModel();
     const chunks = result.chunks || [];
@@ -1712,7 +1731,7 @@ runButton?.addEventListener('click', async () => {
       startAutomaticClipExport();
       const vtt = makeVtt(transcriptData.segments);
       const attached = attachTranscriptToJobForm(vtt);
-      say(`Transcripción lista: ${transcriptData.segments.length} fragmentos temporizados · ${new Set(transcriptData.segments.map(s=>s.speaker).filter(Number.isFinite)).size} hablantes detectados · diarización ${transcriptData.diarization?.status || 'no disponible'}. ${attached ? 'Subtítulos y cortes seleccionados conectados al formulario de producción.' : 'Descarga el JSON para conservarla.'}`);
+      say(`Transcripción lista: ${transcriptData.segments.length} fragmentos temporizados · ${transcriptWordCount} palabras reconocidas · ${new Set(transcriptData.segments.map(s=>s.speaker).filter(Number.isFinite)).size} hablantes asignados · diarización ${transcriptData.diarization?.status || 'no disponible'}. ${attached ? 'Subtítulos y cortes seleccionados conectados al formulario de producción.' : 'Descarga el JSON para conservarla.'}`);
       const autoGenerate = document.querySelector('#autoGenerateAfterTranscription')?.checked;
       const form = document.querySelector('#jobForm');
       const rights = form?.querySelector('[name="rights_confirmed"]');
