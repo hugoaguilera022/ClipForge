@@ -42,8 +42,8 @@ function drawTextLayers(ctx,tracks,sourceTime,width,height){
 function drawKaraokeCaption(ctx,cues,sourceTime,width,height,settings={}){
   const cue=cues.find(words=>sourceTime>=words[0].start&&sourceTime<=words[words.length-1].end+.18);
   if(!cue)return;
-  const fontSize=Math.round(width*(Number(settings.captionSize)||5.2)/100),lineHeight=Math.round(fontSize*1.2),maxWidth=width*.86;
-  ctx.save();ctx.font=`800 ${fontSize}px system-ui, sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+  const style=settings.subtitleStyle||null,fontSize=style?Math.round((Number(style.size)||28)*3):Math.round(width*(Number(settings.captionSize)||5.2)/100),lineHeight=Math.round(fontSize*1.2),maxWidth=width*.86;
+  ctx.save();ctx.font=`${style?.bold===false?400:800} ${fontSize}px ${style?.font||'system-ui'}, sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
   const lines=[];let line=[],lineWidth=0;
   for(const word of cue){
     const w=ctx.measureText(word.text+' ').width;
@@ -53,7 +53,7 @@ function drawKaraokeCaption(ctx,cues,sourceTime,width,height,settings={}){
   if(line.length)lines.push(line);
   const visible=lines.slice(-2),blockHeight=visible.length*lineHeight,pad=fontSize*.42;
   const y0=(settings.captionPosition==='top'?height*.16:height*.78)-blockHeight/2;
-  if(settings.captionBackground!=='none'){ctx.fillStyle=settings.captionBackground==='solid'?'rgba(0,0,0,1)':'rgba(0,0,0,.66)';ctx.beginPath();
+  if(style?.background){ctx.fillStyle=style.background;ctx.beginPath();}else if(settings.captionBackground!=='none'){ctx.fillStyle=settings.captionBackground==='solid'?'rgba(0,0,0,1)':'rgba(0,0,0,.66)';ctx.beginPath();
   const boxW=Math.min(maxWidth+pad*2,width*.94),boxH=blockHeight+pad*2;
   const x=(width-boxW)/2,y=y0-pad,r=Math.round(fontSize*.22);
   if(typeof ctx.roundRect==='function'){ctx.roundRect(x,y,boxW,boxH,r);ctx.fill();}else{ctx.fillRect(x,y,boxW,boxH);}}
@@ -64,7 +64,7 @@ function drawKaraokeCaption(ctx,cues,sourceTime,width,height,settings={}){
     for(const word of words){
       const text=word.text+' ',w=ctx.measureText(text).width;
       const active=sourceTime>=word.start&&sourceTime<=word.end+.06;
-      ctx.fillStyle=settings.captionColor==='white'?'#ffffff':(settings.captionColor==='yellow-solid'?'#ffe16b':(active?'#ffe16b':'#ffffff'));
+      ctx.fillStyle=style?.color?(style.color):settings.captionColor==='white'?'#ffffff':(settings.captionColor==='yellow-solid'?'#ffe16b':(active?'#ffe16b':'#ffffff'));
       ctx.fillText(text,xPos+w/2,y,maxWidth);
       xPos+=w;
     }
@@ -257,6 +257,7 @@ exportButton?.addEventListener('click',async()=>{
   exportButton.disabled=true;
   const results=[];
   const settings={
+    subtitleStyle:clips.length===1?(clips[0].subtitleStyle||null):null,
     captionPosition:document.querySelector('#captionPosition')?.value||'bottom',
     captionColor:document.querySelector('#captionColor')?.value||'yellow',
     captionBackground:document.querySelector('#captionBackground')?.value||'dark',
@@ -265,7 +266,7 @@ exportButton?.addEventListener('click',async()=>{
   };
   try{
     for(let i=0;i<clips.length;i++){
-      const clip={start:Number(clips[i].start),end:Number(clips[i].end)};
+      const clip={...clips[i],start:Number(clips[i].start),end:Number(clips[i].end)};
       if(clip.end>36000)throw new Error('Un corte supera el límite de seguridad de 10 horas.');
       results.push(await exportOne(file,clip,segments,tracks,i,clips.length,settings));
     }
