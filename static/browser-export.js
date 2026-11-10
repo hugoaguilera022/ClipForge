@@ -260,7 +260,6 @@ exportButton?.addEventListener('click',async()=>{
   exportButton.disabled=true;
   const results=[];
   const settings={
-    subtitleStyle:clips.length===1?(clips[0].subtitleStyle||null):null,
     captionPosition:document.querySelector('#captionPosition')?.value||'bottom',
     captionColor:document.querySelector('#captionColor')?.value||'yellow',
     captionBackground:document.querySelector('#captionBackground')?.value||'dark',
@@ -271,7 +270,7 @@ exportButton?.addEventListener('click',async()=>{
     for(let i=0;i<clips.length;i++){
       const clip={...clips[i],start:Number(clips[i].start),end:Number(clips[i].end)};
       if(clip.end>36000)throw new Error('Un corte supera el límite de seguridad de 10 horas.');
-      results.push(await exportOne(file,clip,segments,tracks,i,clips.length,settings));
+      results.push(await exportOne(file,clip,segments,tracks,i,clips.length,{...settings,subtitleStyle:clips[i].subtitleStyle||null}));
     }
     if(results.length===1){
       const url=URL.createObjectURL(results[0].blob),a=document.createElement('a');
