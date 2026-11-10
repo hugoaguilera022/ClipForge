@@ -1412,9 +1412,12 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
   const subtitlePreview=document.createElement('div');subtitlePreview.className='cf-subtitle-live-preview';subtitlePreview.textContent='Vista previa del subtítulo';
   const subtitleRows=document.createElement('div');subtitleRows.className='cf-subtitle-rows';
   const subtitleSegments=(transcriptData?.segments||[]).map((seg,index)=>({...seg,_sourceIndex:index})).filter(seg=>Number(seg.end)>Number(c.start)&&Number(seg.start)<Number(c.end));
+  const subtitleOverlay=document.createElement('div');subtitleOverlay.className='cf-subtitle-video-overlay';subtitleOverlay.hidden=true;player.append(subtitleOverlay);
+  const renderActiveSubtitle=()=>{const active=subtitleSegments.find(seg=>film.currentTime>=Number(seg.start)&&film.currentTime<=Number(seg.end));subtitleOverlay.textContent=active?String(active.text||''):'';subtitleOverlay.hidden=!active;};
+  film.addEventListener('timeupdate',renderActiveSubtitle);
   const style={font:font.value,size:Number(size.value),color:color.value,background:bg.value,bold:bold.getAttribute('aria-pressed')==='true',...(c.subtitleStyle||{})};
   font.value=style.font||'Arial';size.value=String(style.size||28);color.value=style.color||'#ffffff';bg.value=style.background||'#000000';bold.setAttribute('aria-pressed',String(style.bold!==false));
-  const paintSubtitle=()=>{subtitlePreview.style.fontFamily=style.font;subtitlePreview.style.fontSize=Math.max(12,Math.min(72,Number(style.size)||28))+'px';subtitlePreview.style.color=style.color;subtitlePreview.style.backgroundColor=style.background;subtitlePreview.style.fontWeight=style.bold?'800':'400';};
+  const paintSubtitle=()=>{const sizePx=Math.max(12,Math.min(72,Number(style.size)||28))+'px';subtitlePreview.style.fontFamily=style.font;subtitlePreview.style.fontSize=sizePx;subtitlePreview.style.color=style.color;subtitlePreview.style.backgroundColor=style.background;subtitlePreview.style.fontWeight=style.bold?'800':'400';subtitleOverlay.style.fontFamily=style.font;subtitleOverlay.style.fontSize=sizePx;subtitleOverlay.style.color=style.color;subtitleOverlay.style.backgroundColor=style.background;subtitleOverlay.style.fontWeight=style.bold?'800':'400';};
   const saveSubtitleStyle=()=>{style.font=font.value;style.size=Number(size.value)||28;style.color=color.value;style.background=bg.value;style.bold=bold.getAttribute('aria-pressed')==='true';c.subtitleStyle={...style};editableCandidates[i]={...c};paintSubtitle();sync();};
   [font,size,color,bg].forEach(el=>el.addEventListener('input',saveSubtitleStyle));
   bold.addEventListener('click',()=>{bold.setAttribute('aria-pressed',String(bold.getAttribute('aria-pressed')!=='true'));saveSubtitleStyle();});
