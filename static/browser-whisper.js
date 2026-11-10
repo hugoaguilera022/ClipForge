@@ -737,61 +737,10 @@ function rerankWithSemanticEmbeddings(candidates, embeddings, limit = 4) {
 // model reads each candidate as an editor and makes a narrative-quality choice.
 // Runs locally through WebGPU: no API key, no paid inference endpoint, no upload.
 let editorialEnginePromise = null;
-const COLAB_EDITOR_KEY='clipforge.colab.editor.v1';
-function getColabEditorConfig(){
-  try{const raw=localStorage.getItem(COLAB_EDITOR_KEY);const value=raw?JSON.parse(raw):null;
-    if(!value||typeof value.url!=='string'||typeof value.token!=='string')return null;
-    const parsed=new URL(value.url);if(parsed.protocol!=='https:'||!parsed.hostname.endsWith('.trycloudflare.com'))return null;
-    return {url:parsed.origin,token:value.token};
-  }catch{return null;}
-}
-function createRemoteEditorialEngine(config){
-  return {isRemote:true,chat:{completions:{create:async(request)=>{
-    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),300000);
-    try{
-      const response=await fetch(config.url+'/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+config.token},body:JSON.stringify(request),signal:controller.signal,cache:'no-store'});
-      const body=await response.json().catch(()=>({}));
-      if(!response.ok)throw new Error(body.error||('Motor Colab respondió HTTP '+response.status));
-      if(!body?.choices?.[0]?.message?.content)throw new Error('El motor Colab no devolvió una respuesta editorial válida.');
-      return body;
-    }finally{clearTimeout(timer);}
-  }}}};
-}
-async function connectColabEditorialEngine(){
-  const urlField=document.querySelector('#colabEditorUrl'),tokenField=document.querySelector('#colabEditorToken'),status=document.querySelector('#colabEditorStatus'),button=document.querySelector('#connectColabEditor');
-  if(!urlField||!tokenField||!status||!button)return;
-  const url=String(urlField.value||'').trim().replace(/\/+$/,'');const token=String(tokenField.value||'').trim();
-  let parsed;try{parsed=new URL(url);}catch{status.textContent='Introduce la URL HTTPS temporal que muestra Google Colab.';return;}
-  if(parsed.protocol!=='https:'||!parsed.hostname.endsWith('.trycloudflare.com')||!token){status.textContent='La URL debe ser HTTPS de trycloudflare.com y el token no puede estar vacío.';return;}
-  button.disabled=true;status.textContent='Comprobando el motor, el modelo y la sesión…';
-  try{
-    const response=await fetch(parsed.origin+'/health',{headers:{'Authorization':'Bearer '+token},cache:'no-store'});
-    const data=await response.json().catch(()=>({}));
-    if(!response.ok||data.status!=='ready'||!['qwen3:4b','qwen3:8b'].includes(data.model))throw new Error(data.error||'El motor no confirma Qwen3 4B disponible.');
-    localStorage.setItem(COLAB_EDITOR_KEY,JSON.stringify({url:parsed.origin,token}));
-    editorialEnginePromise=createRemoteEditorialEngine({url:parsed.origin,token});
-    status.textContent='Conectado y comprobado: '+data.model+' en Colab. La inferencia editorial se ejecutará en esa sesión temporal.';
-    button.textContent='Motor conectado';
-    const panel=document.querySelector('[aria-labelledby="colabEditorTitle"]');
-    if(panel){panel.hidden=true;let reveal=panel.previousElementSibling;if(!reveal||reveal.id!=='revealColabSettings'){reveal=document.createElement('button');reveal.type='button';reveal.id='revealColabSettings';reveal.className='secondary';reveal.textContent='Gestionar conexión de IA en la nube';panel.parentNode.insertBefore(reveal,panel);}reveal.hidden=false;reveal.onclick=()=>{panel.hidden=!panel.hidden;reveal.textContent=panel.hidden?'Gestionar conexión de IA en la nube':'Ocultar configuración de IA en la nube';};}
-  }catch(error){localStorage.removeItem(COLAB_EDITOR_KEY);editorialEnginePromise=null;status.textContent='No se pudo conectar: '+String(error.message||error);}
-  finally{button.disabled=false;}
-}
-document.querySelector('#launchColabEditor')?.addEventListener('click',()=>{
-  window.open('https://colab.research.google.com/github/hugoaguilera022/ClipForge/blob/integrated-web-final/colab/ClipForge_Editorial_Engine.ipynb','_blank','noopener');
-  const status=document.querySelector('#colabEditorStatus');
-  if(status)status.textContent='Cuaderno abierto. En Colab pulsa «Entorno de ejecución → Ejecutar todas» y espera a que aparezcan URL DEL MOTOR y TOKEN.';
-});
-document.querySelector('#connectColabEditor')?.addEventListener('click',connectColabEditorialEngine);
-(function restoreColabEditorConnection(){
-  const config=getColabEditorConfig();const url=document.querySelector('#colabEditorUrl'),status=document.querySelector('#colabEditorStatus');
-  if(config&&url){url.value=config.url;const token=document.querySelector('#colabEditorToken');if(token)token.value=config.token;if(status){status.textContent='Conexión guardada. Comprobando automáticamente si la sesión de Colab sigue activa…';}connectColabEditorialEngine();}
-})();
-// Federated free-tier LLM router. API keys remain in this browser's localStorage;
-// they are sent only to the provider selected for the current inference request.
+// Free AI provider router; independent editorial passes rotate across providers.
+
 const FREE_AI_PROVIDERS={
  gemini:{label:'Google Gemini',endpoint:'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',model:'gemini-3.8-flash'},
- groq:{label:'Groq',endpoint:'https://api.groq.com/openai/v1/chat/completions',model:'openai/gpt-oss-120b'},
  openrouter:{label:'OpenRouter',endpoint:'https://openrouter.ai/api/v1/chat/completions',model:'openrouter/free'}
 };
 const FREE_AI_KEYS='clipforge.free-ai-keys.v1';
@@ -905,14 +854,7 @@ async function loadLocalEditorialJudge(onProgress=()=>{}){
  return editorialEnginePromise;
 }
 async function loadEditorialJudge(onProgress = () => {}) {
- // When the user has explicitly connected Colab, use its larger Qwen3 model
- // as the primary editorial judge. Federated API providers remain the fallback
- // when Colab is not configured; local WebGPU is the final free option.
- const remote=getColabEditorConfig();
- if(remote){
-  onProgress('Usando Qwen3 en tu sesión de Google Colab como juez editorial principal…');
-  return createRemoteEditorialEngine(remote);
- }
+ // Prefer connected free API providers; use local WebGPU Qwen3 only as fallback.
  const freeProviders=configuredFreeAIProviders();
  if(freeProviders.length)return createFederatedFreeAIEngine(freeProviders,onProgress,()=>loadLocalEditorialJudge(onProgress));
  return loadLocalEditorialJudge(onProgress);
@@ -952,7 +894,7 @@ async function updateVideoCapacity(file) {
   el('capacityRam').textContent=formatCapacityGb(estimate.systemRamGb)+' recomendados';
   el('capacityGpu').textContent=formatCapacityGb(estimate.gpuRamGb)+' recomendados';
   el('capacityDisk').textContent=formatCapacityGb(estimate.freeDiskGb)+' libres';
-  el('capacityModel').textContent=(getColabEditorConfig()?'Qwen3 remoto 4B/8B':'Qwen3 local 1.7B')+' + '+estimate.asrLabel.replace('Whisper ','');
+  el('capacityModel').textContent=('Qwen3 local 1.7B')+' + '+estimate.asrLabel.replace('Whisper ','');
   const length=duration?(duration/60).toFixed(1).replace('.',',')+' min':'duración no detectada';
   const status=el('capacityStatus'),summary=el('capacitySummary');
   if(!adapter){status.textContent='No compatible con selección IA';status.dataset.level='bad';summary.textContent='Vídeo: '+length+' · '+Math.round(file.size/1048576)+' MB. No se detecta WebGPU; la selección editorial generativa no podrá ejecutarse en este navegador.';}
