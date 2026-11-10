@@ -1,5 +1,6 @@
 (() => {
   const main = document.querySelector('main');
+  const oldHeader=document.querySelector('body > header');
   if (!main || document.getElementById('cfWorkspace')) return;
   const by = s => document.querySelector(s);
   const hero = by('.hero'), grid = by('.grid'), engine = by('#browserEngine');
@@ -19,7 +20,7 @@
   const nav=side.querySelector('nav');
   const content=document.createElement('div');content.className='cf-content';
   const top=document.createElement('div');top.className='cf-topbar';
-  top.innerHTML='<div><div class="cf-breadcrumb">CLIPFORGE <span>/</span> <b id="cfCurrentPage">Crear clips</b></div><div class="cf-page-subtitle" id="cfPageSubtitle">Convierte vídeos largos en clips que merecen ser vistos.</div></div><div class="cf-top-actions"><span id="health" class="pill">Comprobando motor…</span></div>';
+  top.innerHTML='<div><div class="cf-breadcrumb">WORKSPACE <span>/</span> <b id="cfCurrentPage">Crear clips</b></div><div class="cf-page-subtitle" id="cfPageSubtitle">Convierte vídeos largos en clips que merecen ser vistos.</div></div><div class="cf-top-actions"></div>';\n  const health=oldHeader && oldHeader.querySelector('#health'); if(health) top.querySelector('.cf-top-actions').appendChild(health);
   content.appendChild(top);
   const host=document.createElement('div');host.className='cf-page-host';content.appendChild(host);
   const panes={};
@@ -33,7 +34,7 @@
   function move(node,target){if(node)panes[target].appendChild(node)}
   move(hero,'create');move(grid,'create');move(engine,'create');move(workflow,'create');
   move(editor,'edit');move(history,'library');move(inbox,'library');move(channels,'channels');move(publish,'settings');
-  main.replaceWith(shell);shell.append(side,content);
+  main.replaceWith(shell);shell.append(side,content); if(oldHeader) oldHeader.remove();
   function activate(id){
     pages.forEach(p=>{panes[p.id].hidden=p.id!==id;const b=nav.querySelector('[data-target="'+p.id+'"]');b.classList.toggle('active',p.id===id);b.innerHTML='<span class="cf-nav-icon">'+p.icon+'</span><span>'+p.label+'</span>'+(p.id===id?'<span class="cf-nav-active"></span>':'');});
     const p=pages.find(x=>x.id===id);document.getElementById('cfCurrentPage').textContent=p.label;document.getElementById('cfPageSubtitle').textContent=p.desc;
