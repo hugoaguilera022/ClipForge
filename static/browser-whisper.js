@@ -1473,7 +1473,21 @@ runButton?.addEventListener('click', async () => {
       else if (p.status) say(`Modelo Whisper: ${p.status}`);
     };
     const loadModel = async id => {
-      asr = await pipeline('automatic-speech-recognition', id, { dtype: 'q8', progress_callback: progress });
+      // Prefer WebGPU on supported Chrome/Edge devices; retain a safe WASM fallback.
+      let webgpuReady=false;
+      try { if(navigator.gpu) webgpuReady=Boolean(await navigator.gpu.requestAdapter({powerPreference:'high-performance'})); } catch {}
+      if(webgpuReady){
+        try {
+          say('Activando aceleración gráfica WebGPU para acelerar la transcripción…');
+          asr = await pipeline('automatic-speech-recognition', id, { device:'webgpu', dtype:'fp16', progress_callback:progress });
+          asrModelId=id;
+          return;
+        } catch(error) {
+          console.warn('Whisper WebGPU no disponible para este modelo; usando WASM optimizado.',error);
+          asr=null;
+        }
+      }
+      asr = await pipeline('automatic-speech-recognition', id, { dtype:'q8', progress_callback:progress });
       asrModelId = id;
     };
     const reportProgress = (percent, current, total) => {
