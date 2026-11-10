@@ -1130,3 +1130,30 @@ body.cf-opus-stage-editor #cfWorkspace .cf-subtitle-track-playhead{z-index:4}
  body.cf-opus-stage-editor #cfWorkspace .cf-opus-inspector-panes{min-height:0!important}
  body.cf-opus-stage-editor #cfWorkspace .cf-opus-inspector-tabs{grid-template-columns:repeat(3,minmax(0,1fr))!important}
 }
+
+
+/* Pixel-close CapCut-inspired editor matching the approved ClipForge mockup */
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 0 14px;padding:12px 16px;border:1px solid #303039;border-radius:12px;background:#15151c;color:#f5f5f7}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-project{display:flex;align-items:center;gap:14px;min-width:0}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-project strong{font-size:18px;letter-spacing:-.5px}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-project span{color:#ddd;font-size:12px}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-project i{color:#6ed6b2;font-size:11px;font-style:normal}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-format{display:flex;align-items:center;gap:8px;color:#999;font-size:11px}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-format b{padding:6px 10px;border:1px solid #41414b;border-radius:7px;color:#fff}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-export-top{padding:10px 18px;border:0;border-radius:8px;background:#f3f3f5;color:#111;font-weight:800;cursor:pointer}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-player-column{display:grid!important;grid-template-columns:58px minmax(0,1fr)!important;gap:12px!important;align-items:center!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-tool-rail{display:flex;flex-direction:column;align-self:stretch;justify-content:center;gap:8px}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-tool{display:grid;justify-items:center;gap:4px;min-height:52px;padding:6px 2px;border:1px solid transparent;border-radius:8px;background:transparent;color:#a4a4af;cursor:pointer}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-tool span{font-size:19px;font-weight:800}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-tool small{font-size:9px}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-tool.is-active{border-color:#3b655f;background:#1a302e;color:#63d7c6}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-player-column>.cf-inline-player{width:min(100%,390px)!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-audio-timeline-wrap{display:grid;gap:8px;padding:12px;border:1px solid #303039;border-radius:12px;background:#17171f}
+body.cf-opus-stage-editor #cfWorkspace .cf-audio-timeline-title{font-size:12px;font-weight:800;color:#e7e7ed}
+body.cf-opus-stage-editor #cfWorkspace .cf-audio-track-rail{position:relative;display:flex;align-items:center;justify-content:space-around;gap:2px;height:54px;overflow:hidden;padding:0 4px;border-radius:7px;background:#20202a;cursor:pointer}
+body.cf-opus-stage-editor #cfWorkspace .cf-audio-wave-bar{display:block;flex:1;min-width:1px;max-width:5px;border-radius:3px;background:linear-gradient(180deg,#52d7c1,#328b83);opacity:.9}
+body.cf-opus-stage-editor #cfWorkspace .cf-audio-track-playhead{position:absolute;top:0;bottom:0;left:0;width:2px;background:#fff;z-index:4;pointer-events:none;box-shadow:0 0 0 1px #111}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-inspector-tabs{grid-template-columns:repeat(5,minmax(0,1fr))!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-tab{font-size:10px!important;white-space:normal}
+@media(max-width:900px){body.cf-opus-stage-editor #cfWorkspace .cf-opus-player-column{grid-template-columns:42px minmax(0,1fr)!important}}
+@media(max-width:560px){body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar{flex-wrap:wrap}body.cf-opus-stage-editor #cfWorkspace .cf-editor-project{flex-wrap:wrap}body.cf-opus-stage-editor #cfWorkspace .cf-opus-player-column{grid-template-columns:1fr!important}body.cf-opus-stage-editor #cfWorkspace .cf-editor-tool-rail{flex-direction:row;overflow:auto;justify-content:flex-start}body.cf-opus-stage-editor #cfWorkspace .cf-editor-tool{min-width:54px}}
