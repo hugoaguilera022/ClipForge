@@ -98,14 +98,14 @@
   }
   function restoreCard(card){
     const original=originalCardNodes.get(card);if(!original)return;
-    card.replaceChildren(original);card.classList.remove('cf-opus-editing-card');
+    card.replaceChildren(...original);card.classList.remove('cf-opus-editing-card');
     originalCardNodes.delete(card);
   }
   function addInspector(card,clip){
-    const original=document.createDocumentFragment();while(card.firstChild)original.append(card.firstChild);originalCardNodes.set(card,original);
-    const player=original.querySelector('.cf-inline-player'),timeline=original.querySelector('.cf-clip-timeline'),captions=original.querySelector('.cf-inline-subtitles');
-    const heading=original.querySelector(':scope > strong');
-    const exportOne=original.querySelector('.candidate-export-one'),select=original.querySelector('.candidate-select');
+    const original=[...card.childNodes];originalCardNodes.set(card,original);
+    const player=card.querySelector('.cf-inline-player'),timeline=card.querySelector('.cf-clip-timeline'),captions=card.querySelector('.cf-inline-subtitles');
+    const heading=card.querySelector(':scope > strong');
+    const exportOne=card.querySelector('.candidate-export-one'),select=card.querySelector('.candidate-select');
     const layout=document.createElement('div');layout.className='cf-opus-editor-layout';
     const preview=document.createElement('section');preview.className='cf-opus-player-column';
     const inspector=document.createElement('aside');inspector.className='cf-opus-inspector';
