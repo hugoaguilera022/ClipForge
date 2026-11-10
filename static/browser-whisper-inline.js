@@ -335,6 +335,43 @@ async function transcribeAudioInChunks(asr, audio, onProgress = () => {}, timest
   return { text: (allChunks.length ? allChunks.map(chunk => chunk.text).join(' ') : fullText.join(' ')).replace(/\s+/g, ' ').trim(), chunks: allChunks };
 }
 
+// Fully local speaker diarization with the public ONNX pyannote model.
+// It assigns anonymous speaker IDs; it does not identify real-world people.
+async function diarizeAudioLocally(audio, onProgress = () => {}) {
+  const { AutoProcessor, AutoModelForAudioFrameClassification } =
+    await import('https://esm.sh/@huggingface/transformers@3.7.2');
+  const modelId = 'onnx-community/pyannote-segmentation-3.0';
+  onProgress('Cargando modelo local de separación de hablantes…');
+  const [processor, model] = await Promise.all([
+    AutoProcessor.from_pretrained(modelId),
+    AutoModelForAudioFrameClassification.from_pretrained(modelId, { dtype: 'q8' })
+  ]);
+  try {
+    const inputs = await processor(audio);
+    const { logits } = await model(inputs);
+    const turns = processor.post_process_speaker_diarization(logits, audio.length);
+    return (turns?.[0] || turns || []).map(turn => ({
+      start: Number(turn.start), end: Number(turn.end),
+      speaker: Number(turn.id ?? turn.speaker),
+      confidence: Number(turn.confidence ?? 0)
+    })).filter(turn => Number.isFinite(turn.start) && Number.isFinite(turn.end) && turn.end > turn.start && Number.isFinite(turn.speaker));
+  } finally {
+    try { await model.dispose?.(); } catch {}
+  }
+}
+
+function assignSpeakerToTranscriptSegments(segments, turns) {
+  if (!Array.isArray(turns) || !turns.length) return segments;
+  return segments.map(segment => {
+    let bestSpeaker = null, bestOverlap = 0;
+    for (const turn of turns) {
+      const overlap = Math.max(0, Math.min(segment.end, turn.end) - Math.max(segment.start, turn.start));
+      if (overlap > bestOverlap) { bestOverlap = overlap; bestSpeaker = turn.speaker; }
+    }
+    return bestSpeaker === null ? segment : { ...segment, speaker: bestSpeaker, speaker_label: 'Hablante ' + (bestSpeaker + 1) };
+  });
+}
+
 function makeVtt(segments) {
   // Build readable cues at natural pauses and sentence boundaries, not at
   // arbitrary fixed five-word intervals. Keep timing from Whisper unchanged.
@@ -1609,8 +1646,15 @@ runButton?.addEventListener('click', async () => {
         throw new Error(`Whisper Base tampoco devolvió marcas de tiempo. Error de Small: ${transcriptionError.message}`);
       }
     }
-    // Free the large ONNX/Whisper session before video rendering. Keeping it
-    // alive caused Chromium to run out of memory while exporting long clips.
+    // A single giant timestamped chunk is not useful for editing. Retry
+    // with Whisper's segment timestamps before accepting an under-segmented result.
+    const sourceDurationForTiming = audio.length / 16000;
+    if ((result.chunks || []).length <= 1 && sourceDurationForTiming > 8 && String(result.text || '').trim().split(/\\s+/).length > 12) {
+      say('La primera pasada devolvió un único bloque. Repitiendo alineación temporal por segmentos…');
+      const segmented = await transcribeAudioInChunks(asr, audio, reportProgress, true, sourceLanguage);
+      if ((segmented.chunks || []).length > (result.chunks || []).length) result = segmented;
+    }
+    // Free the large Whisper session before loading diarization and video rendering.
     await releaseWhisperModel();
     const chunks = result.chunks || [];
     say('Analizando cambios visuales del vídeo localmente para complementar la transcripción…');
@@ -1618,21 +1662,28 @@ runButton?.addEventListener('click', async () => {
     const visualStep=sourceDuration>1800?45:sourceDuration>600?15:5;
     say(`Analizando cambios visuales cada ${visualStep} segundos para adaptar el proceso a un vídeo de ${Math.round(sourceDuration/60)} minutos…`);
     const visualSamples = await captureVisualActivity(file,sourceDuration,visualStep);
+    let diarizationTurns = [];
+    let diarizationStatus = 'no disponible';
+    try {
+      diarizationTurns = await diarizeAudioLocally(audio, message => say(message));
+      diarizationStatus = diarizationTurns.length ? 'completada' : 'sin hablantes diferenciables';
+    } catch (diarizationError) {
+      console.warn('La diarización local no pudo completarse:', diarizationError);
+      diarizationStatus = 'no disponible: ' + String(diarizationError.message || diarizationError);
+    }
+    const timedSegments = chunks.map(c => ({
+      start: Number(c.start), end: Number(c.end), text: String(c.text || '').trim()
+    })).filter(c => Number.isFinite(c.start) && Number.isFinite(c.end) && c.end > c.start && c.text);
+    const speakerSegments = assignSpeakerToTranscriptSegments(timedSegments, diarizationTurns);
     transcriptData = {
       source: file.name, model: activeModelId, language: result.language || sourceLanguage,
       generated_at: new Date().toISOString(), text: result.text || '',
-      // transcribeAudioInChunks already converts model-local timestamps to
-      // absolute source-video seconds and returns {start, end, text} objects.
-      // Do not read c.timestamp here: that field belongs to raw Transformers.js
-      // chunks and would silently reset every saved caption to 0 seconds.
-      segments: chunks.map(c => ({
-        start: Number(c.start),
-        end: Number(c.end),
-        text: String(c.text || '').trim()
-      })).filter(c => Number.isFinite(c.start) && Number.isFinite(c.end) && c.end > c.start && c.text)
+      diarization: { model: 'onnx-community/pyannote-segmentation-3.0', status: diarizationStatus, turns: diarizationTurns },
+      // Timestamps are absolute source-video seconds; speaker IDs are anonymous.
+      segments: speakerSegments
     };
     if (output) output.value = transcriptData.segments.length
-      ? transcriptData.segments.map(s => `[${s.start.toFixed(2)}–${s.end.toFixed(2)}] ${s.text}`).join('\n')
+      ? transcriptData.segments.map(s => `[${s.start.toFixed(2)}–${s.end.toFixed(2)}] ${s.speaker_label ? '['+s.speaker_label+'] ' : ''}${s.text}`).join('\n')
       : (result.text || 'El modelo no devolvió texto temporizado.');
     if (transcriptData.segments.length) {
       let candidatePool = buildEditorialCandidatePool(transcriptData.segments, audio.length / 16000, audio, visualSamples, 16000);
@@ -1661,7 +1712,7 @@ runButton?.addEventListener('click', async () => {
       startAutomaticClipExport();
       const vtt = makeVtt(transcriptData.segments);
       const attached = attachTranscriptToJobForm(vtt);
-      say(`Transcripción lista: ${transcriptData.segments.length} fragmentos temporizados. ${attached ? 'Subtítulos y cortes seleccionados conectados al formulario de producción.' : 'Descarga el JSON para conservarla.'} Whisper no identifica hablantes.`);
+      say(`Transcripción lista: ${transcriptData.segments.length} fragmentos temporizados · ${new Set(transcriptData.segments.map(s=>s.speaker).filter(Number.isFinite)).size} hablantes detectados · diarización ${transcriptData.diarization?.status || 'no disponible'}. ${attached ? 'Subtítulos y cortes seleccionados conectados al formulario de producción.' : 'Descarga el JSON para conservarla.'}`);
       const autoGenerate = document.querySelector('#autoGenerateAfterTranscription')?.checked;
       const form = document.querySelector('#jobForm');
       const rights = form?.querySelector('[name="rights_confirmed"]');
