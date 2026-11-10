@@ -1371,6 +1371,11 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
  if(!panel||!list)return;
  editableCandidates=(restoredCandidates || rankClipCandidates(words,duration,audioSamples,16000,visualSamples)).map((c,i)=>({...c,title:c.title||`Clip ${i+1}`,selected:c.selected!==false}));
  panel.hidden=false;list.replaceChildren();
+ document.body.classList.add('cf-stage-results');document.body.classList.remove('cf-stage-editor');
+ const stageHead=document.createElement('div');stageHead.className='cf-results-toolbar';
+ const back=document.createElement('button');back.type='button';back.className='secondary cf-back-source';back.textContent='← Cambiar vídeo';back.addEventListener('click',()=>{document.body.classList.remove('cf-stage-results','cf-stage-editor');panel.hidden=true;});
+ const stageTitle=document.createElement('div');stageTitle.innerHTML='<strong>Clips seleccionados</strong><small>Elige un momento para abrir su editor profesional</small>';
+ stageHead.append(back,stageTitle);panel.prepend(stageHead);
  if(!editableCandidates.length){list.textContent='No hay suficientes marcas de tiempo.';const field=document.querySelector('[name="selected_clip_ranges"]');if(field)field.value='';return;}
  const sync=()=>{
   let field=document.querySelector('[name="selected_clip_ranges"]');
@@ -1450,6 +1455,9 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
   const zoomRight=document.createElement('button');zoomRight.type='button';zoomRight.className='cf-clip-timeline-handle is-end';zoomRight.setAttribute('aria-label','Ajustar final con precisión');
   zoomRail.append(zoomSelected,zoomLeft,zoomRight);
   zoomWrap.append(overviewHead,overviewRail,zoomTitle,zoomRail);timeline.append(zoomWrap);
+  const subtitleTrack=document.createElement('div');subtitleTrack.className='cf-clip-subtitle-track';subtitleTrack.setAttribute('aria-label','Pista de subtítulos del clip');
+  subtitleSegments.forEach(seg=>{const block=document.createElement('div');block.className='cf-clip-subtitle-block';const left=Math.max(0,(Number(seg.start)-Number(c.start))/(Number(c.end)-Number(c.start))*100),width=Math.max(1,(Number(seg.end)-Number(seg.start))/(Number(c.end)-Number(c.start))*100);block.style.left=left+'%';block.style.width=Math.min(width,100-left)+'%';const label=document.createElement('span');label.textContent=String(seg.text||'').slice(0,36);block.append(label);block.title=String(seg.text||'');subtitleTrack.append(block);});
+  timeline.append(subtitleTrack);
   const paintTimeline=()=>{const st=Math.max(0,Math.min(videoDuration-.1,Number(c.start)||0)),en=Math.max(st+.1,Math.min(videoDuration,Number(c.end)||st+.1));const pad=Math.max(8,(en-st)*.65),z0=Math.max(0,st-pad),z1=Math.min(videoDuration,en+pad),span=Math.max(.2,z1-z0),zl=(st-z0)/span*100,zr=(en-z0)/span*100;overviewSelected.style.left=(st/videoDuration*100)+'%';overviewSelected.style.width=((en-st)/videoDuration*100)+'%';zoomSelected.style.left=zl+'%';zoomSelected.style.width=(zr-zl)+'%';zoomLeft.style.left=zl+'%';zoomRight.style.left=zr+'%';};
   const changeEdge=(edge,value)=>{const t=Math.max(0,Math.min(videoDuration,value)),gap=Math.min(.1,videoDuration);if(edge==='start')c.start=Math.max(0,Math.min(t,c.end-gap));else c.end=Math.min(videoDuration,Math.max(t,c.start+gap));c.duration=c.end-c.start;editableCandidates[i]={...c};paintTimeline();sync();};
   const bindDrag=(handle,edge,target,zoomed=false)=>{handle.addEventListener('pointerdown',event=>{event.preventDefault();event.stopPropagation();handle.setPointerCapture?.(event.pointerId);const move=ev=>{const rect=target.getBoundingClientRect();let lo=0,hi=videoDuration;if(zoomed){const pad=Math.max(8,(c.end-c.start)*.65);lo=Math.max(0,c.start-pad);hi=Math.min(videoDuration,c.end+pad);}const f=Math.max(0,Math.min(1,(ev.clientX-rect.left)/Math.max(1,rect.width)));changeEdge(edge,lo+f*(hi-lo));};const stop=()=>{handle.removeEventListener('pointermove',move);handle.removeEventListener('pointerup',stop);handle.removeEventListener('pointercancel',stop);};handle.addEventListener('pointermove',move);handle.addEventListener('pointerup',stop);handle.addEventListener('pointercancel',stop);});handle.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight'].includes(event.key))return;event.preventDefault();const d=(event.shiftKey?1:.05)*(event.key==='ArrowLeft'?-1:1);changeEdge(edge,(edge==='start'?c.start:c.end)+d);});};
@@ -1462,12 +1470,14 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
   select.addEventListener('change',()=>{editableCandidates[i]={...editableCandidates[i],selected:select.checked};sync();});
   selectLabel.append(select,document.createTextNode(' Incluir en exportación'));
   paintTimeline();
-  card.append(player,timeline,subtitlePanel,heading,exportSingle,selectLabel);list.append(card);
+  const openClip=document.createElement('button');openClip.type='button';openClip.className='secondary cf-open-clip-editor';openClip.textContent='Abrir editor →';
+  const openThis=()=>{list.querySelectorAll('.candidate-card').forEach(el=>el.classList.remove('is-open'));card.classList.add('is-open');document.body.classList.add('cf-stage-editor');film.pause();card.scrollIntoView({behavior:'smooth',block:'start'});};
+  openClip.addEventListener('click',event=>{event.stopPropagation();openThis();});
+  card.addEventListener('click',event=>{if(event.target.closest('button,input,textarea,select,label'))return;openThis();});
+  card.append(heading,player,timeline,subtitlePanel,openClip,exportSingle,selectLabel);list.append(card);
  });
  const info=document.createElement('p');info.textContent=editableCandidates.every(c=>c.selection_method==='local_generative_editor'||c.selection_method==='remote_generative_editor')?'Selección editorial realizada por un modelo generativo. Cada clip incluye evidencia textual que justifica su importancia y supera una segunda pasada de auditoría; revisa el resultado antes de exportar.':'Candidatos de respaldo sin selección editorial generativa confirmada.';list.append(info);
- const openEditor=document.createElement('button');openEditor.type='button';openEditor.className='secondary';openEditor.textContent='Editar clips ahora en el editor (sin descargar)';
- openEditor.addEventListener('click',()=>document.querySelector('#projectEditor')?.scrollIntoView({behavior:'smooth',block:'start'}));
- list.append(openEditor);sync();
+ sync();
  window.dispatchEvent(new CustomEvent('clipforge:clips-updated'));
 }
 
