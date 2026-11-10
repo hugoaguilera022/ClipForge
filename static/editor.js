@@ -232,3 +232,10 @@ window.addEventListener('clipforge:clips-updated',()=>{
   render();
   say(`${clips.length} clips sincronizados con el editor.`);
 });
+
+window.addEventListener('clipforge:candidate-edited',()=>{
+  bridgeProject();
+  const videoTrack=tracks.find(track=>track.type==='video');
+  if(videoTrack)videoTrack.items=clips.map(c=>({id:c.id,start:c.start,end:c.end,text:c.title||c.text||'Clip'}));
+  render();
+});
