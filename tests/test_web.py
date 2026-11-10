@@ -612,7 +612,7 @@ class BrowserClipCandidateTests(unittest.TestCase):
   module=(ROOT/'static'/'browser-whisper.js').read_text()
   self.assertIn('if(pool.length<=batchSize){',module)
   self.assertIn('finalists.push(...pool);',module)
-  self.assertIn('Juez editorial de control: auditando contexto, gancho y remate',module)
+  self.assertIn('Segunda pasada editorial: comprobando importancia, contexto y evidencia literal',module)
   self.assertNotIn('if(pool.length<=8)return askEditorialModel',module)
 
  def test_incomplete_ai_rubrics_are_rejected_instead_of_scored_as_fallback(self):
