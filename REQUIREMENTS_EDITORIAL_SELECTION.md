@@ -12,7 +12,7 @@ ClipForge debe generar **exactamente cuatro clips por vídeo**. El objetivo no e
 
 ## Coste y validación
 - Usar el análisis local gratuito siempre que sea posible.
-- Para 96 candidatos, comparar en cuatro lotes cronológicos de 24, conservar un finalista por lote y hacer una votación global y una auditoría final: objetivo de seis llamadas de modelo, no catorce.
+- Para 96 candidatos, comparar en cuatro lotes cronológicos de 24, conservar cuatro opciones por lote y hacer una votación global y una auditoría final: objetivo de seis llamadas de modelo para vídeos con 96 candidatos, no catorce.
 - No llamar a varios proveedores para evaluar el mismo lote si el primero ha respondido correctamente.
 - Validar timestamps reales, contexto suficiente, desenlace dentro del corte, ausencia de solapamiento y cuatro acontecimientos distintos.
 - No declarar el requisito cumplido hasta revisar una generación real.
