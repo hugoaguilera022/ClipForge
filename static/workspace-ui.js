@@ -74,7 +74,7 @@
     }
   });
   const auto=app.querySelector('.cf-opus-auto');auto?.addEventListener('click',()=>transcribe?.click());
-  let activeCard=null,activeIndex=-1;
+  let activeCard=null,activeIndex=-1;const originalCardNodes=new WeakMap();
   const results=$('#cfResults'),editorScreen=$('#cfEditor'),resultSlot=app.querySelector('.cf-opus-candidates-slot'),editorSlot=app.querySelector('.cf-opus-editor-slot');
   const exportSlot=app.querySelector('.cf-opus-export-slot');
   if(exportPanel){exportPanel.hidden=true;exportPanel.setAttribute('aria-hidden','true');}
@@ -96,10 +96,16 @@
     }
     window.scrollTo({top:0,behavior:'instant'});
   }
+  function restoreCard(card){
+    const original=originalCardNodes.get(card);if(!original)return;
+    card.replaceChildren(original);card.classList.remove('cf-opus-editing-card');
+    originalCardNodes.delete(card);
+  }
   function addInspector(card,clip){
-    const player=card.querySelector('.cf-inline-player'),timeline=card.querySelector('.cf-clip-timeline'),captions=card.querySelector('.cf-inline-subtitles');
-    const openButton=card.querySelector('.cf-open-clip-editor'),heading=card.querySelector(':scope > strong');
-    const exportOne=card.querySelector('.candidate-export-one'),select=card.querySelector('.candidate-select');
+    const original=document.createDocumentFragment();while(card.firstChild)original.append(card.firstChild);originalCardNodes.set(card,original);
+    const player=original.querySelector('.cf-inline-player'),timeline=original.querySelector('.cf-clip-timeline'),captions=original.querySelector('.cf-inline-subtitles');
+    const heading=original.querySelector(':scope > strong');
+    const exportOne=original.querySelector('.candidate-export-one'),select=original.querySelector('.candidate-select');
     const layout=document.createElement('div');layout.className='cf-opus-editor-layout';
     const preview=document.createElement('section');preview.className='cf-opus-player-column';
     const inspector=document.createElement('aside');inspector.className='cf-opus-inspector';
@@ -128,14 +134,12 @@
     panes.append(captionsPane,textPane,trackingPane);inspector.append(tabs,panes);
     if(player)preview.append(player);
     layout.append(preview,inspector);
-    if(heading)heading.classList.add('cf-opus-clip-title');
     card.classList.add('cf-opus-editing-card');
-    card.replaceChildren();
     if(heading)card.append(heading);
     card.append(layout);
     if(timeline)card.append(timeline);
     const actions=document.createElement('div');actions.className='cf-opus-editor-actions';
-    const back=document.createElement('button');back.type='button';back.className='cf-opus-back';back.textContent='← Volver a los cuatro clips';back.addEventListener('click',()=>{if(activeCard){const list=$('#browserCandidateList');const nodes=[...list.children];const next=nodes[Math.min(activeIndex,nodes.length)]||null;list.insertBefore(activeCard,next);activeCard.classList.remove('cf-opus-editing-card');activeCard=null;}setStage('results');});
+    const back=document.createElement('button');back.type='button';back.className='cf-opus-back';back.textContent='← Volver a los cuatro clips';back.addEventListener('click',()=>{if(activeCard){const list=$('#browserCandidateList');restoreCard(activeCard);const nodes=[...list.children];const next=nodes[Math.min(activeIndex,nodes.length)]||null;list.insertBefore(activeCard,next);activeCard=null;}setStage('results');});
     if(exportOne){exportOne.textContent='Exportar este clip MP4';actions.append(exportOne);}
     if(select)actions.append(select);
     actions.prepend(back);card.append(actions);
@@ -158,7 +162,7 @@
     const title=editorScreen.querySelector('.cf-opus-section-head h2');if(title)title.textContent=card.querySelector(':scope > strong')?.textContent||'Editar clip';
     const backHolder=editorScreen.querySelector('.cf-opus-section-head');
     const oldBack=backHolder.querySelector('.cf-opus-back');oldBack?.remove();
-    const topBack=document.createElement('button');topBack.type='button';topBack.className='cf-opus-back';topBack.textContent='← Todos los clips';topBack.addEventListener('click',()=>{const list=$('#browserCandidateList');const nodes=[...list.children];const next=nodes[Math.min(activeIndex,nodes.length)]||null;list.insertBefore(card,next);card.classList.remove('cf-opus-editing-card');activeCard=null;setStage('results');});
+    const topBack=document.createElement('button');topBack.type='button';topBack.className='cf-opus-back';topBack.textContent='← Todos los clips';topBack.addEventListener('click',()=>{const list=$('#browserCandidateList');restoreCard(card);const nodes=[...list.children];const next=nodes[Math.min(activeIndex,nodes.length)]||null;list.insertBefore(card,next);activeCard=null;setStage('results');});
     backHolder.prepend(topBack);
     editorSlot.replaceChildren(card);
     addInspector(card,e.detail?.clip||{start:0,end:1});
