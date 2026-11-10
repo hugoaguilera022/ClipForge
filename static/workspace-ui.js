@@ -16,7 +16,7 @@
   content.append(top);
   const host=document.createElement('div');host.className='cf-page-host';content.append(host);
   const production=document.createElement('section');production.className='panel cf-production';
-  production.innerHTML='<div class="section-head"><div><span class="step">01 / PRODUCCIÓN</span><h2>Crear clips</h2><p class="cf-panel-subtitle">Importa el vídeo, configura el análisis y genera cuatro propuestas verticales.</p></div><span class="tag">Procesamiento local</span></div><nav class="cf-workflow-steps" aria-label="Proceso de creación"><span class="active"><i>1</i> Importar</span><span><i>2</i> Analizar</span><span><i>3</i> Seleccionar</span><span><i>4</i> Editar</span><span><i>5</i> Exportar</span></nav><p class="cf-source-label">1. Selecciona el vídeo de origen</p><div class="cf-source-tabs"><span class="active">Desde tu dispositivo</span><span>Desde un enlace</span></div>
+  production.innerHTML='<div class="section-head"><div><span class="step">01 / PRODUCCIÓN</span><h2>Crear clips</h2><p class="cf-panel-subtitle">Importa el vídeo, configura el análisis y genera cuatro propuestas verticales.</p></div><span class="tag">Procesamiento local</span></div><nav class="cf-workflow-steps" aria-label="Proceso de creación"><span class="active"><i>1</i> Importar</span><span><i>2</i> Analizar</span><span><i>3</i> Seleccionar</span><span><i>4</i> Editar</span><span><i>5</i> Exportar</span></nav><p class="cf-source-label">1. Selecciona el vídeo de origen</p><div class="cf-source-tabs" role="tablist" aria-label="Origen del vídeo"><button type="button" class="active" role="tab" aria-selected="true" data-source="file">Desde tu dispositivo</button><button type="button" role="tab" aria-selected="false" data-source="url">Desde un enlace</button></div>
   if(drop)production.append(drop);
   if(urlImport)production.append(urlImport);
   if(optionLabels.length){
@@ -59,6 +59,19 @@
   main.replaceWith(shell);shell.append(content);if(oldHeader)oldHeader.remove();
   const footer=document.querySelector('footer');if(footer)content.append(footer);
   const workflow=production.querySelector('.cf-workflow-steps');
+  const sourceTabs=production.querySelector('.cf-source-tabs');
+  function selectSource(source){
+    const fileMode=source==='file';
+    if(drop)drop.hidden=!fileMode;
+    if(urlImport)urlImport.hidden=fileMode;
+    sourceTabs?.querySelectorAll('button').forEach(button=>{
+      const active=button.dataset.source===source;
+      button.classList.toggle('active',active);
+      button.setAttribute('aria-selected',String(active));
+    });
+  }
+  sourceTabs?.querySelectorAll('button').forEach(button=>button.addEventListener('click',()=>selectSource(button.dataset.source)));
+  selectSource('file');
   function setStage(stage){
     workflow?.querySelectorAll('span').forEach((item,index)=>{item.classList.toggle('active',index===stage);item.classList.toggle('done',index<stage);});
   }
