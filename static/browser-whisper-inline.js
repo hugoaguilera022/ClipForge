@@ -1374,8 +1374,7 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
  panel.querySelector('.cf-results-toolbar')?.remove();document.body.classList.remove('cf-stage-results','cf-stage-editor');
  const stageHead=document.createElement('div');stageHead.className='cf-results-toolbar';
  const back=document.createElement('button');back.type='button';back.className='secondary cf-back-source';back.textContent='← Cambiar vídeo';back.addEventListener('click',()=>{document.body.classList.remove('cf-stage-results','cf-stage-editor');panel.hidden=true;});
- const stageTitle=document.createElement('div');stageTitle.innerHTML='<strong>Clips seleccionados</strong><small>Elige un momento para abrir su editor profesional</small>';
- stageHead.append(back,stageTitle);panel.prepend(stageHead);
+ stageHead.append(back);panel.prepend(stageHead);
  if(!editableCandidates.length){list.textContent='No hay suficientes marcas de tiempo.';const field=document.querySelector('[name="selected_clip_ranges"]');if(field)field.value='';return;}
  const sync=()=>{
   let field=document.querySelector('[name="selected_clip_ranges"]');
