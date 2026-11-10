@@ -943,3 +943,14 @@ body.cf-stage-editor .candidate-card.is-open .cf-clip-subtitle-track{
  body.cf-stage-editor .candidate-card.is-open .cf-clip-timeline{order:2;margin:8px 0 14px!important}
  body.cf-stage-editor .candidate-card.is-open .cf-inline-subtitles{order:3}
 }
+
+
+/* Actual subtitle lane geometry: the previous zero-height rail collapsed blocks to hairlines. */
+#cfWorkspace .cf-subtitle-track-ruler{position:relative;height:20px;margin:8px 0 4px;color:#9aa2b2;font-size:10px}
+#cfWorkspace .cf-subtitle-track-ruler span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
+#cfWorkspace .cf-subtitle-track-rail{position:relative;display:block;height:34px;min-height:34px;width:100%;overflow:hidden;border-radius:6px;background:repeating-linear-gradient(90deg,#252a35 0,#252a35 1px,#1b202a 1px,#1b202a 25%)}
+#cfWorkspace .cf-clip-subtitle-track{height:auto;min-height:66px;overflow:visible}
+#cfWorkspace .cf-clip-subtitle-block{position:absolute;top:3px;bottom:3px;display:block;min-width:4px;padding:0 4px;white-space:nowrap;text-overflow:ellipsis;text-align:left;color:#17120f;font-size:10px;line-height:26px;font-weight:700;background:#e6a36d;border:1px solid #ffd0a5;border-radius:4px;overflow:hidden;z-index:1}
+#cfWorkspace .cf-subtitle-track-playhead{position:absolute;z-index:3;top:-5px;bottom:-5px;width:2px;background:#fff;box-shadow:0 0 0 1px #10131a;pointer-events:none}
+#cfWorkspace .cf-subtitle-track-playhead:before{content:"";position:absolute;top:0;left:-4px;width:10px;height:8px;border-radius:2px;background:#fff}
+body.cf-stage-editor .candidate-card.is-open .cf-clip-timeline{min-height:145px!important}
