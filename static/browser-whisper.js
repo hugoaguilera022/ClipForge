@@ -140,14 +140,14 @@ async function captureAudioFromVideo(file) {
 async function extractAudioWithFFmpegWasm(file, onProgress = () => {}) {
   // Fully local codec fallback: decode MP4/MOV audio with FFmpeg WASM.
   // No upload, native install, API key, or real-time playback is required.
-  const [{ FFmpeg }, { fetchFile, toBlobURL }] = await Promise.all([
+  const [{ FFmpeg }, { fetchFile }] = await Promise.all([
     import('https://esm.sh/@ffmpeg/ffmpeg@0.12.15'),
     import('https://esm.sh/@ffmpeg/util@0.12.2')
   ]);
   const ffmpeg = new FFmpeg();
   const base = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm';
-  const coreURL = await toBlobURL(base + '/ffmpeg-core.js', 'text/javascript');
-  const wasmURL = await toBlobURL(base + '/ffmpeg-core.wasm', 'application/wasm');
+  const coreURL = base + '/ffmpeg-core.js';
+  const wasmURL = base + '/ffmpeg-core.wasm';
   const inputName = 'clipforge-input.' + ((file.name.split('.').pop() || 'mp4').replace(/[^a-z0-9]/gi, '') || 'mp4');
   const outputName = 'clipforge-audio.pcm';
   let lastProgress = -1;
