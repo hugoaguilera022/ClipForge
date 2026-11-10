@@ -1,111 +1,158 @@
 (() => {
-  const main=document.querySelector('main'),oldHeader=document.querySelector('body > header');
-  if(!main||document.getElementById('cfWorkspace'))return;
-  const by=s=>document.querySelector(s);
-  const hero=by('.hero'),grid=by('.grid'),engine=by('#browserEngine'),editor=by('#projectEditor');
-  const candidates=by('#browserCandidates'),exportPanel=by('.browser-export');
-  const drop=by('.drop'),urlImport=by('.browser-url-import'),transcribe=by('#browserTranscribe');
-  const engineControls=engine?.querySelector('.browser-transcribe-controls');
-  const optionLabels=engineControls?[...engineControls.querySelectorAll('label')]:[];
-  const languageControl=by('#browserWhisperLanguage');
-  const modelControl=by('#browserWhisperModel');
-  if(languageControl)languageControl.value='auto';
-  if(modelControl)modelControl.value='whisper-base';
-  const capacity=by('#videoCapacity');
-  const shell=document.createElement('div');shell.id='cfWorkspace';shell.className='cf-workspace cf-single-page';
-  const content=document.createElement('div');content.className='cf-content';
-  const top=document.createElement('div');top.className='cf-topbar';
-  top.innerHTML='<div><div class="cf-breadcrumb">CLIPFORGE <span>/</span> <b>Crear clips</b></div><div class="cf-page-subtitle">Producción y edición en un mismo espacio</div></div><div class="cf-top-actions"></div>';
-  const health=oldHeader?.querySelector('#health');if(health)top.querySelector('.cf-top-actions').append(health);
-  content.append(top);
-  const host=document.createElement('div');host.className='cf-page-host';content.append(host);
-  const production=document.createElement('section');production.className='panel cf-production';
-  production.innerHTML='<div class="section-head"><div><span class="step">01 / PRODUCCIÓN</span><h2>Crear clips automáticamente</h2><p class="cf-panel-subtitle">Un único vídeo. Detectamos idioma, transcribimos, seleccionamos los cuatro mejores momentos y preparamos la edición vertical.</p></div><span class="tag">Procesamiento local</span></div><nav class="cf-workflow-steps" aria-label="Proceso de creación"><span class="active"><i>1</i> Vídeo</span><span><i>2</i> Analizar</span><span><i>3</i> Seleccionar</span><span><i>4</i> Editar</span><span><i>5</i> Exportar</span></nav><p class="cf-source-label">Selecciona el vídeo original</p>
-  if(drop)production.append(drop);
-  if(urlImport){urlImport.hidden=true;urlImport.setAttribute('aria-hidden','true');}
-  // Keep engine controls available internally, but remove manual setup from the user flow.
-  if(engineControls){engineControls.hidden=true;engineControls.setAttribute('aria-hidden','true');}
-  if(transcribe){transcribe.textContent='Procesando automáticamente…';production.append(transcribe);}
-  if(capacity){capacity.hidden=true;capacity.setAttribute('aria-hidden','true');}
-  const progress=document.createElement('div');progress.id='cfProductionStatus';progress.className='engine-progress';progress.setAttribute('role','status');progress.textContent='Selecciona un vídeo. ClipForge hará el resto automáticamente.';production.append(progress);
-  host.append(production);
-  const editing=document.createElement('section');editing.id='cfEditingWorkspace';editing.className='cf-editing-workspace';editing.hidden=true;
-  const heading=document.createElement('div');heading.className='cf-editor-heading';heading.innerHTML='<div><span class="step">02 / RESULTADOS Y EDICIÓN</span><h2>Tus cuatro clips</h2><p>Revisa las propuestas, ajusta los cortes y abre el editor para afinar cada detalle.</p></div><span class="tag">4 clips · vertical 9:16</span>';editing.append(heading);
-  if(candidates)editing.append(candidates);
-  if(editor){
-    const oldHead=editor.querySelector('.section-head');if(oldHead){oldHead.remove();}
+  const main = document.querySelector('main');
+  const header = document.querySelector('body > header');
+  if (!main || document.getElementById('cfWorkspace')) return;
+  const $ = selector => document.querySelector(selector);
+  const engine = $('#browserEngine');
+  const drop = $('.drop');
+  const urlImport = $('.browser-url-import');
+  const engineControls = engine?.querySelector('.browser-transcribe-controls');
+  const transcribe = $('#browserTranscribe');
+  const candidates = $('#browserCandidates');
+  const editor = $('#projectEditor');
+  const exportPanel = $('.browser-export');
+  const capacity = $('#videoCapacity');
+  const language = $('#browserWhisperLanguage');
+  const model = $('#browserWhisperModel');
+
+  // Keep the existing processing engines and IDs intact; only rebuild the presentation.
+  if (language) language.value = 'auto';
+  if (model) model.value = 'whisper-base';
+  if (urlImport) { urlImport.hidden = true; urlImport.setAttribute('aria-hidden','true'); }
+  if (engineControls) { engineControls.hidden = true; engineControls.setAttribute('aria-hidden','true'); }
+  if (capacity) { capacity.hidden = true; capacity.setAttribute('aria-hidden','true'); }
+
+  const app = document.createElement('div');
+  app.id = 'cfWorkspace';
+  app.className = 'cf-opus-workspace';
+  app.innerHTML = `
+    <header class="cf-opus-nav">
+      <a class="cf-opus-brand" href="#" aria-label="ClipForge inicio"><span class="cf-opus-mark">c</span><span>clipforge</span></a>
+      <nav class="cf-opus-nav-links"><a href="#cfCreate">Crear clips</a><a href="#cfFeatures">Funciones</a><a href="#cfEditor">Editor</a></nav>
+      <div class="cf-opus-nav-right"><span class="cf-opus-free"><i></i> Gratis · procesamiento local</span><span id="cfHealthSlot"></span></div>
+    </header>
+    <main class="cf-opus-main">
+      <section class="cf-opus-hero" id="cfCreate">
+        <div class="cf-opus-hero-copy">
+          <span class="cf-opus-eyebrow"><i></i> AI VIDEO REPURPOSING STUDIO</span>
+          <h1>Un vídeo largo.<br><em>Cuatro clips que merecen verse.</em></h1>
+          <p>Convierte automáticamente tu vídeo en clips verticales con los mejores momentos, subtítulos dinámicos y encuadre inteligente.</p>
+          <div class="cf-opus-trust"><span>✦ Sin API de pago</span><span>✦ Español e inglés</span><span>✦ Tu vídeo permanece en tu dispositivo</span></div>
+        </div>
+        <section class="cf-opus-upload-card" aria-label="Subir vídeo">
+          <div class="cf-opus-upload-top"><div><span class="cf-opus-step">01</span><b>Empieza con tu vídeo</b></div><span class="cf-opus-format">MP4 · MOV · WEBM</span></div>
+          <div class="cf-opus-drop-slot"></div>
+          <div class="cf-opus-upload-bottom"><span id="cfUploadHint">Sube un vídeo y nosotros hacemos el resto.</span><span class="cf-opus-private">🔒 Procesamiento en tu navegador</span></div>
+          <div class="cf-opus-primary-action"></div>
+          <div id="cfProductionStatus" class="cf-opus-progress" role="status">Esperando tu vídeo para empezar.</div>
+        </section>
+      </section>
+      <section class="cf-opus-process" aria-label="Proceso automático">
+        <div class="cf-opus-process-head"><span>DEL ORIGINAL AL RESULTADO</span><span>Un solo paso para empezar</span></div>
+        <div class="cf-opus-steps">
+          <div class="cf-opus-step active"><i>1</i><span><b>Analizar</b><small>Audio, imagen y contexto</small></span></div>
+          <div class="cf-opus-step"><i>2</i><span><b>Seleccionar</b><small>Los cuatro mejores momentos</small></span></div>
+          <div class="cf-opus-step"><i>3</i><span><b>Editar</b><small>Vertical y subtítulos</small></span></div>
+          <div class="cf-opus-step"><i>4</i><span><b>Exportar</b><small>MP4 listo para publicar</small></span></div>
+        </div>
+      </section>
+      <section class="cf-opus-feature-strip" id="cfFeatures">
+        <article><span class="cf-opus-feature-icon">✦</span><div><b>Selección con contexto</b><small>Detecta historias, reacciones y momentos destacados.</small></div></article>
+        <article><span class="cf-opus-feature-icon">▤</span><div><b>Subtítulos dinámicos</b><small>Transcripción sincronizada en español e inglés.</small></div></article>
+        <article><span class="cf-opus-feature-icon">▣</span><div><b>Reencuadre inteligente</b><small>Formato 9:16 con seguimiento del sujeto.</small></div></article>
+      </section>
+      <section class="cf-opus-results" id="cfResults" hidden>
+        <div class="cf-opus-section-head"><div><span class="cf-opus-kicker">02 / TUS RESULTADOS</span><h2>Los momentos destacados</h2><p>Cuatro propuestas extraídas del vídeo original. Previsualiza y ajusta cada corte antes de exportar.</p></div><span class="cf-opus-result-pill">4 clips verticales</span></div>
+        <div class="cf-opus-candidates-slot"></div>
+      </section>
+      <section class="cf-opus-editor" id="cfEditor" hidden>
+        <div class="cf-opus-section-head"><div><span class="cf-opus-kicker">03 / ESTUDIO DE EDICIÓN</span><h2>Perfecciona tus clips</h2><p>Ajusta el corte, revisa el encuadre y prepara la versión final.</p></div></div>
+        <div class="cf-opus-editor-slot"></div>
+      </section>
+      <section class="cf-opus-export-slot" hidden></section>
+      <footer class="cf-opus-footer"><span class="cf-opus-brand-small">clipforge</span><span>Hecho para convertir vídeos en historias que se comparten.</span><span>Procesamiento local · Gratis</span></footer>
+    </main>`;
+  document.body.classList.add('cf-opus-body');
+  main.replaceWith(app);
+  const health = header?.querySelector('#health');
+  if (health) app.querySelector('#cfHealthSlot').append(health);
+  if (header) header.remove();
+  const dropSlot = app.querySelector('.cf-opus-drop-slot');
+  if (drop) dropSlot.append(drop);
+  const actionSlot = app.querySelector('.cf-opus-primary-action');
+  if (transcribe) { transcribe.textContent = 'Generar mis 4 clips'; actionSlot.append(transcribe); }
+  if (engine) {
+    const status = $('#browserWhisperStatus');
+    if (status) { status.classList.add('cf-opus-internal'); app.querySelector('.cf-opus-upload-card').append(status); }
+    engine.hidden = true;
+    engine.setAttribute('aria-hidden','true');
+  }
+  if (candidates) app.querySelector('.cf-opus-candidates-slot').append(candidates);
+  if (editor) {
+    const heading = editor.querySelector('.section-head');
+    if (heading) heading.remove();
     editor.querySelector(':scope > p.muted')?.remove();
-    const preview=editor.querySelector('.editor-preview');
-    const inspector=document.createElement('aside');inspector.className='cf-editor-inspector';
-    inspector.innerHTML='<div class="cf-inspector-heading"><span>AJUSTES DEL CLIP</span><b>Estilo y formato</b></div><p>Personaliza los subtítulos y el encuadre antes de exportar.</p>';
-    const exportSettings=exportPanel?.querySelector('.export-settings');
-    if(exportSettings)inspector.append(exportSettings);
-    if(preview)preview.append(inspector);
-    editing.append(editor);
+    const preview = editor.querySelector('.editor-preview');
+    const settings = exportPanel?.querySelector('.export-settings');
+    if (preview && settings) {
+      const inspector = document.createElement('aside');
+      inspector.className = 'cf-opus-inspector';
+      inspector.innerHTML = '<span class="cf-opus-kicker">AJUSTES DEL CLIP</span><b>Estilo y formato</b><p>Personaliza el aspecto de tus subtítulos y el encuadre vertical.</p>';
+      inspector.append(settings);
+      preview.append(inspector);
+    }
+    app.querySelector('.cf-opus-editor-slot').append(editor);
   }
-  if(exportPanel){
-    const h=exportPanel.querySelector('h3');if(h)h.textContent='Exportar';
+  if (exportPanel) {
+    const title = exportPanel.querySelector('h3');
+    if (title) title.textContent = 'Exportar tus clips';
     exportPanel.querySelector(':scope > p.hint')?.remove();
-    const btn=exportPanel.querySelector('#browserExportClips');if(btn)btn.textContent='Exportar todos los clips';
-    editing.append(exportPanel);
+    const button = $('#browserExportClips');
+    if (button) button.textContent = 'Exportar todos los clips';
+    app.querySelector('.cf-opus-export-slot').append(exportPanel);
   }
-  host.append(editing);
-  if(engine){
-    const status=by('#browserWhisperStatus');
-    if(status){status.classList.add('cf-internal-status');production.append(status);}
-    engine.hidden=true;engine.setAttribute('aria-hidden','true');
-  }
-  if(hero)hero.remove();if(grid)grid.remove();
-  main.replaceWith(shell);shell.append(content);if(oldHeader)oldHeader.remove();
-  const footer=document.querySelector('footer');if(footer)content.append(footer);
-  const workflow=production.querySelector('.cf-workflow-steps');
-  const sourceTabs=production.querySelector('.cf-source-tabs');
-  function selectSource(source){
-    const fileMode=source==='file';
-    if(drop)drop.hidden=!fileMode;
-    if(urlImport)urlImport.hidden=fileMode;
-    sourceTabs?.querySelectorAll('button').forEach(button=>{
-      const active=button.dataset.source===source;
-      button.classList.toggle('active',active);
-      button.setAttribute('aria-selected',String(active));
+
+  const progress = $('#cfProductionStatus');
+  let started = false;
+  let stage = 0;
+  function setStage(next) {
+    stage = Math.max(0,Math.min(4,next));
+    app.querySelectorAll('.cf-opus-step').forEach((item,index)=>{
+      item.classList.toggle('active',index===stage-1);
+      item.classList.toggle('done',index<stage-1);
     });
   }
-  sourceTabs?.querySelectorAll('button').forEach(button=>button.addEventListener('click',()=>selectSource(button.dataset.source)));
-  selectSource('file');
-  if(sourceTabs)sourceTabs.hidden=true;
-  function setStage(stage){
-    workflow?.querySelectorAll('span').forEach((item,index)=>{item.classList.toggle('active',index===stage);item.classList.toggle('done',index<stage);});
-  }
-  function revealEditor(){
-    editing.hidden=false;
+  function showResults() {
+    const results = app.querySelector('#cfResults');
+    const editing = app.querySelector('#cfEditor');
+    if (results) results.hidden = false;
+    if (editing) editing.hidden = false;
+    app.querySelector('.cf-opus-export-slot').hidden = false;
     setStage(3);
-    const title=editing.querySelector('.cf-editor-heading h2');if(title)title.textContent='Tus cuatro clips · Editor';
-    requestAnimationFrame(()=>editing.scrollIntoView({behavior:'smooth',block:'start'}));
   }
+  $('#video')?.addEventListener('change',()=>{
+    const file=$('#video')?.files?.[0];
+    if(!file||started)return;
+    started=true;
+    const hint=$('#cfUploadHint');
+    if(hint)hint.textContent=file.name+' · '+(file.size/1024/1024).toFixed(1)+' MB';
+    if(progress)progress.textContent='Vídeo recibido. Preparando análisis automático…';
+    setStage(1);
+    requestAnimationFrame(()=>setTimeout(()=>{
+      if($('#video')?.files?.[0]===file && transcribe && !transcribe.disabled) transcribe.click();
+      else started=false;
+    },300));
+  });
   window.addEventListener('clipforge:transcription-progress',event=>{
     const message=String(event.detail?.message||'');
-    const progress=by('#cfProductionStatus');if(progress&&message)progress.textContent=message;
-    if(/transcrib|extrayendo|cargando whisper|analizando/i.test(message))setStage(1);
+    if(progress&&message)progress.textContent=message;
+    if(/transcrib|extrayendo|cargando whisper|analizando|ffmpeg/i.test(message))setStage(1);
     if(/selecci|candidato|generando clips|juez|editorial/i.test(message))setStage(2);
+    if(/export/i.test(message))setStage(4);
   });
-  let autoStartPending=false;
-  by('#video')?.addEventListener('change',()=>{
-    const file=by('#video')?.files?.[0];
-    const p=by('#cfProductionStatus');
-    if(!file||autoStartPending)return;
-    if(p)p.textContent='Vídeo recibido: '+file.name+' · ClipForge está iniciando el análisis automático…';
-    autoStartPending=true;
-    setStage(1);
-    // Start the complete browser pipeline after the file picker has closed.
-    requestAnimationFrame(()=>setTimeout(()=>{
-      autoStartPending=false;
-      if(by('#video')?.files?.[0]===file && transcribe && !transcribe.disabled)transcribe.click();
-    },250));
-  });
-  by('#browserVideoUrl')?.addEventListener('change',()=>setStage(0));
-  by('#browserTranscribe')?.addEventListener('click',()=>setStage(1));
-  window.addEventListener('clipforge:clips-updated',()=>{setStage(3);revealEditor();});
-  by('#browserExportClips')?.addEventListener('click',()=>setStage(4));
-  window.addEventListener('clipforge:editor-ready',()=>{if((by('#browserCandidateList')?.children.length||0)>0)revealEditor();});
-  window.clipforgeShowEditor=revealEditor;
+  window.addEventListener('clipforge:clips-updated',showResults);
+  window.addEventListener('clipforge:editor-ready',showResults);
+  $('#browserExportClips')?.addEventListener('click',()=>setStage(4));
+  // If a project is restored, reveal its editing workspace as well.
+  if($('#browserCandidateList')?.children.length){showResults();}
 })();
