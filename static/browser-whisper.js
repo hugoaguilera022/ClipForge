@@ -775,6 +775,11 @@ async function connectColabEditorialEngine(){
   }catch(error){localStorage.removeItem(COLAB_EDITOR_KEY);editorialEnginePromise=null;status.textContent='No se pudo conectar: '+String(error.message||error);}
   finally{button.disabled=false;}
 }
+document.querySelector('#launchColabEditor')?.addEventListener('click',()=>{
+  window.open('https://colab.research.google.com/github/hugoaguilera022/ClipForge/blob/integrated-web-final/colab/ClipForge_Editorial_Engine.ipynb','_blank','noopener');
+  const status=document.querySelector('#colabEditorStatus');
+  if(status)status.textContent='Cuaderno abierto. En Colab pulsa «Entorno de ejecución → Ejecutar todas» y espera a que aparezcan URL DEL MOTOR y TOKEN.';
+});
 document.querySelector('#connectColabEditor')?.addEventListener('click',connectColabEditorialEngine);
 (function restoreColabEditorConnection(){
   const config=getColabEditorConfig();const url=document.querySelector('#colabEditorUrl'),status=document.querySelector('#colabEditorStatus');
