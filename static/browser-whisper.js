@@ -390,7 +390,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
       clean[firstUtteranceEnd+1].start-clean[firstUtteranceEnd].end<=.72&&
       !sentenceEnd.test(clean[firstUtteranceEnd].text)) firstUtteranceEnd++;
     const firstUtterance=clean.slice(si,firstUtteranceEnd+1).map(w=>w.text).join(' ').trim();
-    const firstUtteranceWords=(firstUtterance.match(/[\\p{L}\\p{N}]{2,}/gu)||[]).length;
+    const firstUtteranceWords=(firstUtterance.match(/[\p{L}\p{N}]{2,}/gu)||[]).length;
     const terseReply=/^(?:sí|si|no|claro|vale|exacto|exactamente|eso|ya|ajá|aja|right|yeah|yes|nope|exactly|sure|okay|ok|of course)[.!?,…]*$/i.test(firstUtterance);
     const shortQuestion=/^(?:¿?(?:cómo es|qué es|quién es|qué pasó|qué|quién|cómo|why|what|who|how)\??)$/i.test(firstUtterance);
     if((terseReply&&firstUtteranceWords<=3)||(shortQuestion&&firstUtteranceWords<=4)){
@@ -472,7 +472,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
     const questionAnswerExchange=utterances.some((items,index)=>{
       if(index<1||index>=utterances.length-1)return false;
       const before=utteranceText(utterances[index-1]),answer=utteranceText(items),after=utteranceText(utterances[index+1]);
-      const answerWords=(answer.match(/[\\p{L}\\p{N}]{2,}/gu)||[]).length;
+      const answerWords=(answer.match(/[\p{L}\p{N}]{2,}/gu)||[]).length;
       const followupReaction=/[?¿!¡]/.test(after)||new RegExp(reactionWord.source,reactionWord.flags.replace('g','')).test(after)||/\\b(no|pero|cómo|por qué|en serio|de verdad|really|wait|but)\\b/i.test(after);
       return /[?¿]\\s*[”’\"')\\]]?$/.test(before)&&answerWords>=1&&answerWords<=9&&followupReaction;
     });
@@ -922,7 +922,7 @@ function parseEditorialDecision(raw, candidates, limit = 4, requireAudit = false
     if(requireAudit&&Number(rubric.importance)<6.5)continue; // Reject moments that are not materially important.
     const importanceEvidence=String(item.importance_evidence||'').trim();
     if(requireAudit){
-      const normalizeEvidence=value=>String(value||'').toLowerCase().normalize('NFD').replace(/\\p{Diacritic}/gu,'').replace(/[^\\p{L}\\p{N}]+/gu,' ').trim();
+      const normalizeEvidence=value=>String(value||'').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^\p{L}\p{N}]+/gu,' ').trim();
       const quote=normalizeEvidence(importanceEvidence),transcript=normalizeEvidence(clip.text);
       if(quote.split(' ').filter(Boolean).length<4||!transcript.includes(quote))continue;
     }
