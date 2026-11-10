@@ -1678,6 +1678,10 @@ runButton?.addEventListener('click', async () => {
       transcriptWordCount = (String(result.text || '').match(/\S+/g) || []).length;
       timedWordCount = (result.chunks || []).reduce((n, item) => n + (String(item.text || '').match(/\S+/g) || []).length, 0);
     }
+    const minimumPlausibleWords = sourceDurationForTiming > 30 ? Math.max(12, Math.floor(sourceDurationForTiming / 8)) : 6;
+    if (sourceDurationForTiming > 15 && transcriptWordCount < minimumPlausibleWords) {
+      throw new Error(`Transcripción incompleta: Whisper solo reconoció ${transcriptWordCount} palabras en ${sourceDurationForTiming.toFixed(0)} segundos. Se bloquean los subtítulos y clips para evitar texto inventado. Selecciona Español o Inglés y usa Whisper Base o Small.`);
+    }
     if (sourceDurationForTiming > 8 && transcriptWordCount > 12 && timedWordCount < Math.max(8, transcriptWordCount * 0.5)) {
       throw new Error(`Whisper reconoce ${transcriptWordCount} palabras, pero solo ha podido sincronizar ${timedWordCount}. No se generarán subtítulos incompletos. Cambia a Whisper Small o prueba en Chrome con WebGPU.`);
     }
