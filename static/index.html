@@ -31,7 +31,8 @@ los crea automáticamente</span><input id="transcript" name="transcript" type="f
   <section class="colab-editor-connection" aria-labelledby="colabEditorTitle">
     <b id="colabEditorTitle">Motor editorial IA gratuito en la nube (opcional)</b>
     <p class="muted">Conecta una sesión temporal de Google Colab: usa Qwen3 8B si hay GPU suficiente y Qwen3 4B como alternativa. No necesita API de pago. La sesión gratuita puede desconectarse y no es ilimitada; si no está conectada, ClipForge intenta el motor local compatible.</p>
-    <a href="https://colab.research.google.com/github/hugoaguilera022/ClipForge/blob/integrated-web-final/colab/ClipForge_Editorial_Engine.ipynb" target="_blank" rel="noopener">Abrir y ejecutar el motor gratuito en Google Colab</a>
+    <button type="button" class="secondary" id="launchColabEditor">Activar IA en la nube (Google Colab)</button>
+    <small>Abre el motor ya preparado. En Colab pulsa «Ejecutar todas»; cuando aparezcan la URL trycloudflare y el token, pégalos aquí una sola vez por sesión. ClipForge recordará la conexión en este navegador y la comprobará automáticamente al volver.</small>
     <label for="colabEditorUrl">URL temporal del motor (trycloudflare)</label>
     <input id="colabEditorUrl" type="url" inputmode="url" placeholder="https://….trycloudflare.com" autocomplete="url">
     <label for="colabEditorToken">Token temporal de esta sesión</label>
