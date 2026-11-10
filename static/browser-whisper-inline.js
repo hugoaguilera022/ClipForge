@@ -1471,7 +1471,7 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
   selectLabel.append(select,document.createTextNode(' Incluir en exportación'));
   paintTimeline();
   const openClip=document.createElement('button');openClip.type='button';openClip.className='secondary cf-open-clip-editor';openClip.textContent='Abrir editor →';
-  const openThis=()=>{list.querySelectorAll('.candidate-card').forEach(el=>el.classList.remove('is-open'));card.classList.add('is-open');document.body.classList.add('cf-stage-editor');film.pause();card.scrollIntoView({behavior:'smooth',block:'start'});};
+  const openThis=()=>{list.querySelectorAll('.candidate-card').forEach(el=>el.classList.remove('is-open'));card.classList.add('is-open');document.body.classList.remove('cf-stage-results','cf-stage-editor');film.pause();window.dispatchEvent(new CustomEvent('clipforge:open-editor',{detail:{card,index:i,clip:{...c}}}));};
   openClip.addEventListener('click',event=>{event.stopPropagation();openThis();});
   card.addEventListener('click',event=>{if(event.target.closest('button,input,textarea,select,label'))return;openThis();});
   card.append(heading,player,timeline,subtitlePanel,openClip,exportSingle,selectLabel);list.append(card);
