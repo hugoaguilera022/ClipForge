@@ -1085,3 +1085,48 @@ body.cf-stage-editor .cf-subtitle-track-rail{position:relative;min-height:48px;b
 body.cf-stage-editor .cf-clip-subtitle-block{position:absolute;top:5px;bottom:5px;min-width:18px;overflow:hidden;padding:0 6px;border:1px solid #5b8cba;border-radius:6px;background:#315f87;color:#fff;font-size:11px;font-weight:700;text-align:left;white-space:nowrap;text-overflow:ellipsis;cursor:pointer}
 body.cf-stage-editor .cf-clip-subtitle-block:hover,body.cf-stage-editor .cf-clip-subtitle-block:focus-visible{background:#247f9d;outline:2px solid #29c9b7;outline-offset:1px}
 body.cf-stage-editor .cf-subtitle-row.is-active{outline:2px solid #25cdbb;border-radius:8px}
+
+
+/* Reference-style editor: fixed preview/inspector split with a full-width multitrack timeline. */
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-editor-layout{
+ display:grid!important;grid-template-columns:minmax(360px,1.05fr) minmax(390px,.95fr)!important;
+ gap:14px!important;align-items:stretch!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-player-column{
+ min-height:590px!important;display:flex!important;align-items:center!important;justify-content:center!important;
+ padding:16px!important;background:#08080b!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-inspector{min-height:590px!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-inspector-tabs{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;overflow:visible!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-tab{min-width:0!important;padding:14px 5px!important;font-size:11px!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-inspector-panes{min-height:520px!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-clip-timeline{
+ display:grid!important;grid-template-columns:1fr!important;gap:14px!important;
+ margin:16px 0 0!important;padding:16px!important;border:1px solid #303039!important;
+ border-radius:13px!important;background:#121217!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-subtitle-timeline-wrap{margin:0!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-video-timeline-wrap{
+ display:grid;gap:8px;padding:12px;border:1px solid #303039;border-radius:12px;background:#17171f;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-video-timeline-title{font-size:12px;font-weight:800;color:#e7e7ed}
+body.cf-opus-stage-editor #cfWorkspace .cf-video-track-rail{
+ position:relative;display:flex;gap:2px;height:54px;overflow:hidden;border-radius:7px;background:#25252e;cursor:pointer;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-video-track-thumb{flex:1;min-width:0;height:100%;object-fit:cover;opacity:.9}
+body.cf-opus-stage-editor #cfWorkspace .cf-video-track-playhead{
+ position:absolute;top:0;bottom:0;width:2px;background:#fff;z-index:3;pointer-events:none;box-shadow:0 0 0 1px #111;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-video-track-playhead:before{
+ content:"";position:absolute;top:0;left:-4px;width:10px;height:8px;border-radius:2px;background:#fff;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-subtitle-track-rail{min-height:52px!important;height:52px!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-clip-subtitle-block{background:#b76f45!important;border-color:#e6a77e!important;color:#fff!important;font-size:10px!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-subtitle-track-playhead{z-index:4}
+@media(max-width:900px){
+ body.cf-opus-stage-editor #cfWorkspace .cf-opus-editor-layout{grid-template-columns:minmax(0,1fr)!important}
+ body.cf-opus-stage-editor #cfWorkspace .cf-opus-player-column{min-height:0!important}
+ body.cf-opus-stage-editor #cfWorkspace .cf-opus-inspector{min-height:0!important}
+ body.cf-opus-stage-editor #cfWorkspace .cf-opus-inspector-panes{min-height:0!important}
+ body.cf-opus-stage-editor #cfWorkspace .cf-opus-inspector-tabs{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+}
