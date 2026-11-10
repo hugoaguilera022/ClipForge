@@ -20,7 +20,8 @@
   const nav=side.querySelector('nav');
   const content=document.createElement('div');content.className='cf-content';
   const top=document.createElement('div');top.className='cf-topbar';
-  top.innerHTML='<div><div class="cf-breadcrumb">WORKSPACE <span>/</span> <b id="cfCurrentPage">Crear clips</b></div><div class="cf-page-subtitle" id="cfPageSubtitle">Convierte vídeos largos en clips que merecen ser vistos.</div></div><div class="cf-top-actions"></div>';\n  const health=oldHeader && oldHeader.querySelector('#health'); if(health) top.querySelector('.cf-top-actions').appendChild(health);
+  top.innerHTML='<div><div class="cf-breadcrumb">WORKSPACE <span>/</span> <b id="cfCurrentPage">Crear clips</b></div><div class="cf-page-subtitle" id="cfPageSubtitle">Convierte vídeos largos en clips que merecen ser vistos.</div></div><div class="cf-top-actions"></div>';
+  const health=oldHeader && oldHeader.querySelector('#health'); if(health) top.querySelector('.cf-top-actions').appendChild(health);
   content.appendChild(top);
   const host=document.createElement('div');host.className='cf-page-host';content.appendChild(host);
   const panes={};
