@@ -822,3 +822,14 @@ body.cf-opus-body #cfWorkspace .cf-opus-demo-clip{background:linear-gradient(160
 #cfWorkspace .cf-clip-zoom-rail{position:relative;height:32px;border-radius:6px;background:repeating-linear-gradient(90deg,#444b59 0,#444b59 1px,#303642 1px,#303642 9px);touch-action:pan-y}
 #cfWorkspace .cf-clip-zoom-selected{position:absolute;top:0;bottom:0;background:linear-gradient(90deg,#13bdb6,#47e0b7);border-top:2px solid #a3ffed;border-bottom:2px solid #a3ffed;pointer-events:none}
 #cfWorkspace .cf-clip-zoom-rail .cf-clip-timeline-handle{top:-4px;height:40px;min-height:40px;width:16px}
+
+
+/* Compact clip trim: full-video position guide + zoomed selected interval */
+#cfWorkspace .cf-clip-timeline{margin:10px 0 12px;padding:0;border:0;background:transparent}
+#cfWorkspace .cf-clip-zoom-wrap{margin:0;padding:12px;border:1px solid #414653;border-radius:10px;background:#191c24}
+#cfWorkspace .cf-clip-overview-head{margin:0 0 7px;color:#9299a8;font-size:10px;font-weight:650;letter-spacing:.02em}
+#cfWorkspace .cf-clip-overview-rail{position:relative;height:10px;margin:0 0 14px;overflow:hidden;border-radius:8px;background:repeating-linear-gradient(90deg,#414754 0,#414754 1px,#303642 1px,#303642 8px)}
+#cfWorkspace .cf-clip-overview-selected{position:absolute;top:0;bottom:0;min-width:2px;border-radius:8px;background:#20cdbb;box-shadow:0 0 0 1px #a3ffed inset}
+#cfWorkspace .cf-clip-zoom-title{margin:0 0 10px;color:#d4d8e2;font-size:12px;font-weight:750}
+#cfWorkspace .cf-clip-zoom-rail{height:38px}
+#cfWorkspace .cf-clip-zoom-rail .cf-clip-timeline-handle{top:-3px;height:44px;min-height:44px;width:17px}
