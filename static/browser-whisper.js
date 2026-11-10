@@ -42,7 +42,7 @@ function timeVtt(seconds) {
 async function captureAudioFromVideo(file) {
   const video = document.createElement('video');
   const objectUrl = URL.createObjectURL(file);
-  let stream, recorder, audioContext, sourceNode;
+  let stream, recorder, audioContext, sourceNode, processor;
   try {
     video.muted = false;
     video.playsInline = true;
@@ -53,53 +53,82 @@ async function captureAudioFromVideo(file) {
       video.onerror = () => reject(new Error('El navegador no pudo abrir el vídeo para extraer el audio.'));
     });
 
-    // Prefer native media capture where available (Chromium/Firefox).
+    // Chromium and Firefox can capture the decoded audio track directly.
     const capture = video.captureStream || video.mozCaptureStream;
-    if (capture) {
+    if (capture && typeof MediaRecorder !== 'undefined') {
       stream = capture.call(video);
-    } else {
-      // Safari does not implement HTMLMediaElement.captureStream().
-      // Route the locally decoded media element through Web Audio instead.
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) throw new Error('El navegador no ofrece captura multimedia ni Web Audio para extraer el audio local.');
-      audioContext = new AudioCtx();
-      const destination = audioContext.createMediaStreamDestination();
-      sourceNode = audioContext.createMediaElementSource(video);
-      sourceNode.connect(destination);
-      stream = destination.stream;
-      if (audioContext.state === 'suspended') await audioContext.resume();
+      const audioTracks = stream.getAudioTracks();
+      if (audioTracks.length) {
+        const audioStream = new MediaStream(audioTracks);
+        const mimeCandidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
+        const mime = mimeCandidates.find(type => MediaRecorder.isTypeSupported?.(type));
+        recorder = mime ? new MediaRecorder(audioStream, { mimeType: mime }) : new MediaRecorder(audioStream);
+        const chunks = [];
+        const done = new Promise((resolve, reject) => {
+          recorder.ondataavailable = event => { if (event.data?.size) chunks.push(event.data); };
+          recorder.onerror = event => reject(new Error(event.error?.message || 'Falló la captura del audio.'));
+          recorder.onstop = () => resolve(new Blob(chunks, { type: recorder.mimeType || mime || 'audio/webm' }));
+        });
+        recorder.start(1000);
+        await video.play();
+        await new Promise((resolve, reject) => {
+          video.onended = resolve;
+          video.onerror = () => reject(new Error('El vídeo falló durante la extracción de audio.'));
+        });
+        if (recorder.state !== 'inactive') recorder.stop();
+        const blob = await done;
+        if (blob.size) return blob;
+      }
     }
 
-    const audioTracks = stream.getAudioTracks();
-    if (!audioTracks.length) throw new Error('El vídeo se ha abierto, pero el navegador no expone una pista de audio.');
-    if (typeof MediaRecorder === 'undefined') throw new Error('Este navegador no dispone de MediaRecorder para guardar el audio extraído.');
-    const audioStream = new MediaStream(audioTracks);
-    const mimeCandidates = [
-      'audio/mp4;codecs=mp4a.40.2',
-      'audio/mp4',
-      'audio/webm;codecs=opus',
-      'audio/webm'
-    ];
-    const mime = mimeCandidates.find(type => MediaRecorder.isTypeSupported?.(type));
-    recorder = mime ? new MediaRecorder(audioStream, { mimeType: mime }) : new MediaRecorder(audioStream);
-    const chunks = [];
-    const done = new Promise((resolve, reject) => {
-      recorder.ondataavailable = event => { if (event.data?.size) chunks.push(event.data); };
-      recorder.onerror = event => reject(new Error(event.error?.message || 'Falló la grabación del audio decodificado.'));
-      recorder.onstop = () => resolve(new Blob(chunks, { type: recorder.mimeType || mime || 'audio/mp4' }));
-    });
-    recorder.start(1000);
+    // Safari may lack captureStream or audio-only MediaRecorder support.
+    // Capture decoded PCM with Web Audio instead of requiring MediaRecorder.
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) throw new Error('Este navegador no ofrece Web Audio para extraer el audio local. Prueba Chrome o Edge actualizado.');
+    audioContext = new AudioCtx();
+    if (audioContext.state === 'suspended') await audioContext.resume();
+    sourceNode = audioContext.createMediaElementSource(video);
+    const channels = Math.max(1, Math.min(2, video.audioTracks?.length || 2));
+    processor = audioContext.createScriptProcessor(4096, channels, 1);
+    const targetLength = Number.isFinite(video.duration) && video.duration > 0
+      ? Math.ceil(video.duration * 16000)
+      : 0;
+    const pcmChunks = [];
+    let outputSamples = 0;
+    let sourceFramesSeen = 0;
+    processor.onaudioprocess = event => {
+      const input = event.inputBuffer;
+      const length = input.length;
+      const inputChannels = input.numberOfChannels;
+      const from = outputSamples;
+      while (true) {
+        const absoluteSource = Math.floor(outputSamples * input.sampleRate / 16000);
+        if (absoluteSource >= sourceFramesSeen + length) break;
+        const local = absoluteSource - sourceFramesSeen;
+        if (local < 0) { outputSamples++; continue; }
+        let value = 0;
+        for (let ch = 0; ch < inputChannels; ch++) value += input.getChannelData(ch)[local] / inputChannels;
+        pcmChunks.push(value);
+        outputSamples++;
+        if (targetLength && outputSamples >= targetLength) break;
+      }
+      sourceFramesSeen += length;
+      // Keep the processing graph alive without playing the source through speakers.
+      for (let ch = 0; ch < event.outputBuffer.numberOfChannels; ch++) event.outputBuffer.getChannelData(ch).fill(0);
+    };
+    sourceNode.connect(processor);
+    processor.connect(audioContext.destination);
     await video.play();
     await new Promise((resolve, reject) => {
       video.onended = resolve;
-      video.onerror = () => reject(new Error('El vídeo falló durante la extracción de audio.'));
+      video.onerror = () => reject(new Error('El vídeo falló durante la captura PCM.'));
     });
-    if (recorder.state !== 'inactive') recorder.stop();
-    const blob = await done;
-    if (!blob.size) throw new Error('La extracción terminó sin generar datos de audio.');
-    return blob;
+    if (pcmChunks.length < 16000) throw new Error('El vídeo se reprodujo, pero no se recibieron muestras de audio. Comprueba que tenga una pista de audio activa.');
+    const mono = new Float32Array(pcmChunks);
+    return mono;
   } finally {
     try { if (recorder && recorder.state !== 'inactive') recorder.stop(); } catch {}
+    try { processor?.disconnect(); } catch {}
     try { sourceNode?.disconnect(); } catch {}
     try { stream?.getTracks().forEach(track => track.stop()); } catch {}
     try { await audioContext?.close(); } catch {}
@@ -109,7 +138,6 @@ async function captureAudioFromVideo(file) {
     URL.revokeObjectURL(objectUrl);
   }
 }
-
 async function extractAudioWithMediabunny(file) {
   // Mediabunny demuxes the MP4 audio track without decoding the video stream
   // or forcing the user to play the whole source in real time.
