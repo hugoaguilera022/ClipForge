@@ -108,6 +108,9 @@
     const exportOne=card.querySelector('.candidate-export-one'),select=card.querySelector('.candidate-select');
     const layout=document.createElement('div');layout.className='cf-opus-editor-layout';
     const preview=document.createElement('section');preview.className='cf-opus-player-column';
+    const toolRail=document.createElement('nav');toolRail.className='cf-editor-tool-rail';toolRail.setAttribute('aria-label','Herramientas del editor');
+    const toolDefs=[['▧','Medios','captions'],['T','Texto','text'],['CC','Subtítulos','captions'],['✧','Efectos','animation'],['⇄','Transiciones','animation'],['♫','Audio','tts'],['⚙','Ajustes','tracking']];
+    toolDefs.forEach(([glyph,label,target],i)=>{const button=document.createElement('button');button.type='button';button.className='cf-editor-tool'+(i===0?' is-active':'');button.innerHTML='<span>'+glyph+'</span><small>'+label+'</small>';button.title=label;button.addEventListener('click',()=>{const tab=tabs.querySelector('[data-tab="'+target+'"]');tab?.click();toolRail.querySelectorAll('button').forEach(x=>x.classList.toggle('is-active',x===button));});toolRail.append(button);});
     const inspector=document.createElement('aside');inspector.className='cf-opus-inspector';
     const tabs=document.createElement('div');tabs.className='cf-opus-inspector-tabs';tabs.setAttribute('role','tablist');
     const panes=document.createElement('div');panes.className='cf-opus-inspector-panes';
@@ -133,10 +136,11 @@
     const ttsPane=document.createElement('section');ttsPane.className='cf-opus-pane';ttsPane.dataset.pane='tts';ttsPane.innerHTML='<div class="cf-opus-pane-title">Texto a voz</div><label>Texto para escuchar<textarea class="cf-tts-copy" rows="4" placeholder="Escribe el texto que quieras escuchar…"></textarea></label><label>Voz<select class="cf-tts-voice"></select></label><button type="button" class="cf-opus-add-overlay cf-tts-play">Escuchar texto</button><p>Utiliza las voces disponibles en tu navegador.</p>';
     const voiceSelect=ttsPane.querySelector('.cf-tts-voice');const voices=window.speechSynthesis?.getVoices?.()||[];voices.forEach(v=>{const o=document.createElement('option');o.value=v.name;o.textContent=v.name+' · '+v.lang;voiceSelect.append(o);});
     ttsPane.querySelector('.cf-tts-play').addEventListener('click',()=>{const text=ttsPane.querySelector('.cf-tts-copy').value.trim();if(!text||!window.speechSynthesis)return;window.speechSynthesis.cancel();const utterance=new SpeechSynthesisUtterance(text);const voice=window.speechSynthesis.getVoices().find(v=>v.name===voiceSelect.value);if(voice)utterance.voice=voice;window.speechSynthesis.speak(utterance);});
-    const tabDefs=[['captions','Captions'],['text','Text'],['animation','Animation'],['tracking','Tracking'],['tts','Text-to-speech']];
-    tabDefs.forEach(([key,label],i)=>{const button=document.createElement('button');button.type='button';button.className='cf-opus-tab'+(i===0?' is-active':'');button.textContent=label;button.setAttribute('role','tab');button.setAttribute('aria-selected',String(i===0));button.addEventListener('click',()=>{tabs.querySelectorAll('button').forEach(b=>{b.classList.toggle('is-active',b===button);b.setAttribute('aria-selected',String(b===button));});panes.querySelectorAll('.cf-opus-pane').forEach(p=>p.classList.toggle('is-active',p.dataset.pane===key));});tabs.append(button);});
+    const tabDefs=[['captions','Subtítulos'],['text','Texto'],['animation','Animación'],['tracking','Tracking'],['tts','Texto a voz']];
+    tabDefs.forEach(([key,label],i)=>{const button=document.createElement('button');button.type='button';button.className='cf-opus-tab'+(i===0?' is-active':'');button.textContent=label;button.dataset.tab=key;button.setAttribute('role','tab');button.setAttribute('aria-selected',String(i===0));button.addEventListener('click',()=>{tabs.querySelectorAll('button').forEach(b=>{b.classList.toggle('is-active',b===button);b.setAttribute('aria-selected',String(b===button));});panes.querySelectorAll('.cf-opus-pane').forEach(p=>p.classList.toggle('is-active',p.dataset.pane===key));});tabs.append(button);});
     panes.append(captionsPane,textPane,animationPane,trackingPane,ttsPane);inspector.append(tabs,panes);
     if(player)preview.append(player);
+    preview.prepend(toolRail);
     layout.append(preview,inspector);
     card.classList.add('cf-opus-editing-card');
     if(heading)card.append(heading);
@@ -167,7 +171,9 @@
     const oldBack=backHolder.querySelector('.cf-opus-back');oldBack?.remove();
     const topBack=document.createElement('button');topBack.type='button';topBack.className='cf-opus-back';topBack.textContent='← Todos los clips';topBack.addEventListener('click',()=>{const list=$('#browserCandidateList');restoreCard(card);const nodes=[...list.children];const next=nodes[Math.min(activeIndex,nodes.length)]||null;list.insertBefore(card,next);activeCard=null;setStage('results');});
     backHolder.prepend(topBack);
-    editorSlot.replaceChildren(card);
+    editorSlot.replaceChildren();
+    const editorBar=document.createElement('div');editorBar.className='cf-editor-topbar';editorBar.innerHTML='<div class="cf-editor-project"><strong>ClipForge</strong><span>Proyecto sin título</span><i>Guardado automáticamente</i></div><div class="cf-editor-format"><span>Formato</span><b>9:16</b></div><button type="button" class="cf-editor-export-top">Exportar MP4 ↗</button>';editorBar.querySelector('.cf-editor-export-top').addEventListener('click',()=>card.querySelector('.candidate-export-one')?.click());
+    editorSlot.append(editorBar,card);
     addInspector(card,e.detail?.clip||{start:0,end:1});
     setStage('editor');
   });
