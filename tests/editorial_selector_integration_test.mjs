@@ -57,4 +57,4 @@ assert.equal(selected.length,4,'final model round must return four clips');
 assert.ok(selected.every(x=>x.selection_method==='local_generative_editor'),'all final clips must be marked as generative selections');
 assert.ok(selected.every(x=>x.ai_editorial_audit==='independent_critic_pass'),'all final clips must pass the critic audit');
 for(let i=1;i<selected.length;i++)assert.ok(selected[i].start>=selected[i-1].end+1,'final clips must not overlap');
-console.log('Editorial selector integration passed: 96/96 candidates reviewed in four batches, four finalists, global vote, independent critic audit and four grounded final clips.');
+console.log('Editorial selector integration passed: 96/96 candidates reviewed in four batches, sixteen finalists, global vote, independent critic audit and four grounded final clips.');
