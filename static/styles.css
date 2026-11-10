@@ -425,3 +425,87 @@ body[data-browser-only="true"] .cf-page[data-page="settings"] .publish{display:n
 .editor-timeline-block:hover{filter:brightness(1.22);outline:1px solid var(--accent)}
 .editor-track-head{flex-wrap:wrap}
 @media(max-width:680px){.editor-timeline-lane{margin:8px 0 12px}.editor-track-rail{height:34px}.editor-timeline-block{height:24px;top:4px;font-size:9px;padding:0 5px}}
+
+/* CapCut-inspired production sequence and editing studio */
+#cfWorkspace.cf-single-page{background:#080b11;color:#eef3f8}
+#cfWorkspace.cf-single-page .cf-topbar{background:#0d121a;border-color:#222d39}
+#cfWorkspace.cf-single-page .cf-page-host{max-width:1480px;padding-top:30px}
+#cfWorkspace.cf-single-page .cf-production{max-width:1080px;padding:26px 30px;background:linear-gradient(145deg,#141d29,#101720);border:1px solid #293747;border-radius:17px}
+#cfWorkspace.cf-single-page .cf-production .section-head{align-items:flex-start;margin-bottom:18px}
+#cfWorkspace.cf-single-page .cf-production .section-head h2{font-size:25px;letter-spacing:-.6px}
+#cfWorkspace.cf-single-page .cf-panel-subtitle{margin:6px 0 0;color:#9baaba;font-size:13px}
+#cfWorkspace.cf-single-page .cf-source-label{margin:20px 0 10px;color:#dce4ed;font-size:13px;font-weight:700}
+#cfWorkspace.cf-single-page .cf-workflow-steps{display:flex;align-items:center;gap:8px;padding:11px 12px;margin:0 0 18px;background:#0b121b;border:1px solid #273543;border-radius:10px;overflow-x:auto}
+#cfWorkspace.cf-single-page .cf-workflow-steps span{display:flex;align-items:center;gap:7px;white-space:nowrap;color:#748395;font-size:11px;font-weight:650}
+#cfWorkspace.cf-single-page .cf-workflow-steps span+span:before{content:"";width:24px;height:1px;background:#354251;margin-right:2px}
+#cfWorkspace.cf-single-page .cf-workflow-steps i{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:#202b37;color:#9eacbb;font-size:10px;font-style:normal}
+#cfWorkspace.cf-single-page .cf-workflow-steps span.active{color:#5be0d2}
+#cfWorkspace.cf-single-page .cf-workflow-steps span.active i,
+#cfWorkspace.cf-single-page .cf-workflow-steps span.done i{background:#39d7cb;color:#061817}
+#cfWorkspace.cf-single-page .cf-workflow-steps span.done{color:#a4c9c6}
+#cfWorkspace.cf-single-page .cf-source-tabs{display:flex;gap:7px;margin:0 0 10px}
+#cfWorkspace.cf-single-page .cf-source-tabs span{padding:7px 12px;border:1px solid #303e4d;border-radius:7px;color:#8f9eae;font-size:11px}
+#cfWorkspace.cf-single-page .cf-source-tabs span.active{background:#1b2c35;border-color:#337b79;color:#70e1d8}
+#cfWorkspace.cf-single-page .cf-production .drop{min-height:132px;margin-bottom:15px;background:#0b1119;border:1px dashed #536a7b}
+#cfWorkspace.cf-single-page .cf-production .browser-url-import{display:grid;gap:10px;margin:0;padding:15px;background:#0d141e;border:1px solid #293745;border-radius:10px}
+#cfWorkspace.cf-single-page .cf-production .browser-youtube-import>label:first-child,
+#cfWorkspace.cf-single-page .cf-production .browser-url-import>label{color:#cbd5df;font-size:12px;font-weight:650}
+#cfWorkspace.cf-single-page .cf-production .browser-url-row input{min-height:42px;background:#090f17;border-color:#344352;color:#eef3f8}
+#cfWorkspace.cf-single-page .cf-production .browser-url-row .secondary{background:#263543;color:#dce9f0;border-color:#3a4c5c}
+#cfWorkspace.cf-single-page .cf-analysis-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:18px 0 5px;padding:15px;background:#0c131c;border:1px solid #283744;border-radius:10px}
+#cfWorkspace.cf-single-page .cf-options-title{grid-column:1/-1;color:#dce4ed;font-size:12px;font-weight:700}
+#cfWorkspace.cf-single-page .cf-analysis-options label{display:block;min-width:0;color:#9eacbb;font-size:11px}
+#cfWorkspace.cf-single-page .cf-analysis-options select{width:100%;background:#080f17;color:#edf3f8;border:1px solid #354453;border-radius:7px;padding:10px;margin-top:6px}
+#cfWorkspace.cf-single-page .cf-capacity-compact{margin-top:14px;padding:12px 14px;background:#0b121a;border:1px solid #283744;border-radius:9px}
+#cfWorkspace.cf-single-page .cf-capacity-compact .capacity-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+#cfWorkspace.cf-single-page .cf-capacity-compact .capacity-grid>div{background:#111c27;border-color:#2c3a48}
+#cfWorkspace.cf-single-page .cf-production #browserTranscribe{margin-top:16px;min-height:50px}
+#cfWorkspace.cf-single-page .cf-editing-workspace{max-width:1400px}
+#cfWorkspace.cf-single-page .cf-editor-heading{display:flex;justify-content:space-between;align-items:center;gap:16px}
+#cfWorkspace.cf-single-page .cf-editor-heading p{margin:6px 0 0;color:#9aa9b8;font-size:12px}
+#cfWorkspace.cf-single-page .browser-candidates{padding:23px;background:#111923;border-color:#2b3947}
+#cfWorkspace.cf-single-page .browser-candidates .section-head h3{font-size:20px}
+#cfWorkspace.cf-single-page .candidate-list{grid-template-columns:repeat(4,minmax(0,1fr));gap:13px}
+#cfWorkspace.cf-single-page .candidate-card{position:relative;display:flex;flex-direction:column;align-items:stretch;gap:9px;min-width:0;padding:10px;background:#17212c;border-color:#344352;border-radius:11px}
+#cfWorkspace.cf-single-page .candidate-filmstrip{display:block;width:100%;aspect-ratio:9/16;max-height:310px;object-fit:cover;object-position:center;background:#06090d;border-radius:7px;border:1px solid #293845}
+#cfWorkspace.cf-single-page .candidate-card>strong{min-height:36px;color:#f1f5f8;font-size:12px}
+#cfWorkspace.cf-single-page .candidate-card>.preview-clip-candidate{order:2;width:100%;background:#263844;color:#e2f8f6;border-color:#405964}
+#cfWorkspace.cf-single-page .candidate-card>.candidate-export-one{order:5;width:100%;background:linear-gradient(100deg,#26d5d1,#49e4bd);color:#071615;border:0}
+#cfWorkspace.cf-single-page .candidate-card .candidate-edit-grid{order:3}
+#cfWorkspace.cf-single-page .candidate-card>textarea{order:4;min-height:68px}
+#cfWorkspace.cf-single-page .candidate-rationale{display:none!important}
+#cfWorkspace.cf-single-page .editor-panel{padding:22px;background:#111923;border-color:#2b3947}
+#cfWorkspace.cf-single-page .editor-preview{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:20px;align-items:center;padding:18px;background:#0a1119;border-color:#2a3947}
+#cfWorkspace.cf-single-page .editor-preview video{grid-column:1;justify-self:center;width:min(100%,330px);height:570px;max-height:65vh;aspect-ratio:9/16;object-fit:contain;background:#030507;border:1px solid #34414d;border-radius:8px}
+#cfWorkspace.cf-single-page .cf-editor-inspector{grid-column:2;align-self:stretch;padding:15px;background:#111b26;border:1px solid #2b3947;border-radius:10px}
+#cfWorkspace.cf-single-page .cf-inspector-heading span{display:block;color:#62dcd2;font-size:9px;font-weight:800;letter-spacing:1.2px}
+#cfWorkspace.cf-single-page .cf-inspector-heading b{display:block;margin-top:5px;color:#edf3f8;font-size:15px}
+#cfWorkspace.cf-single-page .cf-editor-inspector>p{color:#96a6b5;font-size:11px;line-height:1.5}
+#cfWorkspace.cf-single-page .cf-editor-inspector .export-settings{display:grid;grid-template-columns:1fr;gap:12px;margin-top:15px}
+#cfWorkspace.cf-single-page .cf-editor-inspector label{color:#aab8c6;font-size:11px}
+#cfWorkspace.cf-single-page .cf-editor-inspector select{width:100%;background:#090f17;color:#eef3f8;border:1px solid #354352;padding:9px}
+#cfWorkspace.cf-single-page .editor-timeline{padding:14px;background:#0b121a;border:1px solid #293846;border-radius:10px}
+#cfWorkspace.cf-single-page .editor-track{background:#131d28;border-color:#30404e}
+#cfWorkspace.cf-single-page .browser-export{background:#111923;border-color:#2b3947}
+#cfWorkspace.cf-single-page .browser-export .export-settings{display:none}
+#cfWorkspace.cf-single-page .browser-export .hint{color:#9aa9b8}
+#cfWorkspace.cf-single-page .cf-production .engine-progress{font-size:11px}
+@media(max-width:900px){
+ #cfWorkspace.cf-single-page .candidate-list{grid-template-columns:repeat(2,minmax(0,1fr))}
+ #cfWorkspace.cf-single-page .editor-preview{grid-template-columns:minmax(0,1fr) 280px}
+ #cfWorkspace.cf-single-page .cf-capacity-compact .capacity-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:620px){
+ #cfWorkspace.cf-single-page .cf-production{padding:16px}
+ #cfWorkspace.cf-single-page .cf-workflow-steps{gap:5px;padding:9px}
+ #cfWorkspace.cf-single-page .cf-workflow-steps span{font-size:9px}
+ #cfWorkspace.cf-single-page .cf-workflow-steps span+span:before{width:9px}
+ #cfWorkspace.cf-single-page .cf-analysis-options{grid-template-columns:1fr}
+ #cfWorkspace.cf-single-page .cf-capacity-compact .capacity-grid{grid-template-columns:1fr 1fr}
+ #cfWorkspace.cf-single-page .cf-editor-heading{align-items:flex-start;flex-direction:column}
+ #cfWorkspace.cf-single-page .candidate-list{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ #cfWorkspace.cf-single-page .candidate-filmstrip{max-height:230px}
+ #cfWorkspace.cf-single-page .editor-preview{grid-template-columns:1fr}
+ #cfWorkspace.cf-single-page .editor-preview video{height:440px;max-height:58vh}
+ #cfWorkspace.cf-single-page .cf-editor-inspector{grid-column:1}
+}
