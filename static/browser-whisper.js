@@ -739,7 +739,7 @@ function rerankWithSemanticEmbeddings(candidates, embeddings, limit = 4) {
 let editorialEnginePromise = null;
 const COLAB_EDITOR_KEY='clipforge.colab.editor.v1';
 function getColabEditorConfig(){
-  try{const raw=sessionStorage.getItem(COLAB_EDITOR_KEY);const value=raw?JSON.parse(raw):null;
+  try{const raw=localStorage.getItem(COLAB_EDITOR_KEY);const value=raw?JSON.parse(raw):null;
     if(!value||typeof value.url!=='string'||typeof value.token!=='string')return null;
     const parsed=new URL(value.url);if(parsed.protocol!=='https:'||!parsed.hostname.endsWith('.trycloudflare.com'))return null;
     return {url:parsed.origin,token:value.token};
@@ -768,17 +768,17 @@ async function connectColabEditorialEngine(){
     const response=await fetch(parsed.origin+'/health',{headers:{'Authorization':'Bearer '+token},cache:'no-store'});
     const data=await response.json().catch(()=>({}));
     if(!response.ok||data.status!=='ready'||!['qwen3:4b','qwen3:8b'].includes(data.model))throw new Error(data.error||'El motor no confirma Qwen3 4B disponible.');
-    sessionStorage.setItem(COLAB_EDITOR_KEY,JSON.stringify({url:parsed.origin,token}));
+    localStorage.setItem(COLAB_EDITOR_KEY,JSON.stringify({url:parsed.origin,token}));
     editorialEnginePromise=createRemoteEditorialEngine({url:parsed.origin,token});
     status.textContent='Conectado y comprobado: '+data.model+' en Colab. La inferencia editorial se ejecutará en esa sesión temporal.';
     button.textContent='Motor conectado';
-  }catch(error){sessionStorage.removeItem(COLAB_EDITOR_KEY);editorialEnginePromise=null;status.textContent='No se pudo conectar: '+String(error.message||error);}
+  }catch(error){localStorage.removeItem(COLAB_EDITOR_KEY);editorialEnginePromise=null;status.textContent='No se pudo conectar: '+String(error.message||error);}
   finally{button.disabled=false;}
 }
 document.querySelector('#connectColabEditor')?.addEventListener('click',connectColabEditorialEngine);
 (function restoreColabEditorConnection(){
   const config=getColabEditorConfig();const url=document.querySelector('#colabEditorUrl'),status=document.querySelector('#colabEditorStatus');
-  if(config&&url){url.value=config.url;const token=document.querySelector('#colabEditorToken');if(token)token.value=config.token;if(status)status.textContent='Hay una conexión guardada en esta pestaña. Pulsa «Comprobar y conectar» para validar que Colab siga activa.';}
+  if(config&&url){url.value=config.url;const token=document.querySelector('#colabEditorToken');if(token)token.value=config.token;if(status){status.textContent='Conexión guardada. Comprobando automáticamente si la sesión de Colab sigue activa…';}connectColabEditorialEngine();}
 })();
 // Federated free-tier LLM router. API keys remain in this browser's localStorage;
 // they are sent only to the provider selected for the current inference request.
