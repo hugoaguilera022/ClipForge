@@ -1399,6 +1399,41 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
   const volumeIcon=document.createElement('span');volumeIcon.className='cf-player-volume-icon';volumeIcon.textContent='🔊';
   const volume=document.createElement('input');volume.type='range';volume.className='cf-player-volume';volume.min='0';volume.max='1';volume.step='.01';volume.value='.8';volume.setAttribute('aria-label','Volumen');volume.addEventListener('input',()=>{film.volume=Number(volume.value);film.muted=film.volume===0;volumeIcon.textContent=film.muted?'🔇':'🔊';});
   playerBar.append(seekBack,play,seekForward,volumeIcon,volume);player.append(film,playerBar);
+  // Inline subtitle editor scoped to this clip
+  const subtitlePanel=document.createElement('section');subtitlePanel.className='cf-inline-subtitles';
+  const subtitleHead=document.createElement('div');subtitleHead.className='cf-inline-subtitles-head';subtitleHead.textContent='Subtítulos del clip';
+  const subtitleControls=document.createElement('div');subtitleControls.className='cf-subtitle-style-controls';
+  const font=document.createElement('select');font.setAttribute('aria-label','Tipo de letra');
+  [['Arial','Arial'],['Inter','Inter'],['Roboto','Roboto'],['Montserrat','Montserrat'],['Georgia','Georgia'],['Impact','Impact']].forEach(([v,l])=>font.add(new Option(l,v)));
+  const size=document.createElement('input');size.type='number';size.min='12';size.max='72';size.step='1';size.value=String(c.subtitleStyle?.size||28);size.setAttribute('aria-label','Tamaño de subtítulos');
+  const color=document.createElement('input');color.type='color';color.value=c.subtitleStyle?.color||'#ffffff';color.setAttribute('aria-label','Color de subtítulos');
+  const bg=document.createElement('input');bg.type='color';bg.value=c.subtitleStyle?.background||'#000000';bg.setAttribute('aria-label','Fondo de subtítulos');
+  const bold=document.createElement('button');bold.type='button';bold.className='secondary cf-subtitle-bold';bold.textContent='B';bold.setAttribute('aria-label','Negrita');bold.setAttribute('aria-pressed',String(c.subtitleStyle?.bold!==false));
+  const subtitlePreview=document.createElement('div');subtitlePreview.className='cf-subtitle-live-preview';subtitlePreview.textContent='Vista previa del subtítulo';
+  const subtitleRows=document.createElement('div');subtitleRows.className='cf-subtitle-rows';
+  const subtitleSegments=(transcriptData?.segments||[]).map((seg,index)=>({...seg,_sourceIndex:index})).filter(seg=>Number(seg.end)>Number(c.start)&&Number(seg.start)<Number(c.end));
+  const style={font:font.value,size:Number(size.value),color:color.value,background:bg.value,bold:bold.getAttribute('aria-pressed')==='true',...(c.subtitleStyle||{})};
+  font.value=style.font||'Arial';size.value=String(style.size||28);color.value=style.color||'#ffffff';bg.value=style.background||'#000000';bold.setAttribute('aria-pressed',String(style.bold!==false));
+  const paintSubtitle=()=>{subtitlePreview.style.fontFamily=style.font;subtitlePreview.style.fontSize=Math.max(12,Math.min(72,Number(style.size)||28))+'px';subtitlePreview.style.color=style.color;subtitlePreview.style.backgroundColor=style.background;subtitlePreview.style.fontWeight=style.bold?'800':'400';};
+  const saveSubtitleStyle=()=>{style.font=font.value;style.size=Number(size.value)||28;style.color=color.value;style.background=bg.value;style.bold=bold.getAttribute('aria-pressed')==='true';c.subtitleStyle={...style};editableCandidates[i]={...c};paintSubtitle();sync();};
+  [font,size,color,bg].forEach(el=>el.addEventListener('input',saveSubtitleStyle));
+  bold.addEventListener('click',()=>{bold.setAttribute('aria-pressed',String(bold.getAttribute('aria-pressed')!=='true'));saveSubtitleStyle();});
+  subtitleControls.append(font,size,color,bg,bold);
+  subtitleSegments.forEach(seg=>{
+    const row=document.createElement('div');row.className='cf-subtitle-row';
+    const times=document.createElement('div');times.className='cf-subtitle-times';
+    const st=document.createElement('input');st.type='number';st.step='.01';st.min=String(c.start);st.max=String(c.end);st.value=Number(seg.start).toFixed(2);st.setAttribute('aria-label','Inicio del subtítulo');
+    const en=document.createElement('input');en.type='number';en.step='.01';en.min=String(c.start);en.max=String(c.end);en.value=Number(seg.end).toFixed(2);en.setAttribute('aria-label','Final del subtítulo');
+    times.append(st,en);
+    const txt=document.createElement('textarea');txt.rows=2;txt.value=String(seg.text||'');txt.setAttribute('aria-label','Texto del subtítulo');
+    const applySub=document.createElement('button');applySub.type='button';applySub.className='secondary';applySub.textContent='Aplicar';
+    applySub.addEventListener('click',()=>{const a=Number(st.value),b=Number(en.value);if(!Number.isFinite(a)||!Number.isFinite(b)||a<Number(c.start)||b>Number(c.end)||b<=a){say('Revisa los tiempos del subtítulo: deben quedar dentro del clip.');return;}const original=transcriptData?.segments?.[seg._sourceIndex];if(original){original.start=a;original.end=b;original.text=txt.value;seg.start=a;seg.end=b;seg.text=txt.value;sync();say('Subtítulo actualizado.');}});
+    txt.addEventListener('input',()=>{subtitlePreview.textContent=txt.value||'Vista previa del subtítulo';});
+    row.append(times,txt,applySub);subtitleRows.append(row);
+  });
+  if(!subtitleSegments.length){const empty=document.createElement('p');empty.className='cf-subtitle-empty';empty.textContent=transcriptData?'No hay subtítulos dentro de este fragmento.':'Transcribe el vídeo para generar y editar los subtítulos aquí.';subtitleRows.append(empty);}
+  subtitlePanel.append(subtitleHead,subtitleControls,subtitlePreview,subtitleRows);
+  paintSubtitle();
   const timeline=document.createElement('div');timeline.className='cf-clip-timeline';timeline.setAttribute('aria-label','Ajuste preciso de inicio y final');
   const zoomWrap=document.createElement('div');zoomWrap.className='cf-clip-zoom-wrap';
   const overviewHead=document.createElement('div');overviewHead.className='cf-clip-overview-head';overviewHead.textContent='Vídeo completo · referencia';
@@ -1424,7 +1459,7 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
   select.addEventListener('change',()=>{editableCandidates[i]={...editableCandidates[i],selected:select.checked};sync();});
   selectLabel.append(select,document.createTextNode(' Incluir en exportación'));
   paintTimeline();
-  card.append(player,timeline,heading,exportSingle,selectLabel);list.append(card);
+  card.append(player,timeline,subtitlePanel,heading,exportSingle,selectLabel);list.append(card);
  });
  const info=document.createElement('p');info.textContent=editableCandidates.every(c=>c.selection_method==='local_generative_editor'||c.selection_method==='remote_generative_editor')?'Selección editorial realizada por un modelo generativo. Cada clip incluye evidencia textual que justifica su importancia y supera una segunda pasada de auditoría; revisa el resultado antes de exportar.':'Candidatos de respaldo sin selección editorial generativa confirmada.';list.append(info);
  const openEditor=document.createElement('button');openEditor.type='button';openEditor.className='secondary';openEditor.textContent='Editar clips ahora en el editor (sin descargar)';
