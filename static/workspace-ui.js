@@ -35,6 +35,12 @@
   if(editor){
     const oldHead=editor.querySelector('.section-head');if(oldHead){oldHead.remove();}
     editor.querySelector(':scope > p.muted')?.remove();
+    const preview=editor.querySelector('.editor-preview');
+    const inspector=document.createElement('aside');inspector.className='cf-editor-inspector';
+    inspector.innerHTML='<div class="cf-inspector-heading"><span>AJUSTES DEL CLIP</span><b>Estilo y formato</b></div><p>Personaliza los subtítulos y el encuadre antes de exportar.</p>';
+    const exportSettings=exportPanel?.querySelector('.export-settings');
+    if(exportSettings)inspector.append(exportSettings);
+    if(preview)preview.append(inspector);
     editing.append(editor);
   }
   if(exportPanel){
@@ -72,6 +78,7 @@
   by('#browserVideoUrl')?.addEventListener('change',()=>setStage(0));
   by('#browserTranscribe')?.addEventListener('click',()=>setStage(1));
   window.addEventListener('clipforge:clips-updated',()=>{setStage(3);revealEditor();});
+  by('#browserExportClips')?.addEventListener('click',()=>setStage(4));
   window.addEventListener('clipforge:editor-ready',()=>{if((by('#browserCandidateList')?.children.length||0)>0)revealEditor();});
   window.clipforgeShowEditor=revealEditor;
 })();
