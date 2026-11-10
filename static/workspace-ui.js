@@ -139,10 +139,9 @@
     card.append(layout);
     if(timeline)card.append(timeline);
     const actions=document.createElement('div');actions.className='cf-opus-editor-actions';
-    const back=document.createElement('button');back.type='button';back.className='cf-opus-back';back.textContent='← Volver a los cuatro clips';back.addEventListener('click',()=>{if(activeCard){const list=$('#browserCandidateList');restoreCard(activeCard);const nodes=[...list.children];const next=nodes[Math.min(activeIndex,nodes.length)]||null;list.insertBefore(activeCard,next);activeCard=null;}setStage('results');});
     if(exportOne){exportOne.textContent='Exportar este clip MP4';actions.append(exportOne);}
     if(select)actions.append(select);
-    actions.prepend(back);card.append(actions);
+    card.append(actions);
   }
   function reveal(){
     if(!candidates||!resultSlot||!candidates.querySelector('.candidate-card'))return;
