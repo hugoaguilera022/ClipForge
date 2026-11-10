@@ -1497,7 +1497,8 @@ runButton?.addEventListener('click', async () => {
     const reportProgress = (percent, current, total) => {
       say(`Transcribiendo vídeo: ${percent}% · fragmento ${current}/${total}`);
     };
-    const selectedLanguage = document.querySelector('#browserWhisperLanguage')?.value || 'auto';
+    const languageControl = document.querySelector('#browserWhisperLanguage');
+    const selectedLanguage = ['auto','es','en'].includes(languageControl?.value) ? languageControl.value : 'auto';
     const sourceLanguage = selectedLanguage === 'auto' ? undefined : selectedLanguage;
     let activeModelId = modelId;
     let result;
@@ -1515,7 +1516,7 @@ runButton?.addEventListener('click', async () => {
     } catch (transcriptionError) {
       if (model !== 'whisper-small') throw transcriptionError;
       activeModelId = 'onnx-community/whisper-base_timestamped';
-      say('Small no pudo cargarse o generar tiempos utilizables. Cambiando automáticamente a Base para conservar los cortes sincronizados…');
+      say('Whisper Small ha fallado. Cambiando automáticamente a Whisper Base y conservando el idioma seleccionado…');
       await releaseWhisperModel();
       await loadModel(activeModelId);
       result = await transcribeAudioInChunks(asr, audio, reportProgress, 'word', sourceLanguage);
@@ -1545,7 +1546,7 @@ runButton?.addEventListener('click', async () => {
         text: String(c.text || '').trim()
       })).filter(c => Number.isFinite(c.start) && Number.isFinite(c.end) && c.end > c.start && c.text)
     };
-    output.value = transcriptData.segments.length
+    if (output) output.value = transcriptData.segments.length
       ? transcriptData.segments.map(s => `[${s.start.toFixed(2)}–${s.end.toFixed(2)}] ${s.text}`).join('\n')
       : (result.text || 'El modelo no devolvió texto temporizado.');
     if (transcriptData.segments.length) {
@@ -1702,7 +1703,7 @@ document.querySelector('#browserProjectImport')?.addEventListener('change', asyn
       const segments=transcriptData.segments.map(c=>({start:Number(c.start),end:Number(c.end),text:String(c.text||'')})).filter(c=>Number.isFinite(c.start)&&Number.isFinite(c.end)&&c.end>c.start&&c.text);
       if(segments.length) {
         transcriptData.segments=segments;
-        output.value=segments.map(c=>`[${c.start.toFixed(2)}–${c.end.toFixed(2)}] ${c.text}`).join('\n');
+        if(output)output.value=segments.map(c=>`[${c.start.toFixed(2)}–${c.end.toFixed(2)}] ${c.text}`).join('\n');
         if (!sourceFile || String(transcriptData.source || '').split(/[\\/]/).pop() === sourceFile.name) {
           attachTranscriptToJobForm(makeVtt(segments));
         } else {
