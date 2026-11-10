@@ -1,7 +1,7 @@
 // Same-origin FFmpeg worker for Safari and browsers that reject CDN/blob workers.
 const TYPES={LOAD:"LOAD",EXEC:"EXEC",FFPROBE:"FFPROBE",WRITE_FILE:"WRITE_FILE",READ_FILE:"READ_FILE",DELETE_FILE:"DELETE_FILE",ERROR:"ERROR",LOG:"LOG",PROGRESS:"PROGRESS",RENAME:"RENAME",CREATE_DIR:"CREATE_DIR",LIST_DIR:"LIST_DIR",DELETE_DIR:"DELETE_DIR",MOUNT:"MOUNT",UNMOUNT:"UNMOUNT"};
 let core=null;
-function send(id,type,data){self.postMessage({id,type,data});}
+function send(id,type,data,transfer=[]){self.postMessage({id,type,data},transfer);}
 async function load(config){
   const module=await import(config.coreURL);
   const factory=module.default||self.createFFmpegCore;
