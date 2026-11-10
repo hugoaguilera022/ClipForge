@@ -1447,8 +1447,11 @@ function startAutomaticClipExport(){
     say(`Se han preparado ${selected.length} clips seleccionados. Se necesitan cuatro para completar la exportación automática.`);
     return;
   }
-  say('Los cuatro momentos están seleccionados. Iniciando ahora el renderizado local de los cuatro MP4…');
-  window.setTimeout(()=>exportButton.click(),350);
+  say('Los cuatro momentos están listos. Puedes ajustar los extremos de cada clip en la línea de tiempo; la exportación automática comenzará en 20 segundos.');
+  window.setTimeout(()=>{
+    const latest=(window.clipforgeEditorBridge?.getProject?.().clips||[]).filter(c=>c.selected!==false);
+    if(latest.length===4)exportButton.click();
+  },20000);
 }
 
 function attachTranscriptToJobForm(vtt) {
