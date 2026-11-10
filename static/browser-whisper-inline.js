@@ -1371,10 +1371,12 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
  if(!panel||!list)return;
  editableCandidates=(restoredCandidates || rankClipCandidates(words,duration,audioSamples,16000,visualSamples)).map((c,i)=>({...c,title:c.title||`Clip ${i+1}`,selected:c.selected!==false}));
  panel.hidden=false;list.replaceChildren();
- panel.querySelector('.cf-results-toolbar')?.remove();document.body.classList.remove('cf-stage-results','cf-stage-editor');
+ panel.querySelector('.cf-results-toolbar')?.remove();panel.querySelector('.cf-editor-toolbar')?.remove();
+ document.body.classList.add('cf-stage-results');document.body.classList.remove('cf-stage-editor');
  const stageHead=document.createElement('div');stageHead.className='cf-results-toolbar';
  const back=document.createElement('button');back.type='button';back.className='secondary cf-back-source';back.textContent='← Cambiar vídeo';back.addEventListener('click',()=>{document.body.classList.remove('cf-stage-results','cf-stage-editor');panel.hidden=true;});
- stageHead.append(back);panel.prepend(stageHead);
+ const stageTitle=document.createElement('div');stageTitle.innerHTML='<strong>Clips seleccionados</strong><small>Elige uno de los cuatro clips para abrir el editor</small>';
+ stageHead.append(back,stageTitle);panel.prepend(stageHead);
  if(!editableCandidates.length){list.textContent='No hay suficientes marcas de tiempo.';const field=document.querySelector('[name="selected_clip_ranges"]');if(field)field.value='';return;}
  const sync=()=>{
   let field=document.querySelector('[name="selected_clip_ranges"]');
@@ -1470,7 +1472,7 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
   selectLabel.append(select,document.createTextNode(' Incluir en exportación'));
   paintTimeline();
   const openClip=document.createElement('button');openClip.type='button';openClip.className='secondary cf-open-clip-editor';openClip.textContent='Abrir editor →';
-  const openThis=()=>{list.querySelectorAll('.candidate-card').forEach(el=>el.classList.remove('is-open'));card.classList.add('is-open');document.body.classList.remove('cf-stage-results','cf-stage-editor');film.pause();window.dispatchEvent(new CustomEvent('clipforge:open-editor',{detail:{card,index:i,clip:{...c}}}));};
+  const openThis=()=>{list.querySelectorAll('.candidate-card').forEach(el=>el.classList.remove('is-open'));card.classList.add('is-open');document.body.classList.remove('cf-stage-results');document.body.classList.add('cf-stage-editor');film.pause();let toolbar=panel.querySelector('.cf-editor-toolbar');if(!toolbar){toolbar=document.createElement('div');toolbar.className='cf-editor-toolbar';const backToResults=document.createElement('button');backToResults.type='button';backToResults.className='secondary';backToResults.textContent='← Volver a los 4 clips';backToResults.addEventListener('click',()=>{document.body.classList.remove('cf-stage-editor');document.body.classList.add('cf-stage-results');list.querySelectorAll('.candidate-card').forEach(el=>el.classList.remove('is-open'));});const editorTitle=document.createElement('div');editorTitle.innerHTML='<strong>Editor del clip</strong><small>Vídeo, recorte y subtítulos en un mismo espacio</small>';toolbar.append(backToResults,editorTitle);panel.prepend(toolbar);}window.dispatchEvent(new CustomEvent('clipforge:open-editor',{detail:{card,index:i,clip:{...c}}}));};
   openClip.addEventListener('click',event=>{event.stopPropagation();openThis();});
   card.addEventListener('click',event=>{if(event.target.closest('button,input,textarea,select,label'))return;openThis();});
   card.append(heading,player,timeline,subtitlePanel,openClip,exportSingle,selectLabel);list.append(card);
@@ -1481,18 +1483,13 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
 }
 
 function startAutomaticClipExport(){
-  const exportButton=document.querySelector('#browserExportClips');
-  if(!exportButton)return;
-  const selected=(window.clipforgeEditorBridge?.getProject?.().clips||[]).filter(c=>c.selected!==false);
-  if(selected.length!==4){
-    say(`Se han preparado ${selected.length} clips seleccionados. Se necesitan cuatro para completar la exportación automática.`);
-    return;
-  }
-  say('Los cuatro momentos están listos. Puedes ajustar los extremos de cada clip en la línea de tiempo; la exportación automática comenzará en 20 segundos.');
-  window.setTimeout(()=>{
-    const latest=(window.clipforgeEditorBridge?.getProject?.().clips||[]).filter(c=>c.selected!==false);
-    if(latest.length===4)exportButton.click();
-  },20000);
+  const panel=document.querySelector('#browserCandidates');
+  const cards=panel?.querySelectorAll('.candidate-card').length||0;
+  if(cards!==4){say(`Se han preparado ${cards} clips. ClipForge mostrará la pantalla de resultados cuando haya cuatro candidatos válidos.`);return;}
+  panel.hidden=false;
+  document.body.classList.add('cf-stage-results');
+  document.body.classList.remove('cf-stage-editor');
+  say('Los cuatro clips están listos. Selecciona uno para abrir su editor.');
 }
 
 function attachTranscriptToJobForm(vtt) {
