@@ -1713,6 +1713,40 @@ runButton?.addEventListener('click', async () => {
     // A single giant timestamped chunk is not useful for editing. Retry
     // with Whisper's segment timestamps before accepting an under-segmented result.
     const sourceDurationForTiming = audio.length / 16000;
+    const plausibleWordFloor = sourceDurationForTiming > 30 ? Math.max(12, Math.floor(sourceDurationForTiming / 8)) : 6;
+    let initialWordCount = (String(result.text || '').match(/\S+/g) || []).length;
+    // A low but non-empty Small result is a recognition failure, not a valid
+    // transcript. Retry once with Base, keeping the exact explicit language.
+    // This catches cases where Small returns a few words instead of throwing.
+    if (model === 'whisper-small' && sourceDurationForTiming > 15 && initialWordCount < plausibleWordFloor && selectedLanguage !== 'auto') {
+      const smallResult = result;
+      const smallWords = initialWordCount;
+      say(`Whisper Small solo reconoció ${smallWords} palabras. Reintentando todo el audio con Whisper Base en ${selectedLanguage === 'es' ? 'español' : 'inglés'}…`);
+      try {
+        await releaseWhisperModel();
+        activeModelId = 'onnx-community/whisper-base_timestamped';
+        await loadModel(activeModelId);
+        const baseResult = await transcribeAudioInChunks(asr, audio, reportProgress, 'word', sourceLanguage);
+        const baseWords = (String(baseResult.text || '').match(/\\S+/g) || []).length;
+        console.info('[ClipForge ASR fallback Base]', { selectedLanguage, smallWords, baseWords, durationSeconds: Number(sourceDurationForTiming.toFixed(2)) });
+        if (baseWords > smallWords && (baseResult.chunks || []).length) {
+          result = baseResult;
+          activeModelId = 'onnx-community/whisper-base_timestamped';
+          initialWordCount = baseWords;
+        } else {
+          result = smallResult;
+          activeModelId = 'onnx-community/whisper-small_timestamped';
+          await releaseWhisperModel();
+          await loadModel('onnx-community/whisper-small_timestamped');
+        }
+      } catch (fallbackError) {
+        console.warn('[ClipForge ASR fallback Base] failed:', fallbackError);
+        result = smallResult;
+        activeModelId = 'onnx-community/whisper-small_timestamped';
+        await releaseWhisperModel().catch(() => {});
+        await loadModel(activeModelId);
+      }
+    }
     if ((result.chunks || []).length <= 1 && sourceDurationForTiming > 8 && String(result.text || '').trim().split(/\s+/).length > 12) {
       say('La primera pasada devolvió un único bloque. Repitiendo alineación temporal por segmentos…');
       const segmented = await transcribeAudioInChunks(asr, audio, reportProgress, true, sourceLanguage);
@@ -1739,7 +1773,7 @@ runButton?.addEventListener('click', async () => {
     }
     const minimumPlausibleWords = sourceDurationForTiming > 30 ? Math.max(12, Math.floor(sourceDurationForTiming / 8)) : 6;
     if (sourceDurationForTiming > 15 && transcriptWordCount < minimumPlausibleWords) {
-      throw new Error(`Transcripción incompleta: Whisper solo reconoció ${transcriptWordCount} palabras en ${sourceDurationForTiming.toFixed(0)} segundos. Se bloquean los subtítulos y clips para evitar texto inventado. Selecciona Español o Inglés y usa Whisper Base o Small.`);
+      throw new Error(`Transcripción incompleta: Whisper ${activeModelId.includes('base') ? 'Base' : activeModelId.includes('small') ? 'Small' : 'seleccionado'} reconoció solo ${transcriptWordCount} palabras en ${sourceDurationForTiming.toFixed(0)} s (idioma solicitado: ${selectedLanguage === 'es' ? 'Español' : selectedLanguage === 'en' ? 'Inglés' : 'detección automática'}). Se bloquean subtítulos y clips para evitar texto inventado. Comprueba que el audio se escuche y selecciona el idioma real.`);
     }
     if (sourceDurationForTiming > 8 && transcriptWordCount > 12 && timedWordCount < Math.max(8, transcriptWordCount * 0.5)) {
       throw new Error(`Whisper reconoce ${transcriptWordCount} palabras, pero solo ha podido sincronizar ${timedWordCount}. No se generarán subtítulos incompletos. Cambia a Whisper Small o prueba en Chrome con WebGPU.`);
