@@ -782,3 +782,14 @@ body.cf-opus-body{background:#050506!important;color:#fff!important}
  #cfWorkspace .editor-preview{grid-template-columns:1fr}
  #cfWorkspace .cf-opus-footer{flex-direction:column}
 }
+
+
+/* Hard override: ensure the new Opus-style root wins over every legacy workspace skin. */
+body.cf-opus-body,body.cf-opus-body #cfWorkspace,body.cf-opus-body #cfWorkspace .cf-opus-main{background:#050506!important;color:#fff!important}
+body.cf-opus-body #cfWorkspace .cf-opus-upload-row .cf-opus-drop-slot .drop{display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:flex-start!important;min-height:66px!important;margin:0!important;padding:8px 12px 8px 21px!important;border:1px solid #29292e!important;border-radius:50px!important;background:#202024!important;color:#d6d6dc!important;box-shadow:none!important}
+body.cf-opus-body #cfWorkspace .cf-opus-upload-row .cf-opus-drop-slot .drop b{color:#c5c5cc!important}
+body.cf-opus-body #cfWorkspace .cf-opus-upload-row .cf-opus-drop-slot .drop .muted{color:#92929b!important}
+body.cf-opus-body #cfWorkspace .cf-opus-upload-row .cf-opus-drop-slot .drop input[type=file]{position:absolute!important;width:1px!important;height:1px!important;opacity:0!important}
+body.cf-opus-body #cfWorkspace .cf-opus-upload-row .cf-opus-primary-action #browserTranscribe{background:#fff!important;color:#101014!important;border:0!important;border-radius:40px!important;box-shadow:none!important}
+body.cf-opus-body #cfWorkspace .cf-opus-showcase{background:radial-gradient(ellipse at 50% 18%,#303136 0%,#1b1b1f 48%,#131316 100%)!important}
+body.cf-opus-body #cfWorkspace .cf-opus-demo-clip{background:linear-gradient(160deg,#36363d,#141419 70%)!important}
