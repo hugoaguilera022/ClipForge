@@ -785,8 +785,6 @@ document.querySelector('#connectColabEditor')?.addEventListener('click',connectC
 const FREE_AI_PROVIDERS={
  gemini:{label:'Google Gemini',endpoint:'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',model:'gemini-3.8-flash'},
  groq:{label:'Groq',endpoint:'https://api.groq.com/openai/v1/chat/completions',model:'openai/gpt-oss-120b'},
- cerebras:{label:'Cerebras',endpoint:'https://api.cerebras.ai/v1/chat/completions',model:'gpt-oss-120b'},
- mistral:{label:'Mistral',endpoint:'https://api.mistral.ai/v1/chat/completions',model:'mistral-small-latest'},
  openrouter:{label:'OpenRouter',endpoint:'https://openrouter.ai/api/v1/chat/completions',model:'openrouter/free'}
 };
 const FREE_AI_KEYS='clipforge.free-ai-keys.v1';
@@ -810,7 +808,13 @@ async function loadFreeAIKeysFromCloud(){
    if(saved.error)return {ok:false,error:saved.error.message};
   }
  }
- freeAIKeysCache=cleanFreeAIKeys(keys);freeAIKeysLoaded=true;
+ const supportedKeys=cleanFreeAIKeys(keys);
+ const removedUnsupported=Object.keys(keys).some(id=>!Object.prototype.hasOwnProperty.call(FREE_AI_PROVIDERS,id));
+ if(removedUnsupported){
+  const cleaned=await client.from('clipforge_user_settings').upsert({user_id:session.user.id,provider_keys:supportedKeys,updated_at:new Date().toISOString()},{onConflict:'user_id'});
+  if(cleaned.error)return {ok:false,error:cleaned.error.message};
+ }
+ freeAIKeysCache=supportedKeys;freeAIKeysLoaded=true;
  try{localStorage.removeItem(FREE_AI_KEYS);}catch{}
  return {ok:true,keys:freeAIKeysCache};
 }
