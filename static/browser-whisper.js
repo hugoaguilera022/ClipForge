@@ -1146,7 +1146,7 @@ function buildEditorialCandidatePool(segments, videoDuration, audioSamples = nul
   }
   // Bound local-LLM work for long videos. Keep a uniform temporal sample
   // across the complete source instead of ranking windows with heuristics.
-  const maxCandidates=videoDuration>1800?72:96;
+  const maxCandidates=videoDuration>1800?48:videoDuration>600?64:96;
   if(pool.length>maxCandidates){
     const ordered=[...pool].sort((a,b)=>a.start-b.start||a.end-b.end);
     const sampled=[],used=new Set();
@@ -1379,6 +1379,8 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
   if(field)field.value=JSON.stringify(editableCandidates);
   window.dispatchEvent(new CustomEvent('clipforge:candidate-edited'));
  };
+ const videoDuration=Math.max(1,Number(duration)||1);
+ const timeLabel=seconds=>{const n=Math.max(0,Math.floor(seconds));return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0');};
  editableCandidates.forEach((c,i)=>{
   const card=document.createElement('article');card.className='candidate-card';
   const sourceFile=document.querySelector('#video')?.files?.[0];
@@ -1393,6 +1395,25 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
     film.addEventListener('seeked',()=>film.pause(),{once:true});
     film.addEventListener('click',()=>window.clipforgeEditorBridge?.previewClip?.(c));
   }
+  // Full-source timeline with two draggable trim handles for this clip.
+  const timeline=document.createElement('div');timeline.className='cf-clip-timeline';timeline.setAttribute('aria-label','Línea de tiempo del vídeo completo y selección del clip');
+  const timelineTop=document.createElement('div');timelineTop.className='cf-clip-timeline-head';
+  const fullLabel=document.createElement('span');fullLabel.textContent='Vídeo completo';
+  const selectedLabel=document.createElement('strong');selectedLabel.textContent=timeLabel(c.start)+' – '+timeLabel(c.end);
+  timelineTop.append(fullLabel,selectedLabel);
+  const rail=document.createElement('div');rail.className='cf-clip-timeline-rail';
+  const fullTrack=document.createElement('div');fullTrack.className='cf-clip-timeline-full';
+  const selected=document.createElement('div');selected.className='cf-clip-timeline-selected';
+  const leftHandle=document.createElement('button');leftHandle.type='button';leftHandle.className='cf-clip-timeline-handle is-start';leftHandle.setAttribute('aria-label','Arrastrar inicio del clip');leftHandle.title='Arrastra para cambiar el inicio';
+  const rightHandle=document.createElement('button');rightHandle.type='button';rightHandle.className='cf-clip-timeline-handle is-end';rightHandle.setAttribute('aria-label','Arrastrar final del clip');rightHandle.title='Arrastra para cambiar el final';
+  const ruler=document.createElement('div');ruler.className='cf-clip-timeline-ruler';
+  [0,.25,.5,.75,1].forEach((fraction,index)=>{const tick=document.createElement('span');tick.textContent=timeLabel(videoDuration*fraction);tick.style.left=(fraction*100)+'%';if(index===0)tick.classList.add('at-start');if(index===4)tick.classList.add('at-end');ruler.append(tick);});
+  rail.append(fullTrack,selected,leftHandle,rightHandle);timeline.append(timelineTop,rail,ruler);
+  const paintTimeline=()=>{const start=Math.max(0,Math.min(videoDuration-0.1,Number(c.start)||0));const end=Math.max(start+0.1,Math.min(videoDuration,Number(c.end)||start+0.1));const left=start/videoDuration*100,right=end/videoDuration*100;selected.style.left=left+'%';selected.style.width=(right-left)+'%';leftHandle.style.left=left+'%';rightHandle.style.left=right+'%';selectedLabel.textContent=timeLabel(start)+' – '+timeLabel(end);a.value=start.toFixed(2);b.value=end.toFixed(2);};
+  const drag=(handle,edge,event)=>{event.preventDefault();event.stopPropagation();handle.setPointerCapture?.(event.pointerId);const move=ev=>{const rect=rail.getBoundingClientRect();const fraction=Math.max(0,Math.min(1,(ev.clientX-rect.left)/Math.max(1,rect.width)));const value=fraction*videoDuration;const minGap=Math.min(1,videoDuration);if(edge==='start')c.start=Math.max(0,Math.min(value,c.end-minGap));else c.end=Math.min(videoDuration,Math.max(value,c.start+minGap));c.duration=c.end-c.start;editableCandidates[i]={...c};paintTimeline();sync();};const stop=()=>{handle.removeEventListener('pointermove',move);handle.removeEventListener('pointerup',stop);handle.removeEventListener('pointercancel',stop);};handle.addEventListener('pointermove',move);handle.addEventListener('pointerup',stop);handle.addEventListener('pointercancel',stop);};
+  leftHandle.addEventListener('pointerdown',event=>drag(leftHandle,'start',event));rightHandle.addEventListener('pointerdown',event=>drag(rightHandle,'end',event));
+  const keyboard=(edge,event)=>{if(!['ArrowLeft','ArrowRight'].includes(event.key))return;event.preventDefault();const delta=(event.shiftKey?5:0.5)*(event.key==='ArrowLeft'?-1:1);if(edge==='start')c.start=Math.max(0,Math.min(c.end-0.1,c.start+delta));else c.end=Math.min(videoDuration,Math.max(c.start+0.1,c.end+delta));c.duration=c.end-c.start;editableCandidates[i]={...c};paintTimeline();sync();};
+  leftHandle.addEventListener('keydown',event=>keyboard('start',event));rightHandle.addEventListener('keydown',event=>keyboard('end',event));paintTimeline();
   const heading=document.createElement('strong');heading.textContent=(c.selection_method==='local_generative_editor'||c.selection_method==='remote_generative_editor')?(c.title+' · valoración IA '+c.ai_editorial_score+'/100'):(c.title+' · candidato para revisión');
   const rationale=document.createElement('small');rationale.className='candidate-rationale';rationale.textContent=[c.ai_editorial_reason,c.ai_editorial_importance_evidence?('Evidencia: «'+c.ai_editorial_importance_evidence+'»'):null].filter(Boolean).join(' · ') || (c.reasons||[]).join(' · ') || 'Fragmento propuesto para evaluación';
   const preview=document.createElement('button');preview.type='button';preview.className='secondary preview-clip-candidate';preview.textContent='Vista previa';preview.addEventListener('click',()=>window.clipforgeEditorBridge?.previewClip?.(c));
@@ -1408,7 +1429,7 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
   const note=document.createElement('textarea');note.value=String(c.text || '');note.rows=3;note.setAttribute('aria-label','Texto del clip');
   const update=()=>{const x=Number(a.value),y=Number(b.value);if(a.value.trim()===''||b.value.trim()===''||!Number.isFinite(x)||!Number.isFinite(y)||x<0||y<=x||y>duration){card.classList.add('candidate-invalid');return;}card.classList.remove('candidate-invalid');editableCandidates[i]={...editableCandidates[i],start:x,end:y,duration:y-x,text:note.value};sync();};
   a.addEventListener('change',update);b.addEventListener('change',update);note.addEventListener('input',update);
-  row.append(a,b);card.append(film,heading,rationale,preview,exportSingle,selectLabel,row,note);list.append(card);
+  row.append(a,b);card.append(film,timeline,heading,rationale,preview,exportSingle,selectLabel,row,note);list.append(card);
  });
  const info=document.createElement('p');info.textContent=editableCandidates.every(c=>c.selection_method==='local_generative_editor'||c.selection_method==='remote_generative_editor')?'Selección editorial realizada por un modelo generativo. Cada clip incluye evidencia textual que justifica su importancia y supera una segunda pasada de auditoría; revisa el resultado antes de exportar.':'Candidatos de respaldo sin selección editorial generativa confirmada.';list.append(info);
  const openEditor=document.createElement('button');openEditor.type='button';openEditor.className='secondary';openEditor.textContent='Editar clips ahora en el editor (sin descargar)';
@@ -1530,7 +1551,7 @@ runButton?.addEventListener('click', async () => {
     const chunks = result.chunks || [];
     say('Analizando cambios visuales del vídeo localmente para complementar la transcripción…');
     const sourceDuration=audio.length/16000;
-    const visualStep=sourceDuration>1800?30:sourceDuration>600?10:4;
+    const visualStep=sourceDuration>1800?45:sourceDuration>600?15:5;
     say(`Analizando cambios visuales cada ${visualStep} segundos para adaptar el proceso a un vídeo de ${Math.round(sourceDuration/60)} minutos…`);
     const visualSamples = await captureVisualActivity(file,sourceDuration,visualStep);
     transcriptData = {
