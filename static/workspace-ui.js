@@ -5,6 +5,9 @@
   const hero=by('.hero'),grid=by('.grid'),engine=by('#browserEngine'),editor=by('#projectEditor');
   const candidates=by('#browserCandidates'),exportPanel=by('.browser-export');
   const drop=by('.drop'),urlImport=by('.browser-url-import'),transcribe=by('#browserTranscribe');
+  const engineControls=engine?.querySelector('.browser-transcribe-controls');
+  const optionLabels=engineControls?[...engineControls.querySelectorAll('label')]:[];
+  const capacity=by('#videoCapacity');
   const shell=document.createElement('div');shell.id='cfWorkspace';shell.className='cf-workspace cf-single-page';
   const content=document.createElement('div');content.className='cf-content';
   const top=document.createElement('div');top.className='cf-topbar';
@@ -13,14 +16,21 @@
   content.append(top);
   const host=document.createElement('div');host.className='cf-page-host';content.append(host);
   const production=document.createElement('section');production.className='panel cf-production';
-  production.innerHTML='<div class="section-head"><div><span class="step">01 / PRODUCCIÓN</span><h2>Crear clips</h2></div></div><p class="cf-source-label">Añade el vídeo</p>';
+  production.innerHTML='<div class="section-head"><div><span class="step">01 / PRODUCCIÓN</span><h2>Crear clips</h2><p class="cf-panel-subtitle">Importa el vídeo, configura el análisis y genera cuatro propuestas verticales.</p></div><span class="tag">Procesamiento local</span></div><nav class="cf-workflow-steps" aria-label="Proceso de creación"><span class="active"><i>1</i> Importar</span><span><i>2</i> Analizar</span><span><i>3</i> Seleccionar</span><span><i>4</i> Editar</span><span><i>5</i> Exportar</span></nav><p class="cf-source-label">1. Selecciona el vídeo de origen</p><div class="cf-source-tabs"><span class="active">Desde tu dispositivo</span><span>Desde un enlace</span></div>
   if(drop)production.append(drop);
   if(urlImport)production.append(urlImport);
+  if(optionLabels.length){
+    const options=document.createElement('div');options.className='cf-analysis-options';
+    options.innerHTML='<div class="cf-options-title">2. Configura el análisis</div>';
+    optionLabels.forEach(label=>options.append(label));
+    production.append(options);
+  }
   if(transcribe){transcribe.textContent='Generar cuatro clips';production.append(transcribe);}
+  if(capacity){capacity.classList.add('cf-capacity-compact');production.append(capacity);}
   const progress=document.createElement('div');progress.id='cfProductionStatus';progress.className='engine-progress';progress.setAttribute('role','status');progress.textContent='Selecciona un vídeo o pega un enlace para empezar.';production.append(progress);
   host.append(production);
   const editing=document.createElement('section');editing.id='cfEditingWorkspace';editing.className='cf-editing-workspace';editing.hidden=true;
-  const heading=document.createElement('div');heading.className='cf-editor-heading';heading.innerHTML='<span class="step">02 / EDICIÓN</span><h2>Editor</h2>';editing.append(heading);
+  const heading=document.createElement('div');heading.className='cf-editor-heading';heading.innerHTML='<div><span class="step">02 / RESULTADOS Y EDICIÓN</span><h2>Tus cuatro clips</h2><p>Revisa las propuestas, ajusta los cortes y abre el editor para afinar cada detalle.</p></div><span class="tag">4 clips · vertical 9:16</span>';editing.append(heading);
   if(candidates)editing.append(candidates);
   if(editor){
     const oldHead=editor.querySelector('.section-head');if(oldHead){oldHead.remove();}
@@ -36,18 +46,32 @@
   host.append(editing);
   if(engine){
     const status=by('#browserWhisperStatus');
-    if(status){status.id='browserWhisperStatus';status.classList.add('cf-internal-status');production.append(status);}
+    if(status){status.classList.add('cf-internal-status');production.append(status);}
     engine.hidden=true;engine.setAttribute('aria-hidden','true');
   }
   if(hero)hero.remove();if(grid)grid.remove();
   main.replaceWith(shell);shell.append(content);if(oldHeader)oldHeader.remove();
   const footer=document.querySelector('footer');if(footer)content.append(footer);
+  const workflow=production.querySelector('.cf-workflow-steps');
+  function setStage(stage){
+    workflow?.querySelectorAll('span').forEach((item,index)=>{item.classList.toggle('active',index===stage);item.classList.toggle('done',index<stage);});
+  }
   function revealEditor(){
-    if(!editing.hidden)return;
     editing.hidden=false;
+    setStage(3);
+    const title=editing.querySelector('.cf-editor-heading h2');if(title)title.textContent='Tus cuatro clips · Editor';
     requestAnimationFrame(()=>editing.scrollIntoView({behavior:'smooth',block:'start'}));
   }
-  window.addEventListener('clipforge:clips-updated',revealEditor);
+  window.addEventListener('clipforge:transcription-progress',event=>{
+    const message=String(event.detail?.message||'');
+    const progress=by('#cfProductionStatus');if(progress&&message)progress.textContent=message;
+    if(/transcrib|extrayendo|cargando whisper|analizando/i.test(message))setStage(1);
+    if(/selecci|candidato|generando clips|juez|editorial/i.test(message))setStage(2);
+  });
+  by('#video')?.addEventListener('change',()=>{const file=by('#video')?.files?.[0];const p=by('#cfProductionStatus');if(file&&p)p.textContent='Vídeo listo: '+file.name+' · '+(file.size/1024/1024).toFixed(1)+' MB';});
+  by('#browserVideoUrl')?.addEventListener('change',()=>setStage(0));
+  by('#browserTranscribe')?.addEventListener('click',()=>setStage(1));
+  window.addEventListener('clipforge:clips-updated',()=>{setStage(3);revealEditor();});
   window.addEventListener('clipforge:editor-ready',()=>{if((by('#browserCandidateList')?.children.length||0)>0)revealEditor();});
   window.clipforgeShowEditor=revealEditor;
 })();
