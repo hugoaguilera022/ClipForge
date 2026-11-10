@@ -315,3 +315,18 @@ body[data-browser-only="true"] .cf-page[data-page="settings"] .publish{display:n
 #cfWorkspace .candidate-card .candidate-edit-grid input{min-height:38px}
 #cfWorkspace .editor-track-items .editor-empty{font-size:12px}
 #cfWorkspace .browser-export .section-head h3{font-size:18px}
+
+/* One Create Clips page: production first, editor revealed after generation. */
+#cfWorkspace.cf-single-page{display:block;min-height:calc(100vh - 68px);background:#f7f7f5}
+#cfWorkspace.cf-single-page .cf-content{max-width:1240px;margin:0 auto}
+#cfWorkspace.cf-single-page .cf-page-host{max-width:1080px;padding:38px 28px 55px}
+#cfWorkspace.cf-single-page .cf-production{max-width:860px;margin:0 auto 26px;padding:26px;background:#fff;border:1px solid #e7e7e4;border-radius:12px}
+#cfWorkspace.cf-single-page .cf-editing-workspace{display:grid;gap:16px;max-width:1000px;margin:0 auto}
+#cfWorkspace.cf-single-page .cf-editor-heading{padding:0 2px}
+#cfWorkspace.cf-single-page .cf-editor-heading h2{font-size:24px;margin:4px 0 0}
+#cfWorkspace.cf-single-page .editor-panel{margin:0}
+#cfWorkspace.cf-single-page .browser-candidates{margin:0}
+#cfWorkspace.cf-single-page .browser-export{margin:0}
+#cfWorkspace.cf-single-page .cf-production #browserTranscribe{width:100%}
+#cfWorkspace.cf-single-page .cf-internal-status{margin-top:10px}
+@media(max-width:700px){#cfWorkspace.cf-single-page .cf-page-host{padding:20px 13px 35px}#cfWorkspace.cf-single-page .cf-production{padding:17px}}
