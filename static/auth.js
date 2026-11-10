@@ -60,6 +60,10 @@ waitForHost();
 supabase.auth.getSession().then(({ data, error }) => {
   if (error) console.error('ClipForge auth session:', error.message);
   renderSession(data?.session || null);
+  window.dispatchEvent(new CustomEvent('clipforge:session',{detail:{session:data?.session||null}}));
 });
-supabase.auth.onAuthStateChange((_event, session) => renderSession(session));
+supabase.auth.onAuthStateChange((_event, session) => {
+  renderSession(session);
+  window.dispatchEvent(new CustomEvent('clipforge:session',{detail:{session}}));
+});
 window.clipforgeSupabase = supabase;
