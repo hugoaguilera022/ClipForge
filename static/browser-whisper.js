@@ -741,7 +741,8 @@ let editorialEnginePromise = null;
 
 const FREE_AI_PROVIDERS={
  gemini:{label:'Google Gemini',endpoint:'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',model:'gemini-3.8-flash'},
- openrouter:{label:'OpenRouter',endpoint:'https://openrouter.ai/api/v1/chat/completions',model:'openrouter/free'}
+ openrouter:{label:'OpenRouter',endpoint:'https://openrouter.ai/api/v1/chat/completions',model:'openrouter/free'},
+ groq:{label:'Groq (no se usa en modo gratuito)',endpoint:'https://api.groq.com/openai/v1/chat/completions',model:'openai/gpt-oss-120b',free:false}
 };
 const FREE_AI_KEYS='clipforge.free-ai-keys.v1';
 let freeAIKeysCache={};
@@ -785,7 +786,7 @@ async function saveFreeAIKeys(values){
  try{localStorage.removeItem(FREE_AI_KEYS);}catch{}
  return clean;
 }
-function configuredFreeAIProviders(){const keys=readFreeAIKeys();return Object.keys(FREE_AI_PROVIDERS).filter(id=>keys[id]).map(id=>({id,...FREE_AI_PROVIDERS[id],key:keys[id]}));}
+function configuredFreeAIProviders(){const keys=readFreeAIKeys();return Object.keys(FREE_AI_PROVIDERS).filter(id=>keys[id]&&FREE_AI_PROVIDERS[id].free!==false).map(id=>({id,...FREE_AI_PROVIDERS[id],key:keys[id]}));}
 let freeAIRoundRobin=0;
 function createFederatedFreeAIEngine(providers,onProgress,localFallback=null){ let localEnginePromise=null;
  const cooldown=new Map();
