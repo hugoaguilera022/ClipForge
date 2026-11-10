@@ -1649,7 +1649,7 @@ runButton?.addEventListener('click', async () => {
     // A single giant timestamped chunk is not useful for editing. Retry
     // with Whisper's segment timestamps before accepting an under-segmented result.
     const sourceDurationForTiming = audio.length / 16000;
-    if ((result.chunks || []).length <= 1 && sourceDurationForTiming > 8 && String(result.text || '').trim().split(/\\s+/).length > 12) {
+    if ((result.chunks || []).length <= 1 && sourceDurationForTiming > 8 && String(result.text || '').trim().split(/\s+/).length > 12) {
       say('La primera pasada devolvió un único bloque. Repitiendo alineación temporal por segmentos…');
       const segmented = await transcribeAudioInChunks(asr, audio, reportProgress, true, sourceLanguage);
       if ((segmented.chunks || []).length > (result.chunks || []).length) result = segmented;
