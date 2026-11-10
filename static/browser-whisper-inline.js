@@ -1371,7 +1371,7 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
  if(!panel||!list)return;
  editableCandidates=(restoredCandidates || rankClipCandidates(words,duration,audioSamples,16000,visualSamples)).map((c,i)=>({...c,title:c.title||`Clip ${i+1}`,selected:c.selected!==false}));
  panel.hidden=false;list.replaceChildren();
- document.body.classList.add('cf-stage-results');document.body.classList.remove('cf-stage-editor');
+ panel.querySelector('.cf-results-toolbar')?.remove();document.body.classList.add('cf-stage-results');document.body.classList.remove('cf-stage-editor');
  const stageHead=document.createElement('div');stageHead.className='cf-results-toolbar';
  const back=document.createElement('button');back.type='button';back.className='secondary cf-back-source';back.textContent='← Cambiar vídeo';back.addEventListener('click',()=>{document.body.classList.remove('cf-stage-results','cf-stage-editor');panel.hidden=true;});
  const stageTitle=document.createElement('div');stageTitle.innerHTML='<strong>Clips seleccionados</strong><small>Elige un momento para abrir su editor profesional</small>';
