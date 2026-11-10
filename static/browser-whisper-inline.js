@@ -277,6 +277,7 @@ async function transcribeAudioInChunks(asr, audio, onProgress = () => {}, timest
   const stepSamples = (windowSeconds - overlapSeconds) * sampleRate;
   const totalSeconds = audio.length / sampleRate;
   const allChunks = [];
+  const windowDiagnostics = [];
   // Only adjacent Whisper windows can produce duplicate phrases: each window
   // overlaps the previous one by two seconds. Keep a tiny rolling comparison
   // set instead of scanning the entire transcript for every recognized word.
@@ -298,6 +299,7 @@ async function transcribeAudioInChunks(asr, audio, onProgress = () => {}, timest
     if (chunkText) fullText.push(chunkText);
 
     const rawChunks = Array.isArray(result.chunks) ? result.chunks : [];
+    windowDiagnostics.push({ part: part + 1, start: Number(offset.toFixed(2)), duration: Number(((endSample-startSample)/sampleRate).toFixed(2)), textWords: (chunkText.match(/\S+/g)||[]).length, rawTimedChunks: rawChunks.length, firstChunkKeys: rawChunks[0] ? Object.keys(rawChunks[0]) : [], firstTimestamp: rawChunks[0]?.timestamp ?? rawChunks[0]?.timestamps ?? rawChunks[0]?.time ?? null });
     for (let chunkIndex = 0; chunkIndex < rawChunks.length; chunkIndex++) {
       const chunk = rawChunks[chunkIndex];
       const rawTimestamp = chunk.timestamp ?? chunk.timestamps ?? chunk.time;
@@ -343,7 +345,7 @@ async function transcribeAudioInChunks(asr, audio, onProgress = () => {}, timest
   }
 
   allChunks.sort((a, b) => a.start - b.start);
-  return { text: fullText.join(' ').replace(/\s+/g, ' ').trim(), chunks: allChunks };
+  return { text: fullText.join(' ').replace(/\s+/g, ' ').trim(), chunks: allChunks, diagnostics: { audioSeconds: Number(totalSeconds.toFixed(2)), windows: windowDiagnostics } };
 }
 
 // Fully local speaker diarization with the public ONNX pyannote model.
@@ -1667,6 +1669,7 @@ runButton?.addEventListener('click', async () => {
     }
     let transcriptWordCount = (String(result.text || '').match(/\S+/g) || []).length;
     let timedWordCount = (result.chunks || []).reduce((n, item) => n + (String(item.text || '').match(/\S+/g) || []).length, 0);
+    console.info('[ClipForge ASR diagnóstico]', { file: file.name, audioSeconds: Number(sourceDurationForTiming.toFixed(2)), transcriptWordCount, timedWordCount, windows: result.diagnostics?.windows });
     if (sourceDurationForTiming > 8 && transcriptWordCount > 12 && timedWordCount < Math.max(8, transcriptWordCount * 0.65)) {
       say(`La alineación por palabra solo ha temporizado ${timedWordCount} de ${transcriptWordCount} palabras. Recuperando tiempos por frase para no perder diálogo…`);
       const phraseResult = await transcribeAudioInChunks(asr, audio, reportProgress, true, sourceLanguage);
@@ -1702,6 +1705,7 @@ runButton?.addEventListener('click', async () => {
     transcriptData = {
       source: file.name, model: activeModelId, language: result.language || sourceLanguage,
       generated_at: new Date().toISOString(), text: result.text || '',
+      diagnostics: { ...result.diagnostics, transcriptWordCount, timedWordCount, videoFileBytes: file.size },
       diarization: { model: 'onnx-community/pyannote-segmentation-3.0', status: diarizationStatus, turns: diarizationTurns },
       // Timestamps are absolute source-video seconds; speaker IDs are anonymous.
       segments: speakerSegments
@@ -1736,7 +1740,7 @@ runButton?.addEventListener('click', async () => {
       startAutomaticClipExport();
       const vtt = makeVtt(transcriptData.segments);
       const attached = attachTranscriptToJobForm(vtt);
-      say(`Transcripción lista: ${transcriptData.segments.length} fragmentos temporizados · ${transcriptWordCount} palabras reconocidas · ${new Set(transcriptData.segments.map(s=>s.speaker).filter(Number.isFinite)).size} hablantes asignados · diarización ${transcriptData.diarization?.status || 'no disponible'}. ${attached ? 'Subtítulos y cortes seleccionados conectados al formulario de producción.' : 'Descarga el JSON para conservarla.'}`);
+      say(`Transcripción lista: ${transcriptData.segments.length} fragmentos temporizados · ${transcriptWordCount} palabras reconocidas · audio ${sourceDurationForTiming.toFixed(1)} s · ${result.diagnostics?.windows?.length || 0} bloques procesados · ${new Set(transcriptData.segments.map(s=>s.speaker).filter(Number.isFinite)).size} hablantes asignados · diarización ${transcriptData.diarization?.status || 'no disponible'}. ${attached ? 'Subtítulos y cortes seleccionados conectados al formulario de producción.' : 'Descarga el JSON para conservarla.'}`);
       const autoGenerate = document.querySelector('#autoGenerateAfterTranscription')?.checked;
       const form = document.querySelector('#jobForm');
       const rights = form?.querySelector('[name="rights_confirmed"]');
