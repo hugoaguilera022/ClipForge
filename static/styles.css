@@ -646,3 +646,139 @@ body.cf-opus-body *{box-sizing:border-box}
  #cfWorkspace .cf-opus-footer{flex-direction:column}
 }
 @media(max-width:390px){#cfWorkspace .cf-opus-hero h1{font-size:35px}#cfWorkspace .cf-opus-format{display:none}}
+
+
+/* Opus-style landing page: black canvas, centered headline, upload pill and product showcase */
+body.cf-opus-body{background:#050506!important;color:#fff!important}
+#cfWorkspace.cf-opus-workspace{background:#050506;color:#fff;min-height:100vh}
+#cfWorkspace .cf-opus-announcement{height:34px;display:flex;align-items:center;justify-content:center;gap:13px;padding:0 12px;background:linear-gradient(90deg,#10151b,#1a2630,#10151b);border-bottom:1px solid #1d252c;color:#dce4ec;font-size:10px;font-weight:650}
+#cfWorkspace .cf-opus-announcement span{color:#8e9aa6;font-weight:450}
+#cfWorkspace .cf-opus-announcement a{color:#c6cbd3;text-decoration:none}
+#cfWorkspace .cf-opus-nav{height:76px;padding:0 clamp(22px,4vw,60px);display:flex;align-items:center;gap:60px;background:#050506;border-bottom:1px solid #111116;position:relative;top:auto;z-index:5}
+#cfWorkspace .cf-opus-brand{display:flex;align-items:center;gap:9px;color:#fff;text-decoration:none;font-size:21px;font-weight:850;letter-spacing:-.8px}
+#cfWorkspace .cf-opus-mark{width:31px;height:31px;display:grid;place-items:center;border-radius:9px;background:#fff;color:#09090b;font-size:21px;font-weight:950}
+#cfWorkspace .cf-opus-nav nav{display:flex;align-items:center;gap:38px;margin:auto}
+#cfWorkspace .cf-opus-nav nav a{color:#a6a6ae;text-decoration:none;font-size:12px;font-weight:600}
+#cfWorkspace .cf-opus-nav nav a:hover{color:#fff}
+#cfWorkspace .cf-opus-nav-right{margin-left:auto;display:flex;align-items:center;gap:16px}
+#cfWorkspace .cf-opus-free{color:#aaaab3;font-size:9px;font-weight:750;letter-spacing:.7px;white-space:nowrap}
+#cfWorkspace #health{width:auto;height:auto;padding:7px 11px;background:#15151a;border:1px solid #303039;border-radius:30px;color:#c9c9d0;font-size:10px}
+#cfWorkspace .cf-opus-main{max-width:1500px;margin:0 auto;padding:0 42px 28px}
+#cfWorkspace .cf-opus-hero{display:flex;flex-direction:column;align-items:center;text-align:center;padding:63px 0 38px;gap:0}
+#cfWorkspace .cf-opus-eyebrow{color:#a7a7b0;font-size:9px;font-weight:850;letter-spacing:2.2px}
+#cfWorkspace .cf-opus-hero h1{margin:17px 0 15px;color:#fff;font-size:clamp(36px,5.2vw,66px);line-height:1.08;letter-spacing:-2.7px;font-weight:800}
+#cfWorkspace .cf-opus-hero h1 em{color:#fff;font-style:normal}
+#cfWorkspace .cf-opus-hero>p{max-width:800px;margin:0 auto;color:#8c8c96;font-size:16px;line-height:1.55}
+#cfWorkspace .cf-opus-upload-row{display:flex;align-items:center;justify-content:center;gap:13px;width:min(100%,740px);margin:43px auto 0}
+#cfWorkspace .cf-opus-drop-slot{flex:1;min-width:0}
+#cfWorkspace .cf-opus-drop-slot .drop{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:12px;min-height:66px;width:100%;margin:0;padding:8px 12px 8px 21px;border:1px solid #29292e;border-radius:50px;background:#202024;color:#d6d6dc;cursor:pointer;transition:.2s;overflow:hidden}
+#cfWorkspace .cf-opus-drop-slot .drop:hover{background:#29292e;border-color:#45454e}
+#cfWorkspace .cf-opus-drop-slot .upload-icon{display:grid;place-items:center;flex:0 0 27px;width:27px;height:27px;border:1px solid #66666d;border-radius:50%;background:transparent;color:#ddd;font-size:17px}
+#cfWorkspace .cf-opus-drop-slot .drop b{font-size:13px;font-weight:550;color:#c5c5cc;white-space:nowrap}
+#cfWorkspace .cf-opus-drop-slot #filename{font-size:10px;color:#92929b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px}
+#cfWorkspace .cf-opus-drop-slot input[type=file]{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
+#cfWorkspace .cf-opus-primary-action{flex:0 0 auto}
+#cfWorkspace .cf-opus-primary-action #browserTranscribe{min-width:145px;min-height:57px;margin:0;padding:0 25px;border:0;border-radius:40px;background:#fff;color:#101014;font-size:13px;font-weight:800;cursor:pointer;box-shadow:none}
+#cfWorkspace .cf-opus-primary-action #browserTranscribe:hover{background:#e9e9ed;transform:translateY(-1px)}
+#cfWorkspace .cf-opus-auto{min-height:57px;padding:0 24px;border:1px solid #303036;border-radius:40px;background:#050506;color:#e7e7ec;font-size:13px;font-weight:650;white-space:nowrap;cursor:pointer}
+#cfWorkspace .cf-opus-auto:hover{border-color:#777780;background:#111116}
+#cfWorkspace .cf-opus-auto span{margin-left:6px;color:#b7a4ff}
+#cfWorkspace .cf-opus-trust{display:flex;justify-content:center;flex-wrap:wrap;gap:8px 20px;margin-top:20px;color:#777780;font-size:10px}
+#cfWorkspace .cf-opus-progress{margin-top:12px;min-height:16px;color:#9a9aa4;font-size:10px}
+#cfWorkspace .cf-opus-internal{display:none!important}
+#cfWorkspace .cf-opus-showcase{position:relative;isolation:isolate;overflow:hidden;max-width:1160px;min-height:510px;margin:0 auto 46px;padding:32px 48px 34px;border:1px solid #25252a;border-radius:22px;background:radial-gradient(ellipse at 50% 18%,#303136 0%,#1b1b1f 48%,#131316 100%);box-shadow:0 25px 90px #0009}
+#cfWorkspace .cf-opus-showcase-glow{position:absolute;inset:0;z-index:-1;background:radial-gradient(ellipse at 50% 20%,#ffffff0b,transparent 55%)}
+#cfWorkspace .cf-opus-demo-source{display:flex;flex-direction:column;align-items:center;gap:9px}
+#cfWorkspace .cf-opus-demo-frame{position:relative;width:min(100%,390px);height:210px;overflow:hidden;border-radius:13px;background:linear-gradient(135deg,#28282c,#151519);border:1px solid #49494d}
+#cfWorkspace .cf-opus-demo-frame video{width:100%;height:100%;object-fit:contain;background:#08080a}
+#cfWorkspace .cf-opus-demo-empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;color:#bfc0c6;text-align:center;background:linear-gradient(135deg,#303035,#18181d)}
+#cfWorkspace .cf-opus-demo-empty[hidden]{display:none}
+#cfWorkspace .cf-opus-demo-empty>span{display:grid;place-items:center;width:42px;height:42px;border:1px solid #777780;border-radius:50%;font-size:17px}
+#cfWorkspace .cf-opus-demo-empty b{font-size:13px}
+#cfWorkspace .cf-opus-demo-empty small{color:#85858f;font-size:10px}
+#cfWorkspace .cf-opus-demo-duration{color:#888891;font-size:8px;font-weight:800;letter-spacing:1.5px}
+#cfWorkspace .cf-opus-demo-prompt{display:flex;align-items:center;justify-content:center;gap:12px;width:min(100%,530px);min-height:57px;margin:30px auto 25px;padding:8px 18px;border:1px solid #525257;border-radius:40px;background:#303034;color:#eee}
+#cfWorkspace .cf-opus-demo-prompt>span{color:#b8b8c0;font-size:19px}
+#cfWorkspace .cf-opus-demo-prompt b{font-size:12px;font-weight:650}
+#cfWorkspace .cf-opus-demo-prompt small{color:#9999a2;font-size:9px}
+#cfWorkspace .cf-opus-socials{position:relative;z-index:2;display:flex;justify-content:center;gap:clamp(20px,5vw,65px);margin-bottom:-14px}
+#cfWorkspace .cf-opus-socials span{display:grid;place-items:center;width:38px;height:38px;border:1px solid #4a4a50;border-radius:50%;background:#242429;color:#fff;font-size:17px;font-weight:900;box-shadow:0 4px 15px #0008}
+#cfWorkspace .cf-opus-socials .yt{color:#ff2424}#cfWorkspace .cf-opus-socials .ig{color:#f06acb}#cfWorkspace .cf-opus-socials .in{color:#5ba7ec}#cfWorkspace .cf-opus-socials .tt{color:#fff}#cfWorkspace .cf-opus-socials .fb{color:#5798ff}
+#cfWorkspace .cf-opus-demo-clips{display:grid;grid-template-columns:1.5fr repeat(5,1fr);gap:12px;align-items:end}
+#cfWorkspace .cf-opus-demo-clip{position:relative;display:flex;flex-direction:column;justify-content:flex-end;min-height:155px;padding:12px 10px;border:1px solid #3b3b42;border-radius:11px;overflow:hidden;background:linear-gradient(160deg,#36363d,#141419 70%);box-shadow:inset 0 -65px 45px #0008}
+#cfWorkspace .cf-opus-demo-clip:nth-child(2){min-height:125px;background:linear-gradient(160deg,#34363e,#202127 60%,#121216)}
+#cfWorkspace .cf-opus-demo-clip:nth-child(3){min-height:190px;background:linear-gradient(150deg,#42434a,#18181d 65%)}
+#cfWorkspace .cf-opus-demo-clip:nth-child(4){min-height:180px;background:linear-gradient(145deg,#383a42,#18181d 70%)}
+#cfWorkspace .cf-opus-demo-clip:nth-child(5){min-height:155px;background:linear-gradient(150deg,#35363d,#151519 70%)}
+#cfWorkspace .cf-opus-demo-clip:nth-child(6){min-height:140px;background:linear-gradient(150deg,#34343b,#151519 70%)}
+#cfWorkspace .cf-opus-demo-clip:before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(135deg,transparent 0 18px,#ffffff05 19px 20px)}
+#cfWorkspace .cf-opus-demo-clip i{position:absolute;top:9px;left:9px;display:grid;place-items:center;width:24px;height:24px;border-radius:7px;background:#ffffff1a;color:#e5e5eb;font-size:9px;font-style:normal;font-weight:800}
+#cfWorkspace .cf-opus-demo-clip b{position:relative;color:#f4f4f6;font-size:10px}
+#cfWorkspace .cf-opus-demo-clip small{position:relative;margin-top:4px;color:#aaaab3;font-size:8px}
+#cfWorkspace .cf-opus-demo-clip.active{border-color:#a99aff;box-shadow:0 0 0 1px #a99aff55,inset 0 -65px 45px #0008}
+#cfWorkspace .cf-opus-real-results{margin-top:22px}
+#cfWorkspace .cf-opus-real-results:empty{display:none}
+#cfWorkspace .cf-opus-results,#cfWorkspace .cf-opus-editor{max-width:1160px;margin:35px auto}
+#cfWorkspace .cf-opus-section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:17px}
+#cfWorkspace .cf-opus-kicker{color:#b4a4ff;font-size:9px;font-weight:850;letter-spacing:1.5px}
+#cfWorkspace .cf-opus-section-head h2{margin:8px 0;color:#fff;font-size:26px;letter-spacing:-.8px}
+#cfWorkspace .cf-opus-section-head p{margin:0;color:#9696a0;font-size:11px}
+#cfWorkspace .cf-opus-result-pill{padding:8px 12px;border:1px solid #42414a;border-radius:30px;color:#d4d0e8;font-size:10px}
+#cfWorkspace #browserCandidates,#cfWorkspace #projectEditor,#cfWorkspace .browser-export{padding:20px;border:1px solid #303038;border-radius:15px;background:#141418;color:#eee}
+#cfWorkspace #browserCandidates[hidden],#cfWorkspace #projectEditor[hidden]{display:none!important}
+#cfWorkspace #browserCandidates .section-head,#cfWorkspace #projectEditor .section-head{display:none}
+#cfWorkspace .candidate-list{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px}
+#cfWorkspace .candidate-card{display:flex;flex-direction:column;gap:9px;padding:10px;border:1px solid #35353d;border-radius:11px;background:#1b1b21}
+#cfWorkspace .candidate-filmstrip{width:100%;aspect-ratio:9/16;max-height:290px;object-fit:cover;border-radius:7px;background:#08080a}
+#cfWorkspace .candidate-card>strong{color:#f4f4f6;font-size:12px}
+#cfWorkspace .candidate-card .preview-clip-candidate{background:#292832;color:#e8e2ff;border:1px solid #4a465b}
+#cfWorkspace .candidate-card .candidate-export-one{background:#fff;color:#09090b;border:0}
+#cfWorkspace .candidate-card input,#cfWorkspace .candidate-card textarea{background:#101014;border:1px solid #393942;color:#eee}
+#cfWorkspace .cf-opus-editor .editor-panel{background:transparent;border:0}
+#cfWorkspace .editor-preview{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:18px;padding:17px;border:1px solid #35353d;border-radius:12px;background:#17171c}
+#cfWorkspace .editor-preview video{justify-self:center;width:min(100%,300px);height:500px;max-height:65vh;background:#000;border-radius:9px}
+#cfWorkspace .cf-opus-inspector{padding:16px;border:1px solid #393942;border-radius:10px;background:#202026}
+#cfWorkspace .cf-opus-inspector>b{display:block;margin:7px 0;color:#fff}
+#cfWorkspace .cf-opus-inspector select{width:100%;padding:9px;border:1px solid #41414b;border-radius:7px;background:#111116;color:#eee}
+#cfWorkspace .browser-export{margin-top:14px}
+#cfWorkspace #browserExportClips{width:100%;min-height:48px;border:0;border-radius:30px;background:#fff;color:#09090b;font-weight:850}
+#cfWorkspace .cf-opus-export-slot[hidden],#cfWorkspace .cf-opus-results[hidden],#cfWorkspace .cf-opus-editor[hidden]{display:none!important}
+#cfWorkspace .cf-opus-footer{display:flex;justify-content:space-between;gap:12px;padding:23px 0;color:#73737d;border-top:1px solid #25252b;font-size:9px}
+#cfWorkspace .cf-opus-footer b{color:#eee;font-size:13px}
+@media(max-width:900px){
+ #cfWorkspace .cf-opus-nav{gap:20px;padding:0 22px}
+ #cfWorkspace .cf-opus-nav nav{gap:18px}
+ #cfWorkspace .cf-opus-main{padding:0 22px 24px}
+ #cfWorkspace .cf-opus-showcase{padding:26px 24px}
+ #cfWorkspace .cf-opus-demo-clips{grid-template-columns:repeat(4,1fr)}
+ #cfWorkspace .cf-opus-demo-clip:nth-child(n+5){display:none}
+}
+@media(max-width:650px){
+ #cfWorkspace .cf-opus-announcement{font-size:8px;gap:5px}
+ #cfWorkspace .cf-opus-announcement span{display:none}
+ #cfWorkspace .cf-opus-nav{height:60px;padding:0 15px}
+ #cfWorkspace .cf-opus-nav nav{display:none}
+ #cfWorkspace .cf-opus-free{font-size:8px}
+ #cfWorkspace .cf-opus-main{padding:0 13px 20px}
+ #cfWorkspace .cf-opus-hero{padding:49px 0 28px}
+ #cfWorkspace .cf-opus-hero h1{font-size:37px;letter-spacing:-1.5px}
+ #cfWorkspace .cf-opus-hero>p{font-size:12px}
+ #cfWorkspace .cf-opus-upload-row{flex-wrap:wrap;gap:9px;margin-top:27px}
+ #cfWorkspace .cf-opus-drop-slot{flex-basis:100%}
+ #cfWorkspace .cf-opus-drop-slot .drop{min-height:58px}
+ #cfWorkspace .cf-opus-primary-action{flex:1}
+ #cfWorkspace .cf-opus-primary-action #browserTranscribe{width:100%;min-height:48px}
+ #cfWorkspace .cf-opus-auto{min-height:48px;padding:0 16px}
+ #cfWorkspace .cf-opus-trust{font-size:8px;gap:7px 12px}
+ #cfWorkspace .cf-opus-showcase{min-height:0;padding:18px 12px;border-radius:15px}
+ #cfWorkspace .cf-opus-demo-frame{height:170px}
+ #cfWorkspace .cf-opus-demo-prompt{flex-wrap:wrap;gap:5px;margin:20px auto}
+ #cfWorkspace .cf-opus-demo-prompt small{width:100%}
+ #cfWorkspace .cf-opus-socials{gap:16px}
+ #cfWorkspace .cf-opus-socials span{width:30px;height:30px;font-size:13px}
+ #cfWorkspace .cf-opus-demo-clips{grid-template-columns:repeat(2,1fr);gap:8px}
+ #cfWorkspace .cf-opus-demo-clip,#cfWorkspace .cf-opus-demo-clip:nth-child(n){min-height:110px}
+ #cfWorkspace .candidate-list{grid-template-columns:repeat(2,minmax(0,1fr))}
+ #cfWorkspace .editor-preview{grid-template-columns:1fr}
+ #cfWorkspace .cf-opus-footer{flex-direction:column}
+}
