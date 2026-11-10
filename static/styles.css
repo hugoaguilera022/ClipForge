@@ -240,3 +240,63 @@ body[data-browser-only="true"] .cf-page[data-page="settings"] .publish{display:n
 .cf-auth-button[hidden]{display:none}
 .cf-auth-logout{background:#fff;color:#333;border-color:#ddd}
 @media(max-width:650px){.cf-auth{gap:5px;max-width:60vw}.cf-auth-status{font-size:9px;max-width:125px}.cf-auth-button{font-size:10px;padding:8px}}
+
+
+/* Focused two-step workflow: production and editor only. */
+#cfWorkspace{grid-template-columns:190px minmax(0,1fr);min-height:calc(100vh - 68px);background:#f7f7f5}
+#cfWorkspace .cf-sidebar{background:#fff;border-right:1px solid #e8e8e5}
+#cfWorkspace .cf-page-host{max-width:1120px;padding-top:42px}
+#cfWorkspace .cf-page .panel{padding:26px;background:#fff;border:1px solid #e7e7e4;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.025)}
+.cf-production{max-width:820px;margin:0 auto}
+.cf-production .section-head{margin-bottom:22px}
+.cf-production .section-head h2{font-size:24px}
+.cf-source-label{font-size:13px;font-weight:650;color:#555;margin:0 0 12px}
+.cf-production .drop{min-height:145px;margin:0 0 18px}
+.cf-production .browser-url-import{display:grid;gap:12px;padding:0;margin:0;border:0;background:transparent}
+.cf-production .browser-youtube-import{padding:0;margin:0;border:0;background:transparent}
+.cf-production .browser-youtube-import>label:first-child,
+.cf-production .browser-url-import>label{font-size:12px;font-weight:650;color:#555}
+.cf-production .browser-youtube-import .check,
+.cf-production .browser-youtube-import small,
+.cf-production .browser-url-import>small{display:none!important}
+.cf-production .browser-url-row{display:flex;gap:9px}
+.cf-production .browser-url-row input{flex:1;min-width:0}
+.cf-production #browserTranscribe{width:100%;margin-top:20px}
+.cf-production #cfProductionStatus{margin-top:14px}
+#browserWhisperStatus.cf-internal-status{margin-top:8px}
+#cfWorkspace .cf-nav-item{font-size:13px;padding:13px 12px}
+#cfWorkspace .cf-nav-item.active{background:#f1f1ef}
+#cfWorkspace .cf-page[data-page="edit"]{display:grid;gap:18px}
+#cfWorkspace .editor-panel{margin:0}
+#cfWorkspace .editor-preview{grid-template-columns:1fr minmax(220px,330px);align-items:center;margin:0 0 16px;padding:12px}
+#cfWorkspace .editor-preview video{width:100%;max-height:520px;aspect-ratio:16/9;object-fit:contain}
+#cfWorkspace .editor-preview-head{display:none}
+#cfWorkspace .editor-toolbar,#cfWorkspace .editor-add-track{display:none!important}
+#cfWorkspace .editor-timeline{margin-top:10px}
+#cfWorkspace .editor-track-head{margin-bottom:12px}
+#cfWorkspace .editor-track-actions{display:none}
+#cfWorkspace .editor-clip{grid-template-columns:105px 105px minmax(120px,1fr) auto auto;gap:8px}
+#cfWorkspace .browser-candidates{margin:0;padding:22px;border:1px solid #e7e7e4;border-radius:12px;background:#fff}
+#cfWorkspace .browser-candidates .section-head{margin-bottom:14px}
+#cfWorkspace .candidate-list{display:grid;gap:12px}
+#cfWorkspace .candidate-card{background:#fff;border:1px solid #e8e8e5;border-radius:10px;padding:14px}
+#cfWorkspace .browser-export{margin:0;padding:22px;background:#fff;border:1px solid #e7e7e4;border-radius:12px}
+#cfWorkspace .browser-export .section-head .step,#cfWorkspace .browser-export .tag{display:none}
+#cfWorkspace .browser-export .section-head{margin-bottom:10px}
+#cfWorkspace .browser-export .export-settings{grid-template-columns:repeat(2,minmax(0,1fr))}
+#cfWorkspace #browserExportClips{width:100%}
+#cfWorkspace .engine-progress{background:#fafaf9;color:#555;border:1px solid #e8e8e5}
+#cfWorkspace footer{margin-top:35px}
+@media(max-width:700px){
+ #cfWorkspace{display:block}
+ #cfWorkspace .cf-sidebar{position:sticky;top:0;width:auto;height:auto;transform:none;box-shadow:none;padding:10px 14px;z-index:25}
+ #cfWorkspace .cf-side-brand,#cfWorkspace .cf-nav-label,#cfWorkspace .cf-side-bottom{display:none}
+ #cfWorkspace .cf-nav{display:flex;gap:8px}
+ #cfWorkspace .cf-nav-item{flex:1;justify-content:center}
+ #cfWorkspace .cf-page-host{padding:20px 13px 35px}
+ #cfWorkspace .editor-preview{grid-template-columns:1fr}
+ #cfWorkspace .editor-preview video{width:100%;max-height:420px}
+ #cfWorkspace .editor-clip{grid-template-columns:1fr 1fr}
+ #cfWorkspace .editor-clip input[type=text]{grid-column:1/-1}
+ #cfWorkspace .browser-export .export-settings{grid-template-columns:1fr 1fr}
+}
