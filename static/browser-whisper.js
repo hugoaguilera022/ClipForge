@@ -145,7 +145,7 @@ async function extractAudioWithFFmpegWasm(file, onProgress = () => {}) {
     import('https://esm.sh/@ffmpeg/util@0.12.2')
   ]);
   const ffmpeg = new FFmpeg();
-  const base = 'https://unpkg.com/@ffmpeg/core@0.12.10/dist/umd';
+  const base = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm';
   const coreURL = await toBlobURL(base + '/ffmpeg-core.js', 'text/javascript');
   const wasmURL = await toBlobURL(base + '/ffmpeg-core.wasm', 'application/wasm');
   const inputName = 'clipforge-input.' + ((file.name.split('.').pop() || 'mp4').replace(/[^a-z0-9]/gi, '') || 'mp4');
@@ -156,7 +156,7 @@ async function extractAudioWithFFmpegWasm(file, onProgress = () => {}) {
     if (percent !== lastProgress) { lastProgress = percent; onProgress(percent); }
   });
   try {
-    await ffmpeg.load({ coreURL, wasmURL });
+    await ffmpeg.load({ coreURL, wasmURL, classWorkerURL: new URL('/ffmpeg-worker.js', window.location.origin).href });
     await ffmpeg.writeFile(inputName, await fetchFile(file));
     const exitCode = await ffmpeg.exec(['-i', inputName, '-map', '0:a:0', '-vn', '-ac', '1', '-ar', '16000', '-f', 'f32le', outputName]);
     if (exitCode !== 0) throw new Error('FFmpeg no pudo decodificar la pista de audio (código ' + exitCode + ').');
