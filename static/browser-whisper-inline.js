@@ -1681,6 +1681,7 @@ runButton?.addEventListener('click', async () => {
     const languageControl = document.querySelector('#browserWhisperLanguage');
     const selectedLanguage = ['auto','es','en'].includes(languageControl?.value) ? languageControl.value : 'auto';
     const sourceLanguage = selectedLanguage === 'auto' ? undefined : selectedLanguage;
+    console.info('[ClipForge ASR configuración]',{selectedLanguage,model,languageControlPresent:Boolean(languageControl),modelControlPresent:Boolean(document.querySelector('#browserWhisperModel'))});
     let activeModelId = modelId;
     let result;
     try {
