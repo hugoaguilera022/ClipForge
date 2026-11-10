@@ -290,7 +290,7 @@ async function transcribeAudioInChunks(asr, audio, onProgress = () => {}, timest
     const result = await asr(audio.subarray(startSample, endSample), {
       // A selected language improves consistency; undefined lets Whisper detect
       // whether the source is Spanish or English automatically.
-      language: language || undefined,
+      language: language === 'es' ? 'spanish' : language === 'en' ? 'english' : undefined,
       task: 'transcribe',
       return_timestamps: timestampMode
     });
