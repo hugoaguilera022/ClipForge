@@ -905,10 +905,16 @@ async function loadLocalEditorialJudge(onProgress=()=>{}){
  return editorialEnginePromise;
 }
 async function loadEditorialJudge(onProgress = () => {}) {
+ // When the user has explicitly connected Colab, use its larger Qwen3 model
+ // as the primary editorial judge. Federated API providers remain the fallback
+ // when Colab is not configured; local WebGPU is the final free option.
+ const remote=getColabEditorConfig();
+ if(remote){
+  onProgress('Usando Qwen3 en tu sesión de Google Colab como juez editorial principal…');
+  return createRemoteEditorialEngine(remote);
+ }
  const freeProviders=configuredFreeAIProviders();
  if(freeProviders.length)return createFederatedFreeAIEngine(freeProviders,onProgress,()=>loadLocalEditorialJudge(onProgress));
- const remote=getColabEditorConfig();
- if(remote){onProgress('Conectando con Qwen3 4B en tu sesión temporal de Colab…');return createRemoteEditorialEngine(remote);}
  return loadLocalEditorialJudge(onProgress);
 }
 
