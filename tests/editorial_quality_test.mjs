@@ -17,7 +17,7 @@ ctx.loadEditorialJudge=async()=>engine;ctx.semanticRerankCandidates=async(items,
 const judgePool=Array.from({length:96},(_,i)=>({start:i*5,end:i*5+25,duration:25,text:'Independent narrative beat '+i,context_before:'Setup '+i,context_after:'Payoff '+i}));
 const chosen=await ctx.aiEditorialSelect(judgePool,4,()=>{});
 assert.equal(calls.length,6,'four global batches, first vote and independent critic audit');
-assert.ok(calls.slice(0,4).every(x=>x.count===24&&x.max-x.min<=120),'each of four chronological batches reviews 24 consecutive windows');
+assert.ok(calls.slice(0,4).every(x=>x.count===24&&x.max-x.min<=120),'each of four chronological batches reviews 24 candidates and retains four options');
 assert.equal(chosen.length,4);assert.ok(chosen.every(x=>x.ai_editorial_rubric&&x.ai_editorial_score===90),'weighted editorial rubric is retained and normalized');assert.ok(chosen.every(x=>x.ai_editorial_audit==='independent_critic_pass'),'independent critic audit is attached');
 for(let i=1;i<chosen.length;i++)assert.ok(chosen[i].start>=chosen[i-1].end+1,'final selections are non-overlapping');
 console.log('Editorial quality passed: 96 temporal candidates, duration diversity, context, globally interleaved review batches, first vote, independent critic audit, weighted rubric and four grounded non-overlapping selections.');
