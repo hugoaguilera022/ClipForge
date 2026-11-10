@@ -53,7 +53,8 @@ assert.equal(seen.size,96,'the generative judge must see every neutral candidate
 assert.equal(calls.length,6,'96 candidates must be evaluated in four batches, a first vote and an independent critic audit');
 assert.equal(semanticInputCount,0,'no embedding model should be downloaded for selection');
 assert.equal(semanticLimit,0,'global editorial vote compares finalists directly');
-assert.equal(selected.length,4,'final model round must return four clips');\nassert.ok(selected.every(x=>x.start>=70*92),'global vote may select all four moments from the same temporal block when those are the strongest');
+assert.equal(selected.length,4,'final model round must return four clips');
+assert.ok(selected.every(x=>x.start>=70*92),'global vote may select all four moments from the same temporal block when those are the strongest');
 assert.ok(selected.every(x=>x.selection_method==='local_generative_editor'),'all final clips must be marked as generative selections');
 assert.ok(selected.every(x=>x.ai_editorial_audit==='independent_critic_pass'),'all final clips must pass the critic audit');
 for(let i=1;i<selected.length;i++)assert.ok(selected[i].start>=selected[i-1].end+1,'final clips must not overlap');
