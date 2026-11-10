@@ -325,16 +325,12 @@ async function transcribeAudioInChunks(asr, audio, onProgress = () => {}, timest
       recentChunks = recentChunks.filter(previous => previous.end >= absoluteStart - 0.45);
       const duplicate = recentChunks.some(previous => {
         const previousText=previous.text.toLowerCase().replace(/\s+/g,' ').trim();
-        const previousTokens=new Set(previousText.split(' '));
-        const currentTokens=new Set(normalized.split(' '));
-        const intersection=[...currentTokens].filter(token=>previousTokens.has(token)).length;
-        const union=new Set([...previousTokens,...currentTokens]).size;
-        const textSimilarity=intersection/Math.max(1,union);
         const overlap=Math.max(0,Math.min(previous.end,absoluteEnd)-Math.max(previous.start,absoluteStart));
-        const overlapRatio=overlap/Math.max(0.001,Math.min(previous.end-previous.start,absoluteEnd-absoluteStart));
-        // Phrase-level Small timestamps can drift across adjacent 28s windows.
-        return (Math.abs(previous.start-absoluteStart)<0.45 && textSimilarity>=0.8) ||
-          (overlapRatio>=0.55 && textSimilarity>=0.82);
+        // Only remove a genuinely repeated token/phrase at almost the same
+        // timestamp. Similarity-only matching dropped repeated words such as
+        // "sí", "no", "que" across nearby dialogue and could erase speech.
+        const sameText=previousText===normalized;
+        return sameText && Math.abs(previous.start-absoluteStart)<0.22 && overlap>0;
       });
       if (!duplicate) {
         const item={ start: absoluteStart, end: absoluteEnd, text };
@@ -347,7 +343,7 @@ async function transcribeAudioInChunks(asr, audio, onProgress = () => {}, timest
   }
 
   allChunks.sort((a, b) => a.start - b.start);
-  return { text: (allChunks.length ? allChunks.map(chunk => chunk.text).join(' ') : fullText.join(' ')).replace(/\s+/g, ' ').trim(), chunks: allChunks };
+  return { text: fullText.join(' ').replace(/\s+/g, ' ').trim(), chunks: allChunks };
 }
 
 // Fully local speaker diarization with the public ONNX pyannote model.
@@ -1669,9 +1665,18 @@ runButton?.addEventListener('click', async () => {
       const segmented = await transcribeAudioInChunks(asr, audio, reportProgress, true, sourceLanguage);
       if ((segmented.chunks || []).length > (result.chunks || []).length) result = segmented;
     }
-    const transcriptWordCount = (String(result.text || '').match(/\S+/g) || []).length;
-    if (sourceDurationForTiming > 8 && transcriptWordCount > 12 && (result.chunks || []).length < 2) {
-      throw new Error('Whisper ha reconocido el texto, pero no ha generado suficientes marcas de tiempo para sincronizar los subtítulos. No se guardará como transcripción válida. Prueba Whisper Base o Small y vuelve a intentarlo.');
+    let transcriptWordCount = (String(result.text || '').match(/\S+/g) || []).length;
+    let timedWordCount = (result.chunks || []).reduce((n, item) => n + (String(item.text || '').match(/\S+/g) || []).length, 0);
+    if (sourceDurationForTiming > 8 && transcriptWordCount > 12 && timedWordCount < Math.max(8, transcriptWordCount * 0.65)) {
+      say(`La alineación por palabra solo ha temporizado ${timedWordCount} de ${transcriptWordCount} palabras. Recuperando tiempos por frase para no perder diálogo…`);
+      const phraseResult = await transcribeAudioInChunks(asr, audio, reportProgress, true, sourceLanguage);
+      const phraseTimedCount = (phraseResult.chunks || []).reduce((n, item) => n + (String(item.text || '').match(/\S+/g) || []).length, 0);
+      if (phraseTimedCount > timedWordCount) result = phraseResult;
+      transcriptWordCount = (String(result.text || '').match(/\S+/g) || []).length;
+      timedWordCount = (result.chunks || []).reduce((n, item) => n + (String(item.text || '').match(/\S+/g) || []).length, 0);
+    }
+    if (sourceDurationForTiming > 8 && transcriptWordCount > 12 && timedWordCount < Math.max(8, transcriptWordCount * 0.5)) {
+      throw new Error(`Whisper reconoce ${transcriptWordCount} palabras, pero solo ha podido sincronizar ${timedWordCount}. No se generarán subtítulos incompletos. Cambia a Whisper Small o prueba en Chrome con WebGPU.`);
     }
     // Free the large Whisper session before loading diarization and video rendering.
     await releaseWhisperModel();
