@@ -1,6 +1,8 @@
 (() => {
-  const main=document.querySelector('main'),header=document.querySelector('body > header');
-  if(!main||document.getElementById('cfWorkspace'))return;
+  const existing=document.getElementById('cfWorkspace');
+  const main=existing?.querySelector('main')||document.querySelector('main');
+  const header=document.querySelector('body > header');
+  if(!main)return;
   const $=s=>document.querySelector(s);
   const engine=$('#browserEngine'),drop=$('.drop'),urlImport=$('.browser-url-import');
   const controls=engine?.querySelector('.browser-transcribe-controls');
@@ -42,7 +44,8 @@
       <section class="cf-opus-export-slot" hidden></section>
       <footer class="cf-opus-footer"><b>ClipForge</b><span>Un vídeo. Cuatro oportunidades de viralizar.</span><span>Procesamiento local · Gratis</span></footer>
     </main>`;
-  document.body.classList.add('cf-opus-body');main.replaceWith(app);
+  document.body.classList.add('cf-opus-body');
+  if(existing)existing.replaceWith(app);else main.replaceWith(app);
   const health=header?.querySelector('#health');if(health)app.querySelector('#cfHealthSlot').append(health);header?.remove();
   if(drop)app.querySelector('.cf-opus-drop-slot').append(drop);
   if(transcribe){transcribe.textContent='Get free clips';app.querySelector('.cf-opus-primary-action').append(transcribe);}
