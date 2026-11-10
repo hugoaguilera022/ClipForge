@@ -213,19 +213,28 @@ async function extractAudioWithMediabunny(file) {
         const channels = Array.from({length:buffer.numberOfChannels},(_,ch)=>buffer.getChannelData(ch));
         const channelCount = Math.max(1,channels.length);
         const targetFrames = Math.min(Math.ceil(sourceFrames * 16000 / sourceRate), mono.length - offset);
-        // Cache channel views outside the hot loop: getChannelData() is a native
-        // boundary and calling it for every sample made long videos needlessly slow.
+        // Do not blindly average stereo channels: interview tracks often place
+        // microphones on separate channels, and phase cancellation can erase
+        // speech when L/R are averaged. Pick the strongest channel per decoded
+        // audio block so alternating speaker channels remain audible.
+        let selectedChannel = 0;
+        if (channelCount > 1) {
+          let bestEnergy = -1;
+          for (let ch = 0; ch < channelCount; ch++) {
+            const channel = channels[ch];
+            let energy = 0;
+            const stride = Math.max(1, Math.floor(sourceFrames / 4096));
+            for (let k = 0; k < sourceFrames; k += stride) energy += channel[k] * channel[k];
+            if (energy > bestEnergy) { bestEnergy = energy; selectedChannel = ch; }
+          }
+        }
+        const selected = channels[selectedChannel] || channels[0];
         for (let j = 0; j < targetFrames; j++) {
           const sourcePos = j * sourceRate / 16000;
           const lo = Math.min(Math.floor(sourcePos), sourceFrames - 1);
           const hi = Math.min(lo + 1, sourceFrames - 1);
           const frac = sourcePos - lo;
-          let interpolated = 0;
-          for (let ch = 0; ch < channelCount; ch++) {
-            const channel = channels[ch];
-            interpolated += (channel[lo] * (1 - frac) + channel[hi] * frac) / channelCount;
-          }
-          mono[offset + j] = interpolated;
+          mono[offset + j] = selected[lo] * (1 - frac) + selected[hi] * frac;
         }
         samples++;
       } finally { sample.close(); }
@@ -1648,7 +1657,23 @@ runButton?.addEventListener('click', async () => {
         audio = capturedAudio instanceof Float32Array ? capturedAudio : await toMono16k(capturedAudio);
       }
     }
-    say('Cargando Transformers.js y el modelo Whisper abierto. La primera descarga puede tardar.');
+    const audioStats = (() => {
+      let peak = 0, sumSquares = 0, audible = 0;
+      const stride = Math.max(1, Math.floor(audio.length / 200000));
+      let count = 0;
+      for (let i = 0; i < audio.length; i += stride) {
+        const value = Number.isFinite(audio[i]) ? audio[i] : 0;
+        const abs = Math.abs(value);
+        peak = Math.max(peak, abs);
+        sumSquares += value * value;
+        if (abs > 0.003) audible++;
+        count++;
+      }
+      return { durationSeconds: Number((audio.length / 16000).toFixed(2)), peak: Number(peak.toFixed(4)), rms: Number(Math.sqrt(sumSquares / Math.max(1,count)).toFixed(4)), audiblePercent: Number((audible / Math.max(1,count) * 100).toFixed(1)) };
+    })();
+    console.info('[ClipForge audio diagnóstico]', audioStats);
+    if (audioStats.peak < 0.0005 || audioStats.audiblePercent < 0.1) throw new Error(`La pista extraída parece casi silenciosa (pico ${audioStats.peak}, RMS ${audioStats.rms}, audio activo ${audioStats.audiblePercent}%). No se ejecutará Whisper sobre audio vacío o mal decodificado.`);
+    say(`Audio verificado · pico ${audioStats.peak} · RMS ${audioStats.rms} · ${audioStats.audiblePercent}% activo. Cargando Whisper…`);
     const { pipeline, env } = await import('https://esm.sh/@huggingface/transformers@3.7.2');
     env.allowLocalModels = false;
     env.useBrowserCache = true;
@@ -1734,8 +1759,11 @@ runButton?.addEventListener('click', async () => {
           activeModelId = 'onnx-community/whisper-base_timestamped';
           initialWordCount = baseWords;
         } else {
+          // Keep the Base attempt diagnostics visible in the final error; do not
+          // silently hide a failed fallback behind the original Small result.
           result = smallResult;
           activeModelId = 'onnx-community/whisper-small_timestamped';
+          window.__clipforgeAsrFallback = { attempted: true, selectedLanguage, smallWords, baseWords, baseTimedChunks: (baseResult.chunks || []).length };
           await releaseWhisperModel();
           await loadModel('onnx-community/whisper-small_timestamped');
         }
@@ -1773,7 +1801,9 @@ runButton?.addEventListener('click', async () => {
     }
     const minimumPlausibleWords = sourceDurationForTiming > 30 ? Math.max(12, Math.floor(sourceDurationForTiming / 8)) : 6;
     if (sourceDurationForTiming > 15 && transcriptWordCount < minimumPlausibleWords) {
-      throw new Error(`Transcripción incompleta: Whisper ${activeModelId.includes('base') ? 'Base' : activeModelId.includes('small') ? 'Small' : 'seleccionado'} reconoció solo ${transcriptWordCount} palabras en ${sourceDurationForTiming.toFixed(0)} s (idioma solicitado: ${selectedLanguage === 'es' ? 'Español' : selectedLanguage === 'en' ? 'Inglés' : 'detección automática'}). Se bloquean subtítulos y clips para evitar texto inventado. Comprueba que el audio se escuche y selecciona el idioma real.`);
+      const fallbackInfo = window.__clipforgeAsrFallback;
+      const fallbackNote = fallbackInfo ? ` Base también falló: ${fallbackInfo.baseWords} palabras (${fallbackInfo.baseTimedChunks} bloques temporizados).` : '';
+      throw new Error(`Transcripción incompleta: Whisper ${activeModelId.includes('base') ? 'Base' : activeModelId.includes('small') ? 'Small' : 'seleccionado'} reconoció solo ${transcriptWordCount} palabras en ${sourceDurationForTiming.toFixed(0)} s (idioma solicitado: ${selectedLanguage === 'es' ? 'Español' : selectedLanguage === 'en' ? 'Inglés' : 'detección automática'}).${fallbackNote} Se bloquean subtítulos y clips para evitar texto inventado. Se ha comprobado el idioma configurado; revisa la pista de audio.`);
     }
     if (sourceDurationForTiming > 8 && transcriptWordCount > 12 && timedWordCount < Math.max(8, transcriptWordCount * 0.5)) {
       throw new Error(`Whisper reconoce ${transcriptWordCount} palabras, pero solo ha podido sincronizar ${timedWordCount}. No se generarán subtítulos incompletos. Cambia a Whisper Small o prueba en Chrome con WebGPU.`);
