@@ -137,6 +137,48 @@ async function captureAudioFromVideo(file) {
     URL.revokeObjectURL(objectUrl);
   }
 }
+async function extractAudioWithFFmpegWasm(file, onProgress = () => {}) {
+  // Fully local codec fallback: decode MP4/MOV audio with FFmpeg WASM.
+  // No upload, native install, API key, or real-time playback is required.
+  const [{ FFmpeg }, { fetchFile, toBlobURL }] = await Promise.all([
+    import('https://esm.sh/@ffmpeg/ffmpeg@0.12.15'),
+    import('https://esm.sh/@ffmpeg/util@0.12.2')
+  ]);
+  const ffmpeg = new FFmpeg();
+  const base = 'https://unpkg.com/@ffmpeg/core@0.12.10/dist/umd';
+  const coreURL = await toBlobURL(base + '/ffmpeg-core.js', 'text/javascript');
+  const wasmURL = await toBlobURL(base + '/ffmpeg-core.wasm', 'application/wasm');
+  const inputName = 'clipforge-input.' + ((file.name.split('.').pop() || 'mp4').replace(/[^a-z0-9]/gi, '') || 'mp4');
+  const outputName = 'clipforge-audio.pcm';
+  let lastProgress = -1;
+  ffmpeg.on('progress', ({ progress }) => {
+    const percent = Math.max(0, Math.min(100, Math.round((progress || 0) * 100)));
+    if (percent !== lastProgress) { lastProgress = percent; onProgress(percent); }
+  });
+  try {
+    await ffmpeg.load({ coreURL, wasmURL });
+    await ffmpeg.writeFile(inputName, await fetchFile(file));
+    const exitCode = await ffmpeg.exec(['-i', inputName, '-map', '0:a:0', '-vn', '-ac', '1', '-ar', '16000', '-f', 'f32le', outputName]);
+    if (exitCode !== 0) throw new Error('FFmpeg no pudo decodificar la pista de audio (código ' + exitCode + ').');
+    const bytes = await ffmpeg.readFile(outputName);
+    if (!(bytes instanceof Uint8Array) || bytes.byteLength < 64000 || bytes.byteLength % 4 !== 0) {
+      throw new Error('FFmpeg no generó suficientes muestras PCM válidas.');
+    }
+    const aligned = bytes.byteOffset % 4 === 0
+      ? bytes
+      : bytes.slice();
+    const audio = new Float32Array(aligned.buffer, aligned.byteOffset, aligned.byteLength / 4).slice();
+    if (!audio.some(value => Number.isFinite(value) && Math.abs(value) > 1e-7)) {
+      throw new Error('La pista extraída no contiene audio audible.');
+    }
+    return audio;
+  } finally {
+    try { await ffmpeg.deleteFile(inputName); } catch {}
+    try { await ffmpeg.deleteFile(outputName); } catch {}
+    try { ffmpeg.terminate(); } catch {}
+  }
+}
+
 async function extractAudioWithMediabunny(file) {
   // Mediabunny demuxes the MP4 audio track without decoding the video stream
   // or forcing the user to play the whole source in real time.
@@ -1395,10 +1437,17 @@ runButton?.addEventListener('click', async () => {
       audio = await extractAudioWithMediabunny(file);
       say(`Audio extraído: ${(audio.length / 16000).toFixed(1)} segundos. Preparando Whisper…`);
     } catch (demuxError) {
-      console.warn('Demultiplexado/decodificación por Mediabunny no disponible; usando captura de reproducción como alternativa.', demuxError);
-      say('Este navegador o códec no admite extracción directa. Usando reproducción local como alternativa; puede tardar lo mismo que el vídeo…');
-      const capturedAudio = await captureAudioFromVideo(file);
-      audio = capturedAudio instanceof Float32Array ? capturedAudio : await toMono16k(capturedAudio);
+      console.warn('Mediabunny no pudo extraer el audio; probando decodificación local con FFmpeg WASM.', demuxError);
+      say('El decodificador nativo no admite esta pista. Activando FFmpeg local para extraer el audio sin reproducir el vídeo…');
+      try {
+        audio = await extractAudioWithFFmpegWasm(file, percent => say('Extrayendo audio localmente con FFmpeg: ' + percent + '%'));
+        say('Audio extraído con FFmpeg local: ' + (audio.length / 16000).toFixed(1) + ' segundos. Preparando Whisper…');
+      } catch (ffmpegError) {
+        console.warn('FFmpeg WASM tampoco pudo decodificar el archivo; último recurso: captura en tiempo real.', ffmpegError);
+        say('Falló la extracción directa (' + String(demuxError.message || demuxError) + ') y FFmpeg local (' + String(ffmpegError.message || ffmpegError) + '). Último recurso: reproducción local en tiempo real…');
+        const capturedAudio = await captureAudioFromVideo(file);
+        audio = capturedAudio instanceof Float32Array ? capturedAudio : await toMono16k(capturedAudio);
+      }
     }
     say('Cargando Transformers.js y el modelo Whisper abierto. La primera descarga puede tardar.');
     const { pipeline, env } = await import('https://esm.sh/@huggingface/transformers@3.7.2');
