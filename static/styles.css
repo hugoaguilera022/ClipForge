@@ -407,3 +407,21 @@ body[data-browser-only="true"] .cf-page[data-page="settings"] .publish{display:n
  #cfWorkspace.cf-single-page .browser-export .export-settings{grid-template-columns:1fr 1fr}
  #cfWorkspace.cf-single-page .editor-preview{grid-template-columns:1fr}
 }
+
+
+/* Functional NLE timeline lanes */
+.editor-timeline-lane{position:relative;min-width:0;margin:10px 0 14px;padding:20px 0 0}
+.editor-time-ruler{position:absolute;inset:0 0 auto;height:17px;border-bottom:1px solid #303947;color:#778395;font:10px/1 ui-monospace,monospace}
+.editor-time-ruler span{position:absolute;transform:translateX(-50%);top:2px}
+.editor-time-ruler span:first-child{transform:none}
+.editor-time-ruler span:last-child{transform:translateX(-100%)}
+.editor-track-rail{position:relative;height:38px;overflow:hidden;border:1px solid #303947;border-radius:8px;background:repeating-linear-gradient(90deg,rgba(255,255,255,.045) 0,rgba(255,255,255,.045) 1px,transparent 1px,transparent 25%) ,#0b1018}
+.editor-timeline-block{position:absolute;top:4px;height:28px;min-width:18px;width:auto;padding:0 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:1px solid rgba(255,255,255,.22);border-radius:6px;background:#315c49;color:#effff5;font-size:10px;font-weight:700;text-align:left}
+.editor-timeline-block.video{background:#315c49}
+.editor-timeline-block.subtitle{background:#5b4b83}
+.editor-timeline-block.text-layer{background:#315b80}
+.editor-timeline-block.audio{background:#795333}
+.editor-timeline-block.image{background:#42606c}
+.editor-timeline-block:hover{filter:brightness(1.22);outline:1px solid var(--accent)}
+.editor-track-head{flex-wrap:wrap}
+@media(max-width:680px){.editor-timeline-lane{margin:8px 0 12px}.editor-track-rail{height:34px}.editor-timeline-block{height:24px;top:4px;font-size:9px;padding:0 5px}}
