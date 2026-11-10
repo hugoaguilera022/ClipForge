@@ -1170,3 +1170,9 @@ body.cf-opus-stage-editor #cfWorkspace .cf-opus-tab{font-size:10px!important;whi
 #cfWorkspace #browserTranscript{display:block;width:100%;min-height:210px;resize:vertical;padding:12px;border:1px solid #3b3e4b;border-radius:8px;background:#090b11;color:#e9edf4;font:12px/1.65 ui-monospace,monospace;box-sizing:border-box}
 #cfWorkspace .cf-transcript-actions{display:flex;gap:8px;flex-wrap:wrap}
 #cfWorkspace .cf-transcript-actions button{min-height:36px;padding:8px 12px;border:1px solid #414451;border-radius:7px;background:#20232d;color:#f1f2f5;font-size:11px;font-weight:700}
+
+
+/* Visible Whisper controls: the selects must survive the workspace shell replacement. */
+#cfWorkspace .cf-opus-asr-options{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0 4px;padding:12px;border:1px solid #343746;border-radius:10px;background:#141720}
+#cfWorkspace .cf-opus-asr-options label{display:grid;gap:6px;min-width:190px;color:#aeb4c1;font-size:11px;font-weight:700}
+#cfWorkspace .cf-opus-asr-options select{min-height:38px;padding:8px 10px;border:1px solid #414654;border-radius:7px;background:#090d15;color:#f4f5f7}
