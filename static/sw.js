@@ -1,7 +1,7 @@
 // Invalidates legacy caches including clipforge-web-v144 so the current browser engine loads.
 // Browser engine is served from the single canonical /browser-whisper.js source.
 // v180 invalidates the old app shell after the editorial engine bridge update.
-// v181 is the previous cache generation; v183 forces the PCM extraction fix to clients.
+// Invalidates previous cache clipforge-web-v181; v183 forces the PCM extraction fix to clients.
 const CACHE='clipforge-web-v183';
 const FILES=['/','/styles.css','/app.js','/browser-whisper.js','/editor.js','/browser-export.js','/browser-url.js','/manifest.webmanifest'];
 self.addEventListener('install',event=>{
