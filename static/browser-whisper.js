@@ -920,6 +920,12 @@ function parseEditorialDecision(raw, candidates, limit = 4, requireAudit = false
     // Missing dimensions trigger the constrained repair pass; they never become a silent score fallback.
     if(!validRubric)continue;
     if(requireAudit&&Number(rubric.importance)<6.5)continue; // Reject moments that are not materially important.
+    const importanceEvidence=String(item.importance_evidence||'').trim();
+    if(requireAudit){
+      const normalizeEvidence=value=>String(value||'').toLowerCase().normalize('NFD').replace(/\\p{Diacritic}/gu,'').replace(/[^\\p{L}\\p{N}]+/gu,' ').trim();
+      const quote=normalizeEvidence(importanceEvidence),transcript=normalizeEvidence(clip.text);
+      if(quote.split(' ').filter(Boolean).length<4||!transcript.includes(quote))continue;
+    }
     const editorialScore=validRubric?Math.round((
       Number(rubric.importance)*4+Number(rubric.story)*1.5+Number(rubric.payoff)*1.5+
       Number(rubric.completeness)*1.5+Number(rubric.clarity)*1+Number(rubric.emotion)*.2+
@@ -931,7 +937,7 @@ function parseEditorialDecision(raw, candidates, limit = 4, requireAudit = false
       ai_editorial_rank: selected.length + 1,
       ai_editorial_score: Math.max(0,Math.min(100,editorialScore)),
       ai_editorial_rubric: validRubric?Object.fromEntries(rubricKeys.map(key=>[key,Number(rubric[key])])):null,
-      ai_editorial_reason: String(item.reason || '').slice(0, 240),
+      ai_editorial_reason: String(item.reason || '').slice(0, 240),\n      ai_editorial_importance_evidence: importanceEvidence.slice(0, 160),
       selection_method: selectionMethod,
       ai_editorial_audit_verdict:requireAudit?item.audit_verdict:null,
       ai_editorial_audit_flags:requireAudit?auditFlags:[]
@@ -1082,7 +1088,7 @@ async function askEditorialModel(engine, pool, count, onProgress, phase) {
     'Prefiere el fragmento completo más corto que conserve la premisa y el remate. Busca variedad de temas y formatos. El idioma puede ser español o inglés.',
     'No inventes hechos ni cambies los tiempos. Solo puedes elegir IDs de esta lista.',
     'En esta ronda elige exactamente '+count+' fragmentos. '+phase,
-    'Devuelve SOLO JSON válido: {"selected":[{"id":1,"score":92,"rubric":{"hook":9,"story":8,"payoff":9,"clarity":9,"completeness":10,"emotion":8,"pacing":8,"originality":9,"importance":9},"title":"título breve","reason":"razón editorial concreta que identifica premisa y payoff"}]}.',
+    'Devuelve SOLO JSON válido: {"selected":[{"id":1,"score":92,"rubric":{"hook":9,"story":8,"payoff":9,"clarity":9,"completeness":10,"emotion":8,"pacing":8,"originality":9,"importance":9},"title":"título breve","reason":"qué aporta este momento al contenido y por qué es importante","importance_evidence":"cita literal de al menos cuatro palabras consecutivas del diálogo que demuestra su importancia"}]}.',
     'CANDIDATOS:',JSON.stringify(shortlist)
   ].join('\n');
   onProgress(phase);
@@ -1164,7 +1170,7 @@ async function aiEditorialSelect(candidates, limit = 4, onProgress = () => {}) {
     'Audita TODOS los finalistas desde cero. No favorezcas provisional=true: puede ser un error de la primera votación.',
     'Tu prioridad es comprobar que el momento aporta algo importante al contenido y que el corte conserva su sentido. Importancia: nueva información, explicación clave, ejemplo concreto, decisión, conflicto, revelación, cambio, consecuencia, resultado o conclusión relevante. No confundas volumen, risa o frase llamativa con importancia. Rechaza cortes que dependan de contexto externo, ideas incompletas, ASR ininteligible, relleno y duplicados. No exijas un gancho espectacular ni un remate cómico.',
     'Compara primero la importancia del contenido y después la claridad y autonomía del corte. No evalúes retención probable, viralidad ni popularidad del tema. Si un provisional aporta menos que una alternativa, sustitúyelo. No inventes palabras ni cambies timestamps.',
-    'Devuelve exactamente '+limit+' IDs distintos y no solapados. Incluye la rúbrica completa hook, story, payoff, clarity, completeness, emotion, pacing, originality e importance (0-10), title y reason. Añade audit_verdict="pass" y audit_flags=[] si no detectas defecto; si hay defectos en otros candidatos, no los selecciones.',
+    'Devuelve exactamente '+limit+' IDs distintos y no solapados. Incluye la rúbrica completa hook, story, payoff, clarity, completeness, emotion, pacing, originality e importance (0-10), title, reason e importance_evidence. importance_evidence debe ser una cita literal de al menos cuatro palabras consecutivas del transcript de ese candidato; no la inventes ni la parafrasees. La razón debe explicar qué aporta al vídeo, no solo describir la escena. Añade audit_verdict="pass" y audit_flags=[] si no detectas defecto; si hay defectos en otros candidatos, no los selecciones.',
     'Devuelve SOLO JSON válido con la misma estructura {"selected":[...]}.',
     'FINALISTAS PARA AUDITAR:',JSON.stringify(auditInput)
   ].join('\n');
@@ -1249,7 +1255,7 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
  editableCandidates.forEach((c,i)=>{
   const card=document.createElement('article');card.className='candidate-card';
   const heading=document.createElement('strong');heading.textContent=(c.selection_method==='local_generative_editor'||c.selection_method==='remote_generative_editor')?(c.title+' · valoración IA '+c.ai_editorial_score+'/100'):(c.title+' · candidato para revisión');
-  const rationale=document.createElement('small');rationale.className='candidate-rationale';rationale.textContent=c.ai_editorial_reason || (c.reasons||[]).join(' · ') || 'Fragmento propuesto para evaluación';
+  const rationale=document.createElement('small');rationale.className='candidate-rationale';rationale.textContent=[c.ai_editorial_reason,c.ai_editorial_importance_evidence?('Evidencia: «'+c.ai_editorial_importance_evidence+'»'):null].filter(Boolean).join(' · ') || (c.reasons||[]).join(' · ') || 'Fragmento propuesto para evaluación';
   const preview=document.createElement('button');preview.type='button';preview.className='secondary preview-clip-candidate';preview.textContent='Vista previa';preview.addEventListener('click',()=>window.clipforgeEditorBridge?.previewClip?.(c));
   const selectLabel=document.createElement('label');selectLabel.className='candidate-select';
   const select=document.createElement('input');select.type='checkbox';select.checked=c.selected!==false;
