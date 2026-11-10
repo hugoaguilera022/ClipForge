@@ -82,6 +82,13 @@
       window.setTimeout(()=>transcribe.click(),250);
     }
   });
+  // The language/model controls must remain in the live DOM; the original engine
+  // container is replaced, so detached selects silently forced Whisper to auto/base.
+  const asrOptions=document.createElement('div');asrOptions.className='cf-opus-asr-options';
+  const languageLabel=language?.closest('label'),modelLabel=model?.closest('label');
+  if(languageLabel)asrOptions.append(languageLabel);if(modelLabel)asrOptions.append(modelLabel);
+  asrOptions.setAttribute('aria-label','Ajustes de transcripción');
+  const uploadRow=app.querySelector('.cf-opus-upload-row');if(uploadRow)uploadRow.after(asrOptions);
   const auto=app.querySelector('.cf-opus-auto');auto?.addEventListener('click',()=>transcribe?.click());
   let activeCard=null,activeIndex=-1;const originalCardNodes=new WeakMap();
   const results=$('#cfResults'),editorScreen=$('#cfEditor'),resultSlot=app.querySelector('.cf-opus-candidates-slot'),editorSlot=app.querySelector('.cf-opus-editor-slot');
