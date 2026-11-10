@@ -37,8 +37,7 @@ function timeVtt(seconds) {
 async function captureAudioFromVideo(file) {
   const video = document.createElement('video');
   const objectUrl = URL.createObjectURL(file);
-  let stream;
-  let recorder;
+  let stream, recorder, audioContext, sourceNode;
   try {
     video.muted = false;
     video.playsInline = true;
@@ -46,24 +45,44 @@ async function captureAudioFromVideo(file) {
     video.src = objectUrl;
     await new Promise((resolve, reject) => {
       video.onloadedmetadata = resolve;
-      video.onerror = () => reject(new Error('El navegador no pudo abrir el vídeo.'));
+      video.onerror = () => reject(new Error('El navegador no pudo abrir el vídeo para extraer el audio.'));
     });
+
+    // Prefer native media capture where available (Chromium/Firefox).
     const capture = video.captureStream || video.mozCaptureStream;
-    if (!capture) throw new Error('Este navegador no permite extraer audio local. Prueba Chrome o Edge actualizado.');
-    stream = capture.call(video);
+    if (capture) {
+      stream = capture.call(video);
+    } else {
+      // Safari does not implement HTMLMediaElement.captureStream().
+      // Route the locally decoded media element through Web Audio instead.
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) throw new Error('El navegador no ofrece captura multimedia ni Web Audio para extraer el audio local.');
+      audioContext = new AudioCtx();
+      const destination = audioContext.createMediaStreamDestination();
+      sourceNode = audioContext.createMediaElementSource(video);
+      sourceNode.connect(destination);
+      stream = destination.stream;
+      if (audioContext.state === 'suspended') await audioContext.resume();
+    }
+
     const audioTracks = stream.getAudioTracks();
-    if (!audioTracks.length) throw new Error('El vídeo no contiene una pista de audio reconocible.');
+    if (!audioTracks.length) throw new Error('El vídeo se ha abierto, pero el navegador no expone una pista de audio.');
+    if (typeof MediaRecorder === 'undefined') throw new Error('Este navegador no dispone de MediaRecorder para guardar el audio extraído.');
     const audioStream = new MediaStream(audioTracks);
-    const mime = ['audio/webm;codecs=opus', 'audio/webm'].find(x => MediaRecorder.isTypeSupported(x));
-    if (!mime) throw new Error('MediaRecorder no admite un formato de audio compatible.');
-    recorder = new MediaRecorder(audioStream, { mimeType: mime });
+    const mimeCandidates = [
+      'audio/mp4;codecs=mp4a.40.2',
+      'audio/mp4',
+      'audio/webm;codecs=opus',
+      'audio/webm'
+    ];
+    const mime = mimeCandidates.find(type => MediaRecorder.isTypeSupported?.(type));
+    recorder = mime ? new MediaRecorder(audioStream, { mimeType: mime }) : new MediaRecorder(audioStream);
     const chunks = [];
     const done = new Promise((resolve, reject) => {
-      recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
-      recorder.onerror = () => reject(new Error('Falló la extracción de audio.'));
-      recorder.onstop = () => resolve(new Blob(chunks, { type: mime }));
+      recorder.ondataavailable = event => { if (event.data?.size) chunks.push(event.data); };
+      recorder.onerror = event => reject(new Error(event.error?.message || 'Falló la grabación del audio decodificado.'));
+      recorder.onstop = () => resolve(new Blob(chunks, { type: recorder.mimeType || mime || 'audio/mp4' }));
     });
-    // Start recording before playback so the first audio samples are not lost.
     recorder.start(1000);
     await video.play();
     await new Promise((resolve, reject) => {
@@ -71,12 +90,17 @@ async function captureAudioFromVideo(file) {
       video.onerror = () => reject(new Error('El vídeo falló durante la extracción de audio.'));
     });
     if (recorder.state !== 'inactive') recorder.stop();
-    return await done;
+    const blob = await done;
+    if (!blob.size) throw new Error('La extracción terminó sin generar datos de audio.');
+    return blob;
   } finally {
     try { if (recorder && recorder.state !== 'inactive') recorder.stop(); } catch {}
-    try { stream?.getTracks().forEach(t => t.stop()); } catch {}
+    try { sourceNode?.disconnect(); } catch {}
+    try { stream?.getTracks().forEach(track => track.stop()); } catch {}
+    try { await audioContext?.close(); } catch {}
     video.pause();
     video.removeAttribute('src');
+    video.load();
     URL.revokeObjectURL(objectUrl);
   }
 }
