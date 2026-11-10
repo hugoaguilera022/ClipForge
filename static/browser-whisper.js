@@ -772,6 +772,8 @@ async function connectColabEditorialEngine(){
     editorialEnginePromise=createRemoteEditorialEngine({url:parsed.origin,token});
     status.textContent='Conectado y comprobado: '+data.model+' en Colab. La inferencia editorial se ejecutará en esa sesión temporal.';
     button.textContent='Motor conectado';
+    const panel=document.querySelector('[aria-labelledby="colabEditorTitle"]');
+    if(panel){panel.hidden=true;let reveal=panel.previousElementSibling;if(!reveal||reveal.id!=='revealColabSettings'){reveal=document.createElement('button');reveal.type='button';reveal.id='revealColabSettings';reveal.className='secondary';reveal.textContent='Gestionar conexión de IA en la nube';panel.parentNode.insertBefore(reveal,panel);}reveal.hidden=false;reveal.onclick=()=>{panel.hidden=!panel.hidden;reveal.textContent=panel.hidden?'Gestionar conexión de IA en la nube':'Ocultar configuración de IA en la nube';};}
   }catch(error){localStorage.removeItem(COLAB_EDITOR_KEY);editorialEnginePromise=null;status.textContent='No se pudo conectar: '+String(error.message||error);}
   finally{button.disabled=false;}
 }
@@ -860,16 +862,19 @@ function createFederatedFreeAIEngine(providers,onProgress,localFallback=null){ l
 function initFreeAIProviderSettings(){
  const root=document.querySelector('#freeAIProviderSettings');if(!root||root.dataset.ready)return;root.dataset.ready='1';
  const status=root.querySelector('#freeAIProviderStatus');
- const paint=()=>{for(const id of Object.keys(FREE_AI_PROVIDERS)){const input=root.querySelector('[data-provider-key="'+id+'"]');if(input)input.value=readFreeAIKeys()[id]||'';}if(status)status.textContent=freeAIKeysLoaded?Object.keys(readFreeAIKeys()).length+' proveedor(es) guardados en tu cuenta de ClipForge.':'Inicia sesión para cargar las claves guardadas en tu cuenta.';};
+ const toggle=document.createElement('button');toggle.type='button';toggle.className='secondary';toggle.textContent='Gestionar proveedores IA';toggle.hidden=true;root.parentNode.insertBefore(toggle,root);
+ toggle.addEventListener('click',()=>{root.hidden=!root.hidden;toggle.textContent=root.hidden?'Gestionar proveedores IA':'Ocultar configuración de proveedores';});
+ const syncVisibility=()=>{const configured=freeAIKeysLoaded&&Object.keys(readFreeAIKeys()).length>0;if(configured&&!root.dataset.expanded){root.hidden=true;toggle.hidden=false;}else if(!configured){root.hidden=false;toggle.hidden=true;}};
+ const paint=()=>{for(const id of Object.keys(FREE_AI_PROVIDERS)){const input=root.querySelector('[data-provider-key="'+id+'"]');if(input)input.value=readFreeAIKeys()[id]||'';}if(status)status.textContent=freeAIKeysLoaded?Object.keys(readFreeAIKeys()).length+' proveedor(es) guardados en tu cuenta de ClipForge.':'Inicia sesión para cargar las claves guardadas en tu cuenta.';syncVisibility();};
  paint();
  root.querySelector('#saveFreeAIProviders')?.addEventListener('click',async()=>{
   const button=root.querySelector('#saveFreeAIProviders');button.disabled=true;if(status)status.textContent='Guardando de forma privada en tu cuenta…';
-  try{const values={};for(const id of Object.keys(FREE_AI_PROVIDERS))values[id]=root.querySelector('[data-provider-key="'+id+'"]')?.value||'';const saved=await saveFreeAIKeys(values);if(status)status.textContent=Object.keys(saved).length+' proveedor(es) guardados en tu cuenta. Se recuperarán al iniciar sesión.';}
+  try{const values={};for(const id of Object.keys(FREE_AI_PROVIDERS))values[id]=root.querySelector('[data-provider-key="'+id+'"]')?.value||'';const saved=await saveFreeAIKeys(values);if(status)status.textContent=Object.keys(saved).length+' proveedor(es) guardados en tu cuenta. Se recuperarán al iniciar sesión.';root.dataset.expanded='';syncVisibility();}
   catch(error){if(status)status.textContent='No se pudo guardar: '+(error.message||error);}
   finally{button.disabled=false;}
  });
  root.querySelector('#clearFreeAIProviders')?.addEventListener('click',async()=>{
-  try{await saveFreeAIKeys({});root.querySelectorAll('[data-provider-key]').forEach(input=>input.value='');if(status)status.textContent='Claves eliminadas de tu cuenta.';}
+  try{await saveFreeAIKeys({});root.querySelectorAll('[data-provider-key]').forEach(input=>input.value='');if(status)status.textContent='Claves eliminadas de tu cuenta.';root.dataset.expanded='';syncVisibility();}
   catch(error){if(status)status.textContent='No se pudo eliminar: '+(error.message||error);}
  });
  window.addEventListener('clipforge:session',async event=>{if(event.detail?.session){const result=await loadFreeAIKeysFromCloud();if(result.ok)paint();else if(status)status.textContent='No se pudieron cargar las claves: '+result.error;}else{freeAIKeysCache={};freeAIKeysLoaded=false;paint();}});
