@@ -123,6 +123,14 @@ assert.equal(judged[0].selection_method,'local_generative_editor');
 assert.equal(judged[0].start,0,'AI cannot invent or alter source timestamps');
 assert.throws(()=>context.parseDecision(JSON.stringify({selected:[1,1,3,4].map(id=>({id}))}),judgePool,4),/candidatos válidos/);
 assert.throws(()=>context.parseDecision(JSON.stringify({selected:[1,2,3,99].map(id=>({id}))}),judgePool,4),/candidatos válidos/);
+const auditPool=[{start:0,end:22,text:'An important explanation changes the whole story.'}];
+const validAudit=JSON.stringify({selected:[{id:1,score:90,rubric:{hook:5,story:8,payoff:8,clarity:9,completeness:9,emotion:4,pacing:8,originality:7,importance:9},title:'Important explanation',reason:'It changes what the viewer understands.',importance_evidence:'important explanation changes the whole story',audit_verdict:'pass',audit_flags:[]}]});
+assert.equal(context.parseDecision(validAudit,auditPool,1,true).length,1,'audit must accept a literal quote grounded in the clip');
+const inventedAudit=validAudit.replace('important explanation changes the whole story','This quote is entirely invented here');
+assert.throws(()=>context.parseDecision(inventedAudit,auditPool,1,true),/candidatos válidos/,'audit must reject evidence absent from the clip transcript');
+const shortAudit=validAudit.replace('important explanation changes the whole story','whole story');
+assert.throws(()=>context.parseDecision(shortAudit,auditPool,1,true),/candidatos válidos/,'audit must reject evidence shorter than four words');
+
 console.log('Generative editor validation passed: only grounded IDs and non-overlapping source times are accepted.');
 
 // Candidate generation creates a broad, neutral transcript grid and does not
