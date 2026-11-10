@@ -923,3 +923,106 @@ body.cf-stage-editor #browserCandidateList>p{color:#a8afbd}
 .cf-clip-subtitle-block span{display:block;padding-left:3px;color:#17120f;font-size:8px;white-space:nowrap}
 @media(max-width:850px){body.cf-stage-editor .candidate-card.is-open{grid-template-columns:1fr;grid-template-areas:"title" "preview" "subtitles" "timeline" "actions"}body.cf-stage-editor .candidate-card.is-open .cf-inline-player{position:relative;top:auto}body.cf-stage-editor .candidate-filmstrip{max-height:520px}}
 @media(max-width:520px){body.cf-stage-results #browserEngine,body.cf-stage-editor #browserEngine{padding:0 10px}body.cf-stage-editor .candidate-card.is-open{padding:10px}body.cf-stage-editor .cf-subtitle-style-controls{grid-template-columns:1fr 68px 38px 38px 40px}}
+
+
+/* Real two-screen product flow: no export interstitial; edit one selected clip at a time */
+body.cf-opus-stage-results #cfWorkspace .cf-opus-announcement,
+body.cf-opus-stage-results #cfWorkspace .cf-opus-nav,
+body.cf-opus-stage-results #cfWorkspace .cf-opus-hero,
+body.cf-opus-stage-results #cfWorkspace .cf-opus-showcase,
+body.cf-opus-stage-results #cfWorkspace .cf-opus-editor,
+body.cf-opus-stage-results #cfWorkspace .cf-opus-export-slot,
+body.cf-opus-stage-results #cfWorkspace .cf-opus-footer{display:none!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-announcement,
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-nav,
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-hero,
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-showcase,
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-results,
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-export-slot,
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-footer{display:none!important}
+body.cf-opus-stage-results #cfWorkspace .cf-opus-main,
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-main{max-width:1600px;padding:42px clamp(18px,4vw,64px)}
+body.cf-opus-stage-results #cfWorkspace .cf-opus-results{display:block!important;max-width:none;margin:0}
+body.cf-opus-stage-results #cfWorkspace .cf-opus-section-head{align-items:center;margin:0 0 24px}
+body.cf-opus-stage-results #cfWorkspace .cf-opus-section-head h2{font-size:34px}
+body.cf-opus-stage-results #cfWorkspace #browserCandidates{padding:0;border:0;background:transparent;box-shadow:none}
+body.cf-opus-stage-results #cfWorkspace #browserCandidateList{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}
+body.cf-opus-stage-results #cfWorkspace .candidate-card{display:flex;flex-direction:column;gap:12px;min-width:0;padding:14px;border:1px solid #292930;border-radius:15px;background:#111115;cursor:pointer}
+body.cf-opus-stage-results #cfWorkspace .candidate-card>strong{font-size:14px;color:#f6f6f8}
+body.cf-opus-stage-results #cfWorkspace .candidate-filmstrip{width:100%;height:390px;max-height:none;aspect-ratio:9/16;object-fit:cover;border-radius:10px}
+body.cf-opus-stage-results #cfWorkspace .cf-inline-player-controls,
+body.cf-opus-stage-results #cfWorkspace .cf-clip-timeline,
+body.cf-opus-stage-results #cfWorkspace .cf-inline-subtitles,
+body.cf-opus-stage-results #cfWorkspace .candidate-export-one,
+body.cf-opus-stage-results #cfWorkspace .candidate-select{display:none!important}
+body.cf-opus-stage-results #cfWorkspace .cf-open-clip-editor{display:block;width:100%;min-height:43px;border:0;border-radius:9px;background:#fff;color:#09090b;font-weight:800}
+body.cf-opus-stage-results #cfWorkspace .cf-results-toolbar{display:flex;align-items:center;gap:18px;margin:0 0 26px}
+body.cf-opus-stage-results #cfWorkspace .cf-results-toolbar>div{display:grid;gap:5px}
+body.cf-opus-stage-results #cfWorkspace .cf-results-toolbar strong{font-size:28px;color:#fff}
+body.cf-opus-stage-results #cfWorkspace .cf-results-toolbar small{font-size:12px;color:#9898a2}
+body.cf-opus-stage-results #cfWorkspace .cf-back-source{border:1px solid #35353e;background:#17171d;color:#eee;border-radius:9px;padding:10px 14px}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-editor{display:block!important;max-width:none;margin:0}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-section-head{display:flex;align-items:center;justify-content:flex-start;gap:18px;margin:0 0 20px}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-section-head h2{font-size:26px;color:#fff}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-section-head .cf-opus-back{order:-1}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-editor-slot{width:100%}
+body.cf-opus-stage-editor #cfWorkspace .candidate-card.cf-opus-editing-card{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;padding:0;border:0;background:transparent;box-shadow:none;cursor:default}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-clip-title{font-size:17px;color:#f5f5f7}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-editor-layout{display:grid;grid-template-columns:minmax(320px,1.05fr) minmax(390px,.95fr);gap:14px;align-items:stretch}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-player-column{display:flex;align-items:center;justify-content:center;min-height:620px;padding:16px;border:1px solid #303039;border-radius:13px;background:#08080b}
+body.cf-opus-stage-editor #cfWorkspace .cf-inline-player{position:relative;width:min(100%,430px);margin:0;padding:0;border:0;background:transparent}
+body.cf-opus-stage-editor #cfWorkspace .candidate-filmstrip{display:block;width:100%;height:auto;max-height:660px;aspect-ratio:9/16;object-fit:contain;border-radius:6px;background:#000}
+body.cf-opus-stage-editor #cfWorkspace .cf-inline-player-controls{display:flex;align-items:center;gap:10px;margin-top:12px}
+body.cf-opus-stage-editor #cfWorkspace .cf-inline-player-controls .cf-player-volume{max-width:120px}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-inspector{min-width:0;padding:0;border:1px solid #303039;border-radius:13px;background:#121217;overflow:hidden}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-inspector-tabs{display:flex;gap:0;overflow-x:auto;border-bottom:1px solid #303039;background:#18181f}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-tab{flex:1;min-width:90px;padding:15px 10px;border:0;border-bottom:2px solid transparent;background:transparent;color:#9b9ba6;font-size:12px;font-weight:700;cursor:pointer}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-tab.is-active{border-bottom-color:#42cdbb;color:#55d5c6}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-inspector-panes{padding:14px}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-pane{display:none}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-pane.is-active{display:block}
+body.cf-opus-stage-editor #cfWorkspace .cf-inline-subtitles{margin:0;padding:0;border:0;background:transparent}
+body.cf-opus-stage-editor #cfWorkspace .cf-inline-subtitles-head{display:none}
+body.cf-opus-stage-editor #cfWorkspace .cf-subtitle-style-controls{grid-template-columns:minmax(110px,1fr) 70px 40px 40px 40px;gap:7px}
+body.cf-opus-stage-editor #cfWorkspace .cf-subtitle-style-controls select,
+body.cf-opus-stage-editor #cfWorkspace .cf-subtitle-style-controls input{height:36px;background:#20202a;border:1px solid #41414c;color:#f4f4f6}
+body.cf-opus-stage-editor #cfWorkspace .cf-subtitle-live-preview{margin:12px 0;padding:14px;background:#08080b!important;border:1px solid #34343d;color:#fff}
+body.cf-opus-stage-editor #cfWorkspace .cf-subtitle-rows{max-height:420px;overflow:auto}
+body.cf-opus-stage-editor #cfWorkspace .cf-subtitle-row{grid-template-columns:110px minmax(0,1fr) 66px;gap:7px;padding:8px 0;border-bottom:1px solid #292932}
+body.cf-opus-stage-editor #cfWorkspace .cf-subtitle-row input,
+body.cf-opus-stage-editor #cfWorkspace .cf-subtitle-row textarea,
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-pane input,
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-pane textarea{background:#09090e;border:1px solid #3b3b46;color:#f3f3f6;border-radius:7px;padding:8px}
+body.cf-opus-stage-editor #cfWorkspace .cf-subtitle-row button,
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-add-overlay{min-height:34px;border:0;border-radius:7px;background:#f2f2f5;color:#09090b;font-size:11px;font-weight:800}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-pane-title{margin:2px 0 14px;color:#f5f5f7;font-size:14px;font-weight:800}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-pane label{display:grid;gap:6px;margin:12px 0;color:#a5a5b0;font-size:11px}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-pane p{color:#a1a1ad;font-size:12px;line-height:1.6}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-text-times{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-add-overlay{width:100%;padding:10px}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-overlay-item{padding:9px;margin-top:8px;border-radius:7px;background:#20202a;color:#ddd;font-size:11px}
+body.cf-opus-stage-editor #cfWorkspace .cf-clip-timeline{padding:18px;border:1px solid #303039;border-radius:13px;background:#121217}
+body.cf-opus-stage-editor #cfWorkspace .cf-clip-overview-head,
+body.cf-opus-stage-editor #cfWorkspace .cf-clip-zoom-title{color:#aaaab4}
+body.cf-opus-stage-editor #cfWorkspace .cf-clip-overview-rail,
+body.cf-opus-stage-editor #cfWorkspace .cf-clip-zoom-rail{background:#25252e}
+body.cf-opus-stage-editor #cfWorkspace .cf-clip-subtitle-track{height:34px;background:#20202a}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-editor-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 0}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-back{min-height:40px;padding:0 14px;border:1px solid #41414b;border-radius:8px;background:#1b1b23;color:#eee;font-weight:700;cursor:pointer}
+body.cf-opus-stage-editor #cfWorkspace .candidate-export-one{min-height:44px;padding:0 20px;border:0;border-radius:8px;background:#fff;color:#09090b;font-weight:850}
+body.cf-opus-stage-editor #cfWorkspace .candidate-select{color:#b4b4bf;font-size:11px}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-export-slot{display:none!important}
+@media(max-width:900px){
+ body.cf-opus-stage-results #cfWorkspace #browserCandidateList{grid-template-columns:repeat(2,minmax(0,1fr))}
+ body.cf-opus-stage-editor #cfWorkspace .cf-opus-editor-layout{grid-template-columns:minmax(0,1fr)}
+ body.cf-opus-stage-editor #cfWorkspace .cf-opus-player-column{min-height:0}
+ body.cf-opus-stage-editor #cfWorkspace .candidate-filmstrip{max-height:500px}
+}
+@media(max-width:560px){
+ body.cf-opus-stage-results #cfWorkspace .cf-opus-main,body.cf-opus-stage-editor #cfWorkspace .cf-opus-main{padding:22px 12px}
+ body.cf-opus-stage-results #cfWorkspace #browserCandidateList{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+ body.cf-opus-stage-results #cfWorkspace .candidate-filmstrip{height:240px}
+ body.cf-opus-stage-editor #cfWorkspace .cf-opus-inspector-tabs{position:sticky;top:0;z-index:2}
+ body.cf-opus-stage-editor #cfWorkspace .cf-subtitle-row{grid-template-columns:1fr}
+ body.cf-opus-stage-editor #cfWorkspace .cf-subtitle-row button{grid-column:1}
+}
