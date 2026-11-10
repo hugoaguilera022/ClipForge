@@ -1157,3 +1157,16 @@ body.cf-opus-stage-editor #cfWorkspace .cf-opus-inspector-tabs{grid-template-col
 body.cf-opus-stage-editor #cfWorkspace .cf-opus-tab{font-size:10px!important;white-space:normal}
 @media(max-width:900px){body.cf-opus-stage-editor #cfWorkspace .cf-opus-player-column{grid-template-columns:42px minmax(0,1fr)!important}}
 @media(max-width:560px){body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar{flex-wrap:wrap}body.cf-opus-stage-editor #cfWorkspace .cf-editor-project{flex-wrap:wrap}body.cf-opus-stage-editor #cfWorkspace .cf-opus-player-column{grid-template-columns:1fr!important}body.cf-opus-stage-editor #cfWorkspace .cf-editor-tool-rail{flex-direction:row;overflow:auto;justify-content:flex-start}body.cf-opus-stage-editor #cfWorkspace .cf-editor-tool{min-width:54px}}
+
+
+/* Keep the complete Whisper transcript visible after the workspace shell replaces the source form. */
+#cfWorkspace .cf-transcript-panel{display:grid;gap:10px;margin:18px 0;padding:16px;border:1px solid #343746;border-radius:12px;background:#11131a}
+#cfWorkspace .cf-transcript-panel[hidden]{display:none!important}
+#cfWorkspace .cf-transcript-panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}
+#cfWorkspace .cf-transcript-panel-head>div{display:grid;gap:5px}
+#cfWorkspace .cf-transcript-panel-head strong{font-size:15px;color:#f4f4f6}
+#cfWorkspace .cf-transcript-panel-head small{font-size:11px;line-height:1.5;color:#a4a8b4}
+#cfWorkspace .cf-transcript-count{white-space:nowrap;padding:6px 9px;border:1px solid #365a54;border-radius:20px;color:#6cddc7;font-size:10px}
+#cfWorkspace #browserTranscript{display:block;width:100%;min-height:210px;resize:vertical;padding:12px;border:1px solid #3b3e4b;border-radius:8px;background:#090b11;color:#e9edf4;font:12px/1.65 ui-monospace,monospace;box-sizing:border-box}
+#cfWorkspace .cf-transcript-actions{display:flex;gap:8px;flex-wrap:wrap}
+#cfWorkspace .cf-transcript-actions button{min-height:36px;padding:8px 12px;border:1px solid #414451;border-radius:7px;background:#20232d;color:#f1f2f5;font-size:11px;font-weight:700}
