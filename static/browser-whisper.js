@@ -1413,6 +1413,18 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
  window.dispatchEvent(new CustomEvent('clipforge:clips-updated'));
 }
 
+function startAutomaticClipExport(){
+  const exportButton=document.querySelector('#browserExportClips');
+  if(!exportButton)return;
+  const selected=(window.clipforgeEditorBridge?.getProject?.().clips||[]).filter(c=>c.selected!==false);
+  if(selected.length!==4){
+    say(`Se han preparado ${selected.length} clips seleccionados. Se necesitan cuatro para completar la exportación automática.`);
+    return;
+  }
+  say('Los cuatro momentos están seleccionados. Iniciando ahora el renderizado local de los cuatro MP4…');
+  window.setTimeout(()=>exportButton.click(),350);
+}
+
 function attachTranscriptToJobForm(vtt) {
   const input = document.querySelector('#transcript');
   if (!input) return false;
@@ -1532,11 +1544,14 @@ runButton?.addEventListener('click', async () => {
           // is unavailable. This is an explicitly labelled heuristic fallback,
           // never presented as an AI editorial decision.
           // Keep the heuristic path visibly distinct from the generative selector: no se presentan cortes heurísticos como selección IA.
-          showClipCandidates(transcriptData.segments, audio.length / 16000, null, audio, visualSamples);          say(`El editor IA local no está disponible (${editorError.message}). Se han generado candidatos de respaldo mediante reglas locales para que puedas revisarlos y exportarlos; no se presentan como selección editorial IA. Para la selección generativa, usa Chrome/Edge actualizado con WebGPU.`);
+          showClipCandidates(transcriptData.segments, audio.length / 16000, null, audio, visualSamples);
+          say(`El editor IA local no está disponible (${editorError.message}). Se han generado cuatro candidatos de respaldo mediante reglas locales; no se presentan como selección editorial IA. Iniciando su renderizado para que puedas revisar los MP4.`);
+          startAutomaticClipExport();
           return;
         }
       }
       showClipCandidates(transcriptData.segments, audio.length / 16000, candidatePool, audio, visualSamples);
+      startAutomaticClipExport();
       const vtt = makeVtt(transcriptData.segments);
       const attached = attachTranscriptToJobForm(vtt);
       say(`Transcripción lista: ${transcriptData.segments.length} fragmentos temporizados. ${attached ? 'Subtítulos y cortes seleccionados conectados al formulario de producción.' : 'Descarga el JSON para conservarla.'} Whisper no identifica hablantes.`);
@@ -1557,8 +1572,9 @@ runButton?.addEventListener('click', async () => {
       // It uses audio activity to suggest moments for music, gameplay and B-roll.
       showClipCandidates([], audio.length / 16000, null, audio, visualSamples);
       say(editableCandidates.length
-        ? `No se detectó diálogo temporizado. Se han propuesto ${editableCandidates.length} momentos mediante actividad sonora; revisa los cortes antes de exportar.`
+        ? `No se detectó diálogo temporizado. Se han propuesto ${editableCandidates.length} momentos mediante actividad sonora. Iniciando el renderizado de los MP4.`
         : 'No se detectó diálogo ni suficiente actividad sonora para proponer cortes.');
+      startAutomaticClipExport();
     }
     if (download) download.disabled = !result.text;
     if (saveProjectButton) saveProjectButton.disabled = !transcriptData?.segments?.length;
