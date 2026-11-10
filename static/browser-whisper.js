@@ -790,8 +790,41 @@ const FREE_AI_PROVIDERS={
  openrouter:{label:'OpenRouter',endpoint:'https://openrouter.ai/api/v1/chat/completions',model:'openrouter/free'}
 };
 const FREE_AI_KEYS='clipforge.free-ai-keys.v1';
-function readFreeAIKeys(){try{return JSON.parse(localStorage.getItem(FREE_AI_KEYS)||'{}')||{};}catch{return {};}}
-function saveFreeAIKeys(values){const clean={};for(const id of Object.keys(FREE_AI_PROVIDERS)){const key=String(values[id]||'').trim();if(key)clean[id]=key;}localStorage.setItem(FREE_AI_KEYS,JSON.stringify(clean));return clean;}
+let freeAIKeysCache={};
+let freeAIKeysLoaded=false;
+function readFreeAIKeys(){return {...freeAIKeysCache};}
+function cleanFreeAIKeys(values){const clean={};for(const id of Object.keys(FREE_AI_PROVIDERS)){const key=String(values[id]||'').trim();if(key)clean[id]=key;}return clean;}
+async function loadFreeAIKeysFromCloud(){
+ const client=window.clipforgeSupabase;
+ if(!client)return {ok:false,error:'El módulo de cuenta todavía no está disponible.'};
+ const {data:{session}}=await client.auth.getSession();
+ if(!session?.user){freeAIKeysCache={};freeAIKeysLoaded=false;return {ok:false,error:'Inicia sesión con Google para cargar tus proveedores.'};}
+ const {data,error}=await client.from('clipforge_user_settings').select('provider_keys').eq('user_id',session.user.id).maybeSingle();
+ if(error)return {ok:false,error:error.message};
+ let keys=data?.provider_keys||{};
+ if(!data){
+  let legacy={};try{legacy=JSON.parse(localStorage.getItem(FREE_AI_KEYS)||'{}')||{};}catch{}
+  keys=cleanFreeAIKeys(legacy);
+  if(Object.keys(keys).length){
+   const saved=await client.from('clipforge_user_settings').upsert({user_id:session.user.id,provider_keys:keys,updated_at:new Date().toISOString()},{onConflict:'user_id'});
+   if(saved.error)return {ok:false,error:saved.error.message};
+  }
+ }
+ freeAIKeysCache=cleanFreeAIKeys(keys);freeAIKeysLoaded=true;
+ try{localStorage.removeItem(FREE_AI_KEYS);}catch{}
+ return {ok:true,keys:freeAIKeysCache};
+}
+async function saveFreeAIKeys(values){
+ const clean=cleanFreeAIKeys(values),client=window.clipforgeSupabase;
+ if(!client)throw new Error('No se ha conectado Supabase.');
+ const {data:{session}}=await client.auth.getSession();
+ if(!session?.user)throw new Error('Inicia sesión con Google antes de guardar las claves.');
+ const {error}=await client.from('clipforge_user_settings').upsert({user_id:session.user.id,provider_keys:clean,updated_at:new Date().toISOString()},{onConflict:'user_id'});
+ if(error)throw error;
+ freeAIKeysCache=clean;freeAIKeysLoaded=true;
+ try{localStorage.removeItem(FREE_AI_KEYS);}catch{}
+ return clean;
+}
 function configuredFreeAIProviders(){const keys=readFreeAIKeys();return Object.keys(FREE_AI_PROVIDERS).filter(id=>keys[id]).map(id=>({id,...FREE_AI_PROVIDERS[id],key:keys[id]}));}
 let freeAIRoundRobin=0;
 function createFederatedFreeAIEngine(providers,onProgress,localFallback=null){ let localEnginePromise=null;
@@ -817,14 +850,21 @@ function createFederatedFreeAIEngine(providers,onProgress,localFallback=null){ l
 }
 function initFreeAIProviderSettings(){
  const root=document.querySelector('#freeAIProviderSettings');if(!root||root.dataset.ready)return;root.dataset.ready='1';
- for(const id of Object.keys(FREE_AI_PROVIDERS)){const input=root.querySelector('[data-provider-key="'+id+'"]');if(input)input.value=readFreeAIKeys()[id]||'';}
  const status=root.querySelector('#freeAIProviderStatus');
- root.querySelector('#saveFreeAIProviders')?.addEventListener('click',()=>{
-  const values={};for(const id of Object.keys(FREE_AI_PROVIDERS))values[id]=root.querySelector('[data-provider-key="'+id+'"]')?.value||'';
-  const saved=saveFreeAIKeys(values);if(status)status.textContent=Object.keys(saved).length+' proveedor(es) configurado(s). Las claves se guardan solo en este navegador; no se envían a ClipForge ni a Render.';
+ const paint=()=>{for(const id of Object.keys(FREE_AI_PROVIDERS)){const input=root.querySelector('[data-provider-key="'+id+'"]');if(input)input.value=readFreeAIKeys()[id]||'';}if(status)status.textContent=freeAIKeysLoaded?Object.keys(readFreeAIKeys()).length+' proveedor(es) guardados en tu cuenta de ClipForge.':'Inicia sesión para cargar las claves guardadas en tu cuenta.';};
+ paint();
+ root.querySelector('#saveFreeAIProviders')?.addEventListener('click',async()=>{
+  const button=root.querySelector('#saveFreeAIProviders');button.disabled=true;if(status)status.textContent='Guardando de forma privada en tu cuenta…';
+  try{const values={};for(const id of Object.keys(FREE_AI_PROVIDERS))values[id]=root.querySelector('[data-provider-key="'+id+'"]')?.value||'';const saved=await saveFreeAIKeys(values);if(status)status.textContent=Object.keys(saved).length+' proveedor(es) guardados en tu cuenta. Se recuperarán al iniciar sesión.';}
+  catch(error){if(status)status.textContent='No se pudo guardar: '+(error.message||error);}
+  finally{button.disabled=false;}
  });
- root.querySelector('#clearFreeAIProviders')?.addEventListener('click',()=>{localStorage.removeItem(FREE_AI_KEYS);root.querySelectorAll('[data-provider-key]').forEach(input=>input.value='');if(status)status.textContent='Claves eliminadas de este navegador.';});
- if(status)status.textContent=Object.keys(readFreeAIKeys()).length+' proveedor(es) configurado(s). Las claves nunca se envían a ClipForge/Render.';
+ root.querySelector('#clearFreeAIProviders')?.addEventListener('click',async()=>{
+  try{await saveFreeAIKeys({});root.querySelectorAll('[data-provider-key]').forEach(input=>input.value='');if(status)status.textContent='Claves eliminadas de tu cuenta.';}
+  catch(error){if(status)status.textContent='No se pudo eliminar: '+(error.message||error);}
+ });
+ window.addEventListener('clipforge:session',async event=>{if(event.detail?.session){const result=await loadFreeAIKeysFromCloud();if(result.ok)paint();else if(status)status.textContent='No se pudieron cargar las claves: '+result.error;}else{freeAIKeysCache={};freeAIKeysLoaded=false;paint();}});
+ if(window.clipforgeSupabase){loadFreeAIKeysFromCloud().then(result=>{if(result.ok)paint();else if(status)status.textContent=result.error;});}
 }
 initFreeAIProviderSettings();
 async function loadLocalEditorialJudge(onProgress=()=>{}){
