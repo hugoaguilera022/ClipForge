@@ -41,7 +41,7 @@
     editor.querySelector(':scope > p.muted')?.remove();
   }
   if(candidates){const h=candidates.querySelector('.section-head h3');if(h)h.textContent='Tus cuatro clips';candidates.querySelector(':scope > p.muted')?.remove();candidates.querySelector('.project-transfer')?.remove();}
-  if(exportPanel){const h=exportPanel.querySelector('h3');if(h)h.textContent='Exportar';exportPanel.querySelector(':scope > p.hint')?.remove();}
+  if(exportPanel){const h=exportPanel.querySelector('h3');if(h)h.textContent='Exportar';exportPanel.querySelector(':scope > p.hint')?.remove();const btn=exportPanel.querySelector('#browserExportClips');if(btn)btn.textContent='Exportar todos los clips';}
   main.replaceWith(shell);shell.append(side,content);if(oldHeader)oldHeader.remove();
   function activate(id){
     pages.forEach(p=>{panes[p.id].hidden=p.id!==id;const b=side.querySelector('[data-target="'+p.id+'"]');b.classList.toggle('active',p.id===id);});
