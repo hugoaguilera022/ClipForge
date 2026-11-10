@@ -165,26 +165,25 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
               const upper=landmarks[13],lower=landmarks[14];
               const mouthOpen=upper&&lower?Math.abs(Number(lower.y)-Number(upper.y))/faceHeight:0;
               let track=speakerTracks.filter(t=>!seen.includes(t)).sort((x,y)=>Math.abs(x.center-center)-Math.abs(y.center-center))[0];
-              if(!track||Math.abs(track.center-center)>.16){track={center,previousMouth:mouthOpen,activity:0,samples:0};speakerTracks.push(track);}
+              if(!track||Math.abs(track.center-center)>.16){track={center,previousMouth:mouthOpen,activity:0,samples:0,faceArea:faceHeight*faceWidth};speakerTracks.push(track);}
               const motion=Math.abs(mouthOpen-track.previousMouth);
               track.activity=track.activity*.72+Math.min(1,motion*7+mouthOpen*.12)*.28;
               track.center=track.center*.65+center*.35;
+              track.faceArea=faceHeight*faceWidth;
               track.previousMouth=mouthOpen;track.samples++;track.lastSeen=frameNumber;
               seen.push(track);
             }
             if(seen.length)faceSamples++;
             for(let i=speakerTracks.length-1;i>=0;i--)if(frameNumber-speakerTracks[i].lastSeen>45)speakerTracks.splice(i,1);
-            if(seen.length===1){
-              activeSpeakerTrack=seen[0];
-              const desired=seen[0].center*sourceWidth;
+            if(seen.length){
+              // In group shots, keep the largest visible face centered rather
+              // than disabling tracking altogether. This is visual subject
+              // tracking, not speaker diarization.
+              const primary=[...seen].sort((a,b)=>(b.faceArea||0)-(a.faceArea||0))[0];
+              activeSpeakerTrack=primary;
+              const desired=primary.center*sourceWidth;
               lastFaceCenter=lastFaceCenter===null?desired:lastFaceCenter*.78+desired*.22;
-            }else if(seen.length>1){
-              // In a multi-person shot, mouth motion alone is not reliable
-              // diarization. Do not guess which face is speaking: preserve the
-              // complete group in the portrait canvas with a blurred fill.
-              lastFaceCenter=null;
-              activeSpeakerTrack=null;
-            }else if(!seen.length&&poseLandmarker){
+            }else if(poseLandmarker){
               const poseResult=poseLandmarker.detectForVideo(sourceCanvas,Math.max(0,Math.round(stamp*1000)));
               const poses=poseResult?.landmarks||[];
               const candidates=poses.map(points=>{
@@ -243,7 +242,8 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
   const buffer=output.target.buffer;
   if(!buffer||buffer.byteLength<1024)throw new Error('El render terminó sin generar un MP4 válido.');
   const blob=new Blob([buffer],{type:'video/mp4'});
-  return {blob,bytes:blob.size,duration:clip.end-clip.start,trackingMode,faceSamples,poseSamples,name:`clipforge-${String(index+1).padStart(2,'0')}.mp4`};
+  const verifiedTrackingMode=faceSamples>0?'seguimiento facial':poseSamples>0?'seguimiento corporal de respaldo':'encuadre vertical seguro sin detección de persona';
+  return {blob,bytes:blob.size,duration:clip.end-clip.start,trackingMode:verifiedTrackingMode,faceSamples,poseSamples,name:`clipforge-${String(index+1).padStart(2,'0')}.mp4`};
 }
 
 exportButton?.addEventListener('click',async()=>{
