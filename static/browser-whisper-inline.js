@@ -1387,7 +1387,7 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
  const videoDuration=Math.max(1,Number(duration)||1);
  const timeLabel=seconds=>{const n=Math.max(0,Math.floor(seconds));return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0');};
  editableCandidates.forEach((c,i)=>{
-  const card=document.createElement('article');card.className='candidate-card';
+  const card=document.createElement('article');card.className='candidate-card';card.dataset.candidateIndex=String(i);
   const sourceFile=document.querySelector('#video')?.files?.[0];
   if(sourceFile){
     const key=`${sourceFile.name}:${sourceFile.size}:${sourceFile.lastModified}`;
@@ -1463,7 +1463,7 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
   const bindDrag=(handle,edge,target,zoomed=false)=>{handle.addEventListener('pointerdown',event=>{event.preventDefault();event.stopPropagation();handle.setPointerCapture?.(event.pointerId);const move=ev=>{const rect=target.getBoundingClientRect();let lo=0,hi=videoDuration;if(zoomed){const pad=Math.max(8,(c.end-c.start)*.65);lo=Math.max(0,c.start-pad);hi=Math.min(videoDuration,c.end+pad);}const f=Math.max(0,Math.min(1,(ev.clientX-rect.left)/Math.max(1,rect.width)));changeEdge(edge,lo+f*(hi-lo));};const stop=()=>{handle.removeEventListener('pointermove',move);handle.removeEventListener('pointerup',stop);handle.removeEventListener('pointercancel',stop);};handle.addEventListener('pointermove',move);handle.addEventListener('pointerup',stop);handle.addEventListener('pointercancel',stop);});handle.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight'].includes(event.key))return;event.preventDefault();const d=(event.shiftKey?1:.05)*(event.key==='ArrowLeft'?-1:1);changeEdge(edge,(edge==='start'?c.start:c.end)+d);});};
   bindDrag(zoomLeft,'start',zoomRail,true);bindDrag(zoomRight,'end',zoomRail,true);
   const heading=document.createElement('strong');heading.textContent=(c.selection_method==='local_generative_editor'||c.selection_method==='remote_generative_editor')?(c.title+' · valoración IA '+c.ai_editorial_score+'/100'):(c.title+' · candidato para revisión');
-  const exportSingle=document.createElement('button');exportSingle.type='button';exportSingle.className='secondary candidate-export-one';exportSingle.textContent='Exportar este clip';exportSingle.addEventListener('click',()=>{editableCandidates.forEach((candidate,j)=>{const checkbox=list.children[j]?.querySelector('.candidate-select input');if(checkbox&&checkbox.checked!==(j===i)){checkbox.checked=j===i;checkbox.dispatchEvent(new Event('change',{bubbles:true}));}});document.querySelector('#browserExportClips')?.click();});
+  const exportSingle=document.createElement('button');exportSingle.type='button';exportSingle.className='secondary candidate-export-one';exportSingle.textContent='Exportar este clip';exportSingle.addEventListener('click',()=>{editableCandidates.forEach((candidate,j)=>{candidate.selected=j===i;const checkbox=list.querySelector(`.candidate-card[data-candidate-index="${j}"] .candidate-select input`);if(checkbox)checkbox.checked=j===i;});sync();document.querySelector('#browserExportClips')?.click();});
   const selectLabel=document.createElement('label');selectLabel.className='candidate-select';
   const select=document.createElement('input');select.type='checkbox';select.checked=c.selected!==false;
   select.setAttribute('aria-label','Incluir clip en exportación');
