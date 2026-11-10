@@ -1,158 +1,83 @@
 (() => {
-  const main = document.querySelector('main');
-  const header = document.querySelector('body > header');
-  if (!main || document.getElementById('cfWorkspace')) return;
-  const $ = selector => document.querySelector(selector);
-  const engine = $('#browserEngine');
-  const drop = $('.drop');
-  const urlImport = $('.browser-url-import');
-  const engineControls = engine?.querySelector('.browser-transcribe-controls');
-  const transcribe = $('#browserTranscribe');
-  const candidates = $('#browserCandidates');
-  const editor = $('#projectEditor');
-  const exportPanel = $('.browser-export');
-  const capacity = $('#videoCapacity');
-  const language = $('#browserWhisperLanguage');
-  const model = $('#browserWhisperModel');
-
-  // Keep the existing processing engines and IDs intact; only rebuild the presentation.
-  if (language) language.value = 'auto';
-  if (model) model.value = 'whisper-base';
-  if (urlImport) { urlImport.hidden = true; urlImport.setAttribute('aria-hidden','true'); }
-  if (engineControls) { engineControls.hidden = true; engineControls.setAttribute('aria-hidden','true'); }
-  if (capacity) { capacity.hidden = true; capacity.setAttribute('aria-hidden','true'); }
-
-  const app = document.createElement('div');
-  app.id = 'cfWorkspace';
-  app.className = 'cf-opus-workspace';
-  app.innerHTML = `
+  const main=document.querySelector('main'),header=document.querySelector('body > header');
+  if(!main||document.getElementById('cfWorkspace'))return;
+  const $=s=>document.querySelector(s);
+  const engine=$('#browserEngine'),drop=$('.drop'),urlImport=$('.browser-url-import');
+  const controls=engine?.querySelector('.browser-transcribe-controls');
+  const transcribe=$('#browserTranscribe'),candidates=$('#browserCandidates');
+  const editor=$('#projectEditor'),exportPanel=$('.browser-export');
+  const language=$('#browserWhisperLanguage'),model=$('#browserWhisperModel');
+  if(language)language.value='auto';
+  if(model)model.value='whisper-base';
+  if(urlImport){urlImport.hidden=true;urlImport.setAttribute('aria-hidden','true');}
+  if(controls){controls.hidden=true;controls.setAttribute('aria-hidden','true');}
+  $('#videoCapacity')?.setAttribute('hidden','');
+  const app=document.createElement('div');app.id='cfWorkspace';app.className='cf-opus-workspace';
+  app.innerHTML=`
+    <div class="cf-opus-announcement">ClipForge AI Studio <span>Convierte un vídeo largo en clips listos para publicar</span><a href="#cfShowcase">Descubre cómo funciona ↓</a></div>
     <header class="cf-opus-nav">
-      <a class="cf-opus-brand" href="#" aria-label="ClipForge inicio"><span class="cf-opus-mark">c</span><span>clipforge</span></a>
-      <nav class="cf-opus-nav-links"><a href="#cfCreate">Crear clips</a><a href="#cfFeatures">Funciones</a><a href="#cfEditor">Editor</a></nav>
-      <div class="cf-opus-nav-right"><span class="cf-opus-free"><i></i> Gratis · procesamiento local</span><span id="cfHealthSlot"></span></div>
+      <a class="cf-opus-brand" href="#" aria-label="ClipForge"><span class="cf-opus-mark">C</span>ClipForge</a>
+      <nav><a href="#cfCreate">Crear clips</a><a href="#cfShowcase">Cómo funciona</a><a href="#cfResults">Mis clips</a></nav>
+      <div class="cf-opus-nav-right"><span class="cf-opus-free">● GRATIS · SIN API DE PAGO</span><span id="cfHealthSlot"></span></div>
     </header>
     <main class="cf-opus-main">
       <section class="cf-opus-hero" id="cfCreate">
-        <div class="cf-opus-hero-copy">
-          <span class="cf-opus-eyebrow"><i></i> AI VIDEO REPURPOSING STUDIO</span>
-          <h1>Un vídeo largo.<br><em>Cuatro clips que merecen verse.</em></h1>
-          <p>Convierte automáticamente tu vídeo en clips verticales con los mejores momentos, subtítulos dinámicos y encuadre inteligente.</p>
-          <div class="cf-opus-trust"><span>✦ Sin API de pago</span><span>✦ Español e inglés</span><span>✦ Tu vídeo permanece en tu dispositivo</span></div>
-        </div>
-        <section class="cf-opus-upload-card" aria-label="Subir vídeo">
-          <div class="cf-opus-upload-top"><div><span class="cf-opus-step">01</span><b>Empieza con tu vídeo</b></div><span class="cf-opus-format">MP4 · MOV · WEBM</span></div>
-          <div class="cf-opus-drop-slot"></div>
-          <div class="cf-opus-upload-bottom"><span id="cfUploadHint">Sube un vídeo y nosotros hacemos el resto.</span><span class="cf-opus-private">🔒 Procesamiento en tu navegador</span></div>
-          <div class="cf-opus-primary-action"></div>
-          <div id="cfProductionStatus" class="cf-opus-progress" role="status">Esperando tu vídeo para empezar.</div>
-        </section>
+        <span class="cf-opus-eyebrow">AI CLIP GENERATOR</span>
+        <h1>1 vídeo largo, 4 clips virales.<br><em>Crea contenido mucho más rápido.</em></h1>
+        <p>ClipForge analiza tu vídeo, encuentra los momentos con más potencial y los transforma en clips verticales con subtítulos.</p>
+        <div class="cf-opus-upload-row"><div class="cf-opus-drop-slot"></div><div class="cf-opus-primary-action"></div><button type="button" class="cf-opus-auto">Auto-edit <span>✦</span></button></div>
+        <div class="cf-opus-trust"><span>✓ Español e inglés</span><span>✓ Sin subir el vídeo a un servidor</span><span>✓ Sin suscripciones</span></div>
+        <div id="cfProductionStatus" class="cf-opus-progress" role="status">Sube un vídeo para generar automáticamente tus cuatro clips.</div>
       </section>
-      <section class="cf-opus-process" aria-label="Proceso automático">
-        <div class="cf-opus-process-head"><span>DEL ORIGINAL AL RESULTADO</span><span>Un solo paso para empezar</span></div>
-        <div class="cf-opus-steps">
-          <div class="cf-opus-step active"><i>1</i><span><b>Analizar</b><small>Audio, imagen y contexto</small></span></div>
-          <div class="cf-opus-step"><i>2</i><span><b>Seleccionar</b><small>Los cuatro mejores momentos</small></span></div>
-          <div class="cf-opus-step"><i>3</i><span><b>Editar</b><small>Vertical y subtítulos</small></span></div>
-          <div class="cf-opus-step"><i>4</i><span><b>Exportar</b><small>MP4 listo para publicar</small></span></div>
-        </div>
+      <section class="cf-opus-showcase" id="cfShowcase">
+        <div class="cf-opus-showcase-glow"></div>
+        <div class="cf-opus-demo-source"><div class="cf-opus-demo-frame"><video id="cfSourcePreview" muted playsinline controls></video><div class="cf-opus-demo-empty"><span>▶</span><b>Tu vídeo original</b><small>La vista previa aparecerá al seleccionar el archivo</small></div></div><span class="cf-opus-demo-duration">VÍDEO ORIGINAL</span></div>
+        <div class="cf-opus-demo-prompt"><span>↗</span><b>De un vídeo largo a momentos destacados</b><small>ClipForge analiza el contenido y prepara tus clips</small></div>
+        <div class="cf-opus-socials"><span class="yt">▶</span><span class="ig">◎</span><span class="in">in</span><span class="tt">♪</span><span class="fb">f</span><span class="xx">𝕏</span></div>
+        <div class="cf-opus-demo-clips"><div class="cf-opus-demo-clip"><i>01</i><b>Momento destacado</b><small>9:16 · Subtítulos</small></div><div class="cf-opus-demo-clip"><i>02</i><b>Historia / anécdota</b><small>9:16 · Subtítulos</small></div><div class="cf-opus-demo-clip"><i>03</i><b>Reacción / respuesta</b><small>9:16 · Subtítulos</small></div><div class="cf-opus-demo-clip"><i>04</i><b>Mejor momento</b><small>9:16 · Subtítulos</small></div></div>
+        <div class="cf-opus-real-results"></div>
       </section>
-      <section class="cf-opus-feature-strip" id="cfFeatures">
-        <article><span class="cf-opus-feature-icon">✦</span><div><b>Selección con contexto</b><small>Detecta historias, reacciones y momentos destacados.</small></div></article>
-        <article><span class="cf-opus-feature-icon">▤</span><div><b>Subtítulos dinámicos</b><small>Transcripción sincronizada en español e inglés.</small></div></article>
-        <article><span class="cf-opus-feature-icon">▣</span><div><b>Reencuadre inteligente</b><small>Formato 9:16 con seguimiento del sujeto.</small></div></article>
-      </section>
-      <section class="cf-opus-results" id="cfResults" hidden>
-        <div class="cf-opus-section-head"><div><span class="cf-opus-kicker">02 / TUS RESULTADOS</span><h2>Los momentos destacados</h2><p>Cuatro propuestas extraídas del vídeo original. Previsualiza y ajusta cada corte antes de exportar.</p></div><span class="cf-opus-result-pill">4 clips verticales</span></div>
-        <div class="cf-opus-candidates-slot"></div>
-      </section>
-      <section class="cf-opus-editor" id="cfEditor" hidden>
-        <div class="cf-opus-section-head"><div><span class="cf-opus-kicker">03 / ESTUDIO DE EDICIÓN</span><h2>Perfecciona tus clips</h2><p>Ajusta el corte, revisa el encuadre y prepara la versión final.</p></div></div>
-        <div class="cf-opus-editor-slot"></div>
-      </section>
+      <section class="cf-opus-results" id="cfResults" hidden><div class="cf-opus-section-head"><div><span class="cf-opus-kicker">TUS RESULTADOS</span><h2>Clips generados</h2><p>Previsualiza los cuatro momentos y ajusta cada corte.</p></div><span class="cf-opus-result-pill">4 clips · 9:16</span></div><div class="cf-opus-candidates-slot"></div></section>
+      <section class="cf-opus-editor" id="cfEditor" hidden><div class="cf-opus-section-head"><div><span class="cf-opus-kicker">EDITOR DE VÍDEO</span><h2>Perfecciona tus clips</h2></div></div><div class="cf-opus-editor-slot"></div></section>
       <section class="cf-opus-export-slot" hidden></section>
-      <footer class="cf-opus-footer"><span class="cf-opus-brand-small">clipforge</span><span>Hecho para convertir vídeos en historias que se comparten.</span><span>Procesamiento local · Gratis</span></footer>
+      <footer class="cf-opus-footer"><b>ClipForge</b><span>Un vídeo. Cuatro oportunidades de viralizar.</span><span>Procesamiento local · Gratis</span></footer>
     </main>`;
-  document.body.classList.add('cf-opus-body');
-  main.replaceWith(app);
-  const health = header?.querySelector('#health');
-  if (health) app.querySelector('#cfHealthSlot').append(health);
-  if (header) header.remove();
-  const dropSlot = app.querySelector('.cf-opus-drop-slot');
-  if (drop) dropSlot.append(drop);
-  const actionSlot = app.querySelector('.cf-opus-primary-action');
-  if (transcribe) { transcribe.textContent = 'Generar mis 4 clips'; actionSlot.append(transcribe); }
-  if (engine) {
-    const status = $('#browserWhisperStatus');
-    if (status) { status.classList.add('cf-opus-internal'); app.querySelector('.cf-opus-upload-card').append(status); }
-    engine.hidden = true;
-    engine.setAttribute('aria-hidden','true');
-  }
-  if (candidates) app.querySelector('.cf-opus-candidates-slot').append(candidates);
-  if (editor) {
-    const heading = editor.querySelector('.section-head');
-    if (heading) heading.remove();
-    editor.querySelector(':scope > p.muted')?.remove();
-    const preview = editor.querySelector('.editor-preview');
-    const settings = exportPanel?.querySelector('.export-settings');
-    if (preview && settings) {
-      const inspector = document.createElement('aside');
-      inspector.className = 'cf-opus-inspector';
-      inspector.innerHTML = '<span class="cf-opus-kicker">AJUSTES DEL CLIP</span><b>Estilo y formato</b><p>Personaliza el aspecto de tus subtítulos y el encuadre vertical.</p>';
-      inspector.append(settings);
-      preview.append(inspector);
-    }
+  document.body.classList.add('cf-opus-body');main.replaceWith(app);
+  const health=header?.querySelector('#health');if(health)app.querySelector('#cfHealthSlot').append(health);header?.remove();
+  if(drop)app.querySelector('.cf-opus-drop-slot').append(drop);
+  if(transcribe){transcribe.textContent='Get free clips';app.querySelector('.cf-opus-primary-action').append(transcribe);}
+  if(engine){const status=$('#browserWhisperStatus');if(status){status.classList.add('cf-opus-internal');app.querySelector('.cf-opus-hero').append(status);}engine.hidden=true;engine.setAttribute('aria-hidden','true');}
+  if(candidates)app.querySelector('.cf-opus-candidates-slot').append(candidates);
+  if(editor){
+    editor.querySelector('.section-head')?.remove();editor.querySelector(':scope > p.muted')?.remove();
+    const preview=editor.querySelector('.editor-preview'),settings=exportPanel?.querySelector('.export-settings');
+    if(preview&&settings){const aside=document.createElement('aside');aside.className='cf-opus-inspector';aside.innerHTML='<span class="cf-opus-kicker">AJUSTES</span><b>Estilo y formato</b>';aside.append(settings);preview.append(aside);}
     app.querySelector('.cf-opus-editor-slot').append(editor);
   }
-  if (exportPanel) {
-    const title = exportPanel.querySelector('h3');
-    if (title) title.textContent = 'Exportar tus clips';
-    exportPanel.querySelector(':scope > p.hint')?.remove();
-    const button = $('#browserExportClips');
-    if (button) button.textContent = 'Exportar todos los clips';
-    app.querySelector('.cf-opus-export-slot').append(exportPanel);
-  }
-
-  const progress = $('#cfProductionStatus');
-  let started = false;
-  let stage = 0;
-  function setStage(next) {
-    stage = Math.max(0,Math.min(4,next));
-    app.querySelectorAll('.cf-opus-step').forEach((item,index)=>{
-      item.classList.toggle('active',index===stage-1);
-      item.classList.toggle('done',index<stage-1);
-    });
-  }
-  function showResults() {
-    const results = app.querySelector('#cfResults');
-    const editing = app.querySelector('#cfEditor');
-    if (results) results.hidden = false;
-    if (editing) editing.hidden = false;
-    app.querySelector('.cf-opus-export-slot').hidden = false;
+  if(exportPanel){const h=exportPanel.querySelector('h3');if(h)h.textContent='Exportar clips';exportPanel.querySelector(':scope > p.hint')?.remove();if($('#browserExportClips'))$('#browserExportClips').textContent='Exportar los 4 clips';app.querySelector('.cf-opus-export-slot').append(exportPanel);}
+  const fileInput=$('#video'),sourceVideo=$('#cfSourcePreview'),empty=app.querySelector('.cf-opus-demo-empty');
+  fileInput?.addEventListener('change',()=>{
+    const file=fileInput.files?.[0];if(!file)return;
+    if(sourceVideo){sourceVideo.src=URL.createObjectURL(file);sourceVideo.hidden=false;sourceVideo.load();sourceVideo.play().catch(()=>{});}
+    if(empty)empty.hidden=true;
+    const filename=$('#filename');if(filename)filename.textContent=file.name;
+  });
+  const auto=app.querySelector('.cf-opus-auto');auto?.addEventListener('click',()=>transcribe?.click());
+  let stage=0;
+  function setStage(n){stage=n;app.querySelectorAll('.cf-opus-demo-clip').forEach((el,i)=>el.classList.toggle('active',i<Math.max(0,n-1)));}
+  function reveal(){
+    $('#cfResults').hidden=false;$('#cfEditor').hidden=false;app.querySelector('.cf-opus-export-slot').hidden=false;
+    const real=app.querySelector('.cf-opus-real-results');if(candidates&&real&&!real.contains(candidates))real.append(candidates);
     setStage(3);
   }
-  $('#video')?.addEventListener('change',()=>{
-    const file=$('#video')?.files?.[0];
-    if(!file||started)return;
-    started=true;
-    const hint=$('#cfUploadHint');
-    if(hint)hint.textContent=file.name+' · '+(file.size/1024/1024).toFixed(1)+' MB';
-    if(progress)progress.textContent='Vídeo recibido. Preparando análisis automático…';
-    setStage(1);
-    requestAnimationFrame(()=>setTimeout(()=>{
-      if($('#video')?.files?.[0]===file && transcribe && !transcribe.disabled) transcribe.click();
-      else started=false;
-    },300));
+  window.addEventListener('clipforge:transcription-progress',e=>{
+    const msg=String(e.detail?.message||'');const p=$('#cfProductionStatus');if(p&&msg)p.textContent=msg;
+    if(/transcrib|extrayendo|cargando whisper|analizando|ffmpeg/i.test(msg))setStage(1);
+    if(/selecci|candidato|generando clips|juez|editorial/i.test(msg))setStage(2);
+    if(/export/i.test(msg))setStage(4);
   });
-  window.addEventListener('clipforge:transcription-progress',event=>{
-    const message=String(event.detail?.message||'');
-    if(progress&&message)progress.textContent=message;
-    if(/transcrib|extrayendo|cargando whisper|analizando|ffmpeg/i.test(message))setStage(1);
-    if(/selecci|candidato|generando clips|juez|editorial/i.test(message))setStage(2);
-    if(/export/i.test(message))setStage(4);
-  });
-  window.addEventListener('clipforge:clips-updated',showResults);
-  window.addEventListener('clipforge:editor-ready',showResults);
+  window.addEventListener('clipforge:clips-updated',reveal);
+  window.addEventListener('clipforge:editor-ready',reveal);
   $('#browserExportClips')?.addEventListener('click',()=>setStage(4));
-  // If a project is restored, reveal its editing workspace as well.
-  if($('#browserCandidateList')?.children.length){showResults();}
+  if($('#browserCandidateList')?.children.length)reveal();
 })();
