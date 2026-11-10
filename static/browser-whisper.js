@@ -937,7 +937,8 @@ function parseEditorialDecision(raw, candidates, limit = 4, requireAudit = false
       ai_editorial_rank: selected.length + 1,
       ai_editorial_score: Math.max(0,Math.min(100,editorialScore)),
       ai_editorial_rubric: validRubric?Object.fromEntries(rubricKeys.map(key=>[key,Number(rubric[key])])):null,
-      ai_editorial_reason: String(item.reason || '').slice(0, 240),\n      ai_editorial_importance_evidence: importanceEvidence.slice(0, 160),
+      ai_editorial_reason: String(item.reason || '').slice(0, 240),
+      ai_editorial_importance_evidence: importanceEvidence.slice(0, 160),
       selection_method: selectionMethod,
       ai_editorial_audit_verdict:requireAudit?item.audit_verdict:null,
       ai_editorial_audit_flags:requireAudit?auditFlags:[]
