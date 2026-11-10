@@ -28,5 +28,5 @@ No son pruebas de importancia por sí solas: volumen, risas, insultos, palabras 
 - Para 96 candidatos, comparar en cuatro lotes cronológicos de 24, conservar cuatro opciones por lote, hacer votación global y auditoría final: seis llamadas como máximo si cada respuesta es válida.
 - No llamar a varios proveedores para la misma tarea si el primero responde correctamente.
 - Si falla el modelo generativo, mostrar candidatos locales claramente etiquetados como respaldo; nunca presentarlos como selección IA.
-- Validar timestamps, contexto, idea completa, ausencia de solapamiento y evidencia textual para la importancia.
+- Validar timestamps, contexto, idea completa, ausencia de solapamiento y evidencia textual para la importancia. La auditoría final debe aportar una cita literal de al menos cuatro palabras consecutivas del propio clip; el sistema la contrasta con la transcripción y rechaza citas inventadas o tomadas del contexto exterior.
 - No declarar la calidad editorial validada hasta revisar resultados de vídeos reales.
