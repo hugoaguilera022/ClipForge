@@ -49,7 +49,7 @@
   const health=header?.querySelector('#health');if(health)app.querySelector('#cfHealthSlot').append(health);header?.remove();
   if(drop)app.querySelector('.cf-opus-drop-slot').append(drop);
   if(transcribe){transcribe.textContent='Generar mis 4 clips';app.querySelector('.cf-opus-primary-action').append(transcribe);}
-  if(engine){const status=$('#browserWhisperStatus');if(status){status.classList.add('cf-opus-internal');app.querySelector('.cf-opus-hero').append(status);}engine.hidden=true;engine.setAttribute('aria-hidden','true');}
+  if(engine){const status=$('#browserWhisperStatus');if(status){status.classList.remove('cf-opus-internal');status.setAttribute('aria-live','polite');app.querySelector('.cf-opus-hero').append(status);}engine.hidden=true;engine.setAttribute('aria-hidden','true');}
   if(candidates)app.querySelector('.cf-opus-candidates-slot').append(candidates);
   if(editor){
     editor.querySelector('.section-head')?.remove();editor.querySelector(':scope > p.muted')?.remove();
@@ -64,6 +64,14 @@
     if(sourceVideo){sourceVideo.src=URL.createObjectURL(file);sourceVideo.hidden=false;sourceVideo.load();sourceVideo.play().catch(()=>{});}
     if(empty)empty.hidden=true;
     const filename=$('#filename');if(filename)filename.textContent=file.name;
+    // Selecting a source is the primary action in this one-screen workflow:
+    // start the local transcription/editorial pass automatically.
+    const progress=$('#cfProductionStatus');
+    if(progress)progress.textContent='Vídeo cargado. Preparando análisis local y selección de cuatro momentos…';
+    if(transcribe&&!fileInput.dataset.autoRunStarted){
+      fileInput.dataset.autoRunStarted='1';
+      window.setTimeout(()=>transcribe.click(),250);
+    }
   });
   const auto=app.querySelector('.cf-opus-auto');auto?.addEventListener('click',()=>transcribe?.click());
   let stage=0;
