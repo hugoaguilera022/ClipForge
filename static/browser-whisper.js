@@ -1392,11 +1392,13 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
   const film=document.createElement('video');film.className='candidate-filmstrip';film.muted=false;film.volume=.8;film.playsInline=true;film.preload='metadata';film.controls=false;film.setAttribute('aria-label','Vista previa integrada del clip');
   if(candidatePreviewUrl){film.src=candidatePreviewUrl;film.addEventListener('loadedmetadata',()=>{film.currentTime=Math.min(Math.max(0,Number(c.start)||0),Math.max(0,film.duration-.1));},{once:true});film.addEventListener('seeked',()=>film.pause(),{once:true});}
   const playerBar=document.createElement('div');playerBar.className='cf-inline-player-controls';
+  const seekBack=document.createElement('button');seekBack.type='button';seekBack.className='cf-player-seek';seekBack.textContent='↶ 5';seekBack.setAttribute('aria-label','Retroceder 5 segundos');seekBack.title='Retroceder 5 segundos';seekBack.addEventListener('click',()=>{if(Number.isFinite(film.duration))film.currentTime=Math.max(0,film.currentTime-5);});
   const play=document.createElement('button');play.type='button';play.className='cf-player-play';play.textContent='▶';play.setAttribute('aria-label','Reproducir');play.addEventListener('click',async()=>{if(film.paused){try{await film.play();}catch{} }else film.pause();});
+  const seekForward=document.createElement('button');seekForward.type='button';seekForward.className='cf-player-seek';seekForward.textContent='5 ↷';seekForward.setAttribute('aria-label','Avanzar 5 segundos');seekForward.title='Avanzar 5 segundos';seekForward.addEventListener('click',()=>{if(Number.isFinite(film.duration))film.currentTime=Math.min(film.duration,film.currentTime+5);});
   film.addEventListener('play',()=>{play.textContent='Ⅱ';play.setAttribute('aria-label','Pausar');});film.addEventListener('pause',()=>{play.textContent='▶';play.setAttribute('aria-label','Reproducir');});
   const volumeIcon=document.createElement('span');volumeIcon.className='cf-player-volume-icon';volumeIcon.textContent='🔊';
   const volume=document.createElement('input');volume.type='range';volume.className='cf-player-volume';volume.min='0';volume.max='1';volume.step='.01';volume.value='.8';volume.setAttribute('aria-label','Volumen');volume.addEventListener('input',()=>{film.volume=Number(volume.value);film.muted=film.volume===0;volumeIcon.textContent=film.muted?'🔇':'🔊';});
-  playerBar.append(play,volumeIcon,volume);player.append(film,playerBar);
+  playerBar.append(seekBack,play,seekForward,volumeIcon,volume);player.append(film,playerBar);
   const timeline=document.createElement('div');timeline.className='cf-clip-timeline';timeline.setAttribute('aria-label','Ajuste preciso de inicio y final');
   const zoomWrap=document.createElement('div');zoomWrap.className='cf-clip-zoom-wrap';
   const overviewHead=document.createElement('div');overviewHead.className='cf-clip-overview-head';overviewHead.textContent='Vídeo completo · referencia';
