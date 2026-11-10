@@ -300,3 +300,18 @@ body[data-browser-only="true"] .cf-page[data-page="settings"] .publish{display:n
  #cfWorkspace .editor-clip input[type=text]{grid-column:1/-1}
  #cfWorkspace .browser-export .export-settings{grid-template-columns:1fr 1fr}
 }
+
+/* Minimal editorial controls: clip-by-clip and export-all. */
+#cfWorkspace .candidate-rationale,
+#cfWorkspace .candidate-select,
+#cfWorkspace .candidate-list>p,
+#cfWorkspace .candidate-list>button{display:none!important}
+#cfWorkspace .candidate-card{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}
+#cfWorkspace .candidate-card>strong{grid-column:1/-1;font-size:14px}
+#cfWorkspace .candidate-card>.preview-clip-candidate{justify-self:start}
+#cfWorkspace .candidate-card>.candidate-export-one{justify-self:end}
+#cfWorkspace .candidate-edit-grid{grid-column:1/-1;margin:0}
+#cfWorkspace .candidate-card>textarea{grid-column:1/-1;min-height:58px}
+#cfWorkspace .candidate-card .candidate-edit-grid input{min-height:38px}
+#cfWorkspace .editor-track-items .editor-empty{font-size:12px}
+#cfWorkspace .browser-export .section-head h3{font-size:18px}
