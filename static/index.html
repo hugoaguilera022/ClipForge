@@ -19,16 +19,7 @@ los crea automáticamente</span><input id="transcript" name="transcript" type="f
 <small id="browserYoutubeStatus" class="muted">Descarga temporal mediante un servicio gratuito limitado; el análisis y la edición se realizan en tu navegador.</small>
 </div>
 <label for="browserVideoUrl">O carga una URL directa de vídeo compatible</label><div class="browser-url-row"><input id="browserVideoUrl" type="url" placeholder="https://servidor.com/video.mp4"><button type="button" class="secondary" id="loadBrowserVideoUrl">Cargar URL</button></div><small>Debe ser un enlace directo al archivo y permitir CORS. Las páginas de YouTube no son enlaces directos de vídeo.</small></div>
-  <section class="colab-editor-connection" id="freeAIProviderSettings" aria-labelledby="freeAIProviderTitle">
-    <b id="freeAIProviderTitle">Cadena de proveedores IA gratuitos (opcional)</b>
-    <p class="muted">Añade tus propias claves de Gemini, Groq y OpenRouter. ClipForge rota las peticiones editoriales entre los proveedores configurados y pasa al siguiente si uno limita o falla. Las claves se guardan en tu cuenta de ClipForge mediante Supabase y se recuperan al iniciar sesión con Google. Cada usuario solo puede leer y modificar sus propias claves; las peticiones editoriales se envían directamente al proveedor elegido desde tu navegador. Cada servicio mantiene sus propios límites y condiciones; no se garantiza disponibilidad ni cuota.</p>
-    <label>Google Gemini API key<input type="password" autocomplete="off" data-provider-key="gemini" placeholder="AIza…"></label>
-    <label>Groq API key<input type="password" autocomplete="off" data-provider-key="groq" placeholder="gsk_…"></label>
-    <label>OpenRouter API key<input type="password" autocomplete="off" data-provider-key="openrouter" placeholder="sk-or-v1-…"></label>
-    <div class="browser-transcribe-controls"><button type="button" class="secondary" id="saveFreeAIProviders">Guardar proveedores</button><button type="button" class="secondary" id="clearFreeAIProviders">Eliminar claves</button></div>
-    <small id="freeAIProviderStatus" role="status">Inicia sesión con Google para guardar y recuperar tus proveedores en tu cuenta.</small>
-    <small>Consigue las claves en las páginas oficiales: <a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener">Gemini</a> · <a href="https://console.groq.com/keys" target="_blank" rel="noopener">Groq</a> · <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">OpenRouter</a>. Usa únicamente planes que indiquen explícitamente coste 0.</small>
-  </section>
+  
   <section class="colab-editor-connection" aria-labelledby="colabEditorTitle">
     <b id="colabEditorTitle">Motor editorial IA gratuito en la nube (opcional)</b>
     <p class="muted">Conecta una sesión temporal de Google Colab: usa Qwen3 8B si hay GPU suficiente y Qwen3 4B como alternativa. No necesita API de pago. La sesión gratuita puede desconectarse y no es ilimitada; si no está conectada, ClipForge intenta el motor local compatible.</p>
