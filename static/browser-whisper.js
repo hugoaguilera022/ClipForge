@@ -1158,7 +1158,7 @@ async function aiEditorialSelect(candidates, limit = 4, onProgress = () => {}) {
   // It is deliberately blind to the first vote's scores and reasons: it sees
   // only the candidate evidence and which IDs were provisionally selected.
   // This is an independent judgment pass, not a claim of a second model.
-  onProgress('Juez editorial de control: auditando contexto, gancho y remate…');
+  onProgress('Segunda pasada editorial: comprobando importancia, contexto y evidencia literal…');
   const auditInput=finalPool.map((clip,index)=>({
     id:index+1,start:Number(clip.start.toFixed(1)),end:Number(clip.end.toFixed(1)),
     transcript:String(clip.text||'').replace(/\\s+/g,' ').slice(0,620),
@@ -1167,22 +1167,36 @@ async function aiEditorialSelect(candidates, limit = 4, onProgress = () => {}) {
     provisional:firstVote.some(p=>Math.abs(p.start-clip.start)<0.05&&Math.abs(p.end-clip.end)<0.05)
   }));
   const auditPrompt=[
-    'Eres un auditor editorial independiente y escéptico. No eres el editor que hizo la primera selección.',
-    'Audita TODOS los finalistas desde cero. No favorezcas provisional=true: puede ser un error de la primera votación.',
+    'Eres un revisor editorial en una segunda pasada adversarial. Reevalúa el material desde cero y cuestiona la primera votación.',
+    'Revisa TODOS los finalistas desde cero. No favorezcas provisional=true: puede ser un error de la primera votación. Esta segunda pasada usa el mismo modelo, así que debe buscar activamente errores y no fingir independencia técnica.',
     'Tu prioridad es comprobar que el momento aporta algo importante al contenido y que el corte conserva su sentido. Importancia: nueva información, explicación clave, ejemplo concreto, decisión, conflicto, revelación, cambio, consecuencia, resultado o conclusión relevante. No confundas volumen, risa o frase llamativa con importancia. Rechaza cortes que dependan de contexto externo, ideas incompletas, ASR ininteligible, relleno y duplicados. No exijas un gancho espectacular ni un remate cómico.',
     'Compara primero la importancia del contenido y después la claridad y autonomía del corte. No evalúes retención probable, viralidad ni popularidad del tema. Si un provisional aporta menos que una alternativa, sustitúyelo. No inventes palabras ni cambies timestamps.',
     'Devuelve exactamente '+limit+' IDs distintos y no solapados. Incluye la rúbrica completa hook, story, payoff, clarity, completeness, emotion, pacing, originality e importance (0-10), title, reason e importance_evidence. importance_evidence debe ser una cita literal de al menos cuatro palabras consecutivas del transcript de ese candidato; no la inventes ni la parafrasees. La razón debe explicar qué aporta al vídeo, no solo describir la escena. Añade audit_verdict="pass" y audit_flags=[] si no detectas defecto; si hay defectos en otros candidatos, no los selecciones.',
     'Devuelve SOLO JSON válido con la misma estructura {"selected":[...]}.',
     'FINALISTAS PARA AUDITAR:',JSON.stringify(auditInput)
   ].join('\n');
-  const audit=await engine.chat.completions.create({messages:[
-    {role:'system',content:'Actúas como revisor editorial independiente. Busca motivos para DESCARTAR, no para confirmar. Responde solo JSON válido.'},
+  const auditRequest={messages:[
+    {role:'system',content:'Actúas como revisor editorial de segunda pasada. Busca motivos para DESCARTAR, no para confirmar. Responde solo JSON válido.'},
     {role:'user',content:auditPrompt}
-  ],temperature:0.05,max_tokens:Math.min(4096,700+limit*260),response_format:{type:'json_object'}});
-  const audited=parseEditorialDecision(audit?.choices?.[0]?.message?.content||'',finalPool,limit,true,engine.isRemote?'remote_generative_editor':'local_generative_editor');
+  ],temperature:0.05,max_tokens:Math.min(4096,700+limit*260),response_format:{type:'json_object'}};
+  let audited;
+  let auditRaw='';
+  try{
+    const audit=await engine.chat.completions.create(auditRequest);
+    auditRaw=audit?.choices?.[0]?.message?.content||'';
+    audited=parseEditorialDecision(auditRaw,finalPool,limit,true,engine.isRemote?'remote_generative_editor':'local_generative_editor');
+  }catch(firstAuditError){
+    onProgress('Segunda pasada: corrigiendo citas no verificables o clips que no superan la auditoría…');
+    const retry=await engine.chat.completions.create({...auditRequest,messages:[
+      ...auditRequest.messages,
+      {role:'assistant',content:String(auditRaw).slice(0,5000)},
+      {role:'user',content:'La auditoría anterior no ha superado la validación: '+String(firstAuditError.message||firstAuditError)+'. Devuelve exactamente cuatro candidatos distintos, sin solapamiento, con importance >= 6.5, audit_verdict="pass", audit_flags=[] y una cita literal de al menos cuatro palabras consecutivas que aparezca en el transcript de su propio candidato. No inventes citas. Si no puedes demostrarlo, elige otro candidato. Devuelve JSON válido únicamente.'}
+    ],temperature:0.02});
+    audited=parseEditorialDecision(retry?.choices?.[0]?.message?.content||'',finalPool,limit,true,engine.isRemote?'remote_generative_editor':'local_generative_editor');
+  }
   const firstKeys=new Set(firstVote.map(c=>`${c.start.toFixed(1)}-${c.end.toFixed(1)}`));
   return audited.map((clip,index)=>({...clip,
-    ai_editorial_audit:'independent_critic_pass',
+    ai_editorial_audit:'second_pass_audit_pass',
     ai_editorial_consensus:firstKeys.has(`${clip.start.toFixed(1)}-${clip.end.toFixed(1)}`)?'both_passes':'critic_replacement',
     ai_editorial_rank:index+1
   }));
@@ -1271,7 +1285,7 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
   a.addEventListener('change',update);b.addEventListener('change',update);note.addEventListener('input',update);
   row.append(a,b);card.append(heading,rationale,preview,selectLabel,row,note);list.append(card);
  });
- const info=document.createElement('p');info.textContent=editableCandidates.every(c=>c.selection_method==='local_generative_editor')?'Selección editorial realizada por un modelo generativo local. La IA compara el contenido y explica por qué ha elegido cada momento; revisa el resultado antes de exportar.':'Ventanas de transcripción sin selección editorial confirmada.';list.append(info);sync();
+ const info=document.createElement('p');info.textContent=editableCandidates.every(c=>c.selection_method==='local_generative_editor'||c.selection_method==='remote_generative_editor')?'Selección editorial realizada por un modelo generativo. Cada clip incluye evidencia textual que justifica su importancia y supera una segunda pasada de auditoría; revisa el resultado antes de exportar.':'Candidatos de respaldo sin selección editorial generativa confirmada.';list.append(info);sync();
  window.dispatchEvent(new CustomEvent('clipforge:clips-updated'));
 }
 
