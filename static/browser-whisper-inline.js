@@ -1514,6 +1514,9 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
   const subtitleTrackRuler=document.createElement('div');subtitleTrackRuler.className='cf-subtitle-track-ruler';
   for(let tick=0;tick<=4;tick++){const mark=document.createElement('span');mark.textContent=(Number(c.start)+(Number(c.end)-Number(c.start))*tick/4).toFixed(1)+'s';mark.style.left=(tick*25)+'%';subtitleTrackRuler.append(mark);}
   const subtitleTrackRail=document.createElement('div');subtitleTrackRail.className='cf-subtitle-track-rail';
+  const subtitlePlayhead=document.createElement('div');subtitlePlayhead.className='cf-subtitle-track-playhead';subtitlePlayhead.setAttribute('aria-hidden','true');
+  const paintSubtitlePlayhead=()=>{const span=Math.max(.001,Number(c.end)-Number(c.start));const pct=Math.max(0,Math.min(100,(film.currentTime-Number(c.start))/span*100));subtitlePlayhead.style.left=pct+'%';};
+  film.addEventListener('timeupdate',paintSubtitlePlayhead);
   const paintSubtitleTrack=()=>{
     subtitleTrackRail.replaceChildren();
     subtitleSegments.forEach((seg,index)=>{
@@ -1526,6 +1529,8 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
       subtitleTrackRail.append(block);
     });
   };
+  subtitleTrackRail.append(subtitlePlayhead);
+  subtitleTrack.addEventListener('click',event=>{if(event.target.closest('.cf-clip-subtitle-block'))return;const rect=subtitleTrackRail.getBoundingClientRect();const pct=Math.max(0,Math.min(1,(event.clientX-rect.left)/Math.max(1,rect.width)));film.currentTime=Math.max(Number(c.start),Math.min(Number(c.end)-.01,Number(c.start)+pct*(Number(c.end)-Number(c.start))));});
   subtitleTrack.append(subtitleTrackRuler,subtitleTrackRail);
   subtitleTrackWrap.append(subtitleTrackTitle,subtitleTrack);timeline.append(subtitleTrackWrap);
   paintSubtitleTrack();
@@ -1677,6 +1682,14 @@ runButton?.addEventListener('click', async () => {
       if (phraseTimedCount > timedWordCount) result = phraseResult;
       transcriptWordCount = (String(result.text || '').match(/\S+/g) || []).length;
       timedWordCount = (result.chunks || []).reduce((n, item) => n + (String(item.text || '').match(/\S+/g) || []).length, 0);
+    }
+    const normalizedTranscript = String(result.text || '').toLowerCase();
+    if (selectedLanguage === 'es' && transcriptWordCount >= 7) {
+      const englishMarkers = (normalizedTranscript.match(/\b(i|i'm|im|you|your|the|and|but|not|going|to|be|is|are|was|were|with|for|that|this|good|guy)\b/g) || []).length;
+      const spanishMarkers = (normalizedTranscript.match(/\b(el|la|los|las|un|una|unos|unas|que|de|del|y|pero|no|por|para|con|es|son|está|están|yo|tú|usted|me|mi|se|como)\b/g) || []).length;
+      if (englishMarkers >= 3 && englishMarkers >= spanishMarkers * 2) {
+        throw new Error('Idioma no coincidente: se seleccionó Español, pero Whisper ha devuelto una frase mayoritariamente inglesa. No se crearán subtítulos ni clips. Comprueba que el audio se haya extraído correctamente; si el vídeo está en inglés, selecciona Inglés manualmente.');
+      }
     }
     const minimumPlausibleWords = sourceDurationForTiming > 30 ? Math.max(12, Math.floor(sourceDurationForTiming / 8)) : 6;
     if (sourceDurationForTiming > 15 && transcriptWordCount < minimumPlausibleWords) {
