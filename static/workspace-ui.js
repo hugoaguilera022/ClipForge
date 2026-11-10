@@ -74,21 +74,97 @@
     }
   });
   const auto=app.querySelector('.cf-opus-auto');auto?.addEventListener('click',()=>transcribe?.click());
-  let stage=0;
-  function setStage(n){stage=n;app.querySelectorAll('.cf-opus-demo-clip').forEach((el,i)=>el.classList.toggle('active',i<Math.max(0,n-1)));}
+  let activeCard=null,activeIndex=-1;
+  const results=$('#cfResults'),editorScreen=$('#cfEditor'),resultSlot=app.querySelector('.cf-opus-candidates-slot'),editorSlot=app.querySelector('.cf-opus-editor-slot');
+  const exportSlot=app.querySelector('.cf-opus-export-slot');
+  if(exportPanel){exportPanel.hidden=true;exportPanel.setAttribute('aria-hidden','true');}
+  function setStage(stage){
+    document.body.classList.toggle('cf-opus-stage-results',stage==='results');
+    document.body.classList.toggle('cf-opus-stage-editor',stage==='editor');
+    if(stage==='results'){
+      results.hidden=false;editorScreen.hidden=true;exportSlot.hidden=true;
+      app.querySelector('.cf-opus-hero').hidden=true;app.querySelector('.cf-opus-showcase').hidden=true;
+      app.querySelector('.cf-opus-footer').hidden=true;
+    }else if(stage==='editor'){
+      results.hidden=true;editorScreen.hidden=false;exportSlot.hidden=true;
+      app.querySelector('.cf-opus-hero').hidden=true;app.querySelector('.cf-opus-showcase').hidden=true;
+      app.querySelector('.cf-opus-footer').hidden=true;
+    }else{
+      results.hidden=true;editorScreen.hidden=true;exportSlot.hidden=true;
+      app.querySelector('.cf-opus-hero').hidden=false;app.querySelector('.cf-opus-showcase').hidden=false;
+      app.querySelector('.cf-opus-footer').hidden=false;
+    }
+    window.scrollTo({top:0,behavior:'instant'});
+  }
+  function addInspector(card,clip){
+    const player=card.querySelector('.cf-inline-player'),timeline=card.querySelector('.cf-clip-timeline'),captions=card.querySelector('.cf-inline-subtitles');
+    const openButton=card.querySelector('.cf-open-clip-editor'),heading=card.querySelector(':scope > strong');
+    const exportOne=card.querySelector('.candidate-export-one'),select=card.querySelector('.candidate-select');
+    const layout=document.createElement('div');layout.className='cf-opus-editor-layout';
+    const preview=document.createElement('section');preview.className='cf-opus-player-column';
+    const inspector=document.createElement('aside');inspector.className='cf-opus-inspector';
+    const tabs=document.createElement('div');tabs.className='cf-opus-inspector-tabs';tabs.setAttribute('role','tablist');
+    const panes=document.createElement('div');panes.className='cf-opus-inspector-panes';
+    const captionsPane=document.createElement('section');captionsPane.className='cf-opus-pane is-active';captionsPane.dataset.pane='captions';if(captions)captionsPane.append(captions);
+    const textPane=document.createElement('section');textPane.className='cf-opus-pane';textPane.dataset.pane='text';
+    textPane.innerHTML='<div class="cf-opus-pane-title">Añadir texto al vídeo</div><label>Texto<textarea class="cf-overlay-copy" rows="3" placeholder="Escribe un título o llamada…"></textarea></label><div class="cf-opus-text-times"><label>Inicio (s)<input class="cf-overlay-start" type="number" step="0.01"></label><label>Final (s)<input class="cf-overlay-end" type="number" step="0.01"></label></div><button type="button" class="cf-opus-add-overlay">Añadir texto a la pista</button><div class="cf-opus-overlay-list"></div>';
+    textPane.querySelector('.cf-overlay-start').value=Number(clip.start).toFixed(2);textPane.querySelector('.cf-overlay-end').value=Number(clip.end).toFixed(2);
+    const addOverlay=textPane.querySelector('.cf-opus-add-overlay');
+    addOverlay.addEventListener('click',()=>{
+      const copy=textPane.querySelector('.cf-overlay-copy').value.trim(),start=Number(textPane.querySelector('.cf-overlay-start').value),end=Number(textPane.querySelector('.cf-overlay-end').value);
+      if(!copy||!Number.isFinite(start)||!Number.isFinite(end)||start<Number(clip.start)||end>Number(clip.end)||end<=start){textPane.querySelector('.cf-overlay-copy').focus();return;}
+      const project=window.clipforgeEditorBridge?.getProject?.()||{tracks:[]},tracks=project.tracks||[];
+      let track=tracks.find(t=>t.type==='text');if(!track){track={id:'text-overlays',type:'text',name:'Texto',items:[]};tracks.push(track);}
+      track.items.push({id:'text-'+Date.now(),start,end,text:copy});
+      window.clipforgeEditorBridge?.setTracks?.(tracks);
+      const list=textPane.querySelector('.cf-opus-overlay-list'),item=document.createElement('div');item.className='cf-opus-overlay-item';item.textContent=copy+' · '+start.toFixed(2)+'–'+end.toFixed(2)+' s';list.append(item);
+      textPane.querySelector('.cf-overlay-copy').value='';
+    });
+    const trackingPane=document.createElement('section');trackingPane.className='cf-opus-pane';trackingPane.dataset.pane='tracking';
+    trackingPane.innerHTML='<div class="cf-opus-pane-title">Encuadre y seguimiento</div><p>Elige cómo adaptar el vídeo al formato vertical 9:16. El seguimiento facial utiliza el detector disponible en el navegador y puede recurrir a un encuadre seguro si no detecta una persona.</p>';
+    const cropSelect=$('#browserCropMode');if(cropSelect){const label=cropSelect.closest('label');if(label)trackingPane.append(label);}
+    const tabDefs=[['captions','Subtítulos'],['text','Texto'],['tracking','Seguimiento']];
+    tabDefs.forEach(([key,label],i)=>{const button=document.createElement('button');button.type='button';button.className='cf-opus-tab'+(i===0?' is-active':'');button.textContent=label;button.setAttribute('role','tab');button.setAttribute('aria-selected',String(i===0));button.addEventListener('click',()=>{tabs.querySelectorAll('button').forEach(b=>{b.classList.toggle('is-active',b===button);b.setAttribute('aria-selected',String(b===button));});panes.querySelectorAll('.cf-opus-pane').forEach(p=>p.classList.toggle('is-active',p.dataset.pane===key));});tabs.append(button);});
+    panes.append(captionsPane,textPane,trackingPane);inspector.append(tabs,panes);
+    if(player)preview.append(player);
+    layout.append(preview,inspector);
+    if(heading)heading.classList.add('cf-opus-clip-title');
+    card.classList.add('cf-opus-editing-card');
+    card.replaceChildren();
+    if(heading)card.append(heading);
+    card.append(layout);
+    if(timeline)card.append(timeline);
+    const actions=document.createElement('div');actions.className='cf-opus-editor-actions';
+    const back=document.createElement('button');back.type='button';back.className='cf-opus-back';back.textContent='← Volver a los cuatro clips';back.addEventListener('click',()=>{if(activeCard){const list=$('#browserCandidateList');const nodes=[...list.children];const next=nodes[Math.min(activeIndex,nodes.length)]||null;list.insertBefore(activeCard,next);activeCard.classList.remove('cf-opus-editing-card');activeCard=null;}setStage('results');});
+    if(exportOne){exportOne.textContent='Exportar este clip MP4';actions.append(exportOne);}
+    if(select)actions.append(select);
+    actions.prepend(back);card.append(actions);
+  }
   function reveal(){
-    $('#cfResults').hidden=false;$('#cfEditor').hidden=false;app.querySelector('.cf-opus-export-slot').hidden=false;
-    const real=app.querySelector('.cf-opus-real-results');if(candidates&&real&&!real.contains(candidates))real.append(candidates);
-    setStage(3);
+    if(!candidates||!resultSlot||!candidates.querySelector('.candidate-card'))return;
+    if(!resultSlot.contains(candidates))resultSlot.append(candidates);
+    const count=candidates.querySelectorAll('.candidate-card').length;
+    const pill=results.querySelector('.cf-opus-result-pill');if(pill)pill.textContent=count+' clips · 9:16';
+    setStage('results');
+    const progress=$('#cfProductionStatus');if(progress)progress.textContent='Tus cuatro clips están listos. Abre cualquiera para ajustar el montaje y los subtítulos.';
   }
   window.addEventListener('clipforge:transcription-progress',e=>{
     const msg=String(e.detail?.message||'');const p=$('#cfProductionStatus');if(p&&msg)p.textContent=msg;
-    if(/transcrib|extrayendo|cargando whisper|analizando|ffmpeg/i.test(msg))setStage(1);
-    if(/selecci|candidato|generando clips|juez|editorial/i.test(msg))setStage(2);
-    if(/export/i.test(msg))setStage(4);
   });
   window.addEventListener('clipforge:clips-updated',reveal);
-  window.addEventListener('clipforge:editor-ready',reveal);
-  $('#browserExportClips')?.addEventListener('click',()=>setStage(4));
+  window.addEventListener('clipforge:open-editor',e=>{
+    const card=e.detail?.card;if(!card)return;
+    activeCard=card;activeIndex=Number(e.detail?.index)||0;
+    const title=editorScreen.querySelector('.cf-opus-section-head h2');if(title)title.textContent=card.querySelector(':scope > strong')?.textContent||'Editar clip';
+    const backHolder=editorScreen.querySelector('.cf-opus-section-head');
+    const oldBack=backHolder.querySelector('.cf-opus-back');oldBack?.remove();
+    const topBack=document.createElement('button');topBack.type='button';topBack.className='cf-opus-back';topBack.textContent='← Todos los clips';topBack.addEventListener('click',()=>{const list=$('#browserCandidateList');const nodes=[...list.children];const next=nodes[Math.min(activeIndex,nodes.length)]||null;list.insertBefore(card,next);card.classList.remove('cf-opus-editing-card');activeCard=null;setStage('results');});
+    backHolder.prepend(topBack);
+    editorSlot.replaceChildren(card);
+    addInspector(card,e.detail?.clip||{start:0,end:1});
+    setStage('editor');
+  });
+  if(candidates?.querySelector('.candidate-card'))reveal();
+  $('#browserExportClips')?.addEventListener('click',()=>{const p=$('#cfProductionStatus');if(p)p.textContent='Preparando la exportación de tus clips…';});
   if($('#browserCandidateList')?.children.length)reveal();
 })();
