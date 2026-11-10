@@ -9,8 +9,8 @@
   const transcribe=$('#browserTranscribe'),candidates=$('#browserCandidates');
   const editor=$('#projectEditor'),exportPanel=$('.browser-export');
   const language=$('#browserWhisperLanguage'),model=$('#browserWhisperModel');
-  if(language)language.value='auto';
-  if(model)model.value='whisper-base';
+  if(language)language.value='es';
+  if(model)model.value='whisper-small';
   if(urlImport){urlImport.hidden=true;urlImport.setAttribute('aria-hidden','true');}
   if(controls){controls.hidden=true;controls.setAttribute('aria-hidden','true');}
   $('#videoCapacity')?.setAttribute('hidden','');
@@ -129,9 +129,13 @@
     const trackingPane=document.createElement('section');trackingPane.className='cf-opus-pane';trackingPane.dataset.pane='tracking';
     trackingPane.innerHTML='<div class="cf-opus-pane-title">Encuadre y seguimiento</div><p>Elige cómo adaptar el vídeo al formato vertical 9:16. El seguimiento facial utiliza el detector disponible en el navegador y puede recurrir a un encuadre seguro si no detecta una persona.</p>';
     const cropSelect=$('#browserCropMode');if(cropSelect){const label=cropSelect.closest('label');if(label)trackingPane.append(label);}
-    const tabDefs=[['captions','Subtítulos'],['text','Texto'],['tracking','Seguimiento']];
+    const animationPane=document.createElement('section');animationPane.className='cf-opus-pane';animationPane.dataset.pane='animation';animationPane.innerHTML='<div class="cf-opus-pane-title">Animación de subtítulos</div><label>Entrada<select class="cf-caption-in"><option value="none">Sin animación</option><option value="fade">Fundido</option><option value="pop">Aparecer con énfasis</option><option value="slide">Deslizar</option></select></label><label>Estilo de palabra<select class="cf-caption-word"><option value="line">Línea completa</option><option value="highlight">Resaltar palabra activa</option></select></label><p>La vista previa aplica el estilo seleccionado a los subtítulos del clip.</p>';
+    const ttsPane=document.createElement('section');ttsPane.className='cf-opus-pane';ttsPane.dataset.pane='tts';ttsPane.innerHTML='<div class="cf-opus-pane-title">Texto a voz</div><label>Texto para escuchar<textarea class="cf-tts-copy" rows="4" placeholder="Escribe el texto que quieras escuchar…"></textarea></label><label>Voz<select class="cf-tts-voice"></select></label><button type="button" class="cf-opus-add-overlay cf-tts-play">Escuchar texto</button><p>Utiliza las voces disponibles en tu navegador.</p>';
+    const voiceSelect=ttsPane.querySelector('.cf-tts-voice');const voices=window.speechSynthesis?.getVoices?.()||[];voices.forEach(v=>{const o=document.createElement('option');o.value=v.name;o.textContent=v.name+' · '+v.lang;voiceSelect.append(o);});
+    ttsPane.querySelector('.cf-tts-play').addEventListener('click',()=>{const text=ttsPane.querySelector('.cf-tts-copy').value.trim();if(!text||!window.speechSynthesis)return;window.speechSynthesis.cancel();const utterance=new SpeechSynthesisUtterance(text);const voice=window.speechSynthesis.getVoices().find(v=>v.name===voiceSelect.value);if(voice)utterance.voice=voice;window.speechSynthesis.speak(utterance);});
+    const tabDefs=[['captions','Captions'],['text','Text'],['animation','Animation'],['tracking','Tracking'],['tts','Text-to-speech']];
     tabDefs.forEach(([key,label],i)=>{const button=document.createElement('button');button.type='button';button.className='cf-opus-tab'+(i===0?' is-active':'');button.textContent=label;button.setAttribute('role','tab');button.setAttribute('aria-selected',String(i===0));button.addEventListener('click',()=>{tabs.querySelectorAll('button').forEach(b=>{b.classList.toggle('is-active',b===button);b.setAttribute('aria-selected',String(b===button));});panes.querySelectorAll('.cf-opus-pane').forEach(p=>p.classList.toggle('is-active',p.dataset.pane===key));});tabs.append(button);});
-    panes.append(captionsPane,textPane,trackingPane);inspector.append(tabs,panes);
+    panes.append(captionsPane,textPane,animationPane,trackingPane,ttsPane);inspector.append(tabs,panes);
     if(player)preview.append(player);
     layout.append(preview,inspector);
     card.classList.add('cf-opus-editing-card');
