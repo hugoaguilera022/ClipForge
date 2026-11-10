@@ -93,7 +93,7 @@ async function captureAudioFromVideo(file) {
     const targetLength = Number.isFinite(video.duration) && video.duration > 0
       ? Math.ceil(video.duration * 16000)
       : 0;
-    const pcmChunks = [];
+    const pcm = new Float32Array(targetLength || Math.ceil((Number(video.duration) || 3600) * 16000));
     let outputSamples = 0;
     let sourceFramesSeen = 0;
     processor.onaudioprocess = event => {
@@ -108,8 +108,8 @@ async function captureAudioFromVideo(file) {
         if (local < 0) { outputSamples++; continue; }
         let value = 0;
         for (let ch = 0; ch < inputChannels; ch++) value += input.getChannelData(ch)[local] / inputChannels;
-        pcmChunks.push(value);
-        outputSamples++;
+        if (outputSamples < pcm.length) pcm[outputSamples++] = value;
+        else break;
         if (targetLength && outputSamples >= targetLength) break;
       }
       sourceFramesSeen += length;
@@ -123,9 +123,8 @@ async function captureAudioFromVideo(file) {
       video.onended = resolve;
       video.onerror = () => reject(new Error('El vídeo falló durante la captura PCM.'));
     });
-    if (pcmChunks.length < 16000) throw new Error('El vídeo se reprodujo, pero no se recibieron muestras de audio. Comprueba que tenga una pista de audio activa.');
-    const mono = new Float32Array(pcmChunks);
-    return mono;
+    if (outputSamples < 16000) throw new Error('El vídeo se reprodujo, pero no se recibieron muestras de audio. Comprueba que tenga una pista de audio activa.');
+    return pcm.subarray(0, outputSamples);
   } finally {
     try { if (recorder && recorder.state !== 'inactive') recorder.stop(); } catch {}
     try { processor?.disconnect(); } catch {}
@@ -1398,8 +1397,8 @@ runButton?.addEventListener('click', async () => {
     } catch (demuxError) {
       console.warn('Demultiplexado/decodificación por Mediabunny no disponible; usando captura de reproducción como alternativa.', demuxError);
       say('Este navegador o códec no admite extracción directa. Usando reproducción local como alternativa; puede tardar lo mismo que el vídeo…');
-      const audioBlob = await captureAudioFromVideo(file);
-      audio = await toMono16k(audioBlob);
+      const capturedAudio = await captureAudioFromVideo(file);
+      audio = capturedAudio instanceof Float32Array ? capturedAudio : await toMono16k(capturedAudio);
     }
     say('Cargando Transformers.js y el modelo Whisper abierto. La primera descarga puede tardar.');
     const { pipeline, env } = await import('https://esm.sh/@huggingface/transformers@3.7.2');
