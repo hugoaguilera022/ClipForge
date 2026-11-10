@@ -116,7 +116,7 @@ const judgePool=[
   {start:90,end:114,text:'A strong opinion with context.'},
   {start:120,end:144,text:'A final distinct story.'}
 ];
-const judgeOutput=JSON.stringify({selected:[1,2,3,4].map((id)=>({id,score:90,rubric:{hook:9,story:8,payoff:9,clarity:9,completeness:10,emotion:8,pacing:8,originality:9,importance:9},title:'Momento',reason:'Historia clara y remate.'}))});
+const judgeOutput=JSON.stringify({selected:[1,2,3,4].map((id)=>({id,score:90,rubric:{hook:9,story:8,payoff:9,clarity:9,completeness:10,emotion:8,pacing:8,originality:9,importance:9},title:'Momento',reason:'Historia clara y remate.',importance_evidence:'An anecdote with a complete payoff'}))});
 const judged=context.parseDecision(judgeOutput,judgePool,4);
 assert.equal(judged.length,4);
 assert.equal(judged[0].selection_method,'local_generative_editor');
@@ -154,7 +154,7 @@ assert.ok(askStart>=0&&askEnd>askStart,'editorial model request builder must exi
 const askSandbox={JSON,Math,String,parseEditorialDecision:context.parseDecision};vm.createContext(askSandbox);
 vm.runInContext(source.slice(askStart,askEnd)+';this.ask=askEditorialModel;',askSandbox);
 let capturedPrompt='';
-const fakeEngine={chat:{completions:{create:async request=>{capturedPrompt=request.messages[1].content;return {choices:[{message:{content:JSON.stringify({selected:[{id:1,score:90,rubric:{hook:9,story:8,payoff:9,clarity:9,completeness:10,emotion:8,pacing:8,originality:9,importance:9},title:'Candidate',reason:'Complete beat'}]})}}]};}}}};
+const fakeEngine={chat:{completions:{create:async request=>{capturedPrompt=request.messages[1].content;return {choices:[{message:{content:JSON.stringify({selected:[{id:1,score:90,rubric:{hook:9,story:8,payoff:9,clarity:9,completeness:10,emotion:8,pacing:8,originality:9,importance:9},title:'Candidate',reason:'Complete beat',importance_evidence:'Candidate transcript'}]})}}]};}}}};
 await askSandbox.ask(fakeEngine,[{start:0,end:20,text:'Candidate transcript',context_before:'Earlier setup',context_after:'Later reaction'}],1,()=>{},'test');
 assert.ok(capturedPrompt.includes('Earlier setup')&&capturedPrompt.includes('Later reaction'),'editorial judge must receive context outside each candidate');
 assert.ok(capturedPrompt.includes('FUERA del corte propuesto'),'editorial prompt must distinguish surrounding context from clip content');
