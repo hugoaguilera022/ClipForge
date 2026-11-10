@@ -878,7 +878,13 @@ function initFreeAIProviderSettings(){
   catch(error){if(status)status.textContent='No se pudo eliminar: '+(error.message||error);}
  });
  window.addEventListener('clipforge:session',async event=>{if(event.detail?.session){const result=await loadFreeAIKeysFromCloud();if(result.ok)paint();else if(status)status.textContent='No se pudieron cargar las claves: '+result.error;}else{freeAIKeysCache={};freeAIKeysLoaded=false;paint();}});
- if(window.clipforgeSupabase){loadFreeAIKeysFromCloud().then(result=>{if(result.ok)paint();else if(status)status.textContent=result.error;});}
+ const refreshSavedProviders=async()=>{if(!window.clipforgeSupabase)return;const result=await loadFreeAIKeysFromCloud();if(result.ok)paint();else if(status)status.textContent=result.error;};
+ // auth.js is a classic script loaded after this module. Its initial getSession()
+ // can resolve before this module registers clipforge:session, so replay the
+ // persisted session check once the page has fully loaded as well.
+ if(window.clipforgeSupabase)refreshSavedProviders();
+ window.addEventListener('load',refreshSavedProviders,{once:true});
+ window.addEventListener('pageshow',refreshSavedProviders);
 }
 initFreeAIProviderSettings();
 async function loadLocalEditorialJudge(onProgress=()=>{}){
