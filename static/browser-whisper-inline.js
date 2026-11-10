@@ -1730,18 +1730,19 @@ runButton?.addEventListener('click', async () => {
           say('Selección IA completada: exactamente cuatro momentos importantes y distintos.');
         } catch (editorError) {
           console.error('El editor IA local no está disponible o no ha devuelto una selección válida.', editorError);
-          // Keep the workflow usable when WebGPU or the local generative model
-          // is unavailable. This is an explicitly labelled heuristic fallback,
-          // never presented as an AI editorial decision.
-          // Keep the heuristic path visibly distinct from the generative selector: no se presentan cortes heurísticos como selección IA.
-          showClipCandidates(transcriptData.segments, audio.length / 16000, null, audio, visualSamples);
-          say(`El editor IA local no está disponible (${editorError.message}). Se han generado cuatro candidatos de respaldo mediante reglas locales; no se presentan como selección editorial IA. Iniciando su renderizado para que puedas revisar los MP4.`);
-          startAutomaticClipExport();
+          // Never spend the user's time rendering heuristic fallback clips.
+          // Preserve the transcript for inspection, but stop before clip creation.
+          say(`Selección detenida: el selector editorial no pudo validar cuatro momentos (${editorError.message}). No se crearán ni exportarán clips de respaldo. Conserva la transcripción y vuelve a intentarlo cuando el selector esté disponible.`);
           return;
         }
       }
+      if (!Array.isArray(candidatePool) || candidatePool.length !== 4 ||
+          !candidatePool.every(item => item.selection_method === 'local_generative_editor' || item.selection_method === 'remote_generative_editor')) {
+        say('Selección detenida: no hay cuatro clips validados por IA. No se mostrarán candidatos heurísticos ni se iniciará ninguna exportación.');
+        return;
+      }
       showClipCandidates(transcriptData.segments, audio.length / 16000, candidatePool, audio, visualSamples);
-      startAutomaticClipExport();
+      // Show the four reviewed candidates only. Export is always an explicit user action.
       const vtt = makeVtt(transcriptData.segments);
       const attached = attachTranscriptToJobForm(vtt);
       say(`Transcripción lista: ${transcriptData.segments.length} fragmentos temporizados · ${transcriptWordCount} palabras reconocidas · audio ${sourceDurationForTiming.toFixed(1)} s · ${result.diagnostics?.windows?.length || 0} bloques procesados · ${new Set(transcriptData.segments.map(s=>s.speaker).filter(Number.isFinite)).size} hablantes asignados · diarización ${transcriptData.diarization?.status || 'no disponible'}. ${attached ? 'Subtítulos y cortes seleccionados conectados al formulario de producción.' : 'Descarga el JSON para conservarla.'}`);
