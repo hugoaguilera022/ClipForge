@@ -281,7 +281,9 @@ async function transcribeAudioInChunks(asr, audio, onProgress = () => {}, timest
   // Whisper accepts up to 30 seconds per inference. Use almost the full
   // context and a short overlap to reduce sequential model calls on long videos.
   const windowSeconds = 30;
-  const overlapSeconds = 1.25;
+  // Whisper is trained around 30 s windows with multi-second stride context.
+  // A 5 s overlap protects sentence/word boundaries in fast dialogue.
+  const overlapSeconds = 5;
   const windowSamples = windowSeconds * sampleRate;
   const stepSamples = (windowSeconds - overlapSeconds) * sampleRate;
   const totalSeconds = audio.length / sampleRate;
@@ -308,7 +310,7 @@ async function transcribeAudioInChunks(asr, audio, onProgress = () => {}, timest
     if (chunkText) fullText.push(chunkText);
 
     const rawChunks = Array.isArray(result.chunks) ? result.chunks : [];
-    windowDiagnostics.push({ part: part + 1, start: Number(offset.toFixed(2)), duration: Number(((endSample-startSample)/sampleRate).toFixed(2)), textWords: (chunkText.match(/\S+/g)||[]).length, rawTimedChunks: rawChunks.length, firstChunkKeys: rawChunks[0] ? Object.keys(rawChunks[0]) : [], firstTimestamp: rawChunks[0]?.timestamp ?? rawChunks[0]?.timestamps ?? rawChunks[0]?.time ?? null });
+    windowDiagnostics.push({ part: part + 1, start: Number(offset.toFixed(2)), duration: Number(((endSample-startSample)/sampleRate).toFixed(2)), detectedLanguage: result.language || null, textWords: (chunkText.match(/\S+/g)||[]).length, rawTimedChunks: rawChunks.length, firstChunkKeys: rawChunks[0] ? Object.keys(rawChunks[0]) : [], firstTimestamp: rawChunks[0]?.timestamp ?? rawChunks[0]?.timestamps ?? rawChunks[0]?.time ?? null });
     for (let chunkIndex = 0; chunkIndex < rawChunks.length; chunkIndex++) {
       const chunk = rawChunks[chunkIndex];
       const rawTimestamp = chunk.timestamp ?? chunk.timestamps ?? chunk.time;
@@ -354,7 +356,12 @@ async function transcribeAudioInChunks(asr, audio, onProgress = () => {}, timest
   }
 
   allChunks.sort((a, b) => a.start - b.start);
-  return { text: fullText.join(' ').replace(/\s+/g, ' ').trim(), chunks: allChunks, diagnostics: { audioSeconds: Number(totalSeconds.toFixed(2)), windows: windowDiagnostics } };
+  // Build the canonical transcript from the temporally deduplicated chunks.
+  // Joining each raw window's text duplicated the overlap and inflated word counts.
+  const timedText = allChunks.map(item => item.text).join(' ').replace(/\s+/g, ' ').trim();
+  const languageVotes = windowDiagnostics.map(item => item.detectedLanguage).filter(Boolean);
+  const detectedLanguage = languageVotes.length ? languageVotes.sort((a,b)=>languageVotes.filter(x=>x===b).length-languageVotes.filter(x=>x===a).length)[0] : null;
+  return { text: timedText || fullText.join(' ').replace(/\s+/g, ' ').trim(), chunks: allChunks, language: detectedLanguage, diagnostics: { audioSeconds: Number(totalSeconds.toFixed(2)), windows: windowDiagnostics } };
 }
 
 // Fully local speaker diarization with the public ONNX pyannote model.
@@ -1029,7 +1036,7 @@ async function loadEditorialJudge(onProgress = () => {}) {
 // Approximate per-video resource estimate. Browsers do not expose exact free RAM,
 // VRAM or disk space; show safe recommendations and label uncertainty honestly.
 function estimateVideoCapacity(options) {
-  const {durationSeconds=0,fileBytes=0,whisperModel='whisper-base',deviceMemoryGb=null,webgpu=false}=options||{};
+  const {durationSeconds=0,fileBytes=0,whisperModel='whisper-small',deviceMemoryGb=null,webgpu=false}=options||{};
   const minutes=Math.max(0,Number(durationSeconds)||0)/60;
   const asr={
     'whisper-tiny':{label:'Whisper Tiny',downloadMb:80,ramGb:1.8},
@@ -1056,7 +1063,7 @@ async function updateVideoCapacity(file) {
   try{video.preload='metadata';video.src=url;duration=await new Promise(resolve=>{video.onloadedmetadata=()=>resolve(Number(video.duration)||0);video.onerror=()=>resolve(0);setTimeout(()=>resolve(0),12000);});}
   finally{URL.revokeObjectURL(url);video.removeAttribute('src');}
   let adapter=null;try{if(navigator.gpu)adapter=await navigator.gpu.requestAdapter({powerPreference:'high-performance'});}catch{}
-  const estimate=estimateVideoCapacity({durationSeconds:duration,fileBytes:file.size,whisperModel:el('browserWhisperModel')?.value||'whisper-base',deviceMemoryGb:navigator.deviceMemory,webgpu:Boolean(adapter)});
+  const estimate=estimateVideoCapacity({durationSeconds:duration,fileBytes:file.size,whisperModel:el('browserWhisperModel')?.value||'whisper-small',deviceMemoryGb:navigator.deviceMemory,webgpu:Boolean(adapter)});
   el('capacityRam').textContent=formatCapacityGb(estimate.systemRamGb)+' recomendados';
   el('capacityGpu').textContent=formatCapacityGb(estimate.gpuRamGb)+' recomendados';
   el('capacityDisk').textContent=formatCapacityGb(estimate.freeDiskGb)+' libres';
@@ -1717,9 +1724,8 @@ runButton?.addEventListener('click', async () => {
         asrModelId = null;
         await loadModel(modelId);
       }
-      say('Transcribiendo con ventanas optimizadas de 30 segundos y marcas de tiempo por frase para acelerar el proceso…');
-      // Phrase-level timestamps are enough for editable captions and clip
-      // selection. Word-level alignment adds CPU work to every decode window.
+      say('Transcribiendo con ventanas de 30 segundos, solapamiento de contexto y alineación por palabra…');
+      // Keep word-level timing for karaoke subtitles and speaker assignment.
       result = await transcribeAudioInChunks(asr, audio, reportProgress, 'word', sourceLanguage);
       if (model === 'whisper-small' && !(result.chunks || []).length) {
         throw new Error('Whisper Small no devolvió marcas de tiempo utilizables.');
@@ -1752,7 +1758,7 @@ runButton?.addEventListener('click', async () => {
         activeModelId = 'onnx-community/whisper-base_timestamped';
         await loadModel(activeModelId);
         const baseResult = await transcribeAudioInChunks(asr, audio, reportProgress, 'word', sourceLanguage);
-        const baseWords = (String(baseResult.text || '').match(/\\S+/g) || []).length;
+        const baseWords = (String(baseResult.text || '').match(/\S+/g) || []).length;
         console.info('[ClipForge ASR fallback Base]', { selectedLanguage, smallWords, baseWords, durationSeconds: Number(sourceDurationForTiming.toFixed(2)) });
         if (baseWords > smallWords && (baseResult.chunks || []).length) {
           result = baseResult;
@@ -1895,7 +1901,7 @@ runButton?.addEventListener('click', async () => {
     if (saveProjectButton) saveProjectButton.disabled = !transcriptData?.segments?.length;
   } catch (error) {
     console.error(error);
-    say(`Error de transcripción: ${error?.message || error}. Comprueba el idioma seleccionado y prueba Whisper Base si Small falla.`);
+    say(`Error de transcripción: ${error?.message || error}. Comprueba el idioma del audio y que la pista tenga voces claras; si Small no cabe en la memoria del equipo, prueba Base.`);
   } finally { runButton.disabled = false; }
 });
 
