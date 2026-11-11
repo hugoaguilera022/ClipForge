@@ -16,7 +16,7 @@
   const downloadTranscript=$('#downloadBrowserTranscript');
   const saveTranscript=$('#saveBrowserProject');
   if(language)language.value='es';
-  if(model)model.value='whisper-small';
+  // Respect the selected model; never silently downgrade Large-v3-Turbo.\n  if(model && !model.value) model.value='whisper-large-v3-turbo';
   if(urlImport){urlImport.hidden=true;urlImport.setAttribute('aria-hidden','true');}
   if(controls){controls.hidden=true;controls.setAttribute('aria-hidden','true');}
   $('#videoCapacity')?.setAttribute('hidden','');
@@ -82,7 +82,7 @@
     // start the local transcription/editorial pass automatically.
     const progress=$('#cfProductionStatus');
     if(progress)progress.textContent='Vídeo cargado. Preparando análisis local y selección de cuatro momentos…';
-    if(transcribe&&!fileInput.dataset.autoRunStarted){
+    const restored=Boolean(window.clipforgeEditorBridge?.getProject?.().transcript?.segments?.length);\n    if(restored) fileInput.dataset.autoRunStarted='1';\n    if(transcribe&&!fileInput.dataset.autoRunStarted){
       fileInput.dataset.autoRunStarted='1';
       window.setTimeout(()=>transcribe.click(),250);
     }
