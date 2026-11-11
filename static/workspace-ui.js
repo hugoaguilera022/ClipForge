@@ -16,7 +16,7 @@
   const downloadTranscript=$('#downloadBrowserTranscript');
   const saveTranscript=$('#saveBrowserProject');
   if(language)language.value='es';
-  // Respect the selected model; never silently downgrade Large-v3-Turbo.
+  // Respect the HTML default and any user choice; never silently downgrade a selected model.
   if(model && !model.value) model.value='whisper-large-v3-turbo';
   if(urlImport){urlImport.hidden=true;urlImport.setAttribute('aria-hidden','true');}
   if(controls){controls.hidden=true;controls.setAttribute('aria-hidden','true');}
@@ -26,46 +26,9 @@
     <div class="cf-opus-announcement">Estudio de ClipForge con IA <span>Convierte un vídeo largo en clips listos para publicar</span><a href="#cfShowcase">Descubre cómo funciona ↓</a></div>
     <header class="cf-opus-nav">
       <a class="cf-opus-brand" href="#" aria-label="ClipForge"><span class="cf-opus-mark">C</span>ClipForge</a>
-      <nav><a href="#cfCreate">Crear clips</a><a href="#cfShowcase">Cómo funciona</a><a href="#cfResults">Mis clips</a></nav>
-      <div class="cf-opus-nav-right"><span class="cf-opus-free">● GRATIS · SIN API DE PAGO</span><span id="cfHealthSlot"></span></div>
-    </header>
-    <main class="cf-opus-main">
-      <section class="cf-opus-hero" id="cfCreate">
-        <span class="cf-opus-eyebrow">GENERADOR DE CLIPS CON IA</span>
-        <h1>De un vídeo largo a 4 clips destacados.<br><em>Crea contenido mucho más rápido.</em></h1>
-        <p>ClipForge analiza tu vídeo, encuentra los momentos con más potencial y los transforma en clips verticales con subtítulos.</p>
-        <div class="cf-opus-upload-row"><div class="cf-opus-drop-slot"></div><div class="cf-opus-primary-action"></div><button type="button" class="cf-opus-auto">Edición automática <span>✦</span></button></div>
-        <div class="cf-opus-trust"><span>✓ Español e inglés</span><span>✓ Sin subir el vídeo a un servidor</span><span>✓ Sin suscripciones</span></div>
-        <div id="cfProductionStatus" class="cf-opus-progress" role="status">Sube un vídeo para generar automáticamente tus cuatro clips.</div>
-      </section>
-      <section class="cf-opus-showcase" id="cfShowcase">
-        <div class="cf-opus-showcase-glow"></div>
-        <div class="cf-opus-demo-source"><div class="cf-opus-demo-frame"><video id="cfSourcePreview" muted playsinline controls></video><div class="cf-opus-demo-empty"><span>▶</span><b>Tu vídeo original</b><small>La vista previa aparecerá al seleccionar el archivo</small></div></div><span class="cf-opus-demo-duration">VÍDEO ORIGINAL</span></div>
-        <div class="cf-opus-demo-prompt"><span>↗</span><b>De un vídeo largo a momentos destacados</b><small>ClipForge analiza el contenido y prepara tus clips</small></div>
-        <div class="cf-opus-socials"><span class="yt">▶</span><span class="ig">◎</span><span class="in">in</span><span class="tt">♪</span><span class="fb">f</span><span class="xx">𝕏</span></div>
-        <div class="cf-opus-demo-clips"><div class="cf-opus-demo-clip"><i>01</i><b>Momento destacado</b><small>9:16 · Subtítulos</small></div><div class="cf-opus-demo-clip"><i>02</i><b>Historia / anécdota</b><small>9:16 · Subtítulos</small></div><div class="cf-opus-demo-clip"><i>03</i><b>Reacción / respuesta</b><small>9:16 · Subtítulos</small></div><div class="cf-opus-demo-clip"><i>04</i><b>Mejor momento</b><small>9:16 · Subtítulos</small></div></div>
-        <div class="cf-opus-real-results"></div>
-      </section>
-      <section class="cf-opus-results" id="cfResults" hidden><div class="cf-opus-section-head"><div><span class="cf-opus-kicker">TUS RESULTADOS</span><h2>Clips generados</h2><p>Previsualiza los cuatro momentos y ajusta cada corte.</p></div><span class="cf-opus-result-pill">4 clips · 9:16</span></div><div class="cf-opus-candidates-slot"></div></section>
-      <section class="cf-opus-editor" id="cfEditor" hidden><div class="cf-opus-section-head"><div><span class="cf-opus-kicker">EDITOR DE VÍDEO</span><h2>Perfecciona tus clips</h2></div></div><div class="cf-opus-editor-slot"></div></section>
-      <section class="cf-opus-export-slot" hidden></section>
-      <footer class="cf-opus-footer"><b>ClipForge</b><span>Un vídeo. Cuatro oportunidades de destacar.</span><span>Procesamiento local · Gratis</span></footer>
-    </main>`;
-  document.body.classList.add('cf-opus-body');
-  if(existing)existing.replaceWith(app);else main.replaceWith(app);
-  const health=header?.querySelector('#health');if(health)app.querySelector('#cfHealthSlot').append(health);header?.remove();
-  if(drop)app.querySelector('.cf-opus-drop-slot').append(drop);
-  if(transcribe){transcribe.textContent='Generar mis 4 clips';app.querySelector('.cf-opus-primary-action').append(transcribe);}
-  // Keep ASR output attached after replacing the original main container.
-  const transcriptPanel=document.createElement('section');transcriptPanel.id='cfTranscriptPanel';transcriptPanel.className='cf-transcript-panel';transcriptPanel.hidden=true;
-  transcriptPanel.innerHTML='<div class="cf-transcript-panel-head"><div><strong>Transcripción completa</strong><small>Texto reconocido por Whisper con marcas de tiempo. Puedes corregirlo antes de editar los subtítulos.</small></div><span class="cf-transcript-count">Pendiente</span></div>';
-  if(transcriptOutput){transcriptOutput.setAttribute('aria-label','Transcripción completa con marcas de tiempo');transcriptPanel.append(transcriptOutput);}
-  const transcriptActions=document.createElement('div');transcriptActions.className='cf-transcript-actions';
-  if(downloadTranscript)transcriptActions.append(downloadTranscript);if(saveTranscript)transcriptActions.append(saveTranscript);
-  transcriptPanel.append(transcriptActions);app.querySelector('.cf-opus-hero').append(transcriptPanel);
-  window.addEventListener('clipforge:transcript-ready',event=>{transcriptPanel.hidden=false;const d=event.detail||{};const count=transcriptPanel.querySelector('.cf-transcript-count');if(count)count.textContent=(d.words||0)+' palabras · '+(d.segments||0)+' segmentos temporizados';});
-  if(engine){if(whisperStatus){whisperStatus.classList.remove('cf-opus-internal');whisperStatus.setAttribute('aria-live','polite');app.querySelector('.cf-opus-hero').append(whisperStatus);}engine.hidden=true;engine.setAttribute('aria-hidden','true');}
-  if(candidates)app.querySelector('.cf-opus-candidates-slot').append(candidates);
+      <nav><a href="#cfCreate">Crear clips</a><a href="#cfShowcase">Cómo funciona</a><a href="#cfResults">Mis clips</a></nav
+…[1 chars truncated — re-run with head/grep/tail for full output]…
+append(candidates);
   if(editor){
     editor.querySelector('.section-head')?.remove();editor.querySelector(':scope > p.muted')?.remove();
     const preview=editor.querySelector('.editor-preview'),settings=exportPanel?.querySelector('.export-settings');
@@ -78,8 +41,6 @@
     const file=fileInput.files?.[0];if(!file)return;
     if(sourceVideo){sourceVideo.src=URL.createObjectURL(file);sourceVideo.hidden=false;sourceVideo.load();sourceVideo.play().catch(()=>{});}
     if(empty)empty.hidden=true;
-    // Restored projects already contain candidate cards; reveal them as soon as the original media is reattached.
-    if(candidates?.querySelector('.candidate-card')) reveal();
     const filename=$('#filename');if(filename)filename.textContent=file.name;
     // Selecting a source is the primary action in this one-screen workflow:
     // start the local transcription/editorial pass automatically.
@@ -168,33 +129,52 @@
     if(player)preview.append(player);
     preview.prepend(toolRail);
     layout.append(preview,inspector);
+    // Apply the core editor geometry inline: it must not depend on a stale
+    // cached stylesheet or on the browser resolving a cascade of old rules.
+    const syncEditorGeometry=()=>{
+      const width=window.innerWidth;
+      card.style.setProperty('display','flex','important');
+      card.style.setProperty('flex-direction','column','important');
+      card.style.setProperty('align-items','stretch','important');
+      card.style.setProperty('width','100%','important');
+      card.style.setProperty('min-width','0','important');
+      layout.style.setProperty('display','grid','important');
+      layout.style.setProperty('grid-template-columns',width>=1100?'minmax(0,1.05fr) minmax(0,.95fr)':'minmax(0,1fr)','important');
+      layout.style.setProperty('align-items','start','important');
+      layout.style.setProperty('gap',width<=650?'12px':'16px','important');
+      layout.style.setProperty('width','100%','important');
+      layout.style.setProperty('min-width','0','important');
+      preview.style.setProperty('display','grid','important');
+      preview.style.setProperty('grid-template-columns',width<=650?'minmax(0,1fr)':width<=1100?'48px minmax(0,1fr)':'58px minmax(0,1fr)','important');
+      preview.style.setProperty('align-content','start','important');
+      preview.style.setProperty('align-items','start','important');
+      preview.style.setProperty('justify-items','stretch','important');
+      preview.style.setProperty('min-height','0','important');
+      preview.style.setProperty('height','auto','important');
+      const playerEl=preview.querySelector('.cf-inline-player');
+      if(playerEl){
+        playerEl.style.setProperty('display','flex','important');
+        playerEl.style.setProperty('flex-direction','column','important');
+        playerEl.style.setProperty('align-items','center','important');
+        playerEl.style.setProperty('justify-self','center','important');
+        playerEl.style.setProperty('align-self','start','important');
+        playerEl.style.setProperty('width',`min(100%,${width<=650?'360px':'420px'})`,'important');
+        playerEl.style.setProperty('min-width','0','important');
+        playerEl.style.setProperty('margin','0','important');
+        const video=playerEl.querySelector('video');
+        if(video){video.style.setProperty('display','block','important');video.style.setProperty('width','100%','important');video.style.setProperty('max-width','100%','important');video.style.setProperty('height','auto','important');video.style.setProperty('max-height','72vh','important');video.style.setProperty('aspect-ratio','9 / 16','important');video.style.setProperty('object-fit','contain','important');video.style.setProperty('box-sizing','border-box','important');}
+      }
+      inspector.style.setProperty('width','100%','important');
+      inspector.style.setProperty('min-width','0','important');
+      inspector.style.setProperty('align-self','start','important');
+      if(timeline){timeline.style.setProperty('width','100%','important');timeline.style.setProperty('max-width','100%','important');timeline.style.setProperty('min-width','0','important');timeline.style.setProperty('box-sizing','border-box','important');}
+    };
     card.classList.add('cf-opus-editing-card');
     if(heading)card.append(heading);
     card.append(layout);
-    if(timeline)timeline.hidden=true;
-    const editorTimeline=document.createElement('section');editorTimeline.className='cf-reference-timeline';
-    editorTimeline.innerHTML='<div class="cf-reference-timeline-toolbar"><div class="cf-timeline-actions"><button type="button" data-action="undo" title="Deshacer">↶</button><button type="button" data-action="redo" title="Rehacer">↷</button><i></i><button type="button" data-action="split" title="Dividir en el cabezal">✂</button><button type="button" data-action="delete" title="Eliminar selección">▤</button></div><div class="cf-timeline-zoom"><button type="button" data-zoom="out">−</button><input aria-label="Zoom de línea de tiempo" type="range" min="1" max="4" value="2"><button type="button" data-zoom="in">+</button><button type="button" title="Ajustar">⛶</button></div></div><div class="cf-reference-ruler"></div><div class="cf-reference-track cf-subtitle-track"><strong>Ｔ Subtítulos</strong><div class="cf-reference-lane"></div></div><div class="cf-reference-track cf-video-track"><strong>▣ Vídeo</strong><div class="cf-reference-lane"></div></div><div class="cf-reference-track cf-audio-track"><strong>♬ Audio</strong><div class="cf-reference-lane"><canvas aria-label="Forma de onda del audio"></canvas></div></div><div class="cf-reference-playhead" aria-hidden="true"></div></section>';
-    card.append(editorTimeline);
-    const project=window.clipforgeEditorBridge?.getProject?.()||{};
-    const segments=(project.transcript?.segments||[]).filter(s=>Number(s.end)>Number(clip.start)&&Number(s.start)<Number(clip.end));
-    const duration=Math.max(.1,Number(clip.end)-Number(clip.start));
-    const ruler=editorTimeline.querySelector('.cf-reference-ruler');
-    for(let i=0;i<=8;i++){const tick=document.createElement('span');tick.style.left=(i/8*100)+'%';tick.textContent=new Date((Number(clip.start)+duration*i/8)*1000).toISOString().slice(14,19);ruler.append(tick);}
-    const subLane=editorTimeline.querySelector('.cf-subtitle-track .cf-reference-lane');
-    segments.forEach((s,i)=>{const block=document.createElement('button');block.type='button';block.className='cf-reference-subtitle-block'+(i===0?' selected':'');block.style.left=(Math.max(0,(Number(s.start)-Number(clip.start))/duration)*100)+'%';block.style.width=(Math.max(1,(Math.min(Number(s.end),Number(clip.end))-Math.max(Number(s.start),Number(clip.start)))/duration*100))+'%';block.textContent=String(s.text||'').trim();block.title=block.text;block.addEventListener('click',()=>{const v=player?.querySelector('video');if(v){v.currentTime=Number(s.start)-Number(clip.start);v.play().catch(()=>{});}subLane.querySelectorAll('button').forEach(x=>x.classList.toggle('selected',x===block));});subLane.append(block);});
-    const videoLane=editorTimeline.querySelector('.cf-video-track .cf-reference-lane');
-    for(let i=0;i<12;i++){const frame=document.createElement('div');frame.className='cf-reference-video-frame';frame.textContent='▶';videoLane.append(frame);}
-    const audioCanvas=editorTimeline.querySelector('.cf-audio-track canvas');
-    const drawWave=async()=>{const file=$('#video')?.files?.[0];if(!file||!audioCanvas)return;try{const C=window.AudioContext||window.webkitAudioContext;if(!C)return;const ctx=new C();const buffer=await ctx.decodeAudioData(await file.arrayBuffer());const data=buffer.getChannelData(0),w=Math.max(300,audioCanvas.parentElement.clientWidth),h=48;audioCanvas.width=w*2;audioCanvas.height=h*2;audioCanvas.style.width='100%';audioCanvas.style.height=h+'px';const c=audioCanvas.getContext('2d');c.scale(2,2);c.fillStyle='#2fc49c';const start=Math.floor(Number(clip.start)*buffer.sampleRate),end=Math.min(data.length,Math.floor(Number(clip.end)*buffer.sampleRate)),count=Math.max(1,end-start);for(let x=0;x<w;x++){const a=start+Math.floor(x/w*count),b=Math.min(end,start+Math.floor((x+1)/w*count));let peak=0;for(let j=a;j<b;j+=Math.max(1,Math.floor((b-a)/80)))peak=Math.max(peak,Math.abs(data[j]||0));const bar=Math.max(2,peak*43);c.fillRect(x,h/2-bar/2,1,bar);}await ctx.close();}catch(e){audioCanvas.parentElement.classList.add('wave-unavailable');}};
-    drawWave();
-    const thumbVideo=document.createElement('video');thumbVideo.muted=true;thumbVideo.playsInline=true;thumbVideo.src=URL.createObjectURL($('#video')?.files?.[0]||new Blob());thumbVideo.addEventListener('loadedmetadata',async()=>{for(let i=0;i<12;i++){try{thumbVideo.currentTime=Number(clip.start)+duration*(i+.5)/12;await new Promise(resolve=>thumbVideo.addEventListener('seeked',resolve,{once:true}));const c=document.createElement('canvas');c.width=100;c.height=56;c.getContext('2d').drawImage(thumbVideo,0,0,100,56);videoLane.children[i].replaceChildren(c);}catch{}}URL.revokeObjectURL(thumbVideo.src);},{once:true});
-    const playhead=editorTimeline.querySelector('.cf-reference-playhead');
-    const syncHead=()=>{const v=player?.querySelector('video');if(v){const pos=Math.max(0,Math.min(1,v.currentTime/duration));playhead.style.left=(pos*100)+'%';}};player?.querySelector('video')?.addEventListener('timeupdate',syncHead);
-    editorTimeline.querySelectorAll('[data-zoom]').forEach(b=>b.addEventListener('click',()=>{const range=editorTimeline.querySelector('input[type=range]');range.value=String(Math.max(1,Math.min(4,Number(range.value)+(b.dataset.zoom==='in'?1:-1))));editorTimeline.style.setProperty('--timeline-zoom',range.value);}));
-    editorTimeline.querySelector('[data-action="undo"]').addEventListener('click',()=>window.dispatchEvent(new KeyboardEvent('keydown',{key:'z',ctrlKey:true,bubbles:true})));
-    editorTimeline.querySelector('[data-action="redo"]').addEventListener('click',()=>window.dispatchEvent(new KeyboardEvent('keydown',{key:'z',ctrlKey:true,shiftKey:true,bubbles:true})));
-    editorTimeline.querySelector('[data-action="split"]').addEventListener('click',()=>{const v=player?.querySelector('video');if(v){const t=Number(clip.start)+v.currentTime;window.dispatchEvent(new CustomEvent('clipforge:timeline-split',{detail:{time:t,clip}}));}});
-    editorTimeline.querySelector('[data-action="delete"]').addEventListener('click',()=>card.querySelector('.candidate-select')?.click());
+    if(timeline)card.append(timeline);
+    syncEditorGeometry();
+    window.addEventListener('resize',syncEditorGeometry,{passive:true});
     const actions=document.createElement('div');actions.className='cf-opus-editor-actions';
     if(exportOne){exportOne.textContent='Exportar este clip MP4';actions.append(exportOne);}
     if(select)actions.append(select);
@@ -203,7 +183,6 @@
   function reveal(){
     if(!candidates||!resultSlot||!candidates.querySelector('.candidate-card'))return;
     if(!resultSlot.contains(candidates))resultSlot.append(candidates);
-    candidates.hidden=false;candidates.removeAttribute('aria-hidden');candidates.style.removeProperty('display');
     const count=candidates.querySelectorAll('.candidate-card').length;
     const pill=results.querySelector('.cf-opus-result-pill');if(pill)pill.textContent=count+' clips · 9:16';
     setStage('results');
