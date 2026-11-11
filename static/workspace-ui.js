@@ -78,6 +78,8 @@
     const file=fileInput.files?.[0];if(!file)return;
     if(sourceVideo){sourceVideo.src=URL.createObjectURL(file);sourceVideo.hidden=false;sourceVideo.load();sourceVideo.play().catch(()=>{});}
     if(empty)empty.hidden=true;
+    // Restored projects already contain candidate cards; reveal them as soon as the original media is reattached.
+    if(candidates?.querySelector('.candidate-card')) reveal();
     const filename=$('#filename');if(filename)filename.textContent=file.name;
     // Selecting a source is the primary action in this one-screen workflow:
     // start the local transcription/editorial pass automatically.
