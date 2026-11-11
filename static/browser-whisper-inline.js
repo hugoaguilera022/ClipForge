@@ -1695,7 +1695,7 @@ runButton?.addEventListener('click', async () => {
     const loadModel = async id => {
       // Prefer WebGPU on supported Chrome/Edge devices; retain a safe WASM fallback.
       let webgpuReady=false;
-      try { if(navigator.gpu) webgpuReady=Boolean(await navigator.gpu.requestAdapter({powerPreference:'high-performance'})); } catch {}
+      try { if(navigator.gpu) { const adapter=await navigator.gpu.requestAdapter({powerPreference:'high-performance'}); webgpuReady=Boolean(adapter); if(id==='striimit/whisper-large-v3-turbo-webgpu' && adapter && !adapter.features?.has('shader-f16')) throw new Error('La GPU no anuncia shader-f16, requisito del encoder Large-v3-Turbo.'); } } catch(error) { if(id==='striimit/whisper-large-v3-turbo-webgpu') throw new Error('Este dispositivo no ofrece WebGPU fp16 para Large-v3-Turbo. Usa Chrome/Edge actualizado con aceleración gráfica; como alternativa selecciona Whisper Small. Detalle: '+(error.message||error)); }
       if(webgpuReady){
         try {
           say('Activando aceleración gráfica WebGPU para acelerar la transcripción…');
