@@ -4,11 +4,32 @@ const exportStatus=document.querySelector('#browserExportStatus');
 const sayExport=message=>{if(exportStatus)exportStatus.textContent=message;};
 
 function buildCaptionCues(segments){
-  const words=(segments||[]).filter(s=>Number.isFinite(Number(s.start))&&Number.isFinite(Number(s.end))&&Number(s.end)>Number(s.start)&&String(s.text||'').trim())
-    .map(s=>({start:Number(s.start),end:Number(s.end),text:String(s.text).trim()})).sort((a,b)=>a.start-b.start);
+  const words=[];
+  for(const segment of segments||[]){
+    const start=Number(segment.start),end=Number(segment.end),text=String(segment.text||'').trim();
+    if(!Number.isFinite(start)||!Number.isFinite(end)||end<=start||!text)continue;
+    const tokens=text.split(/\s+/).filter(Boolean);
+    if(!tokens.length)continue;
+    // Reuse Whisper word timings only while they still describe the edited text.
+    // If the user changes a sentence, old word tokens are stale: redistribute the
+    // edited words across the same verified phrase interval instead of exporting
+    // the pre-edit transcript or treating the whole sentence as one karaoke word.
+    const sourceWords=Array.isArray(segment.words)?segment.words:[];
+    const sourceText=sourceWords.map(w=>String(w.word||w.text||'').trim()).filter(Boolean).join(' ');
+    const normalize=value=>String(value||'').toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim().replace(/\s+/g,' ');
+    const reusable=sourceWords.length===tokens.length&&normalize(sourceText)===normalize(text)&&sourceWords.every(w=>Number.isFinite(Number(w.start))&&Number.isFinite(Number(w.end))&&Number(w.end)>Number(w.start));
+    if(reusable){
+      sourceWords.forEach((word,i)=>words.push({start:Math.max(start,Number(word.start)),end:Math.min(end,Number(word.end)),text:tokens[i]}));
+    }else{
+      const weights=tokens.map(token=>Math.max(1,token.replace(/[^\p{L}\p{N}]/gu,'').length));
+      const total=weights.reduce((a,b)=>a+b,0);let cursor=start;
+      tokens.forEach((token,i)=>{const next=i===tokens.length-1?end:cursor+(end-start)*weights[i]/total;words.push({start:cursor,end:next,text:token});cursor=next;});
+    }
+  }
+  const ordered=words.filter(w=>w.end>w.start).sort((a,b)=>a.start-b.start);
   const cues=[];let group=[];
   const flush=()=>{if(group.length)cues.push(group);group=[];};
-  for(const word of words){
+  for(const word of ordered){
     const prev=group[group.length-1];
     if(group.length&&(group.length>=5||word.start-prev.end>.38||word.end-group[0].start>2.1||/[.!?…]$/.test(prev.text)))flush();
     group.push(word);
