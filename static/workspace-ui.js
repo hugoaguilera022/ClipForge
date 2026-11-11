@@ -28,7 +28,7 @@
       <a class="cf-opus-brand" href="#" aria-label="ClipForge"><span class="cf-opus-mark">C</span>ClipForge</a>
       <nav><a href="#cfCreate">Crear clips</a><a href="#cfShowcase">Cómo funciona</a><a href="#cfResults">Mis clips</a></nav
 …[1 chars truncated — re-run with head/grep/tail for full output]…
-append(candidates);
+end(candidates);
   if(editor){
     editor.querySelector('.section-head')?.remove();editor.querySelector(':scope > p.muted')?.remove();
     const preview=editor.querySelector('.editor-preview'),settings=exportPanel?.querySelector('.export-settings');
@@ -158,7 +158,7 @@ append(candidates);
         playerEl.style.setProperty('align-items','center','important');
         playerEl.style.setProperty('justify-self','center','important');
         playerEl.style.setProperty('align-self','start','important');
-        playerEl.style.setProperty('width',`min(100%,${width<=650?'360px':'420px'})`,'important');
+        playerEl.style.setProperty('width','min(100%,'+(width<=650?'360px':'420px')+')','important');
         playerEl.style.setProperty('min-width','0','important');
         playerEl.style.setProperty('margin','0','important');
         const video=playerEl.querySelector('video');
