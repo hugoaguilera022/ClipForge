@@ -1041,7 +1041,8 @@ function estimateVideoCapacity(options) {
   const asr={
     'whisper-tiny':{label:'Whisper Tiny',downloadMb:80,ramGb:1.8},
     'whisper-base':{label:'Whisper Base',downloadMb:160,ramGb:2.4},
-    'whisper-small':{label:'Whisper Small',downloadMb:520,ramGb:4.0}
+    'whisper-small':{label:'Whisper Small',downloadMb:520,ramGb:4.0},
+    'whisper-large-v3-turbo':{label:'Whisper Large-v3-Turbo',downloadMb:1650,ramGb:7.0}
   }[String(whisperModel)]||{label:'Whisper Base',downloadMb:160,ramGb:2.4};
   const audioGb=minutes*0.00384;
   const systemRamGb=Math.ceil((2.2+asr.ramGb+audioGb)*2)/2;
@@ -1684,8 +1685,8 @@ runButton?.addEventListener('click', async () => {
     const { pipeline, env } = await import('https://esm.sh/@huggingface/transformers@3.7.2');
     env.allowLocalModels = false;
     env.useBrowserCache = true;
-    const model = document.querySelector('#browserWhisperModel')?.value || 'whisper-base';
-    const modelId = ({ 'whisper-tiny': 'onnx-community/whisper-tiny_timestamped', 'whisper-base': 'onnx-community/whisper-base_timestamped', 'whisper-small': 'onnx-community/whisper-small_timestamped' })[model];
+    const model = document.querySelector('#browserWhisperModel')?.value || 'whisper-large-v3-turbo';
+    const modelId = ({ 'whisper-tiny': 'onnx-community/whisper-tiny_timestamped', 'whisper-base': 'onnx-community/whisper-base_timestamped', 'whisper-small': 'onnx-community/whisper-small_timestamped', 'whisper-large-v3-turbo': 'striimit/whisper-large-v3-turbo-webgpu' })[model];
     if (!modelId) throw new Error('El modelo seleccionado todavía no tiene soporte verificado para marcas de tiempo por palabra.');
     const progress = p => {
       if (p.status === 'progress') say(`Descargando modelo ${p.file || ''}: ${Math.round(p.progress || 0)}%`);
@@ -1698,13 +1699,19 @@ runButton?.addEventListener('click', async () => {
       if(webgpuReady){
         try {
           say('Activando aceleración gráfica WebGPU para acelerar la transcripción…');
-          asr = await pipeline('automatic-speech-recognition', id, { device:'webgpu', dtype:'fp16', progress_callback:progress });
+          const modelOptions = id === 'striimit/whisper-large-v3-turbo-webgpu'
+            ? { device:'webgpu', dtype:{ encoder_model:'fp16', decoder_model_merged:'q4' }, progress_callback:progress }
+            : { device:'webgpu', dtype:'fp16', progress_callback:progress };
+          asr = await pipeline('automatic-speech-recognition', id, modelOptions);
           asrModelId=id;
           return;
         } catch(error) {
           console.warn('Whisper WebGPU no disponible para este modelo; usando WASM optimizado.',error);
           asr=null;
         }
+      }
+      if (id === 'striimit/whisper-large-v3-turbo-webgpu') {
+        throw new Error('Large-v3-Turbo necesita WebGPU compatible. Activa la aceleración gráfica y usa Chrome o Edge actualizado; no se descargará un modelo alternativo de menor calidad automáticamente.');
       }
       asr = await pipeline('automatic-speech-recognition', id, { dtype:'q8', progress_callback:progress });
       asrModelId = id;
