@@ -178,7 +178,8 @@
   function reveal(){
     if(!candidates||!resultSlot||!candidates.querySelector('.candidate-card'))return;
     if(!resultSlot.contains(candidates))resultSlot.append(candidates);
-    candidates.hidden=false;candidates.removeAttribute('aria-hidden');candidates.style.removeProperty('display');\n    const count=candidates.querySelectorAll('.candidate-card').length;
+    candidates.hidden=false;candidates.removeAttribute('aria-hidden');candidates.style.removeProperty('display');
+    const count=candidates.querySelectorAll('.candidate-card').length;
     const pill=results.querySelector('.cf-opus-result-pill');if(pill)pill.textContent=count+' clips · 9:16';
     setStage('results');
     const progress=$('#cfProductionStatus');if(progress)progress.textContent='Tus cuatro clips están listos. Abre cualquiera para ajustar el montaje y los subtítulos.';
