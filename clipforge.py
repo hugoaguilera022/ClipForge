@@ -110,7 +110,7 @@ def _transcribe_mlx_whisper(video:Path,model_name:str,language:str)->dict[str,An
  repo = _MLX_WHISPER_MODELS.get(requested, _MLX_WHISPER_MODELS.get(model_name.lower(), _MLX_WHISPER_MODELS["small"]))
  try:
   result = mlx_whisper.transcribe(str(video), path_or_hf_repo=repo, language=language,
-                                  word_timestamps=True, condition_on_previous_text=False)
+                                  word_timestamps=True, condition_on_previous_text=True)
  except Exception as exc:
   raise RuntimeError(f"MLX Whisper no pudo transcribir con {repo}: {exc}") from exc
  segments=[]
@@ -159,7 +159,7 @@ def _transcribe_faster_whisper(video:Path,model_name:str,language:str)->dict[str
    _FASTER_WHISPER_MODELS[key]=model
  try:
   iterator,info=model.transcribe(str(video),language=language,word_timestamps=True,
-      vad_filter=True,beam_size=5,condition_on_previous_text=False)
+      vad_filter=True,beam_size=5,condition_on_previous_text=True)
   segments=[]
   for segment in iterator:
    words=[]
