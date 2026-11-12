@@ -169,8 +169,18 @@
     const exportOne=card.querySelector('.candidate-export-one'),select=card.querySelector('.candidate-select');
     const layout=document.createElement('div');layout.className='cf-opus-editor-layout';
     const sidebar=document.createElement('aside');sidebar.className='cf-opus-left-sidebar';
-    const sidebarTitle=document.createElement('div');sidebarTitle.className='cf-opus-sidebar-title';sidebarTitle.textContent='Herramientas';sidebar.append(sidebarTitle);
+    const sidebarTitle=document.createElement('div');sidebarTitle.className='cf-opus-sidebar-title';sidebarTitle.textContent='PROYECTO';sidebar.append(sidebarTitle);
+    const projectSource=document.createElement('div');projectSource.className='cf-opus-project-source';
+    const sourceName=document.createElement('strong');sourceName.textContent=$('#filename')?.textContent||'Vídeo del proyecto';
+    const sourceDuration=document.createElement('small');sourceDuration.textContent='Vídeo original · 9:16';
+    projectSource.append(sourceName,sourceDuration);sidebar.append(projectSource);
+    const projectStatus=document.createElement('div');projectStatus.className='cf-opus-project-status';projectStatus.innerHTML='<span>✓</span> Transcripción completa<br><span>✓</span> Momentos detectados<br><span>✓</span> Clips seleccionados';sidebar.append(projectStatus);
+    const sidebarToolsTitle=document.createElement('div');sidebarToolsTitle.className='cf-opus-sidebar-title';sidebarToolsTitle.textContent='HERRAMIENTAS';sidebar.append(sidebarToolsTitle);
     const preview=document.createElement('section');preview.className='cf-opus-preview-column';
+    const clipPanel=document.createElement('aside');clipPanel.className='cf-opus-clips-panel';
+    const clipPanelHead=document.createElement('div');clipPanelHead.className='cf-opus-clips-head';clipPanelHead.innerHTML='<span>✦</span><strong>Clips generados</strong>';clipPanel.append(clipPanelHead);
+    const liveCandidateList=$('#browserCandidateList');if(liveCandidateList){liveCandidateList.classList.add('cf-opus-live-clip-list');clipPanel.append(liveCandidateList);}
+    const clipAdd=document.createElement('button');clipAdd.type='button';clipAdd.className='cf-opus-add-clip';clipAdd.textContent='+ Añadir clip';clipAdd.addEventListener('click',()=>window.dispatchEvent(new CustomEvent('clipforge:add-clip-request')));clipPanel.append(clipAdd);
     const toolRail=document.createElement('nav');toolRail.className='cf-editor-tool-rail';toolRail.setAttribute('aria-label','Herramientas del editor');
     const toolDefs=[['▧','Medios','captions'],['T','Texto','text'],['CC','Subtítulos','captions'],['✧','Efectos','animation'],['⇄','Transiciones','animation'],['♫','Audio','tts'],['⚙','Ajustes','tracking']];
     toolDefs.forEach(([glyph,label,target],i)=>{const button=document.createElement('button');button.type='button';button.className='cf-editor-tool'+(i===0?' is-active':'');button.innerHTML='<span>'+glyph+'</span><small>'+label+'</small>';button.title=label;button.addEventListener('click',()=>{const tab=tabs.querySelector('[data-tab="'+target+'"]');tab?.click();toolRail.querySelectorAll('button').forEach(x=>x.classList.toggle('is-active',x===button));});toolRail.append(button);});
@@ -204,7 +214,7 @@
     panes.append(captionsPane,textPane,animationPane,trackingPane,ttsPane);inspector.append(tabs,panes);
     sidebar.append(toolRail);
     if(player)preview.append(player);
-    layout.append(sidebar,preview,inspector);
+    layout.append(sidebar,clipPanel,preview,inspector);
     // Apply the core editor geometry inline: it must not depend on a stale
     // cached stylesheet or on the browser resolving a cascade of old rules.
     const syncEditorGeometry=()=>{
@@ -215,7 +225,7 @@
       card.style.setProperty('width','100%','important');
       card.style.setProperty('min-width','0','important');
       layout.style.setProperty('display','grid','important');
-      layout.style.setProperty('grid-template-columns',width>=1200?'minmax(170px,210px) minmax(300px,1fr) minmax(370px,430px)':width>=760?'minmax(0,1fr) minmax(340px,.9fr)':'minmax(0,1fr)','important');
+      layout.style.setProperty('grid-template-columns',width>=1450?'minmax(180px,210px) minmax(250px,300px) minmax(360px,1fr) minmax(370px,430px)':width>=1050?'minmax(150px,180px) minmax(220px,260px) minmax(320px,1fr)':'minmax(0,1fr)','important');
       layout.style.setProperty('align-items','start','important');
       layout.style.setProperty('gap',width<=650?'12px':'16px','important');
       layout.style.setProperty('width','100%','important');
@@ -224,6 +234,11 @@
       sidebar.style.setProperty('flex-direction','column','important');
       sidebar.style.setProperty('gap','12px','important');
       sidebar.style.setProperty('min-width','0','important');
+      clipPanel.style.setProperty('display','flex','important');
+      clipPanel.style.setProperty('flex-direction','column','important');
+      clipPanel.style.setProperty('min-width','0','important');
+      clipPanel.style.setProperty('max-height','680px','important');
+      clipPanel.style.setProperty('overflow','hidden','important');
       toolRail.style.setProperty('display','flex','important');
       toolRail.style.setProperty('flex-direction',width>=1200?'column':'row','important');
       toolRail.style.setProperty('flex-wrap',width>=1200?'nowrap':'wrap','important');
