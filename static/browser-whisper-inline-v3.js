@@ -2118,25 +2118,32 @@ window.clipforgeEditorBridge = {
 window.dispatchEvent(new CustomEvent('clipforge:editor-ready'));
 
 
-// Single source of truth for auto-start: bind after this module initializes.
+// Idempotent startup: handle both normal file changes and files selected
+// before this module finishes loading (a common race on first page load).
 const sourceInput = document.querySelector('#video');
-sourceInput?.addEventListener('change', () => {
-  const file = sourceInput.files?.[0];
+let whisperStartPromise = null;
+function startWhisperForSelectedFile() {
+  const file = sourceInput?.files?.[0];
   if (!file) return;
   updateVideoCapacity(file).catch(error => console.warn('No se pudo calcular la capacidad del vídeo:', error));
   if (window.clipforgeEditorBridge?.getProject?.().transcript?.segments?.length) return;
+  if (sourceInput.dataset.whisperAutoStarted === '1') return;
   if (runButton?.disabled) {
     say('El análisis anterior sigue en curso. Espera a que termine antes de iniciar otro vídeo.');
     return;
   }
-  if (sourceInput.dataset.whisperAutoStarted === '1') return;
-  sourceInput.dataset.whisperAutoStarted = '1';
-  if (!runButton) {
-    say('Error: el botón de análisis no está conectado. Recarga ClipForge para inicializar el motor.');
+  if (!runButton || !document.contains(runButton)) {
+    say('Error: el botón de análisis no está conectado al espacio de trabajo. Recarga la página.');
     return;
   }
+  sourceInput.dataset.whisperAutoStarted = '1';
   say('Vídeo detectado. Iniciando extracción de audio y transcripción Whisper…');
-  runButton.click();
-});
-document.querySelector('#browserWhisperModel')?.addEventListener('change',()=>{const file=document.querySelector('#video')?.files?.[0];if(file)updateVideoCapacity(file).catch(console.warn);});
+  // Let the workspace finish its preview update before starting the expensive model.
+  whisperStartPromise = Promise.resolve().then(() => runButton.click());
+}
+sourceInput?.addEventListener('change', startWhisperForSelectedFile);
+// Catch files selected while module scripts were still loading.
+window.addEventListener('clipforge:workspace-ready', startWhisperForSelectedFile);
 window.dispatchEvent(new CustomEvent('clipforge:whisper-ready'));
+if (sourceInput?.files?.length) setTimeout(startWhisperForSelectedFile, 0);
+document.querySelector('#browserWhisperModel')?.addEventListener('change',()=>{const file=document.querySelector('#video')?.files?.[0];if(file)updateVideoCapacity(file).catch(console.warn);});
