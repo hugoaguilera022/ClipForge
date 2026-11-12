@@ -1586,9 +1586,9 @@ body.cf-opus-stage-editor #cfWorkspace .cf-opus-preview-column>.cf-inline-player
 
 /* ClipForge Pro reference editor: single-screen, four-column editing workspace */
 #cfWorkspace.cf-opus-workspace:has(.cf-opus-stage-editor),body.cf-opus-stage-editor{background:#08090f!important;color:#f4f3fb!important}
-#cfWorkspace.cf-opus-stage-editor .cf-opus-main{max-width:none!important;width:100%!important;padding:0 18px 28px!important}
-#cfWorkspace.cf-opus-stage-editor .cf-opus-editor{display:block!important;margin:0!important}
-#cfWorkspace.cf-opus-stage-editor .cf-opus-section-head{display:none!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-main{max-width:none!important;width:100%!important;padding:0 18px 28px!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-editor{display:block!important;margin:0!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-section-head{display:none!important}
 #cfWorkspace .cf-editor-appnav{height:74px;display:flex;align-items:center;gap:34px;padding:0 26px;background:#0d0e17;border:1px solid #242337;border-radius:0 0 14px 14px;margin:0 0 12px;color:#f5f3ff}
 #cfWorkspace .cf-editor-logo{display:flex;align-items:center;gap:9px;color:#fff;text-decoration:none;font-size:22px;font-weight:850;letter-spacing:-.8px;white-space:nowrap}
 #cfWorkspace .cf-editor-logo>span{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#a64bff,#7138e8);color:#fff;font-size:21px}
