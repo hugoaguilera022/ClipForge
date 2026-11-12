@@ -1294,7 +1294,7 @@ async function askEditorialModel(engine, pool, count, onProgress, phase) {
     ],
     temperature:0.12,
     max_tokens:Math.min(4096,700+count*260),
-    response_format:{type:'json_object'}
+    ...(engine.isRemote?{response_format:{type:'json_object'}}:{})
   });
   const raw=response?.choices?.[0]?.message?.content||'';
   try{return parseEditorialDecision(raw,pool,count,false,engine.isRemote?'remote_generative_editor':'local_generative_editor');}
@@ -1309,7 +1309,7 @@ async function askEditorialModel(engine, pool, count, onProgress, phase) {
         {role:'user',content:prompt},
         {role:'assistant',content:String(raw).slice(0,5000)},
         {role:'user',content:'La selección anterior ha sido rechazada: '+String(firstError.message||firstError)+'. Vuelve a evaluar la lista completa y devuelve exactamente '+count+' IDs válidos, todos distintos y sin solapamiento temporal (deja al menos 1 segundo entre clips). No repitas la selección anterior si contiene solapamientos. Devuelve el mismo JSON con la rúbrica editorial completa.'}
-      ],temperature:0.08,max_tokens:700,response_format:{type:'json_object'}
+      ],temperature:0.08,max_tokens:700,...(engine.isRemote?{response_format:{type:'json_object'}}:{})
     });
     return parseEditorialDecision(retry?.choices?.[0]?.message?.content||'',pool,count,false,engine.isRemote?'remote_generative_editor':'local_generative_editor');
   }
@@ -1372,7 +1372,7 @@ async function aiEditorialSelect(candidates, limit = 4, onProgress = () => {}) {
   const auditRequest={messages:[
     {role:'system',content:'Actúas como revisor editorial de segunda pasada. Busca motivos para DESCARTAR, no para confirmar. Responde solo JSON válido.'},
     {role:'user',content:auditPrompt}
-  ],temperature:0.05,max_tokens:Math.min(4096,700+limit*260),response_format:{type:'json_object'}};
+  ],temperature:0.05,max_tokens:Math.min(4096,700+limit*260),...(engine.isRemote?{response_format:{type:'json_object'}}:{})};
   let audited;
   let auditRaw='';
   try{
