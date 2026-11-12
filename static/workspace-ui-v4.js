@@ -15,6 +15,7 @@
   const transcriptOutput=$('#browserTranscript');
   const downloadTranscript=$('#downloadBrowserTranscript');
   const saveTranscript=$('#saveBrowserProject');
+  const capacityPanel=$('#videoCapacity');
   if(language)language.value='es';
   // Respect the HTML default and any user choice; never silently downgrade a selected model.
   if(model && !model.value) model.value='whisper-large-v3-turbo';
@@ -55,7 +56,7 @@
   const health=header?.querySelector('#health');if(health)app.querySelector('#cfHealthSlot').append(health);header?.remove();
   if(drop)app.querySelector('.cf-opus-drop-slot').append(drop);
   if(transcribe){transcribe.textContent='Generar mis 4 clips';app.querySelector('.cf-opus-primary-action').append(transcribe);}
-  const capacityPanel=$('#videoCapacity'),trustRow=app.querySelector('.cf-opus-trust');
+  const trustRow=app.querySelector('.cf-opus-trust');
   if(capacityPanel&&trustRow){capacityPanel.hidden=false;capacityPanel.removeAttribute('aria-hidden');trustRow.after(capacityPanel);}
   // Keep ASR output attached after replacing the original main container.
   const transcriptPanel=document.createElement('section');transcriptPanel.id='cfTranscriptPanel';transcriptPanel.className='cf-transcript-panel';transcriptPanel.hidden=true;
