@@ -2023,7 +2023,7 @@ document.querySelector('#browserProjectImport')?.addEventListener('change', asyn
     const duration=Math.max(0,...editableCandidates.map(c=>Number(c.end)));
     showClipCandidates([],duration,editableCandidates);
     localStorage.setItem('clipforge.browser.project.v1',JSON.stringify(project));
-    say(`Proyecto recuperado: ${editableCandidates.length} clips${transcriptData?.segments?.length ? ' y transcripción' : ''}. Selecciona el vídeo original y podrás continuar editando.`);
+    say(`Proyecto recuperado: ${editableCandidates.length} clips${transcriptData?.segments?.length ? ' y transcripción' : ''}. Selecciona el vídeo original y podrás continuar editando.`);if(transcriptData?.segments?.length){const restoredWordCount=transcriptData.segments.reduce((n,s)=>n+(Array.isArray(s.words)?s.words.length:0),0);window.dispatchEvent(new CustomEvent('clipforge:transcript-ready',{detail:{segments:transcriptData.segments.length,words:restoredWordCount||transcriptData.text?.split(/\\s+/).filter(Boolean).length||0,timedWords:restoredWordCount,language:transcriptData.language,model:transcriptData.model}}));}
   } catch(error) { say(`No se pudo abrir el proyecto: ${error.message}`); }
   finally { event.target.value=''; }
 });
