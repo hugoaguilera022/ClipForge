@@ -644,7 +644,7 @@ function rankClipCandidates(words, videoDuration, audioSamples = null, sampleRat
       const before=utteranceText(utterances[index-1]),answer=utteranceText(items),after=utteranceText(utterances[index+1]);
       const answerWords=(answer.match(/[\p{L}\p{N}]{2,}/gu)||[]).length;
       const followupReaction=/[?¿!¡]/.test(after)||new RegExp(reactionWord.source,reactionWord.flags.replace('g','')).test(after)||/\\b(no|pero|cómo|por qué|en serio|de verdad|really|wait|but)\\b/i.test(after);
-      return /[?¿]\\s*[”’\"')\\]]?$/.test(before)&&answerWords>=1&&answerWords<=9&&followupReaction;
+      return /[?¿]\s*[”’\"')\\]]?$/.test(before)&&answerWords>=1&&answerWords<=9&&followupReaction;
     });
     // Score the shape of the conversation, not just isolated words.
     // A complete exchange has a setup, an answer and a reaction/follow-up;
@@ -1097,21 +1097,21 @@ function extractEditorialModelText(response) {
   const parts=[message.content,message.reasoning_content,message.reasoning,choice.text,response?.output_text];
   for(const part of parts){
     if(typeof part==='string'&&part.trim()){
-      const cleaned=part.replace(/<think>[\\s\\S]*?<\\/think>/gi,'').trim();
+      const cleaned=part.replace(/<think>[\s\S]*?<\/think>/gi,'').trim();
       if(cleaned.includes('{')&&cleaned.includes('}'))return cleaned;
     }
   }
   for(const part of [message.content,message.reasoning_content]){
     if(Array.isArray(part)){
       const joined=part.map(item=>typeof item==='string'?item:(item?.text||'')).join(' ').trim();
-      if(joined.includes('{')&&joined.includes('}'))return joined.replace(/<think>[\\s\\S]*?<\\/think>/gi,'').trim();
+      if(joined.includes('{')&&joined.includes('}'))return joined.replace(/<think>[\s\S]*?<\/think>/gi,'').trim();
     }
   }
   return '';
 }
 
 function parseEditorialDecision(raw, candidates, limit = 4, requireAudit = false, selectionMethod = 'local_generative_editor') {
-  let text=String(raw||'').replace(/<think>[\\s\\S]*?<\\/think>/gi,'').replace(/```(?:json)?/gi,'').trim();
+  let text=String(raw||'').replace(/<think>[\s\S]*?<\/think>/gi,'').replace(/```(?:json)?/gi,'').trim();
   const first=text.indexOf('{'),last=text.lastIndexOf('}');
   if(first<0||last<=first)throw new Error('El editor IA no devolvió una selección estructurada.');
   let data;
@@ -1127,7 +1127,7 @@ function parseEditorialDecision(raw, candidates, limit = 4, requireAudit = false
     if(selected.some(other=>clip.start<other.end+1&&clip.end>other.start-1))continue;
     const evidence=String(item.evidence||item.importance_evidence||'').trim();
     if(requireAudit){
-      const normalize=value=>String(value||'').toLowerCase().normalize('NFD').replace(/\\p{Diacritic}/gu,'').replace(/[^\\p{L}\\p{N}]+/gu,' ').trim();
+      const normalize=value=>String(value||'').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^\p{L}\p{N}]+/gu,' ').trim();
       const quote=normalize(evidence),transcript=normalize(clip.text);
       if(quote.split(' ').filter(Boolean).length<4||!transcript.includes(quote))continue;
     }
@@ -1269,7 +1269,7 @@ async function askEditorialModel(engine, pool, count, onProgress, phase) {
   // The 0.6B judge is reliable with short choices and IDs, not long rubrics.
   const shortlist=pool.map((clip,index)=>({
     id:index+1,start:Number(clip.start.toFixed(1)),end:Number(clip.end.toFixed(1)),
-    transcript:String(clip.text||'').replace(/\\s+/g,' ').slice(0,115)
+    transcript:String(clip.text||'').replace(/\s+/g,' ').slice(0,115)
   }));
   const prompt=[
     'Eres editor audiovisual. Compara el contenido, no la viralidad.',
@@ -1278,7 +1278,7 @@ async function askEditorialModel(engine, pool, count, onProgress, phase) {
     'Elige exactamente '+count+' IDs distintos y no solapados. No inventes hechos ni cambies tiempos.',
     'Responde SOLO JSON compacto con esta forma: {"selected":[{"id":1}]}',
     phase,'CANDIDATOS: '+JSON.stringify(shortlist)
-  ].join('\\n');
+  ].join('\n');
   onProgress(phase);
   const response=await engine.chat.completions.create({
     messages:[
@@ -1326,7 +1326,7 @@ async function aiEditorialSelect(candidates, limit = 4, onProgress = () => {}) {
     'Votación final: comparando los últimos '+working.length+' momentos y eligiendo los cuatro mejores…');
   const auditInput=firstVote.map((clip,index)=>({
     id:index+1,start:Number(clip.start.toFixed(1)),end:Number(clip.end.toFixed(1)),
-    transcript:String(clip.text||'').replace(/\\s+/g,' ').slice(0,115)
+    transcript:String(clip.text||'').replace(/\s+/g,' ').slice(0,115)
   }));
   const auditPrompt=[
     'Auditor editorial: revisa estos cuatro finalistas y descarta los que no aporten contenido importante.',
@@ -1334,7 +1334,7 @@ async function aiEditorialSelect(candidates, limit = 4, onProgress = () => {}) {
     'Elige exactamente cuatro IDs distintos y no solapados. Para cada uno incluye evidence: cita literal de al menos cuatro palabras del transcript. No inventes citas.',
     'Responde SOLO JSON: {"selected":[{"id":1,"evidence":"cita literal"}]}',
     'FINALISTAS: '+JSON.stringify(auditInput)
-  ].join('\\n');
+  ].join('\n');
   onProgress('Auditoría final de los cuatro momentos seleccionados…');
   let audited;
   try{
@@ -1920,7 +1920,7 @@ document.querySelector('#video')?.addEventListener('change', async () => {
   const panel=document.querySelector('#browserCandidates');
   const transcript=document.querySelector('#transcript');
   if (importedProjectPendingSource && transcriptData?.segments?.length) {
-    const expected = String(transcriptData.source || '').split(/[\\/]/).pop();
+    const expected = String(transcriptData.source || '').split(/[\/]/).pop();
     if (!expected || expected === file.name) {
       if (transcript) attachTranscriptToJobForm(makeVtt(transcriptData.segments));
       const metadataUrl=URL.createObjectURL(file);
@@ -2000,7 +2000,7 @@ document.querySelector('#browserProjectImport')?.addEventListener('change', asyn
       if(segments.length) {
         transcriptData.segments=segments;
         if(output)output.value=segments.map(c=>`[${c.start.toFixed(2)}–${c.end.toFixed(2)}] ${c.text}`).join('\n');
-        if (!sourceFile || String(transcriptData.source || '').split(/[\\/]/).pop() === sourceFile.name) {
+        if (!sourceFile || String(transcriptData.source || '').split(/[\/]/).pop() === sourceFile.name) {
           attachTranscriptToJobForm(makeVtt(segments));
         } else {
           importedProjectPendingSource=false;
@@ -2013,7 +2013,7 @@ document.querySelector('#browserProjectImport')?.addEventListener('change', asyn
     const duration=Math.max(0,...editableCandidates.map(c=>Number(c.end)));
     showClipCandidates([],duration,editableCandidates);
     localStorage.setItem('clipforge.browser.project.v1',JSON.stringify(project));
-    say(`Proyecto recuperado: ${editableCandidates.length} clips${transcriptData?.segments?.length ? ' y transcripción' : ''}. Selecciona el vídeo original y podrás continuar editando.`);if(transcriptData?.segments?.length){const restoredWordCount=transcriptData.segments.reduce((n,s)=>n+(Array.isArray(s.words)?s.words.length:0),0);window.dispatchEvent(new CustomEvent('clipforge:transcript-ready',{detail:{segments:transcriptData.segments.length,words:restoredWordCount||transcriptData.text?.split(/\\s+/).filter(Boolean).length||0,timedWords:restoredWordCount,language:transcriptData.language,model:transcriptData.model}}));}
+    say(`Proyecto recuperado: ${editableCandidates.length} clips${transcriptData?.segments?.length ? ' y transcripción' : ''}. Selecciona el vídeo original y podrás continuar editando.`);if(transcriptData?.segments?.length){const restoredWordCount=transcriptData.segments.reduce((n,s)=>n+(Array.isArray(s.words)?s.words.length:0),0);window.dispatchEvent(new CustomEvent('clipforge:transcript-ready',{detail:{segments:transcriptData.segments.length,words:restoredWordCount||transcriptData.text?.split(/\s+/).filter(Boolean).length||0,timedWords:restoredWordCount,language:transcriptData.language,model:transcriptData.model}}));}
   } catch(error) { say(`No se pudo abrir el proyecto: ${error.message}`); }
   finally { event.target.value=''; }
 });
