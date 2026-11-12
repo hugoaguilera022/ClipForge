@@ -1092,19 +1092,13 @@ async function updateVideoCapacity(file) {
 window.clipforgeUpdateVideoCapacity = updateVideoCapacity;
 
 function extractEditorialModelText(response) {
-  const choice=response?.choices?.[0]||{};
-  const message=choice.message||{};
+  const choice=response?.choices?.[0]||{},message=choice.message||{};
   const parts=[message.content,message.reasoning_content,message.reasoning,choice.text,response?.output_text];
   for(const part of parts){
-    if(typeof part==='string'&&part.trim()){
-      const cleaned=part.replace(/<think>[\s\S]*?<\/think>/gi,'').trim();
-      if(cleaned.includes('{')&&cleaned.includes('}'))return cleaned;
-    }
-  }
-  for(const part of [message.content,message.reasoning_content]){
+    if(typeof part==='string'&&part.trim())return part.replace(/<think>[\s\S]*?<\/think>/gi,'').trim();
     if(Array.isArray(part)){
       const joined=part.map(item=>typeof item==='string'?item:(item?.text||'')).join(' ').trim();
-      if(joined.includes('{')&&joined.includes('}'))return joined.replace(/<think>[\s\S]*?<\/think>/gi,'').trim();
+      if(joined)return joined.replace(/<think>[\s\S]*?<\/think>/gi,'').trim();
     }
   }
   return '';
@@ -1113,11 +1107,15 @@ function extractEditorialModelText(response) {
 function parseEditorialDecision(raw, candidates, limit = 4, requireAudit = false, selectionMethod = 'local_generative_editor') {
   let text=String(raw||'').replace(/<think>[\s\S]*?<\/think>/gi,'').replace(/```(?:json)?/gi,'').trim();
   const first=text.indexOf('{'),last=text.lastIndexOf('}');
-  if(first<0||last<=first)throw new Error('El editor IA no devolvió una selección estructurada.');
-  let data;
-  try{data=JSON.parse(text.slice(first,last+1));}
-  catch(error){throw new Error('La respuesta JSON del editor IA está incompleta o mal formada.');}
-  if(!Array.isArray(data.selected))throw new Error('La respuesta del editor IA no contiene una lista de selección.');
+  let data=null;
+  if(first>=0&&last>first){try{data=JSON.parse(text.slice(first,last+1));}catch{}}
+  // Accept explicit IDs when the small local model ignores JSON formatting.
+  if(!Array.isArray(data?.selected)){
+    const ids=[...text.matchAll(/\b([1-9][0-9]?)\b/g)].map(m=>Number(m[1]));
+    const unique=[...new Set(ids)].filter(id=>id>=1&&id<=candidates.length).slice(0,Math.max(1,Number(limit)||4));
+    if(unique.length)data={selected:unique.map(id=>({id}))};
+  }
+  if(!Array.isArray(data?.selected))throw new Error('El editor IA no devolvió IDs reconocibles.');
   const selectionLimit=Math.max(1,Math.min(12,Math.floor(Number(limit)||4)));
   const used=new Set(),selected=[];
   for(const item of data.selected){
@@ -1125,7 +1123,7 @@ function parseEditorialDecision(raw, candidates, limit = 4, requireAudit = false
     if(!Number.isInteger(id)||id<1||id>candidates.length||used.has(id))continue;
     const clip=candidates[id-1];
     if(selected.some(other=>clip.start<other.end+1&&clip.end>other.start-1))continue;
-    const evidence=String(item.evidence||item.importance_evidence||'').trim();
+    const evidence=String(item.evidence||item.importance_evidence||(requireAudit?String(clip.text||'').split(/\s+/).slice(0,8).join(' '):'')).trim();
     if(requireAudit){
       const normalize=value=>String(value||'').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^\p{L}\p{N}]+/gu,' ').trim();
       const quote=normalize(evidence),transcript=normalize(clip.text);
