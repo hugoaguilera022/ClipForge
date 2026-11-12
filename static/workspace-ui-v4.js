@@ -168,7 +168,9 @@
     const heading=card.querySelector(':scope > strong');
     const exportOne=card.querySelector('.candidate-export-one'),select=card.querySelector('.candidate-select');
     const layout=document.createElement('div');layout.className='cf-opus-editor-layout';
-    const preview=document.createElement('section');preview.className='cf-opus-player-column';
+    const sidebar=document.createElement('aside');sidebar.className='cf-opus-left-sidebar';
+    const sidebarTitle=document.createElement('div');sidebarTitle.className='cf-opus-sidebar-title';sidebarTitle.textContent='Herramientas';sidebar.append(sidebarTitle);
+    const preview=document.createElement('section');preview.className='cf-opus-preview-column';
     const toolRail=document.createElement('nav');toolRail.className='cf-editor-tool-rail';toolRail.setAttribute('aria-label','Herramientas del editor');
     const toolDefs=[['▧','Medios','captions'],['T','Texto','text'],['CC','Subtítulos','captions'],['✧','Efectos','animation'],['⇄','Transiciones','animation'],['♫','Audio','tts'],['⚙','Ajustes','tracking']];
     toolDefs.forEach(([glyph,label,target],i)=>{const button=document.createElement('button');button.type='button';button.className='cf-editor-tool'+(i===0?' is-active':'');button.innerHTML='<span>'+glyph+'</span><small>'+label+'</small>';button.title=label;button.addEventListener('click',()=>{const tab=tabs.querySelector('[data-tab="'+target+'"]');tab?.click();toolRail.querySelectorAll('button').forEach(x=>x.classList.toggle('is-active',x===button));});toolRail.append(button);});
@@ -200,9 +202,9 @@
     const tabDefs=[['captions','Subtítulos'],['text','Texto'],['animation','Animación'],['tracking','Tracking'],['tts','Texto a voz']];
     tabDefs.forEach(([key,label],i)=>{const button=document.createElement('button');button.type='button';button.className='cf-opus-tab'+(i===0?' is-active':'');button.textContent=label;button.dataset.tab=key;button.setAttribute('role','tab');button.setAttribute('aria-selected',String(i===0));button.addEventListener('click',()=>{tabs.querySelectorAll('button').forEach(b=>{b.classList.toggle('is-active',b===button);b.setAttribute('aria-selected',String(b===button));});panes.querySelectorAll('.cf-opus-pane').forEach(p=>p.classList.toggle('is-active',p.dataset.pane===key));});tabs.append(button);});
     panes.append(captionsPane,textPane,animationPane,trackingPane,ttsPane);inspector.append(tabs,panes);
+    sidebar.append(toolRail);
     if(player)preview.append(player);
-    preview.prepend(toolRail);
-    layout.append(preview,inspector);
+    layout.append(sidebar,preview,inspector);
     // Apply the core editor geometry inline: it must not depend on a stale
     // cached stylesheet or on the browser resolving a cascade of old rules.
     const syncEditorGeometry=()=>{
@@ -213,25 +215,32 @@
       card.style.setProperty('width','100%','important');
       card.style.setProperty('min-width','0','important');
       layout.style.setProperty('display','grid','important');
-      layout.style.setProperty('grid-template-columns',width>=1100?'minmax(0,1.05fr) minmax(0,.95fr)':'minmax(0,1fr)','important');
+      layout.style.setProperty('grid-template-columns',width>=1200?'minmax(170px,210px) minmax(300px,1fr) minmax(370px,430px)':width>=760?'minmax(0,1fr) minmax(340px,.9fr)':'minmax(0,1fr)','important');
       layout.style.setProperty('align-items','start','important');
       layout.style.setProperty('gap',width<=650?'12px':'16px','important');
       layout.style.setProperty('width','100%','important');
       layout.style.setProperty('min-width','0','important');
-      preview.style.setProperty('display','grid','important');
-      preview.style.setProperty('grid-template-columns',width<=650?'minmax(0,1fr)':width<=1100?'48px minmax(0,1fr)':'58px minmax(0,1fr)','important');
-      preview.style.setProperty('align-content','start','important');
-      preview.style.setProperty('align-items','start','important');
-      preview.style.setProperty('justify-items','stretch','important');
-      preview.style.setProperty('min-height','0','important');
+      sidebar.style.setProperty('display','flex','important');
+      sidebar.style.setProperty('flex-direction','column','important');
+      sidebar.style.setProperty('gap','12px','important');
+      sidebar.style.setProperty('min-width','0','important');
+      toolRail.style.setProperty('display','flex','important');
+      toolRail.style.setProperty('flex-direction',width>=1200?'column':'row','important');
+      toolRail.style.setProperty('flex-wrap',width>=1200?'nowrap':'wrap','important');
+      preview.style.setProperty('display','flex','important');
+      preview.style.setProperty('align-items','center','important');
+      preview.style.setProperty('justify-content','center','important');
+      preview.style.setProperty('min-width','0','important');
+      preview.style.setProperty('min-height','560px','important');
       preview.style.setProperty('height','auto','important');
+      preview.style.setProperty('padding','18px','important');
       const playerEl=preview.querySelector('.cf-inline-player');
       if(playerEl){
         playerEl.style.setProperty('display','flex','important');
         playerEl.style.setProperty('flex-direction','column','important');
         playerEl.style.setProperty('align-items','center','important');
         playerEl.style.setProperty('justify-self','center','important');
-        playerEl.style.setProperty('align-self','start','important');
+        playerEl.style.setProperty('align-self','center','important');
         playerEl.style.setProperty('width','min(100%,'+(width<=650?'360px':'420px')+')','important');
         playerEl.style.setProperty('min-width','0','important');
         playerEl.style.setProperty('margin','0','important');
