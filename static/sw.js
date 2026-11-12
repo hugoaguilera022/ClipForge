@@ -1,4 +1,4 @@
-// Invalidates legacy caches including clipforge-web-v218 so the current browser engine loads.
+// Invalidates legacy caches including clipforge-web-v219 so the current browser engine loads.
 // Browser engine is served from the single canonical /browser-whisper.js source.
 // v180 invalidates the old app shell after the editorial engine bridge update.
 // Invalidates previous cache clipforge-web-v181; v186 rebuilds ClipForge interface to clients; v205 ships the export and AI compatibility fixes.
