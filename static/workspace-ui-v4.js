@@ -85,11 +85,23 @@
     // start the local transcription/editorial pass automatically.
     const progress=$('#cfProductionStatus');
     if(progress)progress.textContent='Vídeo cargado. Preparando análisis local y selección de cuatro momentos…';
+    // Reset the one-shot guard for every newly selected source. Without this,
+    // after the first failed/finished attempt subsequent videos stay forever at
+    // "Vídeo cargado" and never invoke the transcription button.
+    delete fileInput.dataset.autoRunStarted;
     const restored=Boolean(window.clipforgeEditorBridge?.getProject?.().transcript?.segments?.length);
-    if(restored) fileInput.dataset.autoRunStarted='1';
-    if(transcribe&&!fileInput.dataset.autoRunStarted){
+    if(restored){
       fileInput.dataset.autoRunStarted='1';
-      window.setTimeout(()=>transcribe.click(),250);
+      if(progress)progress.textContent='Vídeo original vinculado al proyecto. Transcripción conservada; abre el proyecto para continuar sin repetir el análisis.';
+    } else if(transcribe){
+      fileInput.dataset.autoRunStarted='1';
+      window.setTimeout(()=>{
+        if(transcribe.disabled){
+          if(progress)progress.textContent='El análisis anterior sigue en curso. Espera a que termine antes de seleccionar otro vídeo.';
+          return;
+        }
+        transcribe.click();
+      },250);
     }
   });
   // The language/model controls must remain in the live DOM; the original engine
