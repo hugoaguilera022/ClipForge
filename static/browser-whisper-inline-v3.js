@@ -1090,6 +1090,25 @@ async function updateVideoCapacity(file) {
   el('videoCapacity').dataset.level=estimate.status;
 }
 
+function extractEditorialModelText(response) {
+  const choice=response?.choices?.[0]||{};
+  const message=choice.message||{};
+  const parts=[message.content,message.reasoning_content,message.reasoning,choice.text,response?.output_text];
+  for(const part of parts){
+    if(typeof part==='string'&&part.trim()){
+      const cleaned=part.replace(/<think>[\\s\\S]*?<\\/think>/gi,'').trim();
+      if(cleaned.includes('{')&&cleaned.includes('}'))return cleaned;
+    }
+  }
+  for(const part of [message.content,message.reasoning_content]){
+    if(Array.isArray(part)){
+      const joined=part.map(item=>typeof item==='string'?item:(item?.text||'')).join(' ').trim();
+      if(joined.includes('{')&&joined.includes('}'))return joined.replace(/<think>[\\s\\S]*?<\\/think>/gi,'').trim();
+    }
+  }
+  return '';
+}
+
 function parseEditorialDecision(raw, candidates, limit = 4, requireAudit = false, selectionMethod = 'local_generative_editor') {
   const text = String(raw || '').replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
   const match = text.match(/\{[\s\S]*\}/);
@@ -1296,7 +1315,7 @@ async function askEditorialModel(engine, pool, count, onProgress, phase) {
     max_tokens:Math.min(4096,700+count*260),
     ...(engine.isRemote?{response_format:{type:'json_object'}}:{})
   });
-  const raw=response?.choices?.[0]?.message?.content||'';
+  const raw=extractEditorialModelText(response);
   try{return parseEditorialDecision(raw,pool,count,false,engine.isRemote?'remote_generative_editor':'local_generative_editor');}
   catch(firstError){
     // Small local models sometimes return overlapping IDs even when instructed
@@ -1311,7 +1330,7 @@ async function askEditorialModel(engine, pool, count, onProgress, phase) {
         {role:'user',content:'La selección anterior ha sido rechazada: '+String(firstError.message||firstError)+'. Vuelve a evaluar la lista completa y devuelve exactamente '+count+' IDs válidos, todos distintos y sin solapamiento temporal (deja al menos 1 segundo entre clips). No repitas la selección anterior si contiene solapamientos. Devuelve el mismo JSON con la rúbrica editorial completa.'}
       ],temperature:0.08,max_tokens:700,...(engine.isRemote?{response_format:{type:'json_object'}}:{})
     });
-    return parseEditorialDecision(retry?.choices?.[0]?.message?.content||'',pool,count,false,engine.isRemote?'remote_generative_editor':'local_generative_editor');
+    return parseEditorialDecision(extractEditorialModelText(retry),pool,count,false,engine.isRemote?'remote_generative_editor':'local_generative_editor');
   }
 }
 
@@ -1377,7 +1396,7 @@ async function aiEditorialSelect(candidates, limit = 4, onProgress = () => {}) {
   let auditRaw='';
   try{
     const audit=await engine.chat.completions.create(auditRequest);
-    auditRaw=audit?.choices?.[0]?.message?.content||'';
+    auditRaw=extractEditorialModelText(audit);
     audited=parseEditorialDecision(auditRaw,finalPool,limit,true,engine.isRemote?'remote_generative_editor':'local_generative_editor');
   }catch(firstAuditError){
     onProgress('Segunda pasada: corrigiendo citas no verificables o clips que no superan la auditoría…');
@@ -1386,7 +1405,7 @@ async function aiEditorialSelect(candidates, limit = 4, onProgress = () => {}) {
       {role:'assistant',content:String(auditRaw).slice(0,1200)},
       {role:'user',content:'La auditoría anterior no ha superado la validación: '+String(firstAuditError.message||firstAuditError)+'. Devuelve exactamente cuatro candidatos distintos, sin solapamiento, con importance >= 6.5, audit_verdict="pass", audit_flags=[] y una cita literal de al menos cuatro palabras consecutivas que aparezca en el transcript de su propio candidato. No inventes citas. Si no puedes demostrarlo, elige otro candidato. Devuelve JSON válido únicamente.'}
     ],temperature:0.02});
-    audited=parseEditorialDecision(retry?.choices?.[0]?.message?.content||'',finalPool,limit,true,engine.isRemote?'remote_generative_editor':'local_generative_editor');
+    audited=parseEditorialDecision(extractEditorialModelText(retry),finalPool,limit,true,engine.isRemote?'remote_generative_editor':'local_generative_editor');
   }
   const firstKeys=new Set(firstVote.map(c=>`${c.start.toFixed(1)}-${c.end.toFixed(1)}`));
   return audited.map((clip,index)=>({...clip,
