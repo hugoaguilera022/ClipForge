@@ -1285,3 +1285,58 @@ body.cf-opus-stage-editor #cfWorkspace .cf-opus-editor-actions button{width:auto
  body.cf-opus-stage-editor #cfWorkspace .cf-editor-tool{flex:0 0 58px!important}
  body.cf-opus-stage-editor #cfWorkspace .cf-opus-inspector-tabs{grid-template-columns:repeat(2,minmax(0,1fr))!important}
 }
+
+
+/* Final corrective pass from the live Mac screenshots */
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-section-head{
+ display:block!important;margin:0 0 14px!important;width:100%!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-section-head>div{display:none!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-section-head .cf-opus-back{
+ display:block!important;width:100%!important;min-height:42px!important;
+ margin:0!important;background:#191a23!important;color:#f2f1f7!important;
+ border:1px solid #343541!important;border-radius:9px!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar{
+ display:grid!important;grid-template-columns:minmax(0,1fr) auto auto!important;
+ grid-template-rows:minmax(44px,auto)!important;align-items:center!important;
+ justify-content:stretch!important;flex-wrap:nowrap!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar>.cf-editor-project{grid-column:1!important;grid-row:1!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar>.cf-editor-format{grid-column:2!important;grid-row:1!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar>.cf-editor-save-project{grid-column:3!important;grid-row:1!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar>.cf-editor-export-top{
+ grid-column:4!important;grid-row:1!important;width:auto!important;min-width:150px!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar>.cf-editor-save-project{
+ width:auto!important;min-width:150px!important;max-width:none!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-player-column{
+ align-items:start!important;align-content:start!important;min-height:0!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-player-column>.cf-inline-player{
+ align-self:start!important;justify-self:center!important;margin-top:0!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-player-column>.cf-inline-player video{
+ display:block!important;min-height:320px!important;max-height:68vh!important;
+ width:100%!important;aspect-ratio:9/16!important;object-fit:contain!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-editor-layout{
+ align-items:start!important;grid-template-columns:minmax(0,1.02fr) minmax(390px,.98fr)!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-inspector{align-self:start!important}
+@media(max-width:1100px){
+ body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar{grid-template-columns:1fr auto!important;grid-template-rows:auto auto!important}
+ body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar>.cf-editor-project{grid-column:1!important;grid-row:1!important}
+ body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar>.cf-editor-format{grid-column:2!important;grid-row:1!important}
+ body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar>.cf-editor-save-project{grid-column:1!important;grid-row:2!important;width:100%!important}
+ body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar>.cf-editor-export-top{grid-column:2!important;grid-row:2!important;width:100%!important}
+}
+@media(max-width:700px){
+ body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar{grid-template-columns:1fr!important;grid-template-rows:auto auto auto auto!important}
+ body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar>*{grid-column:1!important;width:100%!important}
+ body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar>.cf-editor-project{grid-row:1!important}
+ body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar>.cf-editor-format{grid-row:2!important}
+ body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar>.cf-editor-save-project{grid-row:3!important}
+ body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar>.cf-editor-export-top{grid-row:4!important}
+}
