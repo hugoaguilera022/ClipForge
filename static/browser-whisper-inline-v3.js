@@ -1394,7 +1394,7 @@ async function aiEditorialSelect(candidates, limit = 4, onProgress = () => {}) {
     const retry=await engine.chat.completions.create({messages:[
       {role:'system',content:'Eres un auditor editorial estricto. Devuelve solo JSON válido. /no_think'},
       {role:'user',content:auditRetryPrompt}
-    ],temperature:0,max_tokens:1800,...(engine.isRemote?{response_format:{type:'json_object'}}:{})});
+    ],temperature:0,max_tokens:1800});
     audited=parseEditorialDecision(extractEditorialModelText(retry),finalPool,limit,true,engine.isRemote?'remote_generative_editor':'local_generative_editor');
   }
   const firstKeys=new Set(firstVote.map(c=>`${c.start.toFixed(1)}-${c.end.toFixed(1)}`));
