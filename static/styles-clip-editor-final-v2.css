@@ -1413,3 +1413,25 @@ body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar>.cf-editor-export-top{g
  body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar{grid-template-columns:1fr!important}
  body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar>*{grid-column:1!important;width:100%!important}
 }
+
+
+/* Match the reference toolbar proportions: project row + two full-width actions */
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar{
+ display:grid!important;
+ grid-template-columns:minmax(0,1fr) auto!important;
+ grid-template-rows:auto auto auto!important;
+ gap:10px!important;align-items:center!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar>.cf-editor-project{grid-column:1!important;grid-row:1!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar>.cf-editor-format{grid-column:2!important;grid-row:1!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar>.cf-editor-save-project{
+ grid-column:1/-1!important;grid-row:2!important;width:100%!important;max-width:none!important;
+ min-height:44px!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar>.cf-editor-export-top{
+ grid-column:1/-1!important;grid-row:3!important;width:100%!important;min-width:0!important;
+ min-height:44px!important;
+}
+@media(max-width:700px){
+ body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar{grid-template-columns:minmax(0,1fr) auto!important}
+}
