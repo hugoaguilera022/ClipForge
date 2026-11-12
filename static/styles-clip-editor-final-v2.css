@@ -1435,3 +1435,148 @@ body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar>.cf-editor-export-top{
 @media(max-width:700px){
  body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar{grid-template-columns:minmax(0,1fr) auto!important}
 }
+
+
+/* CLIPFORGE PRO EDITOR — reference composition */
+body.cf-opus-stage-editor{background:#080a11!important;color:#f4f3fa!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-announcement{display:none!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-nav{
+ position:sticky!important;top:0!important;z-index:100!important;height:74px!important;
+ max-width:none!important;padding:0 26px!important;background:#0d101a!important;
+ border-bottom:1px solid #24283a!important;display:flex!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-nav nav{display:flex!important;gap:36px!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-nav nav a{color:#c9c9d6!important;font-weight:600!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-nav nav a:last-child{color:#fff!important;background:#271747!important;border-bottom:2px solid #a44cff!important;padding:12px 22px!important;border-radius:12px!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-brand{font-size:22px!important;font-weight:900!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-mark{background:linear-gradient(135deg,#a44cff,#6d35dc)!important;color:white!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-main{max-width:none!important;width:100%!important;padding:0!important;margin:0!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-editor{display:block!important;padding:0!important;margin:0!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-editor>.cf-opus-section-head{display:none!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar{
+ display:grid!important;grid-template-columns:minmax(0,1fr) auto auto auto!important;
+ align-items:center!important;gap:14px!important;margin:0!important;padding:13px 22px!important;
+ background:#10131e!important;border:0!important;border-bottom:1px solid #282b3c!important;
+ border-radius:0!important;min-height:68px!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-project{display:flex!important;align-items:center!important;gap:14px!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-project strong{font-size:21px!important;color:#fff!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-project span{color:#bfc2d2!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-project i{color:#59d8b1!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-format{display:flex!important;align-items:center!important;gap:8px!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-save-project,body.cf-opus-stage-editor #cfWorkspace .cf-editor-export-top{
+ width:auto!important;min-width:140px!important;height:42px!important;border-radius:10px!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-save-project{background:#202436!important;color:#fff!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-export-top{background:#8744ef!important;color:#fff!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-section-head .cf-opus-back{position:absolute!important;top:88px!important;left:18px!important;z-index:3!important;background:#191d2b!important;color:#eee!important}
+body.cf-opus-stage-editor #cfWorkspace .candidate-card.cf-opus-editing-card{
+ display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:0!important;
+ width:100%!important;padding:0!important;margin:0!important;background:transparent!important;
+ border:0!important;box-shadow:none!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-editor-layout{
+ display:grid!important;grid-template-columns:190px 280px minmax(360px,1fr) 430px!important;
+ gap:0!important;align-items:stretch!important;width:100%!important;min-width:0!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-left-sidebar{
+ display:flex!important;flex-direction:column!important;gap:15px!important;
+ padding:18px 14px!important;min-width:0!important;background:#0d111b!important;
+ border-right:1px solid #252a3b!important;border-radius:0!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-sidebar-title{
+ color:#aeb2c5!important;font-size:11px!important;font-weight:800!important;
+ letter-spacing:1.2px!important;padding:4px 5px!important;border:0!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-project-source{
+ display:flex!important;flex-direction:column!important;gap:5px!important;
+ padding:12px!important;border:1px solid #292e40!important;border-radius:12px!important;
+ background:#151a27!important;overflow:hidden!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-project-source strong{font-size:12px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-project-source small{color:#a7aec1!important;font-size:11px!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-project-status{font-size:12px!important;line-height:2.5!important;color:#d6d8e2!important;padding:4px!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-project-status span{color:#4bd39b!important;font-weight:900!important;margin-right:6px!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-tool-rail{display:flex!important;flex-direction:column!important;gap:7px!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-tool{
+ width:100%!important;min-width:0!important;min-height:42px!important;
+ display:flex!important;flex-direction:row!important;justify-content:flex-start!important;
+ align-items:center!important;gap:11px!important;padding:9px 10px!important;
+ border:1px solid transparent!important;border-radius:9px!important;color:#c4c6d4!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-tool.is-active{background:#5427a4!important;border-color:#a653ff!important;color:#fff!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-clips-panel{
+ display:flex!important;flex-direction:column!important;gap:12px!important;min-width:0!important;
+ max-height:calc(100vh - 145px)!important;overflow:hidden!important;padding:18px 13px!important;
+ background:#0b0f18!important;border-right:1px solid #252a3b!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-clips-head{display:flex!important;gap:10px!important;align-items:center!important;padding:4px 3px 12px!important;border-bottom:1px solid #252a3b!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-clips-head span{color:#b15bff!important;font-size:22px!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-clips-head strong{font-size:16px!important;color:#fff!important}
+body.cf-opus-stage-editor #cfWorkspace #browserCandidateList.cf-opus-live-clip-list{
+ display:flex!important;flex-direction:column!important;gap:8px!important;overflow-y:auto!important;
+ min-height:0!important;max-height:100%!important;padding:0!important;
+}
+body.cf-opus-stage-editor #cfWorkspace #browserCandidateList .candidate-card{
+ display:grid!important;grid-template-columns:88px minmax(0,1fr)!important;gap:10px!important;
+ align-items:center!important;padding:9px!important;margin:0!important;
+ background:#111724!important;border:1px solid #282e40!important;border-radius:11px!important;
+}
+body.cf-opus-stage-editor #cfWorkspace #browserCandidateList .candidate-card .cf-inline-player,
+body.cf-opus-stage-editor #cfWorkspace #browserCandidateList .candidate-card video{display:none!important}
+body.cf-opus-stage-editor #cfWorkspace #browserCandidateList .candidate-card img,
+body.cf-opus-stage-editor #cfWorkspace #browserCandidateList .candidate-card canvas{width:88px!important;height:66px!important;object-fit:cover!important;border-radius:8px!important}
+body.cf-opus-stage-editor #cfWorkspace #browserCandidateList .candidate-card strong{font-size:12px!important;line-height:1.35!important}
+body.cf-opus-stage-editor #cfWorkspace #browserCandidateList .candidate-card small{font-size:11px!important;color:#aeb4c6!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-add-clip{
+ margin-top:auto!important;background:#713de0!important;color:#fff!important;
+ border:0!important;border-radius:10px!important;min-height:42px!important;font-weight:800!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-preview-column{
+ display:flex!important;align-items:center!important;justify-content:center!important;
+ min-width:0!important;min-height:calc(100vh - 145px)!important;padding:20px!important;
+ background:#080b13!important;border-right:1px solid #252a3b!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-preview-column>.cf-inline-player{
+ width:min(100%,430px)!important;max-width:430px!important;margin:auto!important;
+ display:flex!important;flex-direction:column!important;align-items:center!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-preview-column video{
+ width:100%!important;max-width:100%!important;aspect-ratio:9/16!important;
+ max-height:calc(100vh - 220px)!important;min-height:300px!important;
+ object-fit:contain!important;background:#03040a!important;border:2px solid #9b4dff!important;
+ border-radius:4px!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-inspector{
+ min-width:0!important;width:100%!important;max-height:calc(100vh - 145px)!important;
+ overflow-y:auto!important;background:#0f131e!important;border:0!important;border-radius:0!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-inspector-tabs{
+ position:sticky!important;top:0!important;z-index:2!important;
+ display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;
+ background:#151a27!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-tab{font-size:11px!important;padding:12px 3px!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-inspector-panes{padding:18px!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-editor-actions{display:none!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-clip-timeline{
+ margin:0!important;padding:14px 18px!important;background:#101521!important;
+ border-top:1px solid #292e40!important;border-radius:0!important;width:100%!important;
+}
+@media(max-width:1450px){
+ body.cf-opus-stage-editor #cfWorkspace .cf-opus-editor-layout{grid-template-columns:165px 235px minmax(300px,1fr) 370px!important}
+}
+@media(max-width:1150px){
+ body.cf-opus-stage-editor #cfWorkspace .cf-opus-editor-layout{grid-template-columns:150px minmax(0,1fr) 360px!important}
+ body.cf-opus-stage-editor #cfWorkspace .cf-opus-clips-panel{display:none!important}
+}
+@media(max-width:850px){
+ body.cf-opus-stage-editor #cfWorkspace .cf-opus-editor-layout{grid-template-columns:minmax(0,1fr)!important}
+ body.cf-opus-stage-editor #cfWorkspace .cf-opus-left-sidebar{display:none!important}
+ body.cf-opus-stage-editor #cfWorkspace .cf-opus-clips-panel{display:flex!important;max-height:260px!important}
+ body.cf-opus-stage-editor #cfWorkspace .cf-opus-preview-column{min-height:0!important;padding:12px!important}
+ body.cf-opus-stage-editor #cfWorkspace .cf-opus-preview-column video{max-height:65vh!important}
+ body.cf-opus-stage-editor #cfWorkspace .cf-opus-inspector{max-height:none!important}
+ body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar{grid-template-columns:1fr auto!important}
+ body.cf-opus-stage-editor #cfWorkspace .cf-editor-project{grid-column:1/-1!important}
+}
