@@ -1340,3 +1340,76 @@ body.cf-opus-stage-editor #cfWorkspace .cf-opus-inspector{align-self:start!impor
  body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar>.cf-editor-save-project{grid-row:3!important}
  body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar>.cf-editor-export-top{grid-row:4!important}
 }
+
+
+/* Reference composition: dedicated tools rail, central portrait monitor, right inspector, full-width timeline */
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-editor-layout{
+ display:grid!important;
+ grid-template-columns:190px minmax(320px,1fr) minmax(390px,430px)!important;
+ gap:16px!important;align-items:stretch!important;width:100%!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-left-sidebar{
+ display:flex!important;flex-direction:column!important;gap:14px!important;
+ min-width:0!important;padding:16px 12px!important;
+ background:#101119!important;border:1px solid #292b39!important;border-radius:15px!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-sidebar-title{
+ color:#c8c5d4!important;font-size:12px!important;font-weight:800!important;
+ letter-spacing:.08em!important;text-transform:uppercase!important;padding:0 8px 8px!important;
+ border-bottom:1px solid #292b39!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-tool-rail{
+ display:flex!important;flex-direction:column!important;gap:8px!important;
+ align-items:stretch!important;overflow:visible!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-tool{
+ display:flex!important;flex-direction:row!important;justify-content:flex-start!important;
+ gap:12px!important;width:100%!important;min-width:0!important;min-height:48px!important;
+ padding:9px 12px!important;text-align:left!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-tool span{width:22px!important;text-align:center!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-tool small{font-size:12px!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-preview-column{
+ display:flex!important;align-items:center!important;justify-content:center!important;
+ min-width:0!important;min-height:560px!important;padding:18px!important;
+ background:#101119!important;border:1px solid #292b39!important;border-radius:15px!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-preview-column>.cf-inline-player{
+ display:flex!important;flex-direction:column!important;align-items:center!important;
+ justify-content:center!important;width:min(100%,390px)!important;max-width:390px!important;
+ min-width:0!important;margin:0 auto!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-preview-column video{
+ display:block!important;width:100%!important;max-width:100%!important;
+ height:auto!important;max-height:68vh!important;min-height:320px!important;
+ aspect-ratio:9/16!important;object-fit:contain!important;background:#050509!important;
+ border:1px solid #363044!important;border-radius:10px!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-inspector{
+ align-self:stretch!important;min-width:0!important;width:100%!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-clip-timeline{
+ width:100%!important;grid-column:1/-1!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar{
+ display:grid!important;grid-template-columns:minmax(0,1fr) auto auto auto!important;
+ align-items:center!important;gap:12px!important;
+}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar>.cf-editor-project{grid-column:1!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar>.cf-editor-format{grid-column:2!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar>.cf-editor-save-project{grid-column:3!important;width:auto!important;min-width:145px!important}
+body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar>.cf-editor-export-top{grid-column:4!important;width:auto!important;min-width:145px!important}
+@media(max-width:1150px){
+ body.cf-opus-stage-editor #cfWorkspace .cf-opus-editor-layout{grid-template-columns:150px minmax(0,1fr)!important}
+ body.cf-opus-stage-editor #cfWorkspace .cf-opus-inspector{grid-column:1/-1!important}
+ body.cf-opus-stage-editor #cfWorkspace .cf-opus-inspector-tabs{grid-template-columns:repeat(5,minmax(0,1fr))!important}
+}
+@media(max-width:700px){
+ body.cf-opus-stage-editor #cfWorkspace .cf-opus-editor-layout{grid-template-columns:minmax(0,1fr)!important}
+ body.cf-opus-stage-editor #cfWorkspace .cf-opus-left-sidebar{grid-row:auto!important}
+ body.cf-opus-stage-editor #cfWorkspace .cf-editor-tool-rail{flex-direction:row!important;flex-wrap:nowrap!important;overflow-x:auto!important}
+ body.cf-opus-stage-editor #cfWorkspace .cf-editor-tool{flex:0 0 110px!important}
+ body.cf-opus-stage-editor #cfWorkspace .cf-opus-preview-column{min-height:0!important}
+ body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar{grid-template-columns:1fr!important}
+ body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar>*{grid-column:1!important;width:100%!important}
+}
