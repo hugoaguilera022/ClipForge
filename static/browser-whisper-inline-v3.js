@@ -1089,6 +1089,7 @@ async function updateVideoCapacity(file) {
   el('capacityDetails').textContent='Para Whisper '+estimate.asrLabel.replace('Whisper ','')+' + Qwen3-0.6B: RAM '+formatCapacityGb(estimate.systemRamGb)+', memoria gráfica '+formatCapacityGb(estimate.gpuRamGb)+', caché de modelos '+formatCapacityGb(estimate.cacheGb)+' y espacio libre recomendado '+formatCapacityGb(estimate.freeDiskGb)+'. '+(estimate.deviceMemoryGb===null?'Este navegador no permite consultar la RAM del dispositivo.':'RAM declarada por el navegador: '+estimate.deviceMemoryGb+' GB (aproximada).')+' El audio temporal ocupa unos '+estimate.audioWorkingSetMb+' MB. No se puede consultar con precisión la VRAM ni el espacio libre real.';
   el('videoCapacity').dataset.level=estimate.status;
 }
+window.clipforgeUpdateVideoCapacity = updateVideoCapacity;
 
 function extractEditorialModelText(response) {
   const choice=response?.choices?.[0]||{};
