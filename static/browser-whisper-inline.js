@@ -2006,7 +2006,7 @@ document.querySelector('#browserProjectImport')?.addEventListener('change', asyn
     const sourceFile=document.querySelector('#video')?.files?.[0];
     importedProjectPendingSource=Boolean(transcriptData?.segments?.length && !sourceFile);
     if(Array.isArray(transcriptData?.segments) && transcriptData.segments.length) {
-      const segments=transcriptData.segments.map(c=>({start:Number(c.start),end:Number(c.end),text:String(c.text||'')})).filter(c=>Number.isFinite(c.start)&&Number.isFinite(c.end)&&c.end>c.start&&c.text);
+      const segments=transcriptData.segments.map(c=>({start:Number(c.start),end:Number(c.end),text:String(c.text||''),...(Array.isArray(c.words)?{words:c.words.map(w=>({...w,start:Number(w.start),end:Number(w.end)})).filter(w=>Number.isFinite(w.start)&&Number.isFinite(w.end)&&w.end>w.start)}:{})})).filter(c=>Number.isFinite(c.start)&&Number.isFinite(c.end)&&c.end>c.start&&c.text);
       if(segments.length) {
         transcriptData.segments=segments;
         if(output)output.value=segments.map(c=>`[${c.start.toFixed(2)}–${c.end.toFixed(2)}] ${c.text}`).join('\n');
