@@ -1495,7 +1495,19 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
   }
   const player=document.createElement('div');player.className='cf-inline-player';
   const film=document.createElement('video');film.className='candidate-filmstrip';film.muted=false;film.volume=.8;film.playsInline=true;film.preload='metadata';film.controls=false;film.setAttribute('aria-label','Vista previa integrada del clip');
-  if(candidatePreviewUrl){film.src=candidatePreviewUrl;film.muted=true;film.addEventListener('loadedmetadata',()=>{const target=Math.min(Math.max(0,Number(c.start)||0),Math.max(0,film.duration-.15));try{film.currentTime=target;}catch{}},{once:true});film.addEventListener('seeked',()=>{film.pause();film.muted=false;},{once:true});film.addEventListener('error',()=>{film.dataset.previewError='1';},{once:true});film.load();}
+  if(candidatePreviewUrl){film.src=candidatePreviewUrl;film.muted=true;film.addEventListener('loadedmetadata',()=>{const target=Math.min(Math.max(0,Number(c.start)||0),Math.max(0,film.duration-.15));try{film.currentTime=target;}catch{}},{once:true});film.addEventListener('seeked',()=>{
+    film.pause();film.muted=false;
+    try{
+      const thumb=document.createElement('canvas');
+      const tw=320,th=180;thumb.width=tw;thumb.height=th;
+      const ctx=thumb.getContext('2d');
+      const vw=film.videoWidth||tw,vh=film.videoHeight||th;
+      const scale=Math.max(tw/vw,th/vh),sw=tw/scale,sh=th/scale,sx=(vw-sw)/2,sy=(vh-sh)/2;
+      ctx.drawImage(film,sx,sy,sw,sh,0,0,tw,th);
+      film.poster=thumb.toDataURL('image/jpeg',.78);
+      film.dataset.posterReady='1';
+    }catch(error){console.warn('No se pudo crear miniatura del clip:',error);}
+  },{once:true});film.addEventListener('error',()=>{film.dataset.previewError='1';},{once:true});film.load();}
   const playerBar=document.createElement('div');playerBar.className='cf-inline-player-controls';
   const seekBack=document.createElement('button');seekBack.type='button';seekBack.className='cf-player-seek';seekBack.textContent='↶ 5';seekBack.setAttribute('aria-label','Retroceder 5 segundos');seekBack.title='Retroceder 5 segundos';seekBack.addEventListener('click',()=>{if(Number.isFinite(film.duration))film.currentTime=Math.max(0,film.currentTime-5);});
   const play=document.createElement('button');play.type='button';play.className='cf-player-play';play.textContent='▶';play.setAttribute('aria-label','Reproducir');play.addEventListener('click',async()=>{if(film.paused){try{await film.play();}catch{} }else film.pause();});
