@@ -270,5 +270,8 @@
   });
   if(candidates?.querySelector('.candidate-card'))reveal();
   $('#browserExportClips')?.addEventListener('click',()=>{const p=$('#cfProductionStatus');if(p)p.textContent='Preparando la exportación de tus clips…';});
+  // Notify the Whisper module after the redesigned workspace has moved the
+  // original file input and action button into their final live DOM positions.
+  window.dispatchEvent(new CustomEvent('clipforge:workspace-ready'));
   if($('#browserCandidateList')?.children.length)reveal();
 })();
