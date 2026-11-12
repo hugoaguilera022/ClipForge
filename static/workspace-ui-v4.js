@@ -225,7 +225,7 @@
       card.style.setProperty('width','100%','important');
       card.style.setProperty('min-width','0','important');
       layout.style.setProperty('display','grid','important');
-      layout.style.setProperty('grid-template-columns',width>=1450?'minmax(180px,210px) minmax(250px,300px) minmax(360px,1fr) minmax(370px,430px)':width>=1050?'minmax(150px,180px) minmax(220px,260px) minmax(320px,1fr)':'minmax(0,1fr)','important');
+      layout.style.setProperty('grid-template-columns',width>=1250?'190px minmax(240px,280px) minmax(320px,1fr) minmax(350px,410px)':width>=760?'160px minmax(220px,260px) minmax(300px,1fr)':'minmax(0,1fr)','important');
       layout.style.setProperty('align-items','start','important');
       layout.style.setProperty('gap',width<=650?'12px':'16px','important');
       layout.style.setProperty('width','100%','important');
