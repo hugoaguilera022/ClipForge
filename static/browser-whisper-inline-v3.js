@@ -1058,6 +1058,7 @@ function formatCapacityGb(value){return Number(value).toFixed(1).replace('.',','
 async function updateVideoCapacity(file) {
   const el=id=>document.querySelector('#'+id);
   if(!file||!el('capacityStatus'))return;
+  if(el('videoCapacity'))el('videoCapacity').hidden=false;
   el('capacityStatus').textContent='Calculando duración y compatibilidad…';
   let duration=0;
   const url=URL.createObjectURL(file),video=document.createElement('video');
@@ -1068,13 +1069,13 @@ async function updateVideoCapacity(file) {
   el('capacityRam').textContent=formatCapacityGb(estimate.systemRamGb)+' recomendados';
   el('capacityGpu').textContent=formatCapacityGb(estimate.gpuRamGb)+' recomendados';
   el('capacityDisk').textContent=formatCapacityGb(estimate.freeDiskGb)+' libres';
-  el('capacityModel').textContent=('Qwen3 local 1.7B')+' + '+estimate.asrLabel.replace('Whisper ','');
+  el('capacityModel').textContent=('Qwen3 local 0.6B')+' + '+estimate.asrLabel.replace('Whisper ','');
   const length=duration?(duration/60).toFixed(1).replace('.',',')+' min':'duración no detectada';
   const status=el('capacityStatus'),summary=el('capacitySummary');
-  if(!adapter){status.textContent='No compatible con selección IA';status.dataset.level='bad';summary.textContent='Vídeo: '+length+' · '+Math.round(file.size/1048576)+' MB. No se detecta WebGPU; la selección editorial generativa no podrá ejecutarse en este navegador.';}
+  if(!adapter){status.textContent='No compatible con selección IA';status.dataset.level='bad';summary.textContent='Vídeo: '+length+' · '+Math.round(file.size/1048576)+' MB. No se detecta WebGPU; la selección editorial generativa no podrá ejecutarse en este navegador. Usa Chrome o Edge actualizado con WebGPU, o configura un proveedor IA gratuito.';}
   else if(estimate.ramFit===false){status.textContent='Capacidad posiblemente insuficiente';status.dataset.level='warn';summary.textContent='Vídeo: '+length+' · '+Math.round(file.size/1048576)+' MB. El navegador declara '+estimate.deviceMemoryGb+' GB de RAM; se recomiendan '+formatCapacityGb(estimate.systemRamGb)+'.';}
   else{status.textContent=estimate.ramFit===null?'GPU compatible · RAM no verificable':'Requisitos estimados';status.dataset.level='ok';summary.textContent='Vídeo: '+length+' · '+Math.round(file.size/1048576)+' MB. '+(estimate.ramFit===true?'La memoria declarada parece suficiente.':'WebGPU disponible; evita otras aplicaciones pesadas durante el análisis.');}
-  el('capacityDetails').textContent='Para Whisper '+estimate.asrLabel.replace('Whisper ','')+' + Qwen3-1.7B: RAM '+formatCapacityGb(estimate.systemRamGb)+', memoria gráfica '+formatCapacityGb(estimate.gpuRamGb)+', caché de modelos '+formatCapacityGb(estimate.cacheGb)+' y espacio libre recomendado '+formatCapacityGb(estimate.freeDiskGb)+'. '+(estimate.deviceMemoryGb===null?'Este navegador no permite consultar la RAM del dispositivo.':'RAM declarada por el navegador: '+estimate.deviceMemoryGb+' GB (aproximada).')+' El audio temporal ocupa unos '+estimate.audioWorkingSetMb+' MB. No se puede consultar con precisión la VRAM ni el espacio libre real.';
+  el('capacityDetails').textContent='Para Whisper '+estimate.asrLabel.replace('Whisper ','')+' + Qwen3-0.6B: RAM '+formatCapacityGb(estimate.systemRamGb)+', memoria gráfica '+formatCapacityGb(estimate.gpuRamGb)+', caché de modelos '+formatCapacityGb(estimate.cacheGb)+' y espacio libre recomendado '+formatCapacityGb(estimate.freeDiskGb)+'. '+(estimate.deviceMemoryGb===null?'Este navegador no permite consultar la RAM del dispositivo.':'RAM declarada por el navegador: '+estimate.deviceMemoryGb+' GB (aproximada).')+' El audio temporal ocupa unos '+estimate.audioWorkingSetMb+' MB. No se puede consultar con precisión la VRAM ni el espacio libre real.';
   el('videoCapacity').dataset.level=estimate.status;
 }
 
