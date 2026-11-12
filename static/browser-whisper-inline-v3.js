@@ -1260,14 +1260,14 @@ function buildEditorialCandidatePool(segments, videoDuration, audioSamples = nul
 async function askEditorialModel(engine, pool, count, onProgress, phase) {
   const shortlist=pool.map((clip,index)=>({
     id:index+1,start:Number(clip.start.toFixed(1)),end:Number(clip.end.toFixed(1)),
-    transcript:String(clip.text).replace(/\s+/g,' ').slice(0,620),
+    transcript:String(clip.text).replace(/\s+/g,' ').slice(0,260),
     prior_editorial_score:Number(clip.ai_editorial_score||0),
     editorial_importance:Number(clip.ai_editorial_rubric?.importance||0),
-    prior_editorial_reason:String(clip.ai_editorial_reason||'').slice(0,180),
+    prior_editorial_reason:String(clip.ai_editorial_reason||'').slice(0,70),
     semantic_diversity_score:Number(clip.semanticScore||0),
-    context_before:String(clip.context_before||'').replace(/\s+/g,' ').slice(-160),
-    context_after:String(clip.context_after||'').replace(/\s+/g,' ').slice(0,160),
-    media_evidence:clip.media_evidence||null
+    context_before:'',
+    context_after:'',
+    media_evidence:null
   }));
   const prompt=[
     'Eres el editor jefe de una productora profesional de clips verticales para redes sociales.',
@@ -1325,7 +1325,7 @@ async function aiEditorialSelect(candidates, limit = 4, onProgress = () => {}) {
   // Every candidate is judged. Four chronological batches keep each prompt
   // compact; four finalists per block reach the global importance comparison.
   const finalists=[];
-  const batchSize=24; // Four broad comparisons reduce external model calls and credit use.
+  const batchSize=8; // Keep each request safely below Qwen3-0.6B's 4096-token context.
   if(pool.length<=batchSize){
     finalists.push(...pool);
   }else{
@@ -1338,7 +1338,7 @@ async function aiEditorialSelect(candidates, limit = 4, onProgress = () => {}) {
     );
     for(let index=0;index<batches.length;index++){
       const batch=batches[index];
-      const keep=Math.min(4,batch.length); // Four options per block; no forced one-per-quarter quota.
+      const keep=Math.min(2,batch.length); // Two finalists per compact block preserve recall without overflowing context.
       const selected=await askEditorialModel(engine,batch,keep,onProgress,'Evaluación editorial IA: bloque global '+(index+1)+'/'+batches.length+'…');
       finalists.push(...selected);
     }
@@ -1355,9 +1355,9 @@ async function aiEditorialSelect(candidates, limit = 4, onProgress = () => {}) {
   onProgress('Segunda pasada editorial: comprobando importancia, contexto y evidencia literal…');
   const auditInput=finalPool.map((clip,index)=>({
     id:index+1,start:Number(clip.start.toFixed(1)),end:Number(clip.end.toFixed(1)),
-    transcript:String(clip.text||'').replace(/\\s+/g,' ').slice(0,620),
-    context_before:String(clip.context_before||'').replace(/\\s+/g,' ').slice(-160),
-    context_after:String(clip.context_after||'').replace(/\\s+/g,' ').slice(0,160),
+    transcript:String(clip.text||'').replace(/\\s+/g,' ').slice(0,260),
+    context_before:'',
+    context_after:'',
     provisional:firstVote.some(p=>Math.abs(p.start-clip.start)<0.05&&Math.abs(p.end-clip.end)<0.05)
   }));
   const auditPrompt=[
@@ -1381,9 +1381,9 @@ async function aiEditorialSelect(candidates, limit = 4, onProgress = () => {}) {
     audited=parseEditorialDecision(auditRaw,finalPool,limit,true,engine.isRemote?'remote_generative_editor':'local_generative_editor');
   }catch(firstAuditError){
     onProgress('Segunda pasada: corrigiendo citas no verificables o clips que no superan la auditoría…');
-    const retry=await engine.chat.completions.create({...auditRequest,messages:[
+    const retry=await engine.chat.completions.create({...auditRequest,max_tokens:1800,messages:[
       ...auditRequest.messages,
-      {role:'assistant',content:String(auditRaw).slice(0,5000)},
+      {role:'assistant',content:String(auditRaw).slice(0,1200)},
       {role:'user',content:'La auditoría anterior no ha superado la validación: '+String(firstAuditError.message||firstAuditError)+'. Devuelve exactamente cuatro candidatos distintos, sin solapamiento, con importance >= 6.5, audit_verdict="pass", audit_flags=[] y una cita literal de al menos cuatro palabras consecutivas que aparezca en el transcript de su propio candidato. No inventes citas. Si no puedes demostrarlo, elige otro candidato. Devuelve JSON válido únicamente.'}
     ],temperature:0.02});
     audited=parseEditorialDecision(retry?.choices?.[0]?.message?.content||'',finalPool,limit,true,engine.isRemote?'remote_generative_editor':'local_generative_editor');
