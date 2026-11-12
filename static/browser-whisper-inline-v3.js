@@ -1285,7 +1285,7 @@ async function askEditorialModel(engine, pool, count, onProgress, phase) {
     id:index+1,
     start:Number(clip.start.toFixed(1)),
     end:Number(clip.end.toFixed(1)),
-    transcript:String(clip.text||'').replace(/\\s+/g,' ').slice(0,145)
+    transcript:String(clip.text||'').replace(/\s+/g,' ').slice(0,145)
   }));
   const prompt=[
     'Eres editor jefe. Compara el contenido real, no la viralidad.',
@@ -1363,7 +1363,7 @@ async function aiEditorialSelect(candidates, limit = 4, onProgress = () => {}) {
   onProgress('Segunda pasada editorial: comprobando importancia, contexto y evidencia literal…');
   const auditInput=finalPool.map((clip,index)=>({
     id:index+1,start:Number(clip.start.toFixed(1)),end:Number(clip.end.toFixed(1)),
-    transcript:String(clip.text||'').replace(/\\s+/g,' ').slice(0,145),
+    transcript:String(clip.text||'').replace(/\s+/g,' ').slice(0,145),
     provisional:firstVote.some(p=>Math.abs(p.start-clip.start)<0.05&&Math.abs(p.end-clip.end)<0.05)
   }));
   const auditPrompt=[
