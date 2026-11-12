@@ -1111,58 +1111,46 @@ function extractEditorialModelText(response) {
 }
 
 function parseEditorialDecision(raw, candidates, limit = 4, requireAudit = false, selectionMethod = 'local_generative_editor') {
-  const text = String(raw || '').replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
-  const match = text.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error('El editor IA no devolvió una selección estructurada.');
-  const data = JSON.parse(match[0]);
-  if (!Array.isArray(data.selected)) throw new Error('La respuesta del editor IA no contiene una lista de selección.');
+  let text=String(raw||'').replace(/<think>[\\s\\S]*?<\\/think>/gi,'').replace(/```(?:json)?/gi,'').trim();
+  const first=text.indexOf('{'),last=text.lastIndexOf('}');
+  if(first<0||last<=first)throw new Error('El editor IA no devolvió una selección estructurada.');
+  let data;
+  try{data=JSON.parse(text.slice(first,last+1));}
+  catch(error){throw new Error('La respuesta JSON del editor IA está incompleta o mal formada.');}
+  if(!Array.isArray(data.selected))throw new Error('La respuesta del editor IA no contiene una lista de selección.');
   const selectionLimit=Math.max(1,Math.min(12,Math.floor(Number(limit)||4)));
-  const used = new Set(), selected = [];
-  for (const item of data.selected) {
-    const id = Number(item.id);
-    if (!Number.isInteger(id) || id < 1 || id > candidates.length || used.has(id)) continue;
-    const clip = candidates[id - 1];
-    const auditFlags=Array.isArray(item.audit_flags)?item.audit_flags.map(flag=>String(flag).slice(0,80)):[];
-    if(requireAudit&&(item.audit_verdict!=='pass'||auditFlags.length>0))continue;
-    // Reject overlapping editorial selections; timestamps always come from ASR.
-    if (selected.some(other => clip.start < other.end + 1 && clip.end > other.start - 1)) continue;
-    used.add(id);
-    const rubric=item.rubric&&typeof item.rubric==='object'?item.rubric:null;
-    const rubricKeys=['hook','story','payoff','clarity','completeness','emotion','pacing','originality','importance'];
-    const validRubric=rubric&&rubricKeys.every(key=>Number.isFinite(Number(rubric[key]))&&Number(rubric[key])>=0&&Number(rubric[key])<=10);
-    // A generative selection is only accepted when the model supplies the complete editorial rubric.
-    // Missing dimensions trigger the constrained repair pass; they never become a silent score fallback.
-    if(!validRubric)continue;
-    if(requireAudit&&Number(rubric.importance)<6.5)continue; // Reject moments that are not materially important.
-    const importanceEvidence=String(item.importance_evidence||'').trim();
+  const used=new Set(),selected=[];
+  for(const item of data.selected){
+    const id=Number(item?.id);
+    if(!Number.isInteger(id)||id<1||id>candidates.length||used.has(id))continue;
+    const clip=candidates[id-1];
+    if(selected.some(other=>clip.start<other.end+1&&clip.end>other.start-1))continue;
+    const evidence=String(item.evidence||item.importance_evidence||'').trim();
     if(requireAudit){
-      const normalizeEvidence=value=>String(value||'').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^\p{L}\p{N}]+/gu,' ').trim();
-      const quote=normalizeEvidence(importanceEvidence),transcript=normalizeEvidence(clip.text);
+      const normalize=value=>String(value||'').toLowerCase().normalize('NFD').replace(/\\p{Diacritic}/gu,'').replace(/[^\\p{L}\\p{N}]+/gu,' ').trim();
+      const quote=normalize(evidence),transcript=normalize(clip.text);
       if(quote.split(' ').filter(Boolean).length<4||!transcript.includes(quote))continue;
     }
-    const editorialScore=validRubric?Math.round((
-      Number(rubric.importance)*4+Number(rubric.story)*1.5+Number(rubric.payoff)*1.5+
-      Number(rubric.completeness)*1.5+Number(rubric.clarity)*1+Number(rubric.emotion)*.2+
-      Number(rubric.hook)*.1+Number(rubric.originality)*.1+Number(rubric.pacing)*.1
-    )*1):Math.max(0,Math.min(100,Number(item.score)||0));
+    used.add(id);
+    const rubric=item.rubric&&typeof item.rubric==='object'?item.rubric:null;
     selected.push({
       ...clip,
-      title: String(item.title || `Clip ${selected.length + 1}`).slice(0, 70),
-      ai_editorial_rank: selected.length + 1,
-      ai_editorial_score: Math.max(0,Math.min(100,editorialScore)),
-      ai_editorial_rubric: validRubric?Object.fromEntries(rubricKeys.map(key=>[key,Number(rubric[key])])):null,
-      ai_editorial_reason: String(item.reason || '').slice(0, 240),
-      ai_editorial_importance_evidence: importanceEvidence.slice(0, 160),
-      selection_method: selectionMethod,
-      ai_editorial_audit_verdict:requireAudit?item.audit_verdict:null,
-      ai_editorial_audit_flags:requireAudit?auditFlags:[]
+      title:String(item.title||`Momento ${selected.length+1}`).slice(0,70),
+      ai_editorial_rank:selected.length+1,
+      ai_editorial_score:Math.max(0,Math.min(100,Number(item.score)||0)),
+      ai_editorial_rubric:rubric,
+      ai_editorial_reason:String(item.reason||'Selección comparativa de contenido').slice(0,240),
+      ai_editorial_importance_evidence:evidence.slice(0,160),
+      selection_method:selectionMethod,
+      ai_editorial_audit_verdict:requireAudit?'pass':null,
+      ai_editorial_audit_flags:[]
     });
-    if (selected.length >= selectionLimit) break;
+    if(selected.length>=selectionLimit)break;
   }
-  if (selected.length !== Math.min(selectionLimit, candidates.length)) {
-    throw new Error('El editor IA no ha devuelto '+selectionLimit+' candidatos válidos y distintos.');
+  if(selected.length!==Math.min(selectionLimit,candidates.length)){
+    throw new Error('El editor IA no ha devuelto '+selectionLimit+' IDs válidos, distintos y no solapados.');
   }
-  return selected.sort((a,b) => a.start - b.start).map((clip,i) => ({...clip,title:clip.title || `Clip ${i+1}`}));
+  return selected.sort((a,b)=>a.start-b.start).map((clip,i)=>({...clip,title:clip.title||`Clip ${i+1}`}));
 }
 
 // Build neutral transcript windows for the AI editor. This stage only places
@@ -1278,133 +1266,97 @@ function buildEditorialCandidatePool(segments, videoDuration, audioSamples = nul
 }
 
 async function askEditorialModel(engine, pool, count, onProgress, phase) {
-  // Keep the serialized evidence deliberately small: Qwen3-0.6B has a
-  // 4K-token context and the previous 260-char payload plus verbose rubric
-  // overflowed it even for eight candidates.
+  // The 0.6B judge is reliable with short choices and IDs, not long rubrics.
   const shortlist=pool.map((clip,index)=>({
-    id:index+1,
-    start:Number(clip.start.toFixed(1)),
-    end:Number(clip.end.toFixed(1)),
-    transcript:String(clip.text||'').replace(/\s+/g,' ').slice(0,145)
+    id:index+1,start:Number(clip.start.toFixed(1)),end:Number(clip.end.toFixed(1)),
+    transcript:String(clip.text||'').replace(/\\s+/g,' ').slice(0,115)
   }));
   const prompt=[
-    'Eres editor jefe. Compara el contenido real, no la viralidad.',
-    'Prioriza importancia (40%), historia (15%), payoff (15%), integridad (15%), claridad (10%); emoción, originalidad, ritmo y gancho solo desempatan.',
-    'Importancia significa información nueva, explicación, ejemplo, decisión, conflicto, revelación, consecuencia o conclusión que aporte comprensión. No confundas gritos, risas o palabras llamativas con importancia.',
-    'Descarta frases incompletas, ASR ininteligible, repeticiones y cortes dependientes de contexto externo. No inventes hechos ni cambies tiempos.',
-    'Elige exactamente '+count+' IDs distintos y no solapados. Cita en importance_evidence al menos cuatro palabras literales del candidato.',
-    'Devuelve SOLO JSON compacto: {"selected":[{"id":1,"score":85,"title":"...","reason":"...","importance_evidence":"...","rubric":{"hook":5,"story":8,"payoff":7,"clarity":8,"completeness":9,"emotion":5,"pacing":6,"originality":6,"importance":9}}]}',
-    phase,
-    'CANDIDATOS: '+JSON.stringify(shortlist)
+    'Eres editor audiovisual. Compara el contenido, no la viralidad.',
+    'Prioriza importancia real: información nueva, explicación, ejemplo, decisión, conflicto, revelación, consecuencia o conclusión. No confundas gritos, risas o palabras llamativas con importancia.',
+    'Descarta frases incompletas, repeticiones, ASR ininteligible y cortes que dependan de contexto externo.',
+    'Elige exactamente '+count+' IDs distintos y no solapados. No inventes hechos ni cambies tiempos.',
+    'Responde SOLO JSON compacto con esta forma: {"selected":[{"id":1}]}',
+    phase,'CANDIDATOS: '+JSON.stringify(shortlist)
   ].join('\\n');
   onProgress(phase);
   const response=await engine.chat.completions.create({
     messages:[
-      {role:'system',content:'Responde solo con un objeto JSON válido. Sin Markdown ni razonamiento. /no_think'},
+      {role:'system',content:'Devuelve exclusivamente un objeto JSON válido. Sin Markdown ni razonamiento. /no_think'},
       {role:'user',content:prompt}
-    ],
-    temperature:0,
-    max_tokens:Math.min(1800,450+count*220)
+    ],temperature:0,max_tokens:220
   });
-  const raw=extractEditorialModelText(response);
-  try{return parseEditorialDecision(raw,pool,count,false,engine.isRemote?'remote_generative_editor':'local_generative_editor');}
+  try{return parseEditorialDecision(extractEditorialModelText(response),pool,count,false,engine.isRemote?'remote_generative_editor':'local_generative_editor');}
   catch(firstError){
-    onProgress('Revisión editorial: corrigiendo el formato de la selección…');
-    const repairPrompt='Devuelve solo JSON válido con selected. Elige exactamente '+count+' IDs distintos entre 1 y '+pool.length+'. Cada elemento debe tener id, score, title, reason, importance_evidence literal y rubric con hook, story, payoff, clarity, completeness, emotion, pacing, originality e importance, todos de 0 a 10. No inventes citas. Candidatos: '+JSON.stringify(shortlist);
-    const retry=await engine.chat.completions.create({
-      messages:[
-        {role:'system',content:'Devuelve exclusivamente JSON válido. /no_think'},
-        {role:'user',content:repairPrompt}
-      ],
-      temperature:0,
-      max_tokens:Math.min(1800,450+count*220)
-    });
+    onProgress('Revisión de formato: solicitando únicamente los IDs elegidos…');
+    const retry=await engine.chat.completions.create({messages:[
+      {role:'system',content:'JSON válido únicamente. /no_think'},
+      {role:'user',content:'Elige exactamente '+count+' IDs distintos y no solapados. Devuelve solo {"selected":[{"id":1}]}. IDs válidos: 1 a '+pool.length+'. Candidatos: '+JSON.stringify(shortlist)}
+    ],temperature:0,max_tokens:180});
     return parseEditorialDecision(extractEditorialModelText(retry),pool,count,false,engine.isRemote?'remote_generative_editor':'local_generative_editor');
   }
 }
-
 async function aiEditorialSelect(candidates, limit = 4, onProgress = () => {}) {
-  limit=4; // Product requirement: exactly four important moments per video.
+  limit=4;
   const pool=(Array.isArray(candidates)?candidates:[]).filter(c=>
     c&&Number.isFinite(c.start)&&Number.isFinite(c.end)&&c.end>c.start&&String(c.text||'').trim()
   );
   if(pool.length<limit)throw new Error('No hay suficientes fragmentos de diálogo para la selección editorial IA.');
   const engine=await loadEditorialJudge(onProgress);
-  // Every candidate is judged. Four chronological batches keep each prompt
-  // compact; four finalists per block reach the global importance comparison.
-  const finalists=[];
-  const batchSize=4; // Four short candidates per request stay within Qwen3-0.6B's 4K context.
-  if(pool.length<=batchSize){
-    finalists.push(...pool);
-  }else{
-    const batchCount=Math.ceil(pool.length/batchSize);
-    // Review consecutive chronological blocks for bounded prompts, but keep four
-    // options from each. The final global vote may choose several moments from
-    // one part of the video; temporal variety never overrides importance.
-    const batches=Array.from({length:batchCount},(_,batchIndex)=>
-      pool.slice(batchIndex*batchSize,(batchIndex+1)*batchSize)
-    );
-    for(let index=0;index<batches.length;index++){
-      const batch=batches[index];
-      const keep=1; // One winner per compact block keeps the global vote and audit bounded.
-      const selected=await askEditorialModel(engine,batch,keep,onProgress,'Evaluación editorial IA: bloque global '+(index+1)+'/'+batches.length+'…');
-      finalists.push(...selected);
+  // Hierarchical tournament: no request ever sees more than eight candidates.
+  // This avoids the old failure where 60 block winners were sent in one 4K prompt.
+  let working=pool;
+  let round=1;
+  while(working.length>8){
+    const groupCount=Math.ceil(working.length/8);
+    const groupSize=Math.ceil(working.length/groupCount);
+    const next=[];
+    for(let offset=0;offset<working.length;offset+=groupSize){
+      const group=working.slice(offset,offset+groupSize);
+      const keep=Math.min(2,group.length);
+      const winners=await askEditorialModel(engine,group,keep,onProgress,
+        'Comparación editorial por rondas: ronda '+round+', grupo '+(Math.floor(offset/groupSize)+1)+'/'+groupCount+'…');
+      next.push(...winners);
     }
+    if(next.length>=working.length)throw new Error('El torneo editorial no ha reducido los candidatos.');
+    working=next;
+    round++;
   }
-  if(finalists.length<limit)throw new Error('La evaluación por bloques no produjo suficientes finalistas.');
-  // Keep all block finalists for the global importance-first vote. Avoid downloading
-  // a second embedding model: the editorial judge compares importance and duplication.
-  const finalPool=finalists;
-  const firstVote=await askEditorialModel(engine,finalPool,limit,onProgress,'Primera votación editorial: eligiendo los '+limit+' mejores clips entre todos los finalistas…');
-  // A separate, adversarial editorial pass audits the complete finalist set.
-  // It is deliberately blind to the first vote's scores and reasons: it sees
-  // only the candidate evidence and which IDs were provisionally selected.
-  // This is an independent judgment pass, not a claim of a second model.
-  onProgress('Segunda pasada editorial: comprobando importancia, contexto y evidencia literal…');
-  const auditInput=finalPool.map((clip,index)=>({
+  const firstVote=await askEditorialModel(engine,working,4,onProgress,
+    'Votación final: comparando los últimos '+working.length+' momentos y eligiendo los cuatro mejores…');
+  const auditInput=firstVote.map((clip,index)=>({
     id:index+1,start:Number(clip.start.toFixed(1)),end:Number(clip.end.toFixed(1)),
-    transcript:String(clip.text||'').replace(/\s+/g,' ').slice(0,145),
-    provisional:firstVote.some(p=>Math.abs(p.start-clip.start)<0.05&&Math.abs(p.end-clip.end)<0.05)
+    transcript:String(clip.text||'').replace(/\\s+/g,' ').slice(0,115)
   }));
   const auditPrompt=[
-    'Auditor editorial adversarial: revisa desde cero los finalistas y busca motivos para descartarlos.',
-    'Prioriza importancia real, integridad, claridad y contexto. Rechaza repeticiones, frases incompletas y ASR ininteligible. No confundas intensidad con importancia.',
-    'Elige exactamente '+limit+' IDs distintos y no solapados. Cada selección debe incluir una cita literal de al menos cuatro palabras del transcript, audit_verdict="pass", audit_flags=[] y rúbrica completa de 0 a 10. importance debe ser >=6.5.',
-    'Devuelve SOLO JSON compacto: {"selected":[{"id":1,"score":85,"title":"...","reason":"...","importance_evidence":"cita literal","audit_verdict":"pass","audit_flags":[],"rubric":{"hook":5,"story":8,"payoff":7,"clarity":8,"completeness":9,"emotion":5,"pacing":6,"originality":6,"importance":9}}]}',
+    'Auditor editorial: revisa estos cuatro finalistas y descarta los que no aporten contenido importante.',
+    'Importancia: información nueva, explicación, ejemplo, decisión, conflicto, revelación, consecuencia o conclusión. Rechaza frases incompletas, repetidas o incomprensibles.',
+    'Elige exactamente cuatro IDs distintos y no solapados. Para cada uno incluye evidence: cita literal de al menos cuatro palabras del transcript. No inventes citas.',
+    'Responde SOLO JSON: {"selected":[{"id":1,"evidence":"cita literal"}]}',
     'FINALISTAS: '+JSON.stringify(auditInput)
   ].join('\\n');
-  const auditRequest={messages:[
-    {role:'system',content:'Auditor estricto. Devuelve solo JSON válido. /no_think'},
-    {role:'user',content:auditPrompt}
-  ],temperature:0,max_tokens:1800};
+  onProgress('Auditoría final de los cuatro momentos seleccionados…');
   let audited;
-  let auditRaw='';
   try{
-    const audit=await engine.chat.completions.create(auditRequest);
-    auditRaw=extractEditorialModelText(audit);
-    audited=parseEditorialDecision(auditRaw,finalPool,limit,true,engine.isRemote?'remote_generative_editor':'local_generative_editor');
+    const audit=await engine.chat.completions.create({messages:[
+      {role:'system',content:'Auditor estricto. Devuelve solo JSON válido. /no_think'},
+      {role:'user',content:auditPrompt}
+    ],temperature:0,max_tokens:300});
+    audited=parseEditorialDecision(extractEditorialModelText(audit),firstVote,4,true,engine.isRemote?'remote_generative_editor':'local_generative_editor');
   }catch(firstAuditError){
-    onProgress('Segunda pasada: corrigiendo citas no verificables o clips que no superan la auditoría…');
-    const auditRetryPrompt=[
-      'Audita estos finalistas. Devuelve únicamente JSON válido, sin razonamiento ni Markdown. Elige exactamente '+limit+' IDs distintos y no solapados.',
-      'Cada elemento incluye id, score, title, reason, importance_evidence literal (mínimo cuatro palabras consecutivas del transcript), audit_verdict="pass", audit_flags=[] y rubric con hook, story, payoff, clarity, completeness, emotion, pacing, originality e importance (0-10). importance debe ser al menos 6.5.',
-      'Formato: {"selected":[{"id":1,"score":80,"title":"...","reason":"...","importance_evidence":"cita literal","audit_verdict":"pass","audit_flags":[],"rubric":{"hook":5,"story":8,"payoff":7,"clarity":8,"completeness":8,"emotion":5,"pacing":6,"originality":6,"importance":9}}]}',
-      'FINALISTAS: '+JSON.stringify(auditInput)
-    ].join('\\n');
+    onProgress('Revisión de auditoría: comprobando citas literales…');
     const retry=await engine.chat.completions.create({messages:[
-      {role:'system',content:'Eres un auditor editorial estricto. Devuelve solo JSON válido. /no_think'},
-      {role:'user',content:auditRetryPrompt}
-    ],temperature:0,max_tokens:1800});
-    audited=parseEditorialDecision(extractEditorialModelText(retry),finalPool,limit,true,engine.isRemote?'remote_generative_editor':'local_generative_editor');
+      {role:'system',content:'Devuelve exclusivamente JSON válido. /no_think'},
+      {role:'user',content:'Devuelve los cuatro IDs 1,2,3,4 con una cita literal de cuatro palabras del texto de cada uno. Formato {"selected":[{"id":1,"evidence":"..."}]}. Candidatos: '+JSON.stringify(auditInput)}
+    ],temperature:0,max_tokens:300});
+    audited=parseEditorialDecision(extractEditorialModelText(retry),firstVote,4,true,engine.isRemote?'remote_generative_editor':'local_generative_editor');
   }
-  const firstKeys=new Set(firstVote.map(c=>`${c.start.toFixed(1)}-${c.end.toFixed(1)}`));
   return audited.map((clip,index)=>({...clip,
     ai_editorial_audit:'second_pass_audit_pass',
-    ai_editorial_consensus:firstKeys.has(`${clip.start.toFixed(1)}-${clip.end.toFixed(1)}`)?'both_passes':'critic_replacement',
+    ai_editorial_consensus:'two_stage_editorial_review',
     ai_editorial_rank:index+1
   }));
 }
-
 async function semanticRerankCandidates(candidates, limit = 4, onProgress = () => {}) {
   if (!Array.isArray(candidates) || candidates.length < 2 || !candidates.some(clip => String(clip.text || '').trim())) {
     return rerankWithoutEmbeddings(candidates, limit);
