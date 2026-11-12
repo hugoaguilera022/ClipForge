@@ -1278,64 +1278,46 @@ function buildEditorialCandidatePool(segments, videoDuration, audioSamples = nul
 }
 
 async function askEditorialModel(engine, pool, count, onProgress, phase) {
+  // Keep the serialized evidence deliberately small: Qwen3-0.6B has a
+  // 4K-token context and the previous 260-char payload plus verbose rubric
+  // overflowed it even for eight candidates.
   const shortlist=pool.map((clip,index)=>({
-    id:index+1,start:Number(clip.start.toFixed(1)),end:Number(clip.end.toFixed(1)),
-    transcript:String(clip.text).replace(/\s+/g,' ').slice(0,260),
-    prior_editorial_score:Number(clip.ai_editorial_score||0),
-    editorial_importance:Number(clip.ai_editorial_rubric?.importance||0),
-    prior_editorial_reason:String(clip.ai_editorial_reason||'').slice(0,70),
-    semantic_diversity_score:Number(clip.semanticScore||0),
-    context_before:'',
-    context_after:'',
-    media_evidence:null
+    id:index+1,
+    start:Number(clip.start.toFixed(1)),
+    end:Number(clip.end.toFixed(1)),
+    transcript:String(clip.text||'').replace(/\\s+/g,' ').slice(0,145)
   }));
   const prompt=[
-    'Eres el editor jefe de una productora profesional de clips verticales para redes sociales.',
-    'Evalúa cada fragmento como un editor de short-form profesional, usando el diálogo y las señales de audio y vídeo adjuntas. No uses popularidad de palabras ni señales superficiales.',
-    'Las señales media_evidence son medidas de actividad, no etiquetas semánticas: audio_activity y audio_dynamic_peaks pueden señalar énfasis o reacción; visual_change indica cambios de plano/movimiento, pero no demuestra interés por sí solo. Úsalas solo como evidencia secundaria.',
-    'Actúa como editor de contenido: identifica qué partes son más importantes para entender el vídeo. No busques viralidad, ganchos artificiales ni frases impactantes por sí mismas. Selecciona momentos con valor real para el contenido y recórtalos de forma que se entiendan solos.',
-    'Evalúa CADA candidato con una rúbrica de 0 a 10: importance (valor real del contenido), story (qué aporta al desarrollo), payoff (qué se descubre, resuelve o demuestra), completeness (si conserva la idea completa), clarity (si se entiende), emotion (solo si aporta significado), originality (si añade algo distinto) y pacing (si el corte evita relleno); hook solo desempata. No midas potencial viral. Importancia incluye hechos que cambian la situación, información nueva, explicaciones clave, ejemplos concretos, decisiones, conflictos, revelaciones, consecuencias y conclusiones relevantes. Una explicación tranquila puede ser más importante que una reacción ruidosa.',
-    'Pondera importance 40%, story 15%, payoff 15%, completeness 15%, clarity 10%, emotion 2%, originality 1%, pacing 1% y hook 1%. La prioridad absoluta es la importancia del contenido, no que parezca viral. Puntúa importance según cuánto cambia lo que el espectador sabe, entiende o espera: nueva información, explicación clave, ejemplo concreto, decisión, conflicto, revelación, giro, consecuencia, resultado o conclusión relevante. También puede ser importante una reflexión sustancial aunque no haya conflicto. No confundas importancia con intensidad, volumen, risas, insultos, palabras llamativas ni cambios de plano. Compara los candidatos entre sí: ¿qué cuatro aportan más información, avance, consecuencia o comprensión del vídeo? La calidad del corte solo desempata entre momentos de importancia parecida. No inventes consecuencias ni significado que no aparezcan en el material. Una pregunta sin respuesta no es un payoff; conserva la pregunta si la respuesta depende de ella.',
-    'Descarta: arranque a mitad de frase, presentación sin contenido, transición, publicidad/patrocinio, repetición, respuesta incomprensible por ASR, idea sin terminar y dependencia de contexto que no aparece en el clip. No descartes una explicación útil solo por ser tranquila o tener poco ritmo.',
-    'No confundas volumen, risas de fondo, cambios de plano o palabras llamativas con calidad editorial. Úsalas solo como señales secundarias. No inventes reacciones ni atribuyas quién habla si el texto no lo demuestra.',
-    'La salida final debe contener exactamente cuatro clips. Selecciona los cuatro momentos que más aportan al contenido de TODO el vídeo. No es obligatorio que sean virales, graciosos, emocionantes ni que tengan estructura de chiste. Compara globalmente. No fuerces variedad temporal si hay varios momentos importantes juntos. Evita duplicar el mismo acontecimiento. Si dos candidatos cubren el mismo momento, conserva el corte más completo y claro.',
-    'Cada candidato incluye context_before y context_after: son frases cercanas FUERA del corte propuesto y solo sirven para entender la conversación. No las cuentes como contenido del clip ni cambies sus tiempos. Si el gancho, la explicación o el remate dependen demasiado de ese contexto externo, penaliza el candidato o prefiere otro que contenga el intercambio completo.',
-    'Prefiere el fragmento completo más corto que conserve la premisa y el remate. Busca variedad de temas y formatos. El idioma puede ser español o inglés.',
-    'No inventes hechos ni cambies los tiempos. Solo puedes elegir IDs de esta lista.',
-    'En esta ronda elige exactamente '+count+' fragmentos. '+phase,
-    'Devuelve SOLO JSON válido: {"selected":[{"id":1,"score":92,"rubric":{"hook":9,"story":8,"payoff":9,"clarity":9,"completeness":10,"emotion":8,"pacing":8,"originality":9,"importance":9},"title":"título breve","reason":"qué aporta este momento al contenido y por qué es importante","importance_evidence":"cita literal de al menos cuatro palabras consecutivas del diálogo que demuestra su importancia"}]}.',
-    'CANDIDATOS:',JSON.stringify(shortlist)
-  ].join('\n');
+    'Eres editor jefe. Compara el contenido real, no la viralidad.',
+    'Prioriza importancia (40%), historia (15%), payoff (15%), integridad (15%), claridad (10%); emoción, originalidad, ritmo y gancho solo desempatan.',
+    'Importancia significa información nueva, explicación, ejemplo, decisión, conflicto, revelación, consecuencia o conclusión que aporte comprensión. No confundas gritos, risas o palabras llamativas con importancia.',
+    'Descarta frases incompletas, ASR ininteligible, repeticiones y cortes dependientes de contexto externo. No inventes hechos ni cambies tiempos.',
+    'Elige exactamente '+count+' IDs distintos y no solapados. Cita en importance_evidence al menos cuatro palabras literales del candidato.',
+    'Devuelve SOLO JSON compacto: {"selected":[{"id":1,"score":85,"title":"...","reason":"...","importance_evidence":"...","rubric":{"hook":5,"story":8,"payoff":7,"clarity":8,"completeness":9,"emotion":5,"pacing":6,"originality":6,"importance":9}}]}',
+    phase,
+    'CANDIDATOS: '+JSON.stringify(shortlist)
+  ].join('\\n');
   onProgress(phase);
   const response=await engine.chat.completions.create({
     messages:[
-      {role:'system',content:'Eres un editor audiovisual exigente. No inventes contenido. Responde exclusivamente con JSON válido. /no_think'},
+      {role:'system',content:'Responde solo con un objeto JSON válido. Sin Markdown ni razonamiento. /no_think'},
       {role:'user',content:prompt}
     ],
-    temperature:0.12,
-    max_tokens:Math.min(4096,700+count*260),
-    ...(engine.isRemote?{response_format:{type:'json_object'}}:{})
+    temperature:0,
+    max_tokens:Math.min(1800,450+count*220)
   });
   const raw=extractEditorialModelText(response);
   try{return parseEditorialDecision(raw,pool,count,false,engine.isRemote?'remote_generative_editor':'local_generative_editor');}
   catch(firstError){
-    // Small local models sometimes return overlapping IDs even when instructed
-    // not to. Give them one constrained repair pass instead of abandoning the
-    // generative route or silently switching to heuristic selection.
-    onProgress('Revisión editorial: corrigiendo solapamientos y cortes incompletos…');
-    const repairPrompt=[
-      'Corrige la selección. Responde ÚNICAMENTE con un objeto JSON, sin Markdown, sin explicación y sin etiquetas de razonamiento.',
-      'Elige exactamente '+count+' IDs distintos de los candidatos. No pueden solaparse en el tiempo.',
-      'Valora la importancia real del contenido por encima de viralidad, volumen o risas. No inventes hechos ni citas.',
-      'Cada elemento debe incluir id, score, title, reason, importance_evidence y rubric con hook, story, payoff, clarity, completeness, emotion, pacing, originality e importance, todos de 0 a 10.',
-      'Formato obligatorio: {"selected":[{"id":1,"score":80,"title":"...","reason":"...","importance_evidence":"cita literal","rubric":{"hook":5,"story":8,"payoff":7,"clarity":8,"completeness":8,"emotion":5,"pacing":6,"originality":6,"importance":9}}]}',
-      'CANDIDATOS: '+JSON.stringify(shortlist)
-    ].join('\\n');
+    onProgress('Revisión editorial: corrigiendo el formato de la selección…');
+    const repairPrompt='Devuelve solo JSON válido con selected. Elige exactamente '+count+' IDs distintos entre 1 y '+pool.length+'. Cada elemento debe tener id, score, title, reason, importance_evidence literal y rubric con hook, story, payoff, clarity, completeness, emotion, pacing, originality e importance, todos de 0 a 10. No inventes citas. Candidatos: '+JSON.stringify(shortlist);
     const retry=await engine.chat.completions.create({
       messages:[
-        {role:'system',content:'Devuelve solo JSON válido. No incluyas razonamiento. /no_think'},
+        {role:'system',content:'Devuelve exclusivamente JSON válido. /no_think'},
         {role:'user',content:repairPrompt}
-      ],temperature:0,max_tokens:1500,...(engine.isRemote?{response_format:{type:'json_object'}}:{})
+      ],
+      temperature:0,
+      max_tokens:Math.min(1800,450+count*220)
     });
     return parseEditorialDecision(extractEditorialModelText(retry),pool,count,false,engine.isRemote?'remote_generative_editor':'local_generative_editor');
   }
@@ -1351,7 +1333,7 @@ async function aiEditorialSelect(candidates, limit = 4, onProgress = () => {}) {
   // Every candidate is judged. Four chronological batches keep each prompt
   // compact; four finalists per block reach the global importance comparison.
   const finalists=[];
-  const batchSize=8; // Keep each request safely below Qwen3-0.6B's 4096-token context.
+  const batchSize=4; // Four short candidates per request stay within Qwen3-0.6B's 4K context.
   if(pool.length<=batchSize){
     finalists.push(...pool);
   }else{
@@ -1364,7 +1346,7 @@ async function aiEditorialSelect(candidates, limit = 4, onProgress = () => {}) {
     );
     for(let index=0;index<batches.length;index++){
       const batch=batches[index];
-      const keep=Math.min(2,batch.length); // Two finalists per compact block preserve recall without overflowing context.
+      const keep=1; // One winner per compact block keeps the global vote and audit bounded.
       const selected=await askEditorialModel(engine,batch,keep,onProgress,'Evaluación editorial IA: bloque global '+(index+1)+'/'+batches.length+'…');
       finalists.push(...selected);
     }
@@ -1381,24 +1363,20 @@ async function aiEditorialSelect(candidates, limit = 4, onProgress = () => {}) {
   onProgress('Segunda pasada editorial: comprobando importancia, contexto y evidencia literal…');
   const auditInput=finalPool.map((clip,index)=>({
     id:index+1,start:Number(clip.start.toFixed(1)),end:Number(clip.end.toFixed(1)),
-    transcript:String(clip.text||'').replace(/\\s+/g,' ').slice(0,260),
-    context_before:'',
-    context_after:'',
+    transcript:String(clip.text||'').replace(/\\s+/g,' ').slice(0,145),
     provisional:firstVote.some(p=>Math.abs(p.start-clip.start)<0.05&&Math.abs(p.end-clip.end)<0.05)
   }));
   const auditPrompt=[
-    'Eres un revisor editorial en una segunda pasada adversarial. Reevalúa el material desde cero y cuestiona la primera votación.',
-    'Revisa TODOS los finalistas desde cero. No favorezcas provisional=true: puede ser un error de la primera votación. Esta segunda pasada usa el mismo modelo, así que debe buscar activamente errores y no fingir independencia técnica.',
-    'Tu prioridad es comprobar que el momento aporta algo importante al contenido y que el corte conserva su sentido. Importancia: nueva información, explicación clave, ejemplo concreto, decisión, conflicto, revelación, cambio, consecuencia, resultado o conclusión relevante. No confundas volumen, risa o frase llamativa con importancia. Rechaza cortes que dependan de contexto externo, ideas incompletas, ASR ininteligible, relleno y duplicados. No exijas un gancho espectacular ni un remate cómico.',
-    'Compara primero la importancia del contenido y después la claridad y autonomía del corte. No evalúes retención probable, viralidad ni popularidad del tema. Si un provisional aporta menos que una alternativa, sustitúyelo. No inventes palabras ni cambies timestamps.',
-    'Devuelve exactamente '+limit+' IDs distintos y no solapados. Incluye la rúbrica completa hook, story, payoff, clarity, completeness, emotion, pacing, originality e importance (0-10), title, reason e importance_evidence. importance_evidence debe ser una cita literal de al menos cuatro palabras consecutivas del transcript de ese candidato; no la inventes ni la parafrasees. La razón debe explicar qué aporta al vídeo, no solo describir la escena. Añade audit_verdict="pass" y audit_flags=[] si no detectas defecto; si hay defectos en otros candidatos, no los selecciones.',
-    'Devuelve SOLO JSON válido con la misma estructura {"selected":[...]}.',
-    'FINALISTAS PARA AUDITAR:',JSON.stringify(auditInput)
-  ].join('\n');
+    'Auditor editorial adversarial: revisa desde cero los finalistas y busca motivos para descartarlos.',
+    'Prioriza importancia real, integridad, claridad y contexto. Rechaza repeticiones, frases incompletas y ASR ininteligible. No confundas intensidad con importancia.',
+    'Elige exactamente '+limit+' IDs distintos y no solapados. Cada selección debe incluir una cita literal de al menos cuatro palabras del transcript, audit_verdict="pass", audit_flags=[] y rúbrica completa de 0 a 10. importance debe ser >=6.5.',
+    'Devuelve SOLO JSON compacto: {"selected":[{"id":1,"score":85,"title":"...","reason":"...","importance_evidence":"cita literal","audit_verdict":"pass","audit_flags":[],"rubric":{"hook":5,"story":8,"payoff":7,"clarity":8,"completeness":9,"emotion":5,"pacing":6,"originality":6,"importance":9}}]}',
+    'FINALISTAS: '+JSON.stringify(auditInput)
+  ].join('\\n');
   const auditRequest={messages:[
-    {role:'system',content:'Actúas como revisor editorial de segunda pasada. Busca motivos para DESCARTAR, no para confirmar. Responde solo JSON válido. /no_think'},
+    {role:'system',content:'Auditor estricto. Devuelve solo JSON válido. /no_think'},
     {role:'user',content:auditPrompt}
-  ],temperature:0.05,max_tokens:Math.min(4096,700+limit*260),...(engine.isRemote?{response_format:{type:'json_object'}}:{})};
+  ],temperature:0,max_tokens:1800};
   let audited;
   let auditRaw='';
   try{
