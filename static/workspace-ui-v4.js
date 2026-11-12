@@ -91,8 +91,21 @@
     if(restored){
       fileInput.dataset.autoRunStarted='1';
       if(progress)progress.textContent='Vídeo original vinculado al proyecto. Transcripción conservada; abre el proyecto para continuar sin repetir el análisis.';
-    } else if(progress) {
-      progress.textContent='Vídeo cargado. Inicializando motor Whisper local…';
+    } else {
+      if(progress)progress.textContent='Vídeo cargado. Iniciando extracción de audio y transcripción Whisper…';
+      fileInput.dataset.whisperAutoStarted='1';
+      window.clipforgeUpdateVideoCapacity?.(file).catch(error=>console.warn('No se pudo calcular la capacidad del vídeo:',error));
+      window.setTimeout(()=>{
+        if(!transcribe || !document.contains(transcribe)){
+          if(progress)progress.textContent='Error: el botón Generar mis 4 clips no está conectado.';
+          return;
+        }
+        if(transcribe.disabled){
+          if(progress)progress.textContent='Whisper ya está trabajando. Espera a que termine el análisis actual.';
+          return;
+        }
+        transcribe.click();
+      },500);
     }
   });
   // The language/model controls must remain in the live DOM; the original engine
