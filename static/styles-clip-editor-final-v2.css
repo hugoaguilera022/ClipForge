@@ -1522,8 +1522,7 @@ body.cf-opus-stage-editor #cfWorkspace #browserCandidateList .candidate-card{
  align-items:center!important;padding:9px!important;margin:0!important;
  background:#111724!important;border:1px solid #282e40!important;border-radius:11px!important;
 }
-body.cf-opus-stage-editor #cfWorkspace #browserCandidateList .candidate-card .cf-inline-player,
-body.cf-opus-stage-editor #cfWorkspace #browserCandidateList .candidate-card video{display:none!important}
+body.cf-opus-stage-editor #cfWorkspace #browserCandidateList .candidate-card .cf-inline-player{display:block!important;width:88px!important;min-width:88px!important;margin:0!important}body.cf-opus-stage-editor #cfWorkspace #browserCandidateList .candidate-card video{display:block!important;width:88px!important;height:66px!important;aspect-ratio:4/3!important;object-fit:cover!important;border:0!important;border-radius:8px!important;min-height:0!important;max-height:none!important}body.cf-opus-stage-editor #cfWorkspace #browserCandidateList .candidate-card .cf-inline-player-controls,body.cf-opus-stage-editor #cfWorkspace #browserCandidateList .candidate-card .cf-inline-subtitles{display:none!important}
 body.cf-opus-stage-editor #cfWorkspace #browserCandidateList .candidate-card img,
 body.cf-opus-stage-editor #cfWorkspace #browserCandidateList .candidate-card canvas{width:88px!important;height:66px!important;object-fit:cover!important;border-radius:8px!important}
 body.cf-opus-stage-editor #cfWorkspace #browserCandidateList .candidate-card strong{font-size:12px!important;line-height:1.35!important}
@@ -1580,3 +1579,7 @@ body.cf-opus-stage-editor #cfWorkspace .cf-clip-timeline{
  body.cf-opus-stage-editor #cfWorkspace .cf-editor-topbar{grid-template-columns:1fr auto!important}
  body.cf-opus-stage-editor #cfWorkspace .cf-editor-project{grid-column:1/-1!important}
 }
+
+body.cf-opus-stage-editor #cfWorkspace #browserCandidateList .candidate-card.cf-opus-active-clip-item{border-color:#a34dff!important;background:#211638!important;box-shadow:0 0 0 1px #8d43ed!important}
+body.cf-opus-stage-editor #cfWorkspace #browserCandidateList .candidate-card.cf-opus-active-clip-item:before{content:"✓";position:absolute;color:#fff;background:#9b45ed;border-radius:20px;padding:2px 6px;font-size:10px;z-index:3}
+body.cf-opus-stage-editor #cfWorkspace .cf-opus-preview-column>.cf-inline-player video{background:#05050a!important}
