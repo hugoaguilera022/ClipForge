@@ -2118,4 +2118,25 @@ window.clipforgeEditorBridge = {
 window.dispatchEvent(new CustomEvent('clipforge:editor-ready'));
 
 
+// Single source of truth for auto-start: bind after this module initializes.
+const sourceInput = document.querySelector('#video');
+sourceInput?.addEventListener('change', () => {
+  const file = sourceInput.files?.[0];
+  if (!file) return;
+  updateVideoCapacity(file).catch(error => console.warn('No se pudo calcular la capacidad del vídeo:', error));
+  if (window.clipforgeEditorBridge?.getProject?.().transcript?.segments?.length) return;
+  if (runButton?.disabled) {
+    say('El análisis anterior sigue en curso. Espera a que termine antes de iniciar otro vídeo.');
+    return;
+  }
+  if (sourceInput.dataset.whisperAutoStarted === '1') return;
+  sourceInput.dataset.whisperAutoStarted = '1';
+  if (!runButton) {
+    say('Error: el botón de análisis no está conectado. Recarga ClipForge para inicializar el motor.');
+    return;
+  }
+  say('Vídeo detectado. Iniciando extracción de audio y transcripción Whisper…');
+  runButton.click();
+});
 document.querySelector('#browserWhisperModel')?.addEventListener('change',()=>{const file=document.querySelector('#video')?.files?.[0];if(file)updateVideoCapacity(file).catch(console.warn);});
+window.dispatchEvent(new CustomEvent('clipforge:whisper-ready'));
