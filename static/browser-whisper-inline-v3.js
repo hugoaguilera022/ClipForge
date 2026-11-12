@@ -1867,6 +1867,23 @@ runButton?.addEventListener('click', async () => {
       : (result.text || 'El modelo no devolvió texto temporizado.');
     window.dispatchEvent(new CustomEvent('clipforge:transcript-ready',{detail:{segments:transcriptData.segments.length,words:transcriptWordCount,timedWords:timedWordCount,language:transcriptData.language,model:activeModelId}}));
     if (transcriptData.segments.length) {
+      // Free the now-unneeded Whisper model cache before loading the separate
+      // Qwen editorial model. Keep transcriptData and the visible transcript intact.
+      // Transformers.js stores model weights in the Cache API under this key.
+      try {
+        await releaseWhisperModel();
+        if (globalThis.caches?.delete) {
+          const removed = await caches.delete('transformers-cache');
+          if (removed) say('Transcripción conservada. Caché temporal de Whisper liberada para dar espacio al selector editorial…');
+        }
+        const storage = await navigator.storage?.estimate?.();
+        if (storage?.quota && storage?.usage != null) {
+          const freeMb = Math.max(0, Math.round((storage.quota - storage.usage) / 1048576));
+          console.info('[ClipForge storage before editorial model]', {usedMB:Math.round(storage.usage/1048576),quotaMB:Math.round(storage.quota/1048576),freeMB});
+        }
+      } catch (cleanupError) {
+        console.warn('No se pudo liberar la caché temporal de Whisper:', cleanupError);
+      }
       let candidatePool = buildEditorialCandidatePool(transcriptData.segments, audio.length / 16000, audio, visualSamples, 16000);
       if (candidatePool.length > 0) {
         try {
