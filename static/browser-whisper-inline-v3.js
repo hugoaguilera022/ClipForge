@@ -1020,8 +1020,19 @@ async function loadLocalEditorialJudge(onProgress=()=>{}){
    const modelId='Qwen3-0.6B-q4f16_1-MLC';
    const record=webllm.prebuiltAppConfig.model_list.find(item=>item.model_id===modelId);
    if(!record)throw new Error('La versión instalada de WebLLM no incluye Qwen3-0.6B compatible.');
-   const appConfig={...webllm.prebuiltAppConfig,cacheBackend:'opfs',opfsAccessMode:'auto'};
-   return await webllm.CreateMLCEngine(modelId,{appConfig,initProgressCallback:report=>onProgress(report?.text||'Descargando el modelo editorial IA…')});
+   // Use WebLLM's best-tested Cache API backend instead of forcing OPFS.
+   // This avoids OPFS-specific write failures on Chrome profiles with constrained
+   // site storage; it does not bypass the browser's overall storage quota.
+   const appConfig={...webllm.prebuiltAppConfig,cacheBackend:'cache'};
+   try {
+    return await webllm.CreateMLCEngine(modelId,{appConfig,initProgressCallback:report=>onProgress(report?.text||'Descargando el modelo editorial IA…')});
+   } catch(error) {
+    const message=String(error?.message||error);
+    if(/quota|storage quota|exceed.*storage/i.test(message)) {
+     throw new Error('Chrome se ha quedado sin cuota de almacenamiento para descargar Qwen3 (modelo editorial). La transcripción de Whisper sí está guardada. No borres los datos de clipforge-final.onrender.com; libera espacio de otros sitios en Chrome y vuelve a intentarlo. Detalle: '+message);
+    }
+    throw error;
+   }
   })().catch(error=>{editorialEnginePromise=null;throw error;});
  }
  return editorialEnginePromise;
