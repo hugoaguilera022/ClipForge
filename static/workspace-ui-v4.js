@@ -20,7 +20,6 @@
   if(model && !model.value) model.value='whisper-large-v3-turbo';
   if(urlImport){urlImport.hidden=true;urlImport.setAttribute('aria-hidden','true');}
   if(controls){controls.hidden=true;controls.setAttribute('aria-hidden','true');}
-  $('#videoCapacity')?.setAttribute('hidden','');
   const app=document.createElement('div');app.id='cfWorkspace';app.className='cf-opus-workspace';
   app.innerHTML=`
     <div class="cf-opus-announcement">Estudio de ClipForge con IA <span>Convierte un vídeo largo en clips listos para publicar</span><a href="#cfShowcase">Descubre cómo funciona ↓</a></div>
@@ -56,6 +55,8 @@
   const health=header?.querySelector('#health');if(health)app.querySelector('#cfHealthSlot').append(health);header?.remove();
   if(drop)app.querySelector('.cf-opus-drop-slot').append(drop);
   if(transcribe){transcribe.textContent='Generar mis 4 clips';app.querySelector('.cf-opus-primary-action').append(transcribe);}
+  const capacityPanel=$('#videoCapacity'),trustRow=app.querySelector('.cf-opus-trust');
+  if(capacityPanel&&trustRow){capacityPanel.hidden=false;capacityPanel.removeAttribute('aria-hidden');trustRow.after(capacityPanel);}
   // Keep ASR output attached after replacing the original main container.
   const transcriptPanel=document.createElement('section');transcriptPanel.id='cfTranscriptPanel';transcriptPanel.className='cf-transcript-panel';transcriptPanel.hidden=true;
   transcriptPanel.innerHTML='<div class="cf-transcript-panel-head"><div><strong>Transcripción completa</strong><small>Texto reconocido por Whisper con marcas de tiempo. Puedes corregirlo antes de editar los subtítulos.</small></div><span class="cf-transcript-count">Pendiente</span></div>';
