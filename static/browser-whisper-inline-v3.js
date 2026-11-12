@@ -1294,6 +1294,63 @@ async function askEditorialModel(engine, pool, count, onProgress, phase) {
     return parseEditorialDecision(extractEditorialModelText(retry),pool,count,false,engine.isRemote?'remote_generative_editor':'local_generative_editor');
   }
 }
+function selectEditorialFallback(candidates, limit = 4) {
+  const source=(Array.isArray(candidates)?candidates:[]).filter(c=>
+    c&&Number.isFinite(Number(c.start))&&Number.isFinite(Number(c.end))&&Number(c.end)>Number(c.start)&&String(c.text||'').trim()
+  );
+  const count=Math.min(4,Math.max(1,Math.floor(Number(limit)||4)));
+  const stop=new Set('el la los las un una unos unas de del al y o u que se es en a por para con sin lo le les me te mi tu su sus yo tú él ella ellos ellas nosotros vosotros como cuando donde quien cual qué cómo cuál porque pero pues ya muy más menos este esta esto eso hay ser estar tener hacer'.split(/\s+/));
+  const terms=text=>(String(text||'').toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g,'').match(/[a-z0-9]{3,}/g)||[]).filter(t=>!stop.has(t));
+  const novelty=(text,chosen)=>{
+    const set=new Set(terms(text));if(!set.size||!chosen.length)return 1;
+    let max=0;
+    for(const item of chosen){const other=new Set(terms(item.text));let common=0;for(const t of set)if(other.has(t))common++;max=Math.max(max,common/Math.max(1,set.size+other.size-common));}
+    return 1-max;
+  };
+  const cues=/\b(porque|entonces|resulta|imagina|descubr|decid|problema|soluci|importante|primero|despu[eé]s|finalmente|nunca|siempre|verdad|mentira|historia|pas[oó]|ocurri[oó]|aprend[ií]|conclusi[oó]n|elimin|gan|perd|cambi|mejor|peor|ejemplo|raz[oó]n|significa|consiste|pregunta|respuesta|diferencia|recuerda|f[ií]jate|atenci[oó]n)\w*/i;
+  const weak=/\b(eh|em|mmm|vale|bueno|pues|nada|claro|s[ií]s[ií]|jajaja|risas)\b/gi;
+  const scored=source.map(c=>{
+    const text=String(c.text||'').replace(/\s+/g,' ').trim(),words=terms(text),unique=new Set(words).size;
+    const duration=Number(c.end)-Number(c.start),e=c.media_evidence||{};
+    const sentenceEnd=/[.!?…]["'”’)]?$/.test(text)?1:0;
+    const cue=cues.test(text)?1:0;
+    const number=/\b\d+(?:[.,]\d+)?\b/.test(text)?1:0;
+    const question=/[?¿]/.test(text)?1:0;
+    const weakCount=(text.match(weak)||[]).length;
+    const density=Math.min(1,unique/Math.max(1,words.length));
+    const audio=Number(e.audio_activity)||0,peaks=Number(e.audio_dynamic_peaks)||0,visual=Number(e.visual_change)||0;
+    const durationFit=Math.max(0,1-Math.abs(duration-30)/30);
+    const score=sentenceEnd*16+cue*20+number*5+question*5+density*12+
+      Math.min(10,unique*.35)+audio*9+peaks*8+Math.min(8,visual*16)+durationFit*8-
+      weakCount*3-(words.length<18?18:0)-(words.length<28?8:0);
+    return {...c,_fallbackScore:score,_fallbackWords:words};
+  });
+  const first=Math.min(...scored.map(c=>c.start)),last=Math.max(...scored.map(c=>c.end)),span=Math.max(1,last-first);
+  const selected=[];
+  while(selected.length<count){
+    const available=scored.filter(c=>!selected.some(x=>c.start<x.end+2&&c.end>x.start-2));
+    if(!available.length)break;
+    available.sort((a,b)=>{
+      const value=c=>{
+        const temporalBucket=Math.min(3,Math.floor((c.start-first)/span*4));
+        const coverage=selected.some(x=>Math.min(3,Math.floor((x.start-first)/span*4)===temporalBucket)?true:false)?-12:8;
+        return c._fallbackScore+coverage+novelty(c.text,selected)*14;
+      };
+      return value(b)-value(a);
+    });
+    selected.push(available[0]);
+  }
+  if(selected.length!==count)throw new Error('No se han podido encontrar cuatro fragmentos temporales distintos.');
+  return selected.sort((a,b)=>a.start-b.start).map((c,i)=>{
+    const cleanTitle=String(c.text||'').split(/[.!?…]/)[0].trim().split(/\s+/).slice(0,7).join(' ');
+    const { _fallbackScore,_fallbackWords,...clip }=c;
+    return {...clip,title:cleanTitle.length>8?cleanTitle:`Momento ${i+1}`,selected:true,
+      selection_method:'local_editorial_fallback',ai_editorial_score:Math.max(0,Math.min(100,Math.round(_fallbackScore))),
+      ai_editorial_reason:'Selección local de respaldo por contenido, cierre de frase, diversidad temática y evidencia audiovisual; no generada por el modelo Qwen.',
+      ai_editorial_audit_verdict:'not_run_fallback'};
+  });
+}
+
 async function aiEditorialSelect(candidates, limit = 4, onProgress = () => {}) {
   limit=4;
   const pool=(Array.isArray(candidates)?candidates:[]).filter(c=>
@@ -1850,20 +1907,24 @@ runButton?.addEventListener('click', async () => {
           const requested=4;
           if(candidatePool.length<requested)throw new Error('No hay cuatro momentos candidatos con diálogo suficiente para una selección fiable.');
           say(`Se han preparado ${candidatePool.length} ventanas. La IA comparará todo el vídeo y elegirá exactamente los cuatro momentos más importantes. Se usa una cadena compacta de cuatro comparaciones y dos revisiones finales.`);
-          candidatePool = await aiEditorialSelect(candidatePool, requested, say);
-          recordDailyAIClips(candidatePool.length);
-          say('Selección IA completada: exactamente cuatro momentos importantes y distintos.');
+          try {
+            candidatePool = await aiEditorialSelect(candidatePool, requested, say);
+            recordDailyAIClips(candidatePool.length);
+            say('Selección generativa completada: cuatro momentos revisados por IA.');
+          } catch (editorError) {
+            console.warn('[ClipForge] El modelo editorial no ha podido completar la selección; activando selector local de continuidad.',editorError);
+            say('El modelo generativo no ha respondido correctamente. Seleccionando cuatro momentos mediante análisis local de transcripción, diversidad y audio para abrir el editor…');
+            candidatePool = selectEditorialFallback(candidatePool, requested);
+          }
         } catch (editorError) {
-          console.error('El editor IA local no está disponible o no ha devuelto una selección válida.', editorError);
-          // Never spend the user's time rendering heuristic fallback clips.
-          // Preserve the transcript for inspection, but stop before clip creation.
-          say(`Selección detenida: el selector editorial no pudo validar cuatro momentos (${editorError.message}). No se crearán ni exportarán clips de respaldo. Conserva la transcripción y vuelve a intentarlo cuando el selector esté disponible.`);
+          console.error('No se pudieron preparar cuatro momentos editables.',editorError);
+          say(`No se han podido preparar cuatro momentos editables: ${editorError.message}. La transcripción se conserva.`);
           return;
         }
       }
       if (!Array.isArray(candidatePool) || candidatePool.length !== 4 ||
-          !candidatePool.every(item => item.selection_method === 'local_generative_editor' || item.selection_method === 'remote_generative_editor')) {
-        say('Selección detenida: no hay cuatro clips validados por IA. No se mostrarán candidatos heurísticos ni se iniciará ninguna exportación.');
+          !candidatePool.every(item => ['local_generative_editor','remote_generative_editor','local_editorial_fallback'].includes(item.selection_method))) {
+        say('No se han podido validar cuatro momentos editables. La transcripción se conserva.');
         return;
       }
       showClipCandidates(transcriptData.segments, audio.length / 16000, candidatePool, audio, visualSamples);
