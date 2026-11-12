@@ -293,6 +293,13 @@
   window.addEventListener('clipforge:clips-updated',reveal);
   window.addEventListener('clipforge:open-editor',e=>{
     const card=e.detail?.card;if(!card)return;
+    const candidateList=$('#browserCandidateList');
+    if(candidateList&&!candidateList.querySelector('.cf-opus-active-clip-item')){
+      const activePreview=card.cloneNode(true);activePreview.classList.add('cf-opus-active-clip-item');activePreview.dataset.activePreview='true';
+      activePreview.querySelectorAll('button,input,textarea,select').forEach(el=>el.remove());
+      const activeVideo=activePreview.querySelector('video');if(activeVideo){activeVideo.muted=true;activeVideo.controls=false;activeVideo.pause();}
+      candidateList.prepend(activePreview);
+    }
     activeCard=card;activeIndex=Number(e.detail?.index)||0;
     const title=editorScreen.querySelector('.cf-opus-section-head h2');if(title)title.textContent=card.querySelector(':scope > strong')?.textContent||'Editar clip';
     const backHolder=editorScreen.querySelector('.cf-opus-section-head');
