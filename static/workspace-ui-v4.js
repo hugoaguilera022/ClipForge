@@ -15,12 +15,12 @@
   const transcriptOutput=$('#browserTranscript');
   const downloadTranscript=$('#downloadBrowserTranscript');
   const saveTranscript=$('#saveBrowserProject');
+  const capacityPanel=$('#videoCapacity');
   if(language)language.value='es';
   // Respect the HTML default and any user choice; never silently downgrade a selected model.
   if(model && !model.value) model.value='whisper-large-v3-turbo';
   if(urlImport){urlImport.hidden=true;urlImport.setAttribute('aria-hidden','true');}
   if(controls){controls.hidden=true;controls.setAttribute('aria-hidden','true');}
-  $('#videoCapacity')?.setAttribute('hidden','');
   const app=document.createElement('div');app.id='cfWorkspace';app.className='cf-opus-workspace';
   app.innerHTML=`
     <div class="cf-opus-announcement">Estudio de ClipForge con IA <span>Convierte un vídeo largo en clips listos para publicar</span><a href="#cfShowcase">Descubre cómo funciona ↓</a></div>
@@ -56,6 +56,8 @@
   const health=header?.querySelector('#health');if(health)app.querySelector('#cfHealthSlot').append(health);header?.remove();
   if(drop)app.querySelector('.cf-opus-drop-slot').append(drop);
   if(transcribe){transcribe.textContent='Generar mis 4 clips';app.querySelector('.cf-opus-primary-action').append(transcribe);}
+  const trustRow=app.querySelector('.cf-opus-trust');
+  if(capacityPanel&&trustRow){capacityPanel.hidden=false;capacityPanel.removeAttribute('aria-hidden');trustRow.after(capacityPanel);}
   // Keep ASR output attached after replacing the original main container.
   const transcriptPanel=document.createElement('section');transcriptPanel.id='cfTranscriptPanel';transcriptPanel.className='cf-transcript-panel';transcriptPanel.hidden=true;
   transcriptPanel.innerHTML='<div class="cf-transcript-panel-head"><div><strong>Transcripción completa</strong><small>Texto reconocido por Whisper con marcas de tiempo. Puedes corregirlo antes de editar los subtítulos.</small></div><span class="cf-transcript-count">Pendiente</span></div>';
@@ -100,6 +102,24 @@
   const auto=app.querySelector('.cf-opus-auto');auto?.addEventListener('click',()=>transcribe?.click());
   let activeCard=null,activeIndex=-1;const originalCardNodes=new WeakMap();
   const results=$('#cfResults'),editorScreen=$('#cfEditor'),resultSlot=app.querySelector('.cf-opus-candidates-slot'),editorSlot=app.querySelector('.cf-opus-editor-slot');
+  // Keep batch export reachable from the results screen; the legacy export panel
+  // remains visually hidden inside the workspace shell, so expose its action here.
+  const batchExportButton=document.createElement('button');
+  batchExportButton.type='button';
+  batchExportButton.className='cf-opus-export-all';
+  batchExportButton.textContent='Exportar los 4 clips juntos';
+  batchExportButton.disabled=true;
+  batchExportButton.style.setProperty('width',window.innerWidth<=650?'100%':'auto','important');
+  batchExportButton.style.setProperty('flex','0 0 auto','important');
+  batchExportButton.style.setProperty('white-space','nowrap','important');
+  batchExportButton.addEventListener('click',()=>$('#browserExportClips')?.click());
+  results?.querySelector('.cf-opus-section-head')?.append(batchExportButton);
+  function syncBatchExportButton(){
+    const selected=candidates?.querySelectorAll('.candidate-select input:checked').length||0;
+    batchExportButton.textContent=selected===4?'Exportar los 4 clips juntos':`Exportar ${selected} clips juntos`;
+    batchExportButton.disabled=selected===0;
+  }
+  window.addEventListener('clipforge:candidate-edited',syncBatchExportButton);
   if(saveTranscript){saveTranscript.textContent='Guardar proyecto editable';saveTranscript.style.setProperty('width',window.innerWidth<=650?'100%':'auto','important');saveTranscript.style.setProperty('flex','0 0 auto','important');saveTranscript.style.setProperty('white-space','nowrap','important');results?.querySelector('.cf-opus-section-head')?.append(saveTranscript);}
   const exportSlot=app.querySelector('.cf-opus-export-slot');
   if(exportPanel){exportPanel.hidden=true;exportPanel.setAttribute('aria-hidden','true');}
@@ -223,6 +243,7 @@
     if(!resultSlot.contains(candidates))resultSlot.append(candidates);
     const count=candidates.querySelectorAll('.candidate-card').length;
     const pill=results.querySelector('.cf-opus-result-pill');if(pill)pill.textContent=count+' clips · 9:16';
+    syncBatchExportButton();
     setStage('results');
     const progress=$('#cfProductionStatus');if(progress)progress.textContent='Tus cuatro clips están listos. Abre cualquiera para ajustar el montaje y los subtítulos.';
   }
