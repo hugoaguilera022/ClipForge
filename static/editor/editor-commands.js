@@ -90,10 +90,14 @@ export class EditorCommands {
     const set=new Set((Array.isArray(ids)?ids:[ids]).map(String));
     this.store.commit('item:delete',p=>p.tracks.forEach(t=>{if(!t.locked)t.items=t.items.filter(i=>!set.has(i.id));}));
   }
-  duplicate(id,offset=0.25) {
+  duplicate(id,offset=null) {
     const found=this.item(id);if(!found)throw new Error('Elemento no encontrado');
     if(found.track.locked)throw new Error('La pista está bloqueada');
-    const copy={...found.item,id:uid('item'),start:found.item.start+Math.max(0,Number(offset)||0),end:found.item.end+Math.max(0,Number(offset)||0)};
+    const duration=found.item.end-found.item.start;
+    // The default duplicate is placed immediately after the source item so it
+    // remains independently selectable instead of hiding underneath it.
+    const shift=offset===null?duration+0.05:Math.max(0,Number(offset)||0);
+    const copy={...found.item,id:uid('item'),start:found.item.start+shift,end:found.item.end+shift};
     this.store.commit('item:duplicate',p=>p.tracks.find(t=>t.id===found.track.id).items.push(copy));return copy.id;
   }
   copy(ids) {
