@@ -33,7 +33,7 @@ function makeTracks(clips, transcript) {
     normalizeTrack({id:'track-a1',type:'audio',name:'A1 · Audio original',items:validClips.map(c=>({id:`audio-source-${c.id}`,clipId:c.id,name:'Audio original',start:Number(c.start),end:Number(c.end),sourceType:'primary',sourceStart:Number.isFinite(Number(c.sourceStart))?Number(c.sourceStart):Number(c.start),gain:0.8}))},1),
     normalizeTrack({id:'track-a2',type:'audio',name:'A2 · Música',items:[]},2),
     normalizeTrack({id:'track-a3',type:'audio',name:'A3 · Efectos sonoros',items:[]},3),
-    normalizeTrack({id:'track-s1',type:'subtitles',name:'S1 · Subtítulos',items:cues.map((s,i)=>({id:`subtitle-${i+1}`,start:s.start,end:s.end,text:s.text,words:s.words||[]}))},4),
+    normalizeTrack({id:'track-s1',type:'subtitles',name:'S1 · Subtítulos',items:cues.map((s,i)=>({...s,id:String(s.id||`subtitle-${i+1}`),start:s.start,end:s.end,text:s.text,words:s.words||[]}))},4),
     normalizeTrack({id:'track-t1',type:'text',name:'T1 · Textos y títulos',items:[]},5),
     normalizeTrack({id:'track-fx',type:'effects',name:'FX · Efectos',items:[]},6)
   ];
@@ -92,7 +92,7 @@ export class EditorStore extends EventTarget {
     }
     const subtitleTrack=this.project.tracks.find(t=>t.type==='subtitles');
     if(subtitleTrack&&this.project.transcript){
-      this.project.transcript={...this.project.transcript,segments:subtitleTrack.items.map(item=>({start:item.start,end:item.end,text:String(item.text||''),words:Array.isArray(item.words)?item.words:[]}))};
+      this.project.transcript={...this.project.transcript,segments:subtitleTrack.items.map(item=>({...clone(item),start:item.start,end:item.end,text:String(item.text||''),words:Array.isArray(item.words)?item.words:[]}))};
     }
     this.project.duration=Math.max(0,...this.project.tracks.flatMap(t=>t.items.map(i=>i.end)));
     this.emit(reason);
