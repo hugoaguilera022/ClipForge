@@ -2047,3 +2047,7 @@ body.cf-opus-stage-editor .cf-opus-inspector .cf-subtitle-live-preview{display:f
 
 /* Optional Colab judge connection */
 .cf-colab-connection{margin:14px 0;padding:12px;border:1px solid #2c3949;border-radius:10px;background:#111925}.cf-colab-connection summary{cursor:pointer;font-weight:700;color:#d9e8f1}.cf-colab-connection p{font-size:12px;color:#9eacbd;line-height:1.55}.cf-colab-connection .browser-transcribe-controls{align-items:end}.cf-colab-connection input{min-width:0}.cf-colab-connection small{display:block;margin-top:8px;color:#9eacbd}
+
+.cf-studio-image-preview{position:absolute;max-width:95%;max-height:95%;height:auto;object-fit:contain;pointer-events:none;user-select:none}
+.cf-studio-block[data-type="image"]{background:#634c7e;border-color:#9d7bc4}
+.cf-studio-block[data-type="audio"]{background:#245e56}
