@@ -91,6 +91,7 @@ export class EditorStore extends EventTarget {
     return this.snapshot();
   }
   hydrate(data={}) {
+    this.undoStack.length=0;this.redoStack.length=0;
     const p=clone(data)||{};
     const clips=Array.isArray(p.clips)?p.clips:[];
     const transcript=p.transcript&&Array.isArray(p.transcript.segments)?p.transcript:null;
