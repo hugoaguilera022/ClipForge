@@ -34,6 +34,12 @@ commands.trimItem(audioItem,3,7);
 assert.equal(commands.item(audioItem).item.end,7);
 assert.throws(()=>commands.moveItem('clip-1',22,audioId),/otro tipo/,'video clips must not be moved into audio lanes');
 
+const duplicateVideoId=commands.duplicate('clip-1');
+const duplicateVideo=commands.item(duplicateVideoId).item;
+assert.equal(duplicateVideo.start,commands.item('clip-1').item.end+0.05,'default duplicate is placed directly after the original');
+assert.equal(duplicateVideo.sourceStart,10,'duplicating preserves the same original media in-point');
+commands.remove(duplicateVideoId);
+
 const sourceVideo=commands.item('clip-1').item;
 assert.equal(sourceVideo.sourceStart,10,'source offset is captured before destination edits');
 commands.moveItem('clip-1',30);
