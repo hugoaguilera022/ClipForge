@@ -520,21 +520,24 @@ class RuntimeTruthfulnessTests(unittest.TestCase):
   self.assertIn("512*1024*1024",server)
 
 class BrowserWhisperIntegrationTests(unittest.TestCase):
- def test_browser_transcriber_module_is_served_by_static_route(self):
+ def test_active_browser_transcriber_and_studio_modules_are_served_by_static_route(self):
   source=(ROOT/'server.py').read_text()
-  self.assertIn("'browser-whisper.js'",source)
-  self.assertIn("'browser-whisper.js':'text/javascript'",source)
+  for asset in ('browser-whisper-inline-v3.js','browser-export.js','workspace-ui-v4.js','editor/studio.js','styles-clip-editor-final-v2.css'):
+   self.assertIn("'"+asset+"'",source)
   html=(ROOT/'static/index.html').read_text()
   self.assertIn('id="browserTranscribe"',html)
   self.assertIn('Analizar y seleccionar clips con IA',html)
-  self.assertIn('hasta 12 momentos con IA por vídeo',html)
+  self.assertIn('hasta 12 momentos candidatos con IA por vídeo',html)
   self.assertIn('presupuesto diario adaptativo del dispositivo',html)
-  self.assertIn('type="module" src="/browser-whisper.js?v=',html)
-  module=(ROOT/'static/browser-whisper.js').read_text()
+  self.assertIn('type="module" src="/browser-whisper-inline-v3.js?v=',html)
+  self.assertIn('type="module" src="/editor/studio.js?v=',html)
+  module=(ROOT/'static/browser-whisper-inline-v3.js').read_text()
   self.assertIn("import('https://esm.sh/@huggingface/transformers@3.7.2')",module)
   self.assertIn("language: result.language || sourceLanguage",module)
   self.assertIn("return_timestamps: timestampMode",module)
-  self.assertIn("model === 'whisper-small' ? true : 'word'",module)
+  self.assertIn("transcribeAudioInChunks(asr, audio, reportProgress, 'word', sourceLanguage)",module)
+  self.assertIn("Whisper Small ha fallado. Cambiando automáticamente a Whisper Base",module)
+
 
 
 class BrowserWhisperHandoffTests(unittest.TestCase):
