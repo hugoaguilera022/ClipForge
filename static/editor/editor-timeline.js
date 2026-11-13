@@ -154,7 +154,11 @@ import { uid } from './editor-store.js';
           block.addEventListener('pointerdown',event=>{
             if(event.button!==0||track.locked)return;
             event.preventDefault();event.stopPropagation();
-            store.select([item.id]);
+            if(event.shiftKey||event.metaKey||event.ctrlKey){
+              const selected=new Set(store.project.selection||[]);
+              if(selected.has(item.id))selected.delete(item.id);else selected.add(item.id);
+              store.select([...selected]);
+            }else store.select([item.id]);
             dragging={id:item.id,trackId:track.id,startX:event.clientX,originalStart:item.start,originalEnd:item.end,edge:event.target.closest('.cf-mt-handle')?.dataset.edge||'move'};
             block.setPointerCapture(event.pointerId);block.classList.add('dragging');
           });
@@ -176,7 +180,11 @@ import { uid } from './editor-store.js';
             }catch(error){setStatus(error.message);}
           };
           block.addEventListener('pointerup',finish);block.addEventListener('pointercancel',finish);
-          block.addEventListener('click',event=>{event.stopPropagation();store.select([item.id]);seek(item.start);});
+          block.addEventListener('click',event=>{
+            event.stopPropagation();
+            if(!event.shiftKey&&!event.metaKey&&!event.ctrlKey)store.select([item.id]);
+            seek(item.start);
+          });
           lane.append(block);
         }
         row.append(label,lane);lanes.append(row);
