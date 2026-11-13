@@ -18,12 +18,13 @@ function buildCaptionCues(segments){
     const sourceText=sourceWords.map(w=>String(w.word||w.text||'').trim()).filter(Boolean).join(' ');
     const normalize=value=>String(value||'').toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim().replace(/\s+/g,' ');
     const reusable=sourceWords.length===tokens.length&&normalize(sourceText)===normalize(text)&&sourceWords.every(w=>Number.isFinite(Number(w.start))&&Number.isFinite(Number(w.end))&&Number(w.end)>Number(w.start));
+    const style=segment.style||null;
     if(reusable){
-      sourceWords.forEach((word,i)=>words.push({start:Math.max(start,Number(word.start)),end:Math.min(end,Number(word.end)),text:tokens[i]}));
+      sourceWords.forEach((word,i)=>words.push({start:Math.max(start,Number(word.start)),end:Math.min(end,Number(word.end)),text:tokens[i],style}));
     }else{
       const weights=tokens.map(token=>Math.max(1,token.replace(/[^\p{L}\p{N}]/gu,'').length));
       const total=weights.reduce((a,b)=>a+b,0);let cursor=start;
-      tokens.forEach((token,i)=>{const next=i===tokens.length-1?end:cursor+(end-start)*weights[i]/total;words.push({start:cursor,end:next,text:token});cursor=next;});
+      tokens.forEach((token,i)=>{const next=i===tokens.length-1?end:cursor+(end-start)*weights[i]/total;words.push({start:cursor,end:next,text:token,style});cursor=next;});
     }
   }
   const ordered=words.filter(w=>w.end>w.start).sort((a,b)=>a.start-b.start);
@@ -38,13 +39,13 @@ function buildCaptionCues(segments){
   flush();return cues;
 }
 function drawTextLayers(ctx,tracks,sourceTime,width,height){
-  const layers=(tracks||[]).filter(t=>t.type==='text').flatMap(t=>t.items||[])
-    .filter(item=>Number.isFinite(Number(item.start))&&Number.isFinite(Number(item.end))&&sourceTime>=Number(item.start)&&sourceTime<=Number(item.end)&&String(item.text||'').trim());
+  const layers=(tracks||[]).filter(t=>t.type==='text'&&!t.hidden).flatMap(t=>t.items||[])
+    .filter(item=>!item.hidden&&Number.isFinite(Number(item.start))&&Number.isFinite(Number(item.end))&&sourceTime>=Number(item.start)&&sourceTime<=Number(item.end)&&String(item.text||'').trim());
   if(!layers.length)return;
   ctx.save();
   layers.forEach((item,index)=>{
-    const fontSize=Math.round(width*.052),text=String(item.text).trim().slice(0,180);
-    ctx.font=`800 ${fontSize}px system-ui,sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+    const fontSize=Math.max(18,Math.min(240,Math.round(Number(item.fontSize)||width*.052))),text=String(item.text).trim().slice(0,180);
+    ctx.font=(item.bold===false?'500':'800')+' '+fontSize+'px '+(item.font||'system-ui')+', sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
     const maxWidth=width*.86,lines=[];let line='';
     for(const word of text.split(/\s+/)){
       const next=line?line+' '+word:word;
@@ -52,18 +53,21 @@ function drawTextLayers(ctx,tracks,sourceTime,width,height){
     }
     if(line)lines.push(line);
     const visible=lines.slice(0,3),lineHeight=fontSize*1.2,pad=fontSize*.45;
-    const y=height*.22+index*(lineHeight*visible.length+pad*2);
+    const xCenter=width*Math.max(0,Math.min(100,Number(item.x??50)))/100;
+    const yCenter=height*Math.max(0,Math.min(100,Number(item.y??22)))/100+index*(lineHeight*visible.length+pad*2);
     const boxW=Math.min(maxWidth+pad*2,Math.max(...visible.map(x=>ctx.measureText(x).width))+pad*2);
-    const boxH=visible.length*lineHeight+pad*2,x=(width-boxW)/2;
-    ctx.fillStyle='rgba(0,0,0,.68)';ctx.fillRect(x,y,boxW,boxH);
-    ctx.fillStyle='#fff';visible.forEach((lineText,i)=>ctx.fillText(lineText,width/2,y+pad+lineHeight*(i+.5),maxWidth));
+    const boxH=visible.length*lineHeight+pad*2,x=xCenter-boxW/2,y=yCenter-boxH/2;
+    if(item.background&&item.background!=='transparent'){ctx.fillStyle=item.background;ctx.fillRect(x,y,boxW,boxH);}
+    ctx.fillStyle=item.color||'#fff';
+    if(item.outline){ctx.strokeStyle=item.outline;ctx.lineWidth=Number(item.outlineWidth)||4;visible.forEach((lineText,i)=>ctx.strokeText(lineText,xCenter,yCenter-boxH/2+pad+lineHeight*(i+.5),maxWidth));}
+    visible.forEach((lineText,i)=>ctx.fillText(lineText,xCenter,yCenter-boxH/2+pad+lineHeight*(i+.5),maxWidth));
   });
   ctx.restore();
 }
 function drawKaraokeCaption(ctx,cues,sourceTime,width,height,settings={}){
   const cue=cues.find(words=>sourceTime>=words[0].start&&sourceTime<=words[words.length-1].end+.18);
   if(!cue)return;
-  const style=settings.subtitleStyle||null,fontSize=style?Math.round((Number(style.size)||28)*3):Math.round(width*(Number(settings.captionSize)||5.2)/100),lineHeight=Math.round(fontSize*1.2),maxWidth=width*.86;
+  const style=cue[0]?.style||settings.subtitleStyle||null,fontSize=style?Math.round((Number(style.size)||28)*3):Math.round(width*(Number(settings.captionSize)||5.2)/100),lineHeight=Math.round(fontSize*1.2),maxWidth=width*.86;
   ctx.save();ctx.font=`${style?.bold===false?400:800} ${fontSize}px ${style?.font||'system-ui'}, sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
   const lines=[];let line=[],lineWidth=0;
   for(const word of cue){
@@ -130,8 +134,12 @@ function addMixedChunks(context,compressor,chunks,rangeStart,rangeEnd,outputStar
   const startLevel=fin>0?Math.min(1,Math.max(0,into/fin))*v:v;
   gain.gain.setValueAtTime(startLevel,at);
   if(fin>into&&fin>0)gain.gain.linearRampToValueAtTime(v,at+(fin-into));
-  if(fout>0&&remaining<=fout)gain.gain.setValueAtTime(v*Math.min(1,remaining/fout),at);
-  if(fout>0&&remaining>0)gain.gain.linearRampToValueAtTime(0,at+playable);
+  const fadeOutStart=itemEnd-fout;
+  if(fout>0&&overlapEnd>fadeOutStart){
+   const beforeFade=Math.max(0,fadeOutStart-overlapStart);
+   if(beforeFade>0)gain.gain.setValueAtTime(v,at+beforeFade);
+   gain.gain.linearRampToValueAtTime(0,at+playable);
+  }
   source.connect(gain).connect(compressor);
   source.start(at,sourceOffset,playable);
  }
