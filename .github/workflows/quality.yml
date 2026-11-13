@@ -1,4 +1,4 @@
-name: ClipForge quality checks
+name: ClipForge quality checks # browser editor regression suite
 
 on:
   push:
