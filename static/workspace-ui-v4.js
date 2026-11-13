@@ -263,6 +263,8 @@
     panes.append(mediaPane,captionsPane,textPane,effectsPane,transitionsPane,audioPane,animationPane,trackingPane,ttsPane);inspector.append(tabs,panes);
     sidebar.append(toolRail);
     if(player)preview.append(player);
+    // Keep the old per-clip mini timeline in the original card nodes only.
+    // The canonical multipista timeline is rendered once, below the workspace.
     layout.append(sidebar,clipPanel,preview,inspector);
     // Apply the core editor geometry inline: it must not depend on a stale
     // cached stylesheet or on the browser resolving a cascade of old rules.
@@ -320,7 +322,6 @@
     card.classList.add('cf-opus-editing-card');
     if(heading)card.append(heading);
     card.append(layout);
-    if(timeline)card.append(timeline);
     syncEditorGeometry();
     window.addEventListener('resize',syncEditorGeometry,{passive:true});window.visualViewport?.addEventListener('resize',syncEditorGeometry,{passive:true});layout.__cfCleanup=()=>{window.removeEventListener('resize',syncEditorGeometry);window.visualViewport?.removeEventListener('resize',syncEditorGeometry);};requestAnimationFrame(syncEditorGeometry);
     const actions=document.createElement('div');actions.className='cf-opus-editor-actions';
