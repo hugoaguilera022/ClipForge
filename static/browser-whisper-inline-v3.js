@@ -1498,6 +1498,7 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
   const form=document.querySelector('#video')?.form;
   if(!field&&form){field=document.createElement('input');field.type='hidden';field.name='selected_clip_ranges';form.append(field);}
   if(field)field.value=JSON.stringify(editableCandidates);
+  window.__cfUpdateCandidateClip=(index,patch)=>{const n=Number(index);if(!Number.isInteger(n)||!editableCandidates[n])return false;editableCandidates[n]={...editableCandidates[n],...(patch||{})};sync();return true;};
   window.dispatchEvent(new CustomEvent('clipforge:candidate-edited'));
  };
  const videoDuration=Math.max(1,Number(duration)||1);
