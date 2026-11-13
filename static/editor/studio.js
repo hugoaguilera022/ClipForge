@@ -23,7 +23,12 @@ async function get(store,id){const d=await db();return new Promise((resolve,reje
 async function all(store){const d=await db();return new Promise((resolve,reject)=>{const req=d.transaction(store,"readonly").objectStore(store).getAll();req.onsuccess=()=>resolve(req.result||[]);req.onerror=()=>reject(req.error);});}
 function scheduleAutosave(){clearTimeout(saveTimer);saveTimer=setTimeout(()=>saveProject(false).catch(e=>setStatus("No se pudo guardar automáticamente: "+e.message)),650);}
 function setStatus(message){const el=document.querySelector(".cf-studio-status");if(el)el.textContent=message;}
-function history(label,mutator){undoStack.push({label,state:clone(state)});if(undoStack.length>HISTORY_LIMIT)undoStack.shift();redoStack=[];mutator(state);emit(label);}
+function history(label,mutator){
+ const before=clone(state);
+ try{mutator(state);}catch(error){state=before;throw error;}
+ undoStack.push({label,state:before});if(undoStack.length>HISTORY_LIMIT)undoStack.shift();
+ redoStack=[];emit(label);
+}
 export const studioStore={
  getState:()=>clone(state),
  subscribe(fn){listeners.add(fn);return()=>listeners.delete(fn);},
@@ -53,9 +58,9 @@ export const studioCommands={
   if(found){
    patch.playhead=Number(found.item.start)||0;
    if(found.track.type==="video"&&found.item.clipIndex!==undefined&&found.item.clipIndex!==null)patch.activeClipIndex=Number(found.item.clipIndex);
-   window.__cfStudioSeek?.(patch.playhead);
   }
   studioStore.ephemeral("selection",patch);
+  if(found)window.__cfStudioSeek?.(state.playhead);
  },
  playhead(time){const next=Math.max(0,Math.min(state.duration,Number(time)||0));studioStore.ephemeral("playhead",{playhead:next});window.__cfStudioSeek?.(next);},
  zoom(value){studioStore.ephemeral("zoom",{zoom:Math.max(.25,Math.min(8,Number(value)||1))});}
@@ -73,7 +78,7 @@ function createTracks(clips,transcript,duration){
  const captions=(transcript?.segments||[]).map((s,i)=>({id:"subtitle-"+i,type:"subtitle",start:Number(s.start),end:Number(s.end),text:String(s.text||""),words:s.words||[],style:transcript.subtitleStyle||null})).filter(x=>Number.isFinite(x.start)&&Number.isFinite(x.end)&&x.end>x.start);
  return [
   {id:"track-v1",type:"video",name:"V1 · Vídeo principal",locked:false,muted:false,hidden:false,items},
-  {id:"track-a1",type:"audio",name:"A1 · Audio original",locked:false,muted:false,hidden:false,items:[{id:"audio-source",type:"audio",source:"source-audio",start:0,end:duration,sourceStart:0,volume:.8}]},
+  {id:"track-a1",type:"audio",name:"A1 · Audio original",locked:false,muted:false,hidden:false,items:[{id:"audio-source",type:"audio",source:"source-audio",text:"Audio original",start:0,end:duration,sourceStart:0,volume:.8}]},
   {id:"track-a2",type:"audio",name:"A2 · Música",locked:false,muted:false,hidden:false,items:[]},
   {id:"track-a3",type:"audio",name:"A3 · Efectos sonoros",locked:false,muted:false,hidden:false,items:[]},
   {id:"track-s1",type:"subtitles",name:"S1 · Subtítulos",locked:false,muted:false,hidden:false,items:captions},
@@ -143,7 +148,7 @@ function syncPreviewVideo(video,overlay){
   const trans=item?.transitions||{};const dur=Math.max(.1,Math.min(2,Number(trans.duration)||.5));const local=t-(Number(item?.start)||0);let opacity=1,scale=1;
   if(trans.in==="fade")opacity=Math.min(opacity,Math.max(0,local/dur));if(trans.out==="fade")opacity=Math.min(opacity,Math.max(0,(Number(item?.end)-t)/dur));
   if(trans.in==="zoom")scale=1+Math.max(0,1-local/dur)*.12;if(trans.out==="zoom")scale=Math.max(scale,1+Math.max(0,1-(Number(item?.end)-t)/dur)*.12);
-  video.style.opacity=String(opacity);video.style.transform="scale("+scale+")";
+  video.style.opacity=String(Math.max(0,Math.min(1,opacity*Number(item.opacity??100)/100)));video.style.transform="scale("+scale+")";
   const {sub,txt}=previewLayerAt(sourceTime,t);
   overlay.replaceChildren();
   if(sub){const cap=document.createElement("div");cap.className="cf-studio-caption-preview";cap.textContent=sub.text||"";const style=sub.style||{};cap.style.color=style.color||"#fff";cap.style.fontSize=Math.max(14,Number(style.size)||28)+"px";cap.style.background=style.background&&style.background!=="transparent"?style.background:"rgba(0,0,0,.68)";cap.style.fontFamily=style.font||"Inter,sans-serif";cap.style.fontWeight=style.bold===false?"500":"800";cap.style.top=style.position==="top"?"9%":style.position==="middle"?"48%":"auto";cap.style.bottom=style.position==="top"||style.position==="middle"?"auto":"8%";overlay.append(cap);}
@@ -192,14 +197,25 @@ function renderInspector(root){
   html+='<label>Volumen<input data-field="volume" type="range" min="0" max="200" value="'+Math.round(Number(item.volume??1)*100)+'"></label><div class="cf-studio-fields"><label>Fundido entrada (s)<input data-field="fadeIn" type="number" min="0" max="10" step=".1" value="'+Number(item.fadeIn||0)+'"></label><label>Fundido salida (s)<input data-field="fadeOut" type="number" min="0" max="10" step=".1" value="'+Number(item.fadeOut||0)+'"></label></div>';
   html+='<small>Archivo: '+escapeHtml(item.assetName||"Audio original")+'</small>';
  } else if(track.type==="subtitles"){
-  html+='<label>Estilo<select data-field="stylePreset"><option value="classic">Clásico</option><option value="capcut-bold">Impacto</option><option value="karaoke">Karaoke</option><option value="minimal">Minimal</option></select></label><label>Tamaño<input data-field="fontSize" type="range" min="16" max="64" value="'+Number(item.style?.size||28)+'"></label><label>Posición<select data-field="position"><option value="bottom">Inferior</option><option value="middle">Centro</option><option value="top">Superior</option></select></label><label>Color<input data-field="color" type="color" value="'+(item.style?.color||"#ffffff")+'"></label>';
+  html+='<label>Estilo<select data-field="stylePreset"><option value="classic">Clásico</option><option value="capcut-bold">Impacto</option><option value="karaoke">Karaoke</option><option value="minimal">Minimal</option></select></label>';
+  html+='<label>Tamaño<input data-field="fontSize" type="range" min="16" max="64" value="'+Number(item.style?.size||28)+'"></label>';
+  html+='<div class="cf-studio-fields"><label>Posición<select data-field="position"><option value="bottom">Inferior</option><option value="middle">Centro</option><option value="top">Superior</option></select></label><label>Animación<select data-field="animation"><option value="none">Sin animación</option><option value="pop">Pop palabra</option></select></label></div>';
+  html+='<div class="cf-studio-fields"><label>Color<input data-field="color" type="color" value="'+(item.style?.color||"#ffffff")+'"></label><label>Resalte<input data-field="highlight" type="color" value="'+(item.style?.highlight||"#ffe600")+'"></label></div>';
+  html+='<label>Fondo<input data-field="background" type="color" value="'+(item.style?.background&&item.style.background!=="transparent"?item.style.background:"#000000")+'"></label>';
+  html+='<div class="cf-studio-fields"><label>Contorno<input data-field="outline" type="color" value="'+(item.style?.outline||"#080808")+'"></label><label>Grosor<input data-field="outlineWidth" type="range" min="0" max="8" value="'+Number(item.style?.outlineWidth||0)+'"></label></div>';
+  html+='<label>Palabra activa<select data-field="wordMode"><option value="none">Color uniforme</option><option value="highlight">Resaltar palabra</option></select></label>';
  } else if(track.type==="video"){
   const fx=item.visualEffects||{};
   html+='<label>Filtro<select data-field="preset"><option value="none">Original</option><option value="cinematic">Cinemático</option><option value="warm">Cálido</option><option value="cool">Frío</option><option value="bw">Blanco y negro</option><option value="vintage">Vintage</option><option value="vivid">Intenso</option></select></label>';
   html+='<label>Brillo<input data-field="brightness" type="range" min="50" max="160" value="'+Number(fx.brightness||100)+'"></label><label>Contraste<input data-field="contrast" type="range" min="50" max="180" value="'+Number(fx.contrast||100)+'"></label><label>Saturación<input data-field="saturation" type="range" min="0" max="200" value="'+Number(fx.saturation||100)+'"></label>';
+  html+='<label>Opacidad<input data-field="opacity" type="range" min="0" max="100" value="'+Number(item.opacity??100)+'"></label>';
   html+='<div class="cf-studio-fields"><label>Entrada<select data-field="transitionIn"><option value="none">Ninguna</option><option value="fade">Fundido</option><option value="zoom">Zoom</option></select></label><label>Salida<select data-field="transitionOut"><option value="none">Ninguna</option><option value="fade">Fundido</option><option value="zoom">Zoom</option></select></label></div><label>Duración de transición<input data-field="transitionDuration" type="number" min=".1" max="2" step=".1" value="'+Number(item.transitions?.duration||.5)+'"></label>';
  } else if(track.type==="text"){
-  html+='<label>Tamaño<input data-field="fontSize" type="range" min="14" max="120" value="'+Number(item.fontSize||32)+'"></label><label>Color<input data-field="color" type="color" value="'+(item.color||"#ffffff")+'"></label><div class="cf-studio-fields"><label>Horizontal (%)<input data-field="x" type="number" min="0" max="100" value="'+Number(item.x??50)+'"></label><label>Vertical (%)<input data-field="y" type="number" min="0" max="100" value="'+Number(item.y??22)+'"></label></div>';
+  html+='<label>Tamaño<input data-field="fontSize" type="range" min="14" max="120" value="'+Number(item.fontSize||32)+'"></label>';
+  html+='<div class="cf-studio-fields"><label>Color<input data-field="color" type="color" value="'+(item.color||"#ffffff")+'"></label><label>Fondo<input data-field="background" type="color" value="'+(item.background&&item.background!=="transparent"?item.background:"#000000")+'"></label></div>';
+  html+='<div class="cf-studio-fields"><label>Horizontal (%)<input data-field="x" type="number" min="0" max="100" value="'+Number(item.x??50)+'"></label><label>Vertical (%)<input data-field="y" type="number" min="0" max="100" value="'+Number(item.y??22)+'"></label></div>';
+  html+='<div class="cf-studio-fields"><label>Contorno<input data-field="outline" type="color" value="'+(item.outline||"#080808")+'"></label><label>Grosor<input data-field="outlineWidth" type="range" min="0" max="8" value="'+Number(item.outlineWidth||0)+'"></label></div>';
+  html+='<div class="cf-studio-fields"><label>Fuente<select data-field="font"><option value="system-ui">System</option><option value="Arial">Arial</option><option value="Georgia">Georgia</option><option value="Impact">Impacto</option><option value="monospace">Monoespaciada</option></select></label><label>Peso<select data-field="bold"><option value="true">Negrita</option><option value="false">Normal</option></select></label></div>';
  }
  html+='<div class="cf-studio-inspector-actions"><button data-action="duplicate">Duplicar</button><button data-action="delete">Eliminar</button></div>';
  root.innerHTML=html;
@@ -208,14 +224,28 @@ function renderInspector(root){
  const transitionOut=root.querySelector('[data-field="transitionOut"]');if(transitionOut)transitionOut.value=item.transitions?.out||"none";
  const stylePreset=root.querySelector('[data-field="stylePreset"]');if(stylePreset)stylePreset.value=item.style?.preset||"classic";
  const pos=root.querySelector('[data-field="position"]');if(pos)pos.value=item.style?.position||"bottom";
+ const wordMode=root.querySelector('[data-field="wordMode"]');if(wordMode)wordMode.value=item.style?.wordMode||"none";
+ const animation=root.querySelector('[data-field="animation"]');if(animation)animation.value=item.style?.animation||"none";
+ const font=root.querySelector('[data-field="font"]');if(font)font.value=item.font||"system-ui";
+ const bold=root.querySelector('[data-field="bold"]');if(bold)bold.value=String(item.bold!==false);
+ const presetStyles={
+  classic:{bold:true,background:"#000000",wordMode:"none",outline:"#080808",outlineWidth:0},
+  "capcut-bold":{bold:true,background:"#000000",wordMode:"highlight",highlight:"#ffe600",outline:"#080808",outlineWidth:3},
+  karaoke:{bold:true,background:"transparent",wordMode:"highlight",highlight:"#ffe600",outline:"#080808",outlineWidth:1,animation:"pop"},
+  minimal:{bold:false,background:"transparent",wordMode:"none",outline:"#080808",outlineWidth:0}
+ };
  root.querySelectorAll("[data-field]").forEach(el=>el.addEventListener("change",()=>{
   const key=el.dataset.field;let value=el.value;
-  if(["start","end","volume","fadeIn","fadeOut","fontSize","brightness","contrast","saturation","transitionDuration","x","y"].includes(key))value=Number(value);
+  if(["start","end","volume","fadeIn","fadeOut","fontSize","brightness","contrast","saturation","transitionDuration","x","y","outlineWidth","opacity"].includes(key))value=Number(value);
   if(key==="volume")value/=100;
+  if(key==="bold")value=value!=="false";
   let patch={};
   if(track.type==="video"&&["preset","brightness","contrast","saturation"].includes(key))patch.visualEffects={...(item.visualEffects||{}),[key]:value};
+  else if(track.type==="video"&&key==="opacity")patch.opacity=value;
   else if(track.type==="video"&&key.startsWith("transition")){const k=key==="transitionIn"?"in":key==="transitionOut"?"out":"duration";patch.transitions={...(item.transitions||{}),[k]:value};}
-  else if(track.type==="subtitles"&&["position","color","fontSize","stylePreset"].includes(key)){const k=key==="fontSize"?"size":key;patch.style={...(item.style||{}),[k]:value,preset:item.style?.preset||"classic"};}
+  else if(track.type==="subtitles"&&key==="stylePreset"){patch.style={...(presetStyles[value]||presetStyles.classic),...(item.style||{}),preset:value};}
+  else if(track.type==="subtitles"&&["position","color","fontSize","highlight","background","outline","outlineWidth","wordMode","animation"].includes(key)){const k=key==="fontSize"?"size":key;patch.style={...(item.style||{}),[k]:value,preset:item.style?.preset||"classic"};}
+  else if(track.type==="text"&&["text","fontSize","color","background","x","y","outline","outlineWidth","font","bold"].includes(key))patch[key]=value;
   else patch[key]=value;
   try{studioCommands.patch(item.id,patch);}catch(error){setStatus(error.message);}
  }));
@@ -250,7 +280,15 @@ function mountTimeline(root){
      const edge=e.target===left?"start":e.target===right?"end":null;
      const x=e.clientX,initial=edge?(edge==="start"?item.start:item.end):item.start;block.setPointerCapture?.(e.pointerId);
      const move=ev=>{const t=Math.max(0,initial+(ev.clientX-x)/scale());if(edge==="start")block.style.left=t*scale()+"px";else if(edge==="end")block.style.width=Math.max(12,(t-item.start)*scale())+"px";else block.style.left=Math.max(0,t)*scale()+"px";};
-     const stop=ev=>{block.removeEventListener("pointermove",move);block.removeEventListener("pointerup",stop);block.removeEventListener("pointercancel",stop);const t=Math.max(0,initial+(ev.clientX-x)/scale());if(Math.abs(t-initial)<.02)return;if(edge)studioCommands.trim(item.id,edge,t);else studioCommands.move(item.id,track.id,t);};
+     const stop=ev=>{
+     block.removeEventListener("pointermove",move);block.removeEventListener("pointerup",stop);block.removeEventListener("pointercancel",stop);
+     const t=Math.max(0,initial+(ev.clientX-x)/scale());if(Math.abs(t-initial)<.02)return;
+     if(edge){studioCommands.trim(item.id,edge,t);return;}
+     const targetRow=document.elementFromPoint(ev.clientX,ev.clientY)?.closest(".cf-studio-track-row");
+     const rows=[...list.querySelectorAll(".cf-studio-track-row")],targetIndex=rows.indexOf(targetRow);
+     const targetTrack=targetIndex>=0?state.tracks[targetIndex]:track;
+     try{studioCommands.move(item.id,targetTrack.id,t);}catch(error){note.textContent=error.message;}
+    };
      block.addEventListener("pointermove",move);block.addEventListener("pointerup",stop,{once:true});block.addEventListener("pointercancel",stop,{once:true});
     });
     lane.append(block);
@@ -302,14 +340,17 @@ async function restoreProject(id){
 }
 function makeEditorShell(){
  const shell=document.createElement("section");shell.className="cf-studio-shell";
- shell.innerHTML='<header class="cf-studio-topbar"><button data-action="back">← Clips</button><strong>ClipForge Studio</strong><span class="cf-studio-project-name"></span><button data-action="relink">Vincular vídeo</button><input data-source-input type="file" accept="video/*" hidden><button data-action="undo">↶</button><button data-action="redo">↷</button><button data-action="open">Abrir</button><button data-action="save">Guardar</button><button data-action="export">Exportar MP4</button></header><div class="cf-studio-workspace"><aside class="cf-studio-tools"><b>PROYECTO</b><div class="cf-studio-source">Vídeo original<br><small>Fuente local vinculada</small></div><nav><button data-tool="media">Medios</button><button data-tool="audio">♫ Añadir audio</button><button data-tool="text">T Añadir texto</button><button data-tool="subtitles">CC Subtítulos</button><button data-tool="effects">✧ Efectos</button><button data-tool="transitions">Transiciones</button><button data-addtrack="video">+ Pista vídeo</button><button data-addtrack="audio">+ Pista audio</button></nav><label class="cf-studio-import">Importar audio / música<input type="file" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.flac"></label><button data-action="addtext">+ Crear texto</button><div class="cf-studio-media-list"></div></aside><section class="cf-studio-monitor"><div class="cf-studio-preview"><div class="cf-studio-overlay"></div></div><div class="cf-studio-transport"><button data-action="play">▶</button><button data-action="pause">Ⅱ</button><span data-clock>00:00.00</span><span>Previsualización sincronizada</span></div></section><aside class="cf-studio-inspector"></aside></div><div class="cf-studio-timeline-host"></div><div class="cf-studio-status" role="status">Listo para editar</div>';
+ shell.innerHTML='<header class="cf-studio-topbar"><button data-action="back">← Clips</button><strong>ClipForge Studio</strong><span class="cf-studio-project-name"></span><button data-action="relink">Vincular vídeo</button><input data-source-input type="file" accept="video/*" hidden><button data-action="undo">↶</button><button data-action="redo">↷</button><button data-action="open">Abrir</button><button data-action="save">Guardar</button><button data-action="export">Exportar MP4</button></header><div class="cf-studio-workspace"><aside class="cf-studio-tools"><b>PROYECTO</b><div class="cf-studio-source">Vídeo original<br><small>Fuente local vinculada</small></div><nav><button data-tool="media">Medios</button><button data-tool="audio">♫ Añadir audio</button><button data-tool="text">T Añadir texto</button><button data-tool="subtitles">CC Subtítulos</button><button data-tool="effects">✧ Efectos</button><button data-tool="transitions">Transiciones</button><button data-addtrack="video">+ Pista vídeo</button><button data-addtrack="audio">+ Pista audio</button></nav><label class="cf-studio-import">Importar audio / música<input type="file" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.flac"></label><button data-action="addtext">+ Crear texto</button><div class="cf-studio-media-list"></div></aside><section class="cf-studio-monitor"><div class="cf-studio-preview"><div class="cf-studio-overlay"></div></div><div class="cf-studio-transport"><button data-action="play">▶</button><button data-action="pause">Ⅱ</button><span data-clock>00:00.00</span><span>Previsualización sincronizada</span></div></section><aside class="cf-studio-inspector"></aside></div><div class="cf-studio-timeline-host"></div><section class="cf-studio-media-dialog" data-media-dialog hidden role="dialog" aria-modal="true" aria-label="Medios del proyecto"><div class="cf-studio-media-dialog-card"><header><b>Medios del proyecto</b><button data-action="media-close" aria-label="Cerrar">✕</button></header><p>Vídeo original y archivos de audio importados. Los archivos permanecen en este navegador.</p><div class="cf-studio-media-library"></div><footer><button data-action="relink">Vincular otro vídeo</button><button data-action="media-import-audio">Importar música / sonido</button></footer></div></section><div class="cf-studio-status" role="status">Listo para editar</div>';
  return shell;
 }
 export function closeStudio(){
  const active=window.__cfStudioActive;if(!active)return;
  clearTimeout(saveTimer);active.cleanup.forEach(fn=>{try{fn?.();}catch{}});
  for(const entry of previewAudio.values()){entry.el.pause();entry.el.removeAttribute("src");}
- previewAudio.clear();active.root.replaceChildren();window.__cfStudioActive=null;
+ previewAudio.clear();
+ for(const url of assetUrls.values())URL.revokeObjectURL(url);
+ assetUrls.clear();assetBlobs.clear();audioBuffers.clear();
+ active.root.replaceChildren();window.__cfStudioActive=null;
 }
 export async function openStudio({card,clip,transcript,index=0,allClips=null,onBack,onSave,onExport}){
  closeStudio();
@@ -369,10 +410,27 @@ export async function openStudio({card,clip,transcript,index=0,allClips=null,onB
     const projects=await loadProjectList();if(!projects.length){setStatus("Todavía no hay proyectos guardados.");return;}
     const choice=window.prompt("Proyectos guardados:\n"+projects.map((p,i)=>(i+1)+". "+p.name+" · "+new Date(p.updatedAt).toLocaleString()).join("\n")+"\n\nEscribe el número del proyecto que quieres abrir:");
     const n=Number(choice)-1;if(!Number.isInteger(n)||n<0||n>=projects.length)return;
-    await restoreProject(projects[n].id);setStatus("Proyecto recuperado. Si el original no está cargado, vuelve a seleccionarlo en Producción.");
+    await restoreProject(projects[n].id);
+    const savedVideo=state.tracks.find(t=>t.type==="video")?.items?.[0];
+    if(savedVideo){state.activeClipIndex=Number(savedVideo.clipIndex)||0;window.__cfStudioSeek?.(state.playhead);}
+    setStatus("Proyecto recuperado. Si el original no está cargado, vuelve a vincularlo.");
    }
   }catch(error){setStatus("No se pudo completar la acción: "+error.message);}
   const tool=e.target.closest("[data-tool]")?.dataset.tool;
+  if(tool==="media"){
+   const dialog=shell.querySelector("[data-media-dialog]");dialog.hidden=false;
+   const library=shell.querySelector(".cf-studio-media-library");library.replaceChildren();
+   const sourceRow=document.createElement("div");sourceRow.className="cf-studio-media-row";
+   sourceRow.innerHTML="<b>Vídeo original</b><span>"+escapeHtml(state.source?.name||"Vídeo no vinculado")+"</span>";
+   library.append(sourceRow);
+   for(const asset of await all("assets")){
+    const row=document.createElement("div");row.className="cf-studio-media-row";
+    const name=document.createElement("b");name.textContent=asset.name;
+    const meta=document.createElement("span");meta.textContent=(Number(asset.size||0)/1024/1024).toFixed(1)+" MB · audio local";
+    row.append(name,meta);library.append(row);
+   }
+   if(!library.children.length)library.textContent="Todavía no has importado archivos adicionales.";
+  }
   if(tool==="audio")fileInput.click();
   if(tool==="text")shell.querySelector('[data-action="addtext"]').click();
   if(tool==="subtitles"){const t=state.tracks.find(x=>x.type==="subtitles");if(t?.items[0])studioCommands.select(t.items[0].id);else setStatus("Todavía no hay subtítulos temporizados en este proyecto.");}
