@@ -74,6 +74,7 @@ try {
   const videoClips=page.locator('#cfMultiTrackTimeline .cf-mt-clip.type-video');
   const initialVideoClipCount=await videoClips.count();
   if(initialVideoClipCount<1)throw new Error('No video clip is visible on the editing timeline.');
+  const initialVideoIds=await page.evaluate(()=>window.clipforgeProjectStore.project.tracks.find(t=>t.type==='video').items.map(x=>x.id));
   // The synthetic clips are sub-second long; zoom in so their minimum visual
   // widths do not overlap and intercept each other's pointer targets.
   await page.locator('#cfMultiTrackTimeline .cf-mt-zoom input').evaluate(el=>{el.value='24';el.dispatchEvent(new Event('input',{bubbles:true}));});
@@ -84,7 +85,14 @@ try {
   await page.waitForFunction(n=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-video').length===n,initialVideoClipCount);
   await page.keyboard.press('Control+Shift+z');
   await page.waitForFunction(n=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-video').length===n+1,initialVideoClipCount);
-  await page.locator('#cfMultiTrackTimeline .cf-mt-clip.type-video').nth(initialVideoClipCount).click();
+  // Select the duplicate by its canonical ID: it intentionally overlaps
+  // the source clip by 0.25 s, so pointer hit-testing is ambiguous there.
+  await page.evaluate(ids=>{
+    const items=window.clipforgeProjectStore.project.tracks.find(t=>t.type==='video').items;
+    const duplicate=items.find(item=>!ids.includes(item.id));
+    if(!duplicate)throw new Error('The duplicate clip was not created.');
+    window.clipforgeProjectStore.select([duplicate.id]);
+  },initialVideoIds);
   await page.keyboard.press('Delete');
   await page.waitForFunction(n=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-video').length===n,initialVideoClipCount);
 
