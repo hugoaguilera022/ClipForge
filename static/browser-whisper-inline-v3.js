@@ -1543,7 +1543,7 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
     subtitleOverlay.dataset.position=style.position||'bottom';
     subtitleOverlay.dataset.animation=style.animation||'none';
     if(!active){subtitleOverlay.replaceChildren();return;}
-    const words=String(active.text||'').split(/\\s+/).filter(Boolean);
+    const words=String(active.text||'').split(/\s+/).filter(Boolean);
     const fraction=Math.max(0,Math.min(.999,(film.currentTime-Number(active.start))/Math.max(.01,Number(active.end)-Number(active.start))));
     const activeWord=Math.min(words.length-1,Math.floor(fraction*Math.max(1,words.length)));
     renderWords(subtitleOverlay,active.text,activeWord);
@@ -1560,8 +1560,8 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
   Object.assign(style,{font:'Arial',size:32,color:'#ffffff',background:'transparent',bold:true,outline:'#080808',outlineWidth:3,position:'bottom',animation:'none',wordMode:'line',highlight:'#ffe600',...(c.subtitleStyle||{})});
   font.value=style.font;size.value=String(style.size);color.value=style.color;bg.value=style.background==='transparent'?'#000000':style.background;bold.setAttribute('aria-pressed',String(style.bold!==false&&style.bold!==400));position.value=style.position||'bottom';animation.value=style.animation||'none';preset.value=style.preset||'custom';
   const renderWords=(target,textValue,activeIndex=-1)=>{
-    target.replaceChildren();const words=String(textValue||'').split(/(\\s+)/);let word=0;
-    words.forEach(part=>{if(!part)return;if(/^\\s+$/.test(part)){target.append(document.createTextNode(part));return;}const span=document.createElement('span');span.textContent=part;if(style.wordMode==='highlight'&&word===activeIndex){span.style.color=style.highlight||'#ffe600';span.style.transform='scale(1.06)';}target.append(span);word++;});
+    target.replaceChildren();const words=String(textValue||'').split(/(\s+)/);let word=0;
+    words.forEach(part=>{if(!part)return;if(/^\s+$/.test(part)){target.append(document.createTextNode(part));return;}const span=document.createElement('span');span.textContent=part;if(style.wordMode==='highlight'&&word===activeIndex){span.style.color=style.highlight||'#ffe600';span.style.transform='scale(1.06)';}target.append(span);word++;});
   };
   const paintSubtitle=()=>{
     const sizePx=Math.max(12,Math.min(72,Number(style.size)||32))+'px';
