@@ -16,7 +16,7 @@
   const downloadTranscript=$('#downloadBrowserTranscript');
   const saveTranscript=$('#saveBrowserProject');
   const capacityPanel=$('#videoCapacity');
-  if(language)language.value='es';
+  // Respect the HTML language choice; Auto covers Spanish and English projects.
   // Respect the HTML default and any user choice; never silently downgrade a selected model.
   if(model && !model.value) model.value='whisper-large-v3-turbo';
   if(urlImport){urlImport.hidden=true;urlImport.setAttribute('aria-hidden','true');}
