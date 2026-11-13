@@ -186,9 +186,12 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={},proje
     input.dispose();
     throw new Error('No se pudo verificar la duración del vídeo original mediante metadatos ni midiendo la pista de vídeo.');
   }
-  if(clip.start<0||clip.end<=clip.start||clip.start>=sourceDuration||clip.end>sourceDuration+.05){
+  const clipDuration=Number(clip.end)-Number(clip.start);
+  const sourceStart=Number.isFinite(Number(clip.sourceStart))?Number(clip.sourceStart):Number(clip.start);
+  const sourceEnd=sourceStart+clipDuration;
+  if(clip.start<0||clipDuration<=0||sourceStart<0||sourceStart>=sourceDuration||sourceEnd>sourceDuration+.05){
     input.dispose();
-    throw new Error(`El corte ${index+1} (${clip.start.toFixed(2)}–${clip.end.toFixed(2)} s) queda fuera de la duración real del vídeo (${sourceDuration.toFixed(2)} s).`);
+    throw new Error(`El corte ${index+1} (${clip.start.toFixed(2)}–${clip.end.toFixed(2)} s en timeline; fuente ${sourceStart.toFixed(2)}–${sourceEnd.toFixed(2)} s) queda fuera de la duración real del vídeo (${sourceDuration.toFixed(2)} s).`);
   }
   // Keep the original compressed audio track whenever MP4 supports it.
   // This avoids unnecessary lossy re-encoding and does not require an AAC encoder.
@@ -225,7 +228,7 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={},proje
   const conversion=await Conversion.init({
     input,output,tracks:'primary',composable:true,
     audio:{discard:true},
-    trim:{start:clip.start,end:clip.end},
+    trim:{start:sourceStart,end:sourceEnd},
     video:{
       width:1080,height:1920,fit:'cover',frameRate:30,codec:'avc',
       quality:new Quality('high'),hardwareAcceleration:'no-preference',
