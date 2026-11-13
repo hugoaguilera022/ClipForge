@@ -98,6 +98,18 @@ function drawKaraokeCaption(ctx,cues,sourceTime,width,height,settings={}){
   ctx.restore();
 }
 
+let aacEncoderRegistration=null;
+async function ensureAacEncoderSupport(){
+  const media=await import('https://esm.sh/mediabunny@1.65.2');
+  if(typeof media.canEncodeAudio!=='function'||await media.canEncodeAudio('aac'))return media;
+  if(!aacEncoderRegistration){
+    aacEncoderRegistration=import('https://esm.sh/@mediabunny/aac-encoder@1.65.2?deps=mediabunny@1.65.2')
+      .then(extension=>extension.registerAacEncoder());
+  }
+  await aacEncoderRegistration;
+  return media;
+}
+
 async function buildTimelineAudioMix(file,clip,project,input,exportStatus){
   const AudioContextClass=window.OfflineAudioContext||window.webkitOfflineAudioContext;
   if(!AudioContextClass)throw new Error('Este navegador no permite mezclar audio multipista mediante Web Audio.');
@@ -340,8 +352,8 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={},proje
   conversion.onProgress=p=>sayExport(`Clip ${index+1}/${total}: renderizando ${Math.round(p*100)}%…`);
   try{
     if(audioEnabled){
-      const {AudioBufferSource}=await import('https://esm.sh/mediabunny@1.65.2');
-      const audioSource=new AudioBufferSource({codec:'aac',quality:new Quality('high')});
+      const media=await ensureAacEncoderSupport();
+      const audioSource=new media.AudioBufferSource({codec:'aac',quality:new Quality('high')});
       output.addAudioTrack(audioSource,{name:'Mezcla multipista'});
       await output.start();
       await Promise.all([
