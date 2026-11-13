@@ -11,6 +11,11 @@ store.hydrate({
 });
 assert.equal(store.project.tracks.filter(t=>t.type==='video').length,1);
 assert.equal(store.project.tracks.filter(t=>t.type==='subtitles').length,1);
+store.hydrate({source:'speaker-test.mp4',clips:[{id:'speaker-clip',start:0,end:5}],transcript:{segments:[{start:1,end:2,text:'Hola',speaker:0,speaker_label:'Hablante 1',words:[{text:'Hola',start:1,end:2}]}]}});
+commands.updateItem(store.project.tracks.find(t=>t.type==='subtitles').items[0].id,{text:'Hola corregido'});
+assert.equal(store.project.transcript.segments[0].speaker_label,'Hablante 1','editing subtitles must preserve diarization metadata');
+assert.equal(store.project.transcript.segments[0].text,'Hola corregido');
+store.hydrate({source:'la-resistencia-test.mp4',clips:[{id:'clip-1',start:10,end:20,title:'Prueba'}],transcript:{segments:[{start:10,end:12,text:'Hola mundo',words:[]}]}});
 
 const video=store.project.tracks.find(t=>t.type==='video');
 const right=commands.splitItem('clip-1',15);
