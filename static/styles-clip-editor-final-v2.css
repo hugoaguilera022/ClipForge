@@ -1813,3 +1813,63 @@ body.cf-opus-stage-editor .cf-opus-inspector-panes::-webkit-scrollbar,body.cf-op
 body.cf-opus-stage-editor .cf-opus-inspector-panes::-webkit-scrollbar-thumb,body.cf-opus-stage-editor .cf-opus-clips-panel::-webkit-scrollbar-thumb{background:#484257;border-radius:8px}
 @media(max-height:760px){body.cf-opus-stage-editor .cf-opus-editor-layout{height:calc(100% - 160px)!important;max-height:calc(100% - 160px)!important}body.cf-opus-stage-editor .cf-clip-timeline{flex-basis:150px!important;height:150px!important;max-height:150px!important}body.cf-opus-stage-editor .cf-opus-preview-column video{max-height:34vh!important}body.cf-opus-stage-editor .cf-subtitle-compact-list{max-height:100px!important}}
 @media(max-width:900px){body.cf-opus-stage-editor{overflow:auto!important;height:auto!important;max-height:none!important}body.cf-opus-stage-editor .cf-opus-main,body.cf-opus-stage-editor .cf-opus-editor-slot{height:auto!important;max-height:none!important;overflow:visible!important}body.cf-opus-stage-editor .candidate-card.cf-opus-editing-card{height:auto!important;max-height:none!important;overflow:visible!important}body.cf-opus-stage-editor .cf-opus-editor-layout{height:auto!important;max-height:none!important;grid-template-columns:minmax(0,1fr)!important;overflow:visible!important}body.cf-opus-stage-editor .cf-opus-left-sidebar,body.cf-opus-stage-editor .cf-opus-clips-panel,body.cf-opus-stage-editor .cf-opus-preview-column,body.cf-opus-stage-editor .cf-opus-inspector{height:auto!important;max-height:none!important}body.cf-opus-stage-editor .cf-clip-timeline{height:auto!important;max-height:none!important;flex-basis:auto!important}}
+
+/* CapCut-inspired single-screen editing workspace for Mac laptop viewports */
+body.cf-opus-stage-editor{height:100dvh!important;overflow:hidden!important}
+body.cf-opus-stage-editor .cf-opus-main{height:calc(100dvh - 56px)!important;max-height:calc(100dvh - 56px)!important;overflow:hidden!important;padding:0 12px!important;margin:0!important}
+body.cf-opus-stage-editor .cf-editor-appnav{height:42px!important;min-height:42px!important;margin:0 0 5px!important;padding:0 14px!important;border-radius:0 0 8px 8px!important}
+body.cf-opus-stage-editor .cf-editor-appnav nav a{padding:7px 10px!important;font-size:11px!important}
+body.cf-opus-stage-editor .cf-editor-topbar{min-height:44px!important;height:44px!important;margin:0 0 5px!important;padding:5px 12px!important;border-radius:8px!important}
+body.cf-opus-stage-editor .cf-editor-topbar .cf-editor-project{display:flex!important;align-items:center;gap:12px!important}
+body.cf-opus-stage-editor .cf-editor-topbar .cf-editor-project span,body.cf-opus-stage-editor .cf-editor-topbar .cf-editor-project i{font-size:10px!important}
+body.cf-opus-stage-editor .cf-opus-editor{height:calc(100dvh - 96px)!important;max-height:calc(100dvh - 96px)!important;overflow:hidden!important}
+body.cf-opus-stage-editor .cf-opus-section-head{height:30px!important;min-height:30px!important;margin:0 0 4px!important}
+body.cf-opus-stage-editor .cf-opus-section-head h2{font-size:15px!important;margin:0!important}
+body.cf-opus-stage-editor .cf-opus-editor-slot{height:calc(100dvh - 134px)!important;max-height:calc(100dvh - 134px)!important;overflow:hidden!important}
+body.cf-opus-stage-editor .cf-opus-editing-card{height:100%!important;max-height:100%!important;overflow:hidden!important}
+body.cf-opus-stage-editor .cf-opus-editor-layout{height:calc(100dvh - 370px)!important;max-height:calc(100dvh - 370px)!important;min-height:390px!important;overflow:hidden!important;gap:9px!important}
+body.cf-opus-stage-editor .cf-opus-left-sidebar{gap:7px!important}
+body.cf-opus-stage-editor .cf-opus-clips-panel{max-height:100%!important;overflow:hidden!important}
+body.cf-opus-stage-editor .cf-opus-clips-panel .cf-opus-live-clip-list{min-height:0!important;overflow-y:auto!important}
+body.cf-opus-stage-editor .cf-opus-preview-column{padding:6px!important;min-height:0!important}
+body.cf-opus-stage-editor .cf-inline-player{width:min(100%,300px)!important}
+body.cf-opus-stage-editor .candidate-filmstrip{max-height:min(37vh,330px)!important;aspect-ratio:9/16!important}
+body.cf-opus-stage-editor .cf-inline-player-controls{margin-top:5px!important;gap:6px!important}
+body.cf-opus-stage-editor .cf-opus-inspector{max-height:100%!important;overflow:hidden!important}
+body.cf-opus-stage-editor .cf-opus-inspector-tabs{min-height:36px!important}
+body.cf-opus-stage-editor .cf-opus-tab{min-width:0!important;padding:9px 5px!important;font-size:10px!important}
+body.cf-opus-stage-editor .cf-opus-inspector-panes{height:calc(100% - 37px)!important;max-height:calc(100% - 37px)!important;overflow-y:auto!important;padding:9px!important}
+body.cf-opus-stage-editor .cf-opus-editor-actions{height:34px!important;min-height:34px!important;padding:2px 0!important}
+body.cf-opus-stage-editor .cf-opus-editor-actions button{min-height:30px!important;padding:4px 12px!important}
+body.cf-opus-stage-editor .cf-clip-timeline{height:170px!important;max-height:170px!important;overflow:hidden!important;padding:7px 10px!important;margin:4px 0 0!important}
+body.cf-opus-stage-editor .cf-clip-zoom-wrap{display:grid!important;grid-template-columns:1fr 1fr!important;gap:4px 12px!important}
+body.cf-opus-stage-editor .cf-clip-overview-head,body.cf-opus-stage-editor .cf-clip-zoom-title{font-size:10px!important}
+body.cf-opus-stage-editor .cf-clip-overview-rail,body.cf-opus-stage-editor .cf-clip-zoom-rail{height:12px!important}
+body.cf-opus-stage-editor .cf-subtitle-timeline-wrap,body.cf-opus-stage-editor .cf-video-timeline-wrap,body.cf-opus-stage-editor .cf-audio-track-wrap{margin:4px 0!important}
+body.cf-opus-stage-editor .cf-subtitle-track-title,body.cf-opus-stage-editor .cf-video-timeline-title,body.cf-opus-stage-editor .cf-audio-timeline-title{font-size:9px!important}
+body.cf-opus-stage-editor .cf-clip-subtitle-track{height:23px!important}
+body.cf-opus-stage-editor .cf-video-track-rail,body.cf-opus-stage-editor .cf-audio-track-rail{height:28px!important;min-height:28px!important}
+body.cf-opus-stage-editor .cf-video-track-thumb{height:28px!important}
+body.cf-opus-stage-editor .cf-audio-wave-bar{max-height:24px!important}
+body.cf-opus-stage-editor .cf-opus-text-templates{margin:0 0 16px}
+body.cf-opus-stage-editor .cf-opus-text-templates .cf-opus-pane-title{margin-bottom:5px}
+body.cf-opus-stage-editor .cf-opus-text-templates p{margin:0 0 9px}
+body.cf-opus-stage-editor .cf-opus-text-templates{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+body.cf-opus-stage-editor .cf-opus-text-templates .cf-opus-pane-title,body.cf-opus-stage-editor .cf-opus-text-templates p{grid-column:1/-1}
+body.cf-opus-stage-editor .cf-opus-text-template{height:54px!important;min-width:0!important;border:1px solid #353545!important;border-radius:8px!important;background:#1b1b25!important;color:#fff!important;font-size:23px!important;font-weight:900!important;cursor:pointer}
+body.cf-opus-stage-editor .cf-opus-text-template:hover{border-color:#9c55ff!important;box-shadow:0 0 0 1px #9c55ff!important}
+body.cf-opus-stage-editor .cf-caption-style-cards{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+body.cf-opus-stage-editor .cf-caption-style-card{height:48px!important;font-size:19px!important}
+body.cf-opus-stage-editor .cf-subtitle-compact-list{max-height:190px!important;overflow-y:auto!important}
+body.cf-opus-stage-editor .cf-subtitle-single-editor{padding:10px!important;gap:7px!important;margin:8px 0!important}
+@media(max-height:800px){
+ body.cf-opus-stage-editor .cf-opus-editor-layout{height:calc(100dvh - 330px)!important;max-height:calc(100dvh - 330px)!important;min-height:350px!important}
+ body.cf-opus-stage-editor .cf-clip-timeline{height:145px!important;max-height:145px!important}
+ body.cf-opus-stage-editor .candidate-filmstrip{max-height:31vh!important}
+}
+@media(max-width:1180px){
+ body.cf-opus-stage-editor .cf-opus-main{overflow-y:auto!important}
+ body.cf-opus-stage-editor{overflow:auto!important}
+ body.cf-opus-stage-editor .cf-opus-editor-layout{height:auto!important;max-height:none!important;min-height:0!important;grid-template-columns:48px minmax(140px,170px) minmax(0,1fr)!important}
+ body.cf-opus-stage-editor .cf-opus-inspector{grid-column:1/-1;max-height:420px!important}
+}
