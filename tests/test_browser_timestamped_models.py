@@ -16,7 +16,9 @@ def test_browser_whisper_uses_word_and_phrase_timestamp_modes():
     assert 'buildEditorialCandidatePool(transcriptData.segments, audio.length / 16000, audio, visualSamples, 16000)' in js
     assert 'candidatePool = await aiEditorialSelect(candidatePool, requested, say)' in js
     assert 'const requested=4;' in js
-    assert 'no se presentan cortes heurísticos como selección IA' in js
+    assert 'candidatePool = selectEditorialFallback(candidatePool, requested)' in js
+    assert "selection_method:'local_editorial_fallback'" in js
+    assert 'candidatePool.length !== 4' in js
     assert 'let asrModelId = null;' in js
     assert 'asrModelId !== modelId' in js
     assert 'Whisper Small ha fallado. Cambiando automáticamente a Whisper Base' in js
