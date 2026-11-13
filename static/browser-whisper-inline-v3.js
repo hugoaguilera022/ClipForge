@@ -1499,6 +1499,14 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
     film.src=candidatePreviewUrl;film.muted=true;
     film.addEventListener('loadedmetadata',()=>{const t=Math.max(0,Math.min(Math.max(0,film.duration-.2),Number(c.start)||0));try{film.currentTime=t;}catch(error){console.warn('No se pudo posicionar la vista previa:',error);}},{once:true});
     film.addEventListener('error',()=>{film.dataset.previewError='1';},{once:true});film.load();
+    // Decode the cover in an independent, muted video element so thumbnail
+    // generation never competes with the editor player's seek/playhead.
+    const coverVideo=document.createElement('video');coverVideo.muted=true;coverVideo.playsInline=true;coverVideo.preload='auto';
+    coverVideo.style.cssText='position:fixed;left:-10000px;top:0;width:2px;height:2px;opacity:0;pointer-events:none';
+    let coverDone=false;
+    const captureCover=()=>{if(coverDone||coverVideo.readyState<2||!coverVideo.videoWidth)return;try{const cv=document.createElement('canvas');cv.width=480;cv.height=270;const x=cv.getContext('2d'),w=coverVideo.videoWidth,h=coverVideo.videoHeight,k=Math.max(480/w,270/h),sw=480/k,sh=270/k;x.drawImage(coverVideo,(w-sw)/2,(h-sh)/2,sw,sh,0,0,480,270);const url=cv.toDataURL('image/jpeg',.84);film.poster=url;film.setAttribute('poster',url);film.dataset.posterReady='1';film.dispatchEvent(new Event('cfposterready'));coverDone=true;coverVideo.pause();coverVideo.removeAttribute('src');coverVideo.load();coverVideo.remove();}catch(error){console.warn('No se pudo generar la portada del clip:',error);}};
+    coverVideo.addEventListener('loadedmetadata',()=>{const t=Math.max(0,Math.min(Math.max(0,coverVideo.duration-.2),Number(c.start)||0));if(t<.05){coverVideo.addEventListener('loadeddata',captureCover,{once:true});}else{try{coverVideo.currentTime=t;}catch{}}},{once:true});
+    coverVideo.addEventListener('seeked',()=>requestAnimationFrame(captureCover));coverVideo.addEventListener('loadeddata',captureCover);document.body.append(coverVideo);coverVideo.src=candidatePreviewUrl;coverVideo.load();
   }
   const playerBar=document.createElement('div');playerBar.className='cf-inline-player-controls';
   const seekBack=document.createElement('button');seekBack.type='button';seekBack.className='cf-player-seek';seekBack.textContent='↶ 5';seekBack.setAttribute('aria-label','Retroceder 5 segundos');seekBack.title='Retroceder 5 segundos';seekBack.addEventListener('click',()=>{if(Number.isFinite(film.duration))film.currentTime=Math.max(0,film.currentTime-5);});
@@ -1583,7 +1591,9 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
     });
     subtitleTrackRail.append(subtitlePlayhead);
   };
-  subtitleTrack.addEventListener('click',event=>{if(event.target.closest('.cf-clip-subtitle-block'))return;const rect=subtitleTrackRail.getBoundingClientRect();const pct=Math.max(0,Math.min(1,(event.clientX-rect.left)/Math.max(1,rect.width)));film.currentTime=Math.max(Number(c.start),Math.min(Number(c.end)-.01,Number(c.start)+pct*(Number(c.end)-Number(c.start))));film.play().catch(()=>{});});
+  const seekAndPlayFromSubtitleRail=event=>{if(event.target.closest('.cf-clip-subtitle-block'))return;const rect=subtitleTrackRail.getBoundingClientRect();if(!rect.width)return;const pct=Math.max(0,Math.min(1,(event.clientX-rect.left)/rect.width));const target=Math.max(Number(c.start),Math.min(Number(c.end)-.01,Number(c.start)+pct*(Number(c.end)-Number(c.start))));film.pause();const playAtTarget=()=>{film.removeEventListener('seeked',playAtTarget);film.play().catch(error=>{console.warn('No se pudo iniciar la reproducción desde la pista:',error);});};if(Math.abs(film.currentTime-target)<.05){film.play().catch(()=>{});}else{film.addEventListener('seeked',playAtTarget,{once:true});film.currentTime=target;setTimeout(()=>{film.removeEventListener('seeked',playAtTarget);if(Math.abs(film.currentTime-target)<.4&&film.paused)film.play().catch(()=>{});},500);}};
+  subtitleTrackRail.addEventListener('click',seekAndPlayFromSubtitleRail);
+  subtitleTrack.addEventListener('click',event=>{if(event.target===subtitleTrack||event.target===subtitleTrackRuler)seekAndPlayFromSubtitleRail(event);});
   subtitleTrack.append(subtitleTrackRuler,subtitleTrackRail);
   subtitleTrackWrap.append(subtitleTrackTitle,subtitleTrack);timeline.append(subtitleTrackWrap);
   paintSubtitleTrack();
