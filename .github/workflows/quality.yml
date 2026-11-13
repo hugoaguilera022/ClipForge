@@ -2,7 +2,7 @@ name: ClipForge quality checks
 
 on:
   push:
-    branches: [main, browser-only-migration, integrated-web-final]
+    branches: [main, browser-only-migration, integrated-web-final, feature/editor-core-rebuild]
   pull_request:
   workflow_dispatch:
 
@@ -63,6 +63,10 @@ jobs:
           node --check static/browser-export.js
           node --check static/browser-url.js
           node --check static/editor.js
+          node --check static/workspace-ui-v4.js
+          node --check static/editor/editor-store.js
+          node --check static/editor/editor-commands.js
+          node --check static/editor/editor-core.js
           node --check static/sw.js
           node tests/browser_ranker_test.mjs
           node tests/editorial_quality_test.mjs
