@@ -216,8 +216,8 @@ function syncExternalAudio(video){
   const time=Number(state.playhead)||0;
   const sourceTrack=state.tracks.find(t=>t.id==="track-a1"||t.name?.startsWith("A1"));
   const sourceItem=sourceTrack?.items?.find(x=>time>=x.start&&time<x.end);
-  const sourceFadeIn=sourceItem&&Number(sourceItem.fadeIn)>0?Math.max(0,Math.min(1,(time-sourceItem.start)/Number(sourceItem.fadeIn)):1;
-  const sourceFadeOut=sourceItem&&Number(sourceItem.fadeOut)>0?Math.max(0,Math.min(1,(sourceItem.end-time)/Number(sourceItem.fadeOut)):1;
+  const sourceFadeIn=sourceItem&&Number(sourceItem.fadeIn)>0?Math.max(0,Math.min(1,(time-sourceItem.start)/Number(sourceItem.fadeIn))):1;
+  const sourceFadeOut=sourceItem&&Number(sourceItem.fadeOut)>0?Math.max(0,Math.min(1,(sourceItem.end-time)/Number(sourceItem.fadeOut))):1;
   const sourceGain=sourceItem?Math.max(0,Math.min(1,Number(sourceItem.volume??1)*sourceFadeIn*sourceFadeOut)):0;
   video.muted=!sourceItem||!!sourceTrack?.muted||sourceGain<=0;
   video.volume=sourceGain;
