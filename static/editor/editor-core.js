@@ -5,7 +5,11 @@ const store=new EditorStore();
 const commands=new EditorCommands(store);
 let bridge=null,originalBridge=null,initialized=false;
 const clone=value=>value==null?value:JSON.parse(JSON.stringify(value));
-const status=message=>window.dispatchEvent(new CustomEvent('clipforge:editor-status',{detail:{message}}));
+const status=message=>{
+  const visibleStatus=document.querySelector('#browserWhisperStatus');
+  if(visibleStatus)visibleStatus.textContent=message;
+  window.dispatchEvent(new CustomEvent('clipforge:editor-status',{detail:{message}}));
+};
 
 function syncBridge(reason){
   if(!originalBridge||!store.ready)return;
