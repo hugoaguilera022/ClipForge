@@ -86,7 +86,7 @@ function createTracks(clips,transcript,duration){
   {id:"track-fx",type:"effects",name:"FX · Efectos",locked:false,muted:false,hidden:false,items:[]}
  ];
 }
-async async function saveProject(downloadBackup=true){
+async function saveProject(downloadBackup=true){
  const id=state.projectId||("project-"+Date.now());state.projectId=id;
  const project=clone(state);project.savedAt=new Date().toISOString();
  await put("projects",{id,name:state.source?.name||"Proyecto ClipForge",sourceName:state.source?.name||"",updatedAt:Date.now(),project});
@@ -104,7 +104,7 @@ async async function saveProject(downloadBackup=true){
  setStatus("Proyecto guardado localmente"+(downloadBackup?" y copia JSON descargada.":"."));
  return project;
 }
-async async function addAudioAsset(file){
+async function addAudioAsset(file){
  const id=uid(),blob=file;
  await put("assets",{id,name:file.name,type:file.type||"audio/*",blob,size:file.size});
  assetBlobs.set(id,blob);assetUrls.set(id,URL.createObjectURL(blob));
