@@ -348,10 +348,10 @@
         transcript:bridgeProject.transcript||null,
         onBack:()=>{activeCard=null;setStage('results');},
         onSave:project=>{
-          window.clipforgeEditorBridge?.setTracks?.(project.tracks);
-          window.clipforgeEditorBridge?.setClips?.(project.clips);
+          // Studio already persists its canonical project and synchronizes tracks/candidate edits.
+          // Rebuilding all result cards here would detach the active editor and lose card state.
           const button=editorSlot.querySelector('.cf-studio-topbar [data-action="save"]');
-          if(button)button.title='Guardado en el estado del proyecto';
+          if(button)button.title='Proyecto guardado localmente';
         },
         onExport:()=>$('#browserExportClips')?.click()
       });
