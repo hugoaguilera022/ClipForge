@@ -86,8 +86,13 @@ import { uid } from './editor-store.js';
         </div>
       </div>
       <div class="cf-mt-foot"><span class="cf-mt-playhead-readout">00:00</span><span>Las pistas se guardan en este navegador.</span><span class="cf-mt-selection">Sin selección</span><label class="cf-mt-volume" hidden>Volumen <input type="range" min="0" max="200" value="100"><b>100%</b></label></div>`;
-    const anchor=editorSlot.querySelector('.cf-editor-commandbar')||editorSlot.querySelector('.cf-editor-topbar');
-    if(anchor)anchor.after(panel);else editorSlot.append(panel);
+    // The inspector/preview card must stay above the timeline in the editor
+    // flex column. Inserting the timeline before the card lets it intercept clicks.
+    const editingCard=editorSlot.querySelector('.cf-opus-editing-card')||editorSlot.querySelector('.candidate-card');
+    if(editingCard)editingCard.after(panel);else editorSlot.append(panel);
+    panel.style.setProperty('position','relative','important');
+    panel.style.setProperty('z-index','0','important');
+    panel.style.setProperty('flex','0 0 auto','important');
     const scroll=panel.querySelector('.cf-mt-scroll'),board=panel.querySelector('.cf-mt-board'),ruler=panel.querySelector('.cf-mt-ruler'),lanes=panel.querySelector('.cf-mt-lanes');
     const zoomControl=panel.querySelector('.cf-mt-zoom input'),zoomLabel=panel.querySelector('.cf-mt-zoom b'),state=panel.querySelector('.cf-mt-project-state'),readout=panel.querySelector('.cf-mt-playhead-readout'),selectionLabel=panel.querySelector('.cf-mt-selection'),volumeControl=panel.querySelector('.cf-mt-volume'),volumeInput=volumeControl.querySelector('input'),volumeLabel=volumeControl.querySelector('b');
     const detach=[];const listen=(target,type,handler,options)=>{target.addEventListener(type,handler,options);detach.push(()=>target.removeEventListener(type,handler,options));};
