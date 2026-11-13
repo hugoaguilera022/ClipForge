@@ -383,6 +383,7 @@ export function closeStudio(){
  active.root.replaceChildren();window.__cfStudioActive=null;
 }
 export async function openStudio({card,clip,transcript,index=0,allClips=null,onBack,onSave,onExport}){
+ if(window.__cfStudioActive)await saveProject(false).catch(()=>{});
  closeStudio();
  const root=document.querySelector(".cf-opus-editor-slot");if(!root)return;
  const videoItems=Array.isArray(allClips)&&allClips.length?allClips:[clip];
