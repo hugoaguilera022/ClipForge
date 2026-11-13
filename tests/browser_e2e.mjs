@@ -70,9 +70,29 @@ try {
   await page.locator('#browserCropMode').selectOption('center');
   const projectState = await page.locator('#browserWhisperStatus').innerText();
   if (!projectState.includes('Proyecto recuperado')) throw new Error('Browser project import did not complete: '+projectState);
+
+  // Exercise the actual multipista editor and an imported music asset.
+  await page.locator('.candidate-card').first().locator('.cf-open-clip-editor').click();
+  await page.locator('#cfMultiTrackTimeline').waitFor({state:'visible',timeout:10000});
+  const trackRows=page.locator('#cfMultiTrackTimeline .cf-mt-track-row');
+  if(await trackRows.count()<7)throw new Error('The editor did not create all canonical video/audio/subtitle/text/effects tracks.');
+  await page.locator('#cfMultiTrackTimeline [data-act="add-audio"]').click();
+  if(await trackRows.count()<8)throw new Error('The Add audio track action did not add a new lane.');
+  await page.locator('#cfMultiTrackTimeline .cf-mt-import input').setInputFiles('test-output/music.wav');
+  await page.waitForFunction(()=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-audio').length>=5,undefined,{timeout:20000});
+  const importedAudio=page.locator('#cfMultiTrackTimeline .cf-mt-clip.type-audio').last();
+  await importedAudio.click();
+  const volume=page.locator('#cfMultiTrackTimeline .cf-mt-volume input');
+  await volume.waitFor({state:'visible'});
+  await volume.evaluate(el=>{el.value='60';el.dispatchEvent(new Event('input',{bubbles:true}));});
+  const audioGain=await volume.inputValue();
+  if(audioGain!=='60')throw new Error('The imported audio volume control did not apply.');
+  await page.locator('.cf-opus-back').click();
+  await page.locator('#cfResults').waitFor({state:'visible'});
+
   // Attach rejection handling immediately: an unhandled Playwright timeout can terminate Node while the render is still running.
   const downloadPromise = page.waitForEvent('download', { timeout: 300000 }).then(download => ({download}), error => ({error}));
-  await page.locator('#browserExportClips').click();
+  await page.locator('.cf-opus-export-all').click();
   const status = page.locator('#browserExportStatus');
   await status.waitFor({ state:'visible' });
   await page.waitForFunction(() => {
