@@ -1,9 +1,9 @@
-// Invalidates legacy caches including clipforge-web-v230 so the current browser engine loads.
+// Invalidates legacy caches including clipforge-web-v245 so the current browser engine loads.
 // Browser engine is served from the single canonical /browser-whisper.js source.
 // v180 invalidates the old app shell after the editorial engine bridge update.
-// Invalidates previous cache clipforge-web-v181; v186 rebuilds ClipForge interface to clients; v205 ships the export and AI compatibility fixes.
-const CACHE='clipforge-web-v245';
-const FILES=['/','/styles.css','/app.js','/browser-whisper.js','/editor.js','/browser-export.js','/browser-url.js','/ffmpeg-worker.js','/workspace-ui-v4.js','/styles-clip-editor-final-v2.css','/browser-whisper-inline-v3.js','/manifest.webmanifest'];
+// Invalidates previous cache clipforge-web-v245; v186 rebuilds ClipForge interface to clients; v205 ships the export and AI compatibility fixes.
+const CACHE='clipforge-web-v246';
+const FILES=['/','/styles.css','/app.js','/browser-whisper.js','/editor.js','/browser-export.js','/browser-url.js','/ffmpeg-worker.js','/workspace-ui-v4.js','/styles-clip-editor-final-v2.css','/browser-whisper-inline-v3.js','/editor/studio.js','/manifest.webmanifest'];
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(FILES)).then(()=>self.skipWaiting()));
 });
