@@ -101,7 +101,8 @@ try {
   await page.waitForFunction(()=>document.querySelectorAll('.cf-studio-media-library .cf-studio-media-row').length>=2,undefined,{timeout:10000});
   await page.locator('.cf-studio-media-dialog [data-action="media-close"]').click();
 
-  // Check split + undo without changing the final four-clip export.
+  // Check split + undo on the selected video clip, not the previously edited title.
+  await page.locator('.cf-studio-track-row').first().locator('.cf-studio-block').first().click();
   await page.locator('.cf-studio-ruler').click({position:{x:15,y:10}});
   await page.locator('.cf-studio-actions [data-cmd="split"]').click();
   await page.waitForFunction(()=>document.querySelectorAll('.cf-studio-track-row:first-child .cf-studio-block').length===5,undefined,{timeout:5000});
