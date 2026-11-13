@@ -116,8 +116,6 @@ try {
   },{id:beforeMove.id,start:beforeMove.start});
   const moved=await page.evaluate(id=>window.clipforgeProjectStore.project.tracks.find(t=>t.type==='video').items.find(x=>x.id===id),beforeMove.id);
   if(moved.sourceStart!==beforeMove.sourceStart)throw new Error('Moving a clip changed its source media in-point.');
-  const trimBox=await page.locator('#cfMultiTrackTimeline .cf-mt-clip.type-video').filter({has:page.locator('[data-item-id="'+beforeMove.id+'"]')}).first().boundingBox().catch(()=>null);
-  const block=page.locator('#cfMultiTrackTimeline .cf-mt-clip.type-video').filter({has:page.locator('.cf-mt-clip-name')}).first();
   const rightHandle=page.locator('#cfMultiTrackTimeline [data-item-id="'+beforeMove.id+'"] .cf-mt-handle.right');
   const edgeBox=await rightHandle.boundingBox();
   await page.mouse.move(edgeBox.x+edgeBox.width/2,edgeBox.y+edgeBox.height/2);
