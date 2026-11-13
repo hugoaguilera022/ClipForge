@@ -207,7 +207,7 @@ import { uid } from './editor-store.js';
       else{v.pause();panel.querySelector('[data-act="play"]').textContent='▶ Reproducir';}
     });
     panel.querySelector('[data-act="add-audio"]').addEventListener('click',()=>{
-      commands.addTrack('audio','A'+(project.tracks.filter(t=>t.type==='audio').length+1)+' · Audio');setStatus('Pista de audio añadida.');
+      commands.addTrack('audio','A'+(store.project.tracks.filter(t=>t.type==='audio').length+1)+' · Audio');setStatus('Pista de audio añadida.');
     });
     panel.querySelector('[data-act="add-text"]').addEventListener('click',()=>{
       commands.addTrack('text','T'+(store.project.tracks.filter(t=>t.type==='text').length+1)+' · Texto');setStatus('Pista de texto añadida.');
