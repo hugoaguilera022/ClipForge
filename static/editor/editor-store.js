@@ -101,7 +101,7 @@ export class EditorStore extends EventTarget {
     if(!tracks.some(t=>t.type==='audio'&&t.id==='track-a2'))tracks.push(normalizeTrack({id:'track-a2',type:'audio',name:'A2 · Música',items:[]},tracks.length));
     if(!tracks.some(t=>t.type==='audio'&&t.id==='track-a3'))tracks.push(normalizeTrack({id:'track-a3',type:'audio',name:'A3 · Efectos sonoros',items:[]},tracks.length));
     const sourceAudioTrack=tracks.find(t=>t.id==='track-a1');
-    if(sourceAudioTrack&&!sourceAudioTrack.items.some(item=>item.sourceType==='primary')){
+    if(sourceAudioTrack&&!sourceAudioTrack.locked&&!sourceAudioTrack.items.some(item=>item.sourceType==='primary')){
       sourceAudioTrack.items=(tracks.find(t=>t.type==='video')?.items||clips).map((clip,i)=>({
         id:`audio-source-${clip.id||i+1}`,clipId:String(clip.id||''),sourceType:'primary',
         name:'Audio original',start:Number(clip.start)||0,end:Number(clip.end)||0,
