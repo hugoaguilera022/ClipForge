@@ -37,12 +37,9 @@ function connectBridge(){
   store.addEventListener('storage-error',event=>status('No se pudo guardar automáticamente: '+(event.detail?.message||'almacenamiento no disponible')));
   status('Proyecto central activo · guardado automático local');
   store.recoverLast().then(saved=>{
-    if(!saved||saved.source!==store.project.source)return;
-    const current=store.project.updatedAt;
-    if(saved.updatedAt>current){
-      store.hydrate(saved);
-      status('Se ha recuperado la última versión guardada de este proyecto.');
-    }
+    if(!saved||!saved.source||saved.source!==store.project.source||!saved.updatedAt)return;
+    store.hydrate(saved);
+    status('Se ha recuperado la última versión guardada de este proyecto.');
   }).catch(()=>{});
 }
 window.addEventListener('clipforge:editor-ready',connectBridge);
