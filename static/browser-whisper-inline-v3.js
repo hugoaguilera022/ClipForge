@@ -918,11 +918,11 @@ function getColabEditorConfig(){
   if(!saved||typeof saved.url!=="string"||typeof saved.token!=="string"||!saved.token.trim())return null;
   const parsed=new URL(saved.url);
   if(parsed.protocol!=="https:"&&parsed.hostname!=="localhost"&&parsed.hostname!=="127.0.0.1")return null;
-  return {url:parsed.href.replace(/\\/$/,''),token:saved.token,model:String(saved.model||"qwen3:4b")};
+  return {url:trimColabEndpoint(parsed.href),token:saved.token,model:String(saved.model||"qwen3:4b")};
  }catch{return null;}
 }
 function createRemoteEditorialEngine(config){
- const base=String(config.url||"").replace(/\\/$/,'');
+ const base=trimColabEndpoint(config.url)
  return {isRemote:true,provider:"colab",chat:{completions:{create:async options=>{
   const response=await fetch(base+"/v1/chat/completions",{
    method:"POST",
@@ -942,7 +942,7 @@ async function connectColabEditorialEngine(){
  const status=document.querySelector("#colabEditorStatus");
  const button=document.querySelector("#connectColabEditor");
  const report=message=>{if(status)status.textContent=message;};
- const rawUrl=String(urlInput?.value||"").trim().replace(/\\/+$/,'');
+ const rawUrl=trimColabEndpoint(urlInput?.value);
  const token=String(tokenInput?.value||"").trim();
  if(!rawUrl||!token){report("Introduce la URL HTTPS del túnel de Colab y su token de acceso.");return false;}
  let parsed;
@@ -953,7 +953,7 @@ async function connectColabEditorialEngine(){
  }
  if(button){button.disabled=true;button.textContent="Comprobando…";}
  try{
-  const base=parsed.href.replace(/\\/$/,'');
+  const base=trimColabEndpoint(parsed.href);
   const response=await fetch(base+"/health",{method:"GET",headers:{"Authorization":"Bearer "+token},cache:"no-store"});
   if(!response.ok)throw new Error("HTTP "+response.status);
   const health=await response.json();
