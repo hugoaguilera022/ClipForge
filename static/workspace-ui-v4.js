@@ -163,6 +163,9 @@
   }
   function restoreCard(card){
     card.querySelectorAll?.('.cf-opus-pane[data-pane="audio"]').forEach(pane=>pane.__cfCleanup?.());
+    card.querySelector?.('.cf-opus-editor-layout')?.__cfCleanup?.();
+    const timeline=card.closest?.('#cfEditor')?.querySelector?.('#cfMultiTrackTimeline')||document.querySelector('#cfMultiTrackTimeline');
+    timeline?.__cfDestroy?.();timeline?.remove();
     const original=originalCardNodes.get(card);if(!original)return;
     card.replaceChildren(...original);card.classList.remove('cf-opus-editing-card');
     originalCardNodes.delete(card);
@@ -319,7 +322,7 @@
     card.append(layout);
     if(timeline)card.append(timeline);
     syncEditorGeometry();
-    window.addEventListener('resize',syncEditorGeometry,{passive:true});window.visualViewport?.addEventListener('resize',syncEditorGeometry,{passive:true});requestAnimationFrame(syncEditorGeometry);
+    window.addEventListener('resize',syncEditorGeometry,{passive:true});window.visualViewport?.addEventListener('resize',syncEditorGeometry,{passive:true});layout.__cfCleanup=()=>{window.removeEventListener('resize',syncEditorGeometry);window.visualViewport?.removeEventListener('resize',syncEditorGeometry);};requestAnimationFrame(syncEditorGeometry);
     const actions=document.createElement('div');actions.className='cf-opus-editor-actions';
     if(exportOne){exportOne.textContent='Exportar este clip MP4';actions.append(exportOne);}
     if(select)actions.append(select);
