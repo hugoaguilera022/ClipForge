@@ -85,6 +85,27 @@ try {
   await page.keyboard.press('Delete');
   await page.waitForFunction(n=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-video').length===n,initialVideoClipCount);
 
+  // The visible timeline toolbar must perform the same edit commands.
+  await page.locator('#cfMultiTrackTimeline .cf-mt-clip.type-video').first().click();
+  const splitPoint=await page.evaluate(()=>{
+    const item=window.clipforgeProjectStore.project.tracks.find(t=>t.type==='video').items[0];
+    window.clipforgeProjectStore.setPlayhead((item.start+item.end)/2);
+    return (item.start+item.end)/2;
+  });
+  await page.locator('#cfMultiTrackTimeline [data-act="split"]').click();
+  await page.waitForFunction(n=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-video').length===n+1,initialVideoClipCount);
+  await page.locator('#cfMultiTrackTimeline [data-act="undo"]').click();
+  await page.waitForFunction(n=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-video').length===n,initialVideoClipCount);
+  await page.locator('#cfMultiTrackTimeline [data-act="redo"]').click();
+  await page.waitForFunction(n=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-video').length===n+1,initialVideoClipCount);
+  await page.locator('#cfMultiTrackTimeline .cf-mt-clip.type-video').first().click();
+  await page.locator('#cfMultiTrackTimeline [data-act="copy"]').click();
+  await page.evaluate(()=>window.clipforgeProjectStore.setPlayhead(10));
+  await page.locator('#cfMultiTrackTimeline [data-act="paste"]').click();
+  await page.waitForFunction(n=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-video').length===n+2,initialVideoClipCount);
+  await page.locator('#cfMultiTrackTimeline [data-act="delete"]').click();
+  await page.waitForFunction(n=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-video').length===n+1,initialVideoClipCount);
+
   await page.locator('.cf-opus-tab[data-tab="captions"]').click();
   const subtitleRows=page.locator('.cf-subtitle-row-button');
   if(await subtitleRows.count()<1)throw new Error('The subtitle editor did not load the imported timestamped transcript.');
