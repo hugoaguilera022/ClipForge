@@ -1469,6 +1469,22 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
  const panel=document.querySelector('#browserCandidates'),list=document.querySelector('#browserCandidateList');
  if(!panel||!list)return;
  editableCandidates=(restoredCandidates || rankClipCandidates(words,duration,audioSamples,16000,visualSamples)).map((c,i)=>({...c,title:c.title||`Clip ${i+1}`,selected:c.selected!==false}));
+ window.__cfEditableCandidates=editableCandidates;
+ window.__cfCandidateState={words,duration,audioSamples,visualSamples};
+ if(!window.__cfAddClipListenerAttached){
+   window.__cfAddClipListenerAttached=true;
+   window.addEventListener('clipforge:add-clip-request',()=>{
+     const state=window.__cfCandidateState||{},items=window.__cfEditableCandidates||[];
+     const total=Math.max(1,Number(state.duration)||1),len=Math.min(20,total);
+     const current=Number(window.__cfActiveClipVideo?.currentTime??window.__cfSourcePlayhead??items.at(-1)?.end??0);
+     const start=Math.max(0,Math.min(Math.max(0,total-len),current-len/2)),end=Math.min(total,start+len);
+     const next={start,end,duration:end-start,title:`Clip manual ${items.length+1}`,selection_method:'manual',selected:true,subtitleStyle:{...(window.__cfSubtitleGlobalStyle||{})}};
+     items.push(next);window.__cfEditableCandidates=items;
+     showClipCandidates(state.words,state.duration,items,state.audioSamples,state.visualSamples);
+     say('Nuevo clip añadido desde el segundo seleccionado. Ajusta sus límites en el editor.');
+   });
+ }
+
  panel.hidden=false;list.replaceChildren();
  panel.querySelector('.cf-results-toolbar')?.remove();panel.querySelector('.cf-editor-toolbar')?.remove();
  document.body.classList.add('cf-stage-results');document.body.classList.remove('cf-stage-editor');
@@ -1551,7 +1567,7 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
   applySub.addEventListener('click',()=>{if(!selectedSegment)return;const a=Number(editStart.value),b=Number(editEnd.value);if(!Number.isFinite(a)||!Number.isFinite(b)||a<Number(c.start)||b>Number(c.end)||b<=a){say('Revisa los tiempos del subtítulo.');return;}const original=transcriptData?.segments?.[selectedSegment._sourceIndex];if(original){original.start=a;original.end=b;original.text=editText.value;selectedSegment.start=a;selectedSegment.end=b;selectedSegment.text=editText.value;const row=rowButtons[subtitleSegments.indexOf(selectedSegment)];if(row)row.lastChild.textContent=editText.value.slice(0,90);paintSubtitleTrack();renderActiveSubtitle();sync();say('Subtítulo actualizado. El estilo se aplica a todos.');}});
 
   const paintSubtitle=()=>{[subtitlePreview,subtitleOverlay].forEach(el=>{el.style.fontFamily=style.font;el.style.fontSize=Math.max(18,Math.min(72,Number(style.size)||42))+'px';el.style.color=style.color;el.style.backgroundColor=style.background||'transparent';el.style.fontWeight=style.bold?800:400;el.style.webkitTextStroke=style.outlineWidth?Math.min(6,Number(style.outlineWidth))+'px '+(style.outline||'#000'):'0';el.style.paintOrder='stroke fill';el.style.textShadow=style.outlineWidth?'0 2px 5px #000b':'none';el.dataset.position=style.position||'bottom';el.dataset.animation=style.animation||'none';});};
-  const saveSubtitleStyle=()=>{style.font=font.value;style.size=Number(size.value)||42;style.color=color.value;style.background=bg.value==='#000000'&&style.background==='transparent'?'transparent':bg.value;style.bold=bold.getAttribute('aria-pressed')==='true';style.position=position.value;style.animation=animation.value;style.preset=preset.value;window.__cfSubtitleGlobalStyle={...style};editableCandidates=editableCandidates.map(x=>({...x,subtitleStyle:{...style}}));c.subtitleStyle={...style};paintSubtitle();renderActiveSubtitle();sync();window.dispatchEvent(new CustomEvent('clipforge:subtitle-style-updated',{detail:{style:{...style}}}));};
+  const saveSubtitleStyle=()=>{style.font=font.value;style.size=Number(size.value)||42;style.color=color.value;style.background=bg.value==='#000000'&&style.background==='transparent'?'transparent':bg.value;style.bold=bold.getAttribute('aria-pressed')==='true';style.position=position.value;style.animation=animation.value;style.preset=preset.value;window.__cfSubtitleGlobalStyle={...style};editableCandidates=editableCandidates.map(x=>({...x,subtitleStyle:{...style}}));c.subtitleStyle={...style};paintSubtitle();renderActiveSubtitle();sync();window.dispatchEvent(new CustomEvent('clipforge:subtitle-style-updated',{detail:{style:{...style}}}));};window.__cfApplySubtitlePatch=patch=>{Object.assign(style,patch||{});style.preset='custom';preset.value='custom';font.value=style.font;size.value=style.size;color.value=style.color;bg.value=style.background==='transparent'?'#000000':style.background;bold.setAttribute('aria-pressed',String(!!style.bold));position.value=style.position;animation.value=style.animation;window.__cfSubtitleGlobalStyle={...style};editableCandidates=editableCandidates.map(x=>({...x,subtitleStyle:{...style}}));window.__cfEditableCandidates=editableCandidates;c.subtitleStyle={...style};paintSubtitle();renderActiveSubtitle();sync();window.dispatchEvent(new CustomEvent('clipforge:subtitle-style-updated',{detail:{style:{...style}}}));};
   const applyPreset=key=>{const def=presetDefs[key];if(!def)return;Object.assign(style,def,{preset:key});font.value=style.font;size.value=style.size;color.value=style.color;bg.value=style.background==='transparent'?'#000000':style.background;bold.setAttribute('aria-pressed',String(!!style.bold));position.value=style.position;animation.value=style.animation;preset.value=key;saveSubtitleStyle();};
   font.value=style.font;size.value=style.size;color.value=style.color;bg.value=style.background==='transparent'?'#000000':style.background;bold.setAttribute('aria-pressed',String(!!style.bold));position.value=style.position;animation.value=style.animation;preset.value=style.preset||'custom';
   preset.addEventListener('change',()=>applyPreset(preset.value));[font,size,color,bg,position,animation].forEach(el=>el.addEventListener('input',saveSubtitleStyle));bold.addEventListener('click',()=>{bold.setAttribute('aria-pressed',String(bold.getAttribute('aria-pressed')!=='true'));saveSubtitleStyle();});
