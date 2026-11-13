@@ -151,7 +151,7 @@ function currentVideoItem(s=state){
 function previewLayerAt(sourceTime,timelineTime){
  const subTrack=state.tracks.find(t=>t.type==="subtitles"&&!t.hidden);
  const textTrack=state.tracks.find(t=>t.type==="text"&&!t.hidden);
- const sub=subTrack?.items.find(x=>sourceTime>=x.start&&sourceTime<=x.end);
+ const sub=subTrack?.items.find(x=>timelineTime>=x.start&&timelineTime<=x.end);
  const txt=textTrack?.items.filter(x=>timelineTime>=x.start&&timelineTime<=x.end)||[];
  const imageTrack=state.tracks.find(t=>t.type==="image"&&!t.hidden);
  const images=imageTrack?.items.filter(x=>timelineTime>=x.start&&timelineTime<=x.end&&!x.hidden)||[];
