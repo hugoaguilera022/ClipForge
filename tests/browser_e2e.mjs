@@ -165,9 +165,11 @@ try {
   if(pasteDebug.videoCount!==initialVideoClipCount+3)throw new Error('Paste button did not create both copied video items alongside the split: '+JSON.stringify(pasteDebug));
   await page.locator('#cfMultiTrackTimeline [data-act="delete"]').click();
   await page.waitForFunction(n=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-video').length===n+1,initialVideoClipCount);
-  // Roll back the five temporary video edits so the export assertion remains four clips.
-  for(let i=0;i<5;i++)await page.locator('#cfMultiTrackTimeline [data-act="undo"]').click();
-  await page.waitForFunction(n=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-video').length===n,initialVideoClipCount);
+  // Roll back delete, the grouped two-item paste, and split as three distinct history entries.
+  for(const expectedCount of [initialVideoClipCount+3,initialVideoClipCount+1,initialVideoClipCount]){
+    await page.locator('#cfMultiTrackTimeline [data-act="undo"]').click();
+    await page.waitForFunction(n=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-video').length===n,expectedCount);
+  }
 
   await page.locator('.cf-opus-tab[data-tab="captions"]').click();
   const subtitleRows=page.locator('.cf-subtitle-row-button');
