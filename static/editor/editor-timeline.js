@@ -1,13 +1,14 @@
 import { uid } from './editor-store.js';
 
 (() => {
-  let mountedCard=null, zoom=4, raf=0, urls=new Map(), audioPreviews=[];
+  let mountedCard=null, zoom=4, raf=0, urls=new Map(), audioPreviews=[],audioSyncCleanup=null;
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const getApi=()=>({store:window.clipforgeProjectStore,commands:window.clipforgeEditorCommands});
   const videoFor=card=>card?.querySelector('.cf-inline-player video')||card?.querySelector('video')||window.__cfActiveClipVideo;
   const niceTime=value=>{const n=Math.max(0,Number(value)||0);return n>=3600?new Date(n*1000).toISOString().slice(11,19):new Date(n*1000).toISOString().slice(14,19);};
 
   function cleanupAudio(){
+    audioSyncCleanup?.();audioSyncCleanup=null;
     audioPreviews.forEach(audio=>{audio.pause();audio.src='';});
     audioPreviews=[];
     for(const url of urls.values())URL.revokeObjectURL(url);
@@ -40,10 +41,9 @@ import { uid } from './editor-store.js';
         }else if(!audio.paused)audio.pause();
       });
     };
-    film.addEventListener('play',sync);
-    film.addEventListener('timeupdate',sync);
-    film.addEventListener('pause',()=>sources.forEach(x=>x.audio.pause()));
-    film.addEventListener('seeked',sync);
+    const pause=()=>sources.forEach(x=>x.audio.pause());
+    film.addEventListener('play',sync);film.addEventListener('timeupdate',sync);film.addEventListener('pause',pause);film.addEventListener('seeked',sync);
+    audioSyncCleanup=()=>{film.removeEventListener('play',sync);film.removeEventListener('timeupdate',sync);film.removeEventListener('pause',pause);film.removeEventListener('seeked',sync);};
   }
 
   function buildTimeline(card){
@@ -183,8 +183,12 @@ import { uid } from './editor-store.js';
         let track=store.project.tracks.find(t=>t.type==='audio'&&!t.locked&&!t.name.includes('original'));
         if(!track){const newTrackId=commands.addTrack('audio','A'+(store.project.tracks.filter(t=>t.type==='audio').length+1)+' · Música');track=commands.track(newTrackId);}
         const trackId=track?.id;
-        commands.importAudioFile(file,trackId,store.project.playhead);
-        setStatus('Audio importado: '+file.name);
+        const AudioContextClass=window.AudioContext||window.webkitAudioContext;
+        if(!AudioContextClass)throw new Error('Este navegador no permite leer la duración del audio.');
+        const audioContext=new AudioContextClass();
+        let decoded;try{decoded=await audioContext.decodeAudioData(await file.arrayBuffer());}finally{await audioContext.close().catch(()=>{});}
+        commands.importAudioFile(file,trackId,store.project.playhead,decoded.duration);
+        setStatus('Audio importado: '+file.name+' · '+niceTime(decoded.duration));
         setupAudioPreview(card);
       }catch(error){setStatus(error.message);}
       event.target.value='';
