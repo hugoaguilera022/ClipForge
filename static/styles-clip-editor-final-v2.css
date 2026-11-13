@@ -1873,3 +1873,111 @@ body.cf-opus-stage-editor .cf-subtitle-single-editor{padding:10px!important;gap:
  body.cf-opus-stage-editor .cf-opus-editor-layout{height:auto!important;max-height:none!important;min-height:0!important;grid-template-columns:48px minmax(140px,170px) minmax(0,1fr)!important}
  body.cf-opus-stage-editor .cf-opus-inspector{grid-column:1/-1;max-height:420px!important}
 }
+
+/* Final Mac desktop editor geometry: one viewport, no stacked site navigation or clipped panels */
+html:has(body.cf-opus-stage-editor),body.cf-opus-stage-editor{height:100dvh!important;min-height:0!important;max-height:100dvh!important;overflow:hidden!important}
+body.cf-opus-stage-editor .cf-opus-announcement,body.cf-opus-stage-editor .cf-opus-nav{display:none!important}
+body.cf-opus-stage-editor .cf-opus-main{width:100%!important;max-width:none!important;height:100dvh!important;max-height:100dvh!important;min-height:0!important;margin:0!important;padding:0 10px!important;overflow:hidden!important}
+body.cf-opus-stage-editor #cfEditor{display:flex!important;flex-direction:column!important;width:100%!important;height:100%!important;max-height:100%!important;min-height:0!important;margin:0!important;padding:0!important;overflow:hidden!important}
+body.cf-opus-stage-editor #cfEditor>.cf-opus-section-head{display:none!important}
+body.cf-opus-stage-editor .cf-opus-editor-slot{display:flex!important;flex:1 1 auto!important;flex-direction:column!important;gap:6px!important;width:100%!important;height:100%!important;max-height:100%!important;min-height:0!important;margin:0!important;padding:0!important;overflow:hidden!important}
+body.cf-opus-stage-editor .cf-editor-appnav{display:none!important}
+body.cf-opus-stage-editor .cf-editor-topbar{display:flex!important;flex:0 0 50px!important;align-items:center!important;gap:10px!important;width:100%!important;height:50px!important;min-height:50px!important;max-height:50px!important;margin:0!important;padding:4px 14px!important;border-radius:0 0 10px 10px!important;overflow:hidden!important}
+body.cf-opus-stage-editor .cf-editor-topbar .cf-editor-project{flex:1 1 auto!important;min-width:0!important;display:flex!important;align-items:center!important;gap:10px!important;white-space:nowrap!important}
+body.cf-opus-stage-editor .cf-editor-topbar .cf-editor-project strong{font-size:16px!important}
+body.cf-opus-stage-editor .cf-editor-topbar .cf-editor-project span,body.cf-opus-stage-editor .cf-editor-topbar .cf-editor-project i{font-size:10px!important}
+body.cf-opus-stage-editor .cf-editor-topbar .cf-editor-export-top,body.cf-opus-stage-editor .cf-editor-topbar .cf-editor-save-project{height:34px!important;min-height:34px!important;padding:5px 12px!important;font-size:11px!important}
+body.cf-opus-stage-editor .cf-editor-topbar .cf-opus-back{height:32px!important;min-height:32px!important;margin:0!important;padding:5px 10px!important;white-space:nowrap!important}
+body.cf-opus-stage-editor .candidate-card.cf-opus-editing-card{display:flex!important;flex:1 1 auto!important;flex-direction:column!important;align-items:stretch!important;gap:5px!important;width:100%!important;height:0!important;max-height:none!important;min-height:0!important;margin:0!important;padding:0!important;overflow:hidden!important;background:transparent!important;border:0!important;box-shadow:none!important}
+body.cf-opus-stage-editor .candidate-card.cf-opus-editing-card>strong{display:block!important;flex:0 0 23px!important;min-height:23px!important;height:23px!important;max-height:23px!important;padding:2px 8px!important;margin:0!important;overflow:hidden!important;white-space:nowrap!important;text-overflow:ellipsis!important;color:#fff!important;font-size:13px!important;line-height:19px!important}
+body.cf-opus-stage-editor .candidate-card.cf-opus-editing-card>.cf-opus-editor-layout{display:grid!important;flex:1 1 auto!important;grid-template-columns:164px minmax(185px,215px) minmax(300px,1fr) minmax(320px,350px)!important;gap:9px!important;align-items:stretch!important;width:100%!important;height:0!important;max-height:none!important;min-height:0!important;overflow:hidden!important}
+body.cf-opus-stage-editor .cf-opus-left-sidebar,body.cf-opus-stage-editor .cf-opus-clips-panel,body.cf-opus-stage-editor .cf-opus-preview-column,body.cf-opus-stage-editor .cf-opus-inspector{min-width:0!important;min-height:0!important;height:100%!important;max-height:100%!important;margin:0!important;overflow:hidden!important;border-radius:9px!important}
+body.cf-opus-stage-editor .cf-opus-left-sidebar{display:flex!important;flex-direction:column!important;gap:5px!important;padding:9px 8px!important}
+body.cf-opus-stage-editor .cf-opus-sidebar-title{font-size:9px!important;letter-spacing:.7px!important;padding:3px!important}
+body.cf-opus-stage-editor .cf-opus-project-source{padding:6px!important}
+body.cf-opus-stage-editor .cf-opus-project-source strong{font-size:10px!important}
+body.cf-opus-stage-editor .cf-opus-project-source small,body.cf-opus-stage-editor .cf-opus-project-status{font-size:9px!important;line-height:1.7!important}
+body.cf-opus-stage-editor .cf-editor-tool-rail{display:flex!important;flex-direction:column!important;flex-wrap:nowrap!important;gap:3px!important;margin-top:0!important}
+body.cf-opus-stage-editor .cf-editor-tool{display:flex!important;align-items:center!important;justify-content:flex-start!important;gap:7px!important;width:100%!important;min-height:34px!important;padding:5px 6px!important;font-size:10px!important}
+body.cf-opus-stage-editor .cf-editor-tool span{flex:0 0 19px!important;text-align:center!important;font-size:15px!important}
+body.cf-opus-stage-editor .cf-editor-tool small{font-size:9px!important;white-space:nowrap!important}
+body.cf-opus-stage-editor .cf-opus-clips-panel{display:flex!important;flex-direction:column!important;gap:7px!important;padding:9px!important}
+body.cf-opus-stage-editor .cf-opus-clips-head{flex:0 0 30px!important;padding:3px!important}
+body.cf-opus-stage-editor .cf-opus-clips-head strong{font-size:12px!important}
+body.cf-opus-stage-editor .cf-opus-live-clip-list{display:flex!important;flex:1 1 auto!important;flex-direction:column!important;gap:6px!important;min-height:0!important;max-height:none!important;overflow-y:auto!important;padding:0!important}
+body.cf-opus-stage-editor .cf-opus-live-clip-list .candidate-card{display:grid!important;grid-template-columns:68px minmax(0,1fr)!important;gap:7px!important;min-height:64px!important;padding:6px!important}
+body.cf-opus-stage-editor .cf-opus-live-clip-list .candidate-card video,body.cf-opus-stage-editor .cf-opus-live-clip-list .candidate-card img,body.cf-opus-stage-editor .cf-opus-live-clip-list .candidate-card canvas{display:block!important;width:68px!important;height:52px!important;min-height:52px!important;max-height:52px!important;object-fit:cover!important;background:#05060a!important;border-radius:6px!important}
+body.cf-opus-stage-editor .cf-opus-live-clip-list .candidate-card strong{font-size:10px!important;line-height:1.25!important;overflow-wrap:anywhere!important}
+body.cf-opus-stage-editor .cf-opus-live-clip-list .candidate-card .cf-inline-player-controls,body.cf-opus-stage-editor .cf-opus-live-clip-list .candidate-card .cf-inline-subtitles{display:none!important}
+body.cf-opus-stage-editor .cf-opus-add-clip{flex:0 0 34px!important;min-height:34px!important;margin-top:0!important}
+body.cf-opus-stage-editor .cf-opus-preview-column{display:flex!important;align-items:center!important;justify-content:center!important;padding:8px!important;overflow:hidden!important}
+body.cf-opus-stage-editor .cf-opus-preview-column>.cf-inline-player{display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;width:min(100%,320px)!important;max-width:320px!important;min-width:0!important;margin:auto!important}
+body.cf-opus-stage-editor .cf-opus-preview-column .candidate-filmstrip{display:block!important;width:100%!important;height:auto!important;max-width:100%!important;max-height:min(43vh,380px)!important;min-height:0!important;aspect-ratio:9/16!important;object-fit:contain!important;background:#05060a!important;border:1px solid #8e49ef!important;border-radius:5px!important}
+body.cf-opus-stage-editor .cf-opus-preview-column .cf-inline-player-controls{display:flex!important;flex:0 0 34px!important;align-items:center!important;justify-content:center!important;gap:7px!important;width:100%!important;margin:5px 0 0!important}
+body.cf-opus-stage-editor .cf-opus-preview-column .cf-inline-player-controls button{min-height:30px!important;padding:4px 10px!important}
+body.cf-opus-stage-editor .cf-opus-inspector{display:flex!important;flex-direction:column!important;padding:0!important;overflow:hidden!important}
+body.cf-opus-stage-editor .cf-opus-inspector-tabs{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;flex:0 0 38px!important;min-height:38px!important;max-height:38px!important;overflow:hidden!important}
+body.cf-opus-stage-editor .cf-opus-inspector-tabs button{min-width:0!important;height:38px!important;padding:5px 2px!important;font-size:9px!important;white-space:nowrap!important}
+body.cf-opus-stage-editor .cf-opus-inspector-panes{display:block!important;flex:1 1 auto!important;width:100%!important;height:0!important;max-height:none!important;min-height:0!important;overflow-y:auto!important;overflow-x:hidden!important;padding:9px!important;overscroll-behavior:contain!important}
+body.cf-opus-stage-editor .cf-opus-pane{min-height:0!important;max-height:none!important}
+body.cf-opus-stage-editor .cf-inline-subtitles{padding:8px!important;border:0!important;background:transparent!important}
+body.cf-opus-stage-editor .cf-inline-subtitles-head{font-size:12px!important;margin-bottom:7px!important}
+body.cf-opus-stage-editor .cf-subtitle-style-controls{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:6px!important;align-items:center!important;width:100%!important}
+body.cf-opus-stage-editor .cf-subtitle-style-controls>.cf-subtitle-preset{grid-column:1/-1!important}
+body.cf-opus-stage-editor .cf-subtitle-style-controls>.cf-caption-style-cards{display:grid!important;grid-column:1/-1!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:6px!important;width:100%!important;margin:5px 0 8px!important}
+body.cf-opus-stage-editor .cf-subtitle-style-controls>.cf-caption-swatches{display:flex!important;grid-column:1/-1!important;justify-content:space-between!important;gap:8px!important;width:100%!important;padding:5px 0!important}
+body.cf-opus-stage-editor .cf-subtitle-style-controls .cf-caption-style-card{display:flex!important;align-items:center!important;justify-content:center!important;min-width:0!important;width:100%!important;height:38px!important;min-height:38px!important;padding:0!important;border:1px solid #343247!important;border-radius:7px!important;background:#171821!important;color:#fff!important;font-family:Poppins,Arial,sans-serif!important;font-size:18px!important;font-weight:850!important;line-height:1!important;white-space:nowrap!important;overflow:hidden!important;overflow-wrap:normal!important}
+body.cf-opus-stage-editor .cf-subtitle-style-controls .cf-caption-style-card[title="neon-pink"]{color:#ff55c8!important}
+body.cf-opus-stage-editor .cf-subtitle-style-controls .cf-caption-style-card[title="neon-cyan"]{color:#52edff!important}
+body.cf-opus-stage-editor .cf-subtitle-style-controls .cf-caption-style-card[title="yellow-bold"]{color:#ffe14a!important}
+body.cf-opus-stage-editor .cf-subtitle-style-controls .cf-caption-style-card[title="green-pop"]{color:#73f6a5!important}
+body.cf-opus-stage-editor .cf-subtitle-style-controls .cf-caption-style-card[title="violet-glow"]{color:#d6a8ff!important}
+body.cf-opus-stage-editor .cf-subtitle-style-controls .cf-caption-style-card[title="blue-shadow"]{color:#8dc8ff!important}
+body.cf-opus-stage-editor .cf-subtitle-style-controls .cf-caption-style-card[title="creator"]{color:#ffe600!important}
+body.cf-opus-stage-editor .cf-subtitle-style-controls>.cf-subtitle-preset,body.cf-opus-stage-editor .cf-subtitle-style-controls>select,body.cf-opus-stage-editor .cf-subtitle-style-controls>input{width:100%!important;min-width:0!important;min-height:36px!important}
+body.cf-opus-stage-editor .cf-subtitle-style-controls input[type=range]{grid-column:1/-1!important;accent-color:#9148f5!important}
+body.cf-opus-stage-editor .cf-subtitle-style-controls input[type=color]{height:32px!important;min-height:32px!important;padding:3px!important}
+body.cf-opus-stage-editor .cf-subtitle-style-controls .cf-subtitle-bold{min-height:32px!important;height:32px!important}
+body.cf-opus-stage-editor .cf-caption-swatches button{flex:0 0 27px!important;width:27px!important;height:27px!important;min-width:27px!important;min-height:27px!important;border-radius:50%!important;padding:0!important}
+body.cf-opus-stage-editor .cf-subtitle-live-preview{display:flex!important;align-items:center!important;justify-content:center!important;min-height:54px!important;height:54px!important;max-height:54px!important;margin:7px 0!important;padding:6px!important;font-size:clamp(16px,2vw,25px)!important;line-height:1.15!important;overflow:hidden!important}
+body.cf-opus-stage-editor .cf-subtitle-compact-list{display:grid!important;gap:4px!important;max-height:clamp(90px,16vh,145px)!important;overflow-y:auto!important;margin:5px 0!important}
+body.cf-opus-stage-editor .cf-subtitle-row-button{display:flex!important;align-items:center!important;gap:7px!important;width:100%!important;min-height:32px!important;padding:6px 8px!important;text-align:left!important;background:#171b28!important;color:#fff!important;border:1px solid #343247!important;border-radius:6px!important;cursor:pointer!important}
+body.cf-opus-stage-editor .cf-subtitle-row-button span:first-child{flex:0 0 43px!important;font-size:9px!important;color:#bba2ef!important}
+body.cf-opus-stage-editor .cf-subtitle-row-button span:last-child{font-size:10px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+body.cf-opus-stage-editor .cf-subtitle-row-button.is-active{border-color:#a44cff!important;background:#281b3d!important}
+body.cf-opus-stage-editor .cf-subtitle-single-editor{display:grid!important;gap:6px!important;padding:8px!important;margin:6px 0!important;background:#171a27!important;border:1px solid #3a3550!important;border-radius:8px!important}
+body.cf-opus-stage-editor .cf-subtitle-single-editor[hidden]{display:none!important}
+body.cf-opus-stage-editor .cf-subtitle-single-editor input,body.cf-opus-stage-editor .cf-subtitle-single-editor textarea{width:100%!important;min-width:0!important;background:#0d101a!important;color:#fff!important;border:1px solid #39354b!important;border-radius:6px!important;padding:7px!important}
+body.cf-opus-stage-editor .cf-subtitle-single-editor textarea{min-height:56px!important}
+body.cf-opus-stage-editor .cf-clip-timeline{display:flex!important;flex:0 0 160px!important;flex-direction:column!important;width:100%!important;height:160px!important;max-height:160px!important;min-height:0!important;margin:0!important;padding:7px 10px!important;overflow:hidden!important;background:#101521!important;border-top:1px solid #292e40!important;border-radius:7px!important}
+body.cf-opus-stage-editor .cf-clip-zoom-wrap{display:grid!important;grid-template-columns:1fr 1fr!important;gap:3px 10px!important;flex:0 0 35px!important}
+body.cf-opus-stage-editor .cf-clip-overview-head,body.cf-opus-stage-editor .cf-clip-zoom-title{font-size:9px!important;line-height:12px!important}
+body.cf-opus-stage-editor .cf-clip-overview-rail,body.cf-opus-stage-editor .cf-clip-zoom-rail{height:11px!important;min-height:11px!important}
+body.cf-opus-stage-editor .cf-subtitle-timeline-wrap,body.cf-opus-stage-editor .cf-video-timeline-wrap,body.cf-opus-stage-editor .cf-audio-timeline-wrap{flex:0 0 29px!important;min-height:0!important;margin:3px 0!important;overflow:hidden!important}
+body.cf-opus-stage-editor .cf-subtitle-timeline-wrap>strong,body.cf-opus-stage-editor .cf-video-timeline-title,body.cf-opus-stage-editor .cf-audio-timeline-title{display:block!important;height:11px!important;font-size:8px!important;line-height:10px!important}
+body.cf-opus-stage-editor .cf-clip-subtitle-track{height:17px!important;min-height:17px!important;margin:1px 0!important}
+body.cf-opus-stage-editor .cf-subtitle-track-ruler{height:8px!important}
+body.cf-opus-stage-editor .cf-subtitle-track-rail{height:17px!important;min-height:17px!important}
+body.cf-opus-stage-editor .cf-clip-subtitle-block{display:block!important;min-width:13px!important;top:2px!important;bottom:2px!important;padding:0 2px!important;background:#7b4bc3!important;border:1px solid #c19aff!important;color:#fff!important;font-size:8px!important;line-height:11px!important;text-align:left!important;white-space:nowrap!important;overflow:hidden!important;cursor:pointer!important;pointer-events:auto!important;z-index:2!important}
+body.cf-opus-stage-editor .cf-video-track-rail{height:17px!important;min-height:17px!important}
+body.cf-opus-stage-editor .cf-video-track-thumb{height:17px!important;min-height:17px!important;max-height:17px!important;width:auto!important;flex:1 1 0!important;min-width:0!important;object-fit:cover!important}
+body.cf-opus-stage-editor .cf-audio-track-rail{height:17px!important;min-height:17px!important}
+body.cf-opus-stage-editor .cf-audio-wave-bar{max-height:15px!important}
+body.cf-opus-stage-editor .cf-opus-editor-actions{display:none!important}
+@media(max-height:820px){
+ body.cf-opus-stage-editor .cf-clip-timeline{flex-basis:145px!important;height:145px!important;max-height:145px!important}
+ body.cf-opus-stage-editor .cf-clip-zoom-wrap{flex-basis:31px!important}
+ body.cf-opus-stage-editor .cf-opus-preview-column .candidate-filmstrip{max-height:36vh!important}
+ body.cf-opus-stage-editor .cf-subtitle-compact-list{max-height:11vh!important}
+}
+@media(max-width:1199px){
+ body.cf-opus-stage-editor .cf-opus-editor-layout{grid-template-columns:132px minmax(0,1fr) 300px!important}
+ body.cf-opus-stage-editor .cf-opus-clips-panel{display:none!important}
+}
+@media(max-width:899px){
+ body.cf-opus-stage-editor .cf-opus-editor-layout{grid-template-columns:minmax(0,1fr)!important;overflow-y:auto!important}
+ body.cf-opus-stage-editor .cf-opus-left-sidebar{display:none!important}
+ body.cf-opus-stage-editor .cf-opus-clips-panel{display:flex!important;max-height:150px!important}
+ body.cf-opus-stage-editor .cf-opus-preview-column{min-height:260px!important}
+ body.cf-opus-stage-editor .cf-opus-inspector{min-height:300px!important}
+}
