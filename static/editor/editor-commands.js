@@ -16,17 +16,17 @@ export class EditorCommands {
     if(item.end<=item.start)throw new Error('La duración del elemento debe ser mayor que cero');
     this.store.commit('item:add',p=>p.tracks.find(t=>t.id===trackId).items.push(item));return item.id;
   }
-  importAudioFile(file,trackId,start=this.store.project.playhead) {
+  importAudioFile(file,trackId,start=this.store.project.playhead,duration=30) {
     if(!(file instanceof Blob)||!file.size)throw new Error('Selecciona un archivo de audio válido');
     let track=trackId?this.track(trackId):this.store.project.tracks.find(t=>t.type==='audio'&&!t.locked);
     if(!track)throw new Error('Crea una pista de audio antes de importar');
     if(track.type!=='audio'||track.locked)throw new Error('La pista seleccionada no admite audio o está bloqueada');
     const id=uid('media'),asset={id,name:String(file.name||'audio'),type:file.type||'audio/*',size:file.size,blob:file};
-    const duration=Number(file.duration)||0;
+    const safeDuration=Math.max(.1,Number(duration)||30);
     const itemId=uid('item'),at=Math.max(0,Number(start)||0);
     this.store.commit('media:import',p=>{
       p.media=[...(p.media||[]),asset];
-      p.tracks.find(t=>t.id===track.id).items.push({id:itemId,mediaId:id,name:asset.name,start:at,end:at+(duration>0?duration:30),sourceStart:0,gain:1});
+      p.tracks.find(t=>t.id===track.id).items.push({id:itemId,mediaId:id,name:asset.name,start:at,end:at+safeDuration,sourceStart:0,gain:1});
     });
     return itemId;
   }
@@ -59,7 +59,10 @@ export class EditorCommands {
   }
   trimItem(id,start,end) {
     const found=this.item(id);if(!found)throw new Error('Elemento no encontrado');
-    this.updateItem(id,{start:Math.max(0,Number(start)||0),end:Number(end)});
+    const nextStart=Math.max(0,Number(start)||0);
+    const patch={start:nextStart,end:Number(end)};
+    if(Number.isFinite(Number(found.item.sourceStart)))patch.sourceStart=Number(found.item.sourceStart)+(nextStart-Number(found.item.start));
+    this.updateItem(id,patch);
   }
   splitItem(id,at=this.store.project.playhead) {
     const found=this.item(id);if(!found)throw new Error('Elemento no encontrado');
