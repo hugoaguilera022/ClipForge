@@ -253,7 +253,7 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
         const fadeOut=transition.out==='fade'?Math.min(1,Math.max(0,(clipDuration-stamp)/duration)):1;
         const zoomIn=transition.in==='zoom'?1+Math.max(0,1-stamp/duration)*.12:1;
         const zoomOut=transition.out==='zoom'?1+Math.max(0,1-(clipDuration-stamp)/duration)*.12:1;
-        ctx.save();ctx.filter=filterParts.join(' ')||'none';ctx.globalAlpha=Math.min(fadeIn,fadeOut);
+        ctx.save();ctx.filter=filterParts.join(' ')||'none';ctx.globalAlpha=Math.min(fadeIn,fadeOut,Math.max(0,Math.min(1,Number(clip.opacity??100)/100)));
         const zoom=Math.max(zoomIn,zoomOut);ctx.translate(540,960);ctx.scale(zoom,zoom);ctx.translate(-540,-960);
         if(sourceCanvas){
           sourceCtx.clearRect(0,0,sourceCanvas.width,sourceCanvas.height);
