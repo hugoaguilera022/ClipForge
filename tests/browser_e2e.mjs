@@ -194,6 +194,7 @@ try {
   const trackRows=page.locator('#cfMultiTrackTimeline .cf-mt-track-row');
   if(await trackRows.count()<7)throw new Error('The editor did not create all canonical video/audio/subtitle/text/effects tracks.');
   await page.locator('#cfMultiTrackTimeline [data-act="add-audio"]').click();
+  await page.waitForFunction(()=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-track-row').length>=8);
   if(await trackRows.count()<8)throw new Error('The Add audio track action did not add a new lane.');
   await page.locator('#cfMultiTrackTimeline .cf-mt-import input').setInputFiles('test-output/music.wav');
   await page.waitForFunction(()=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-audio').length>=5,undefined,{timeout:20000});
