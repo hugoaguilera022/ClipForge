@@ -24,7 +24,7 @@ def test_browser_whisper_uses_word_and_phrase_timestamp_modes():
     assert 'Whisper Small ha fallado. Cambiando automáticamente a Whisper Base' in js
     assert 'if (!asr || asrModelId !== modelId)' in js
     html = (ROOT / 'static/index.html').read_text()
-    assert 'value="whisper-large-v3-turbo" selected' in html
+    assert 'value="whisper-base" selected' in html
     assert 'value="whisper-small" selected' not in html
     assert 'src="/browser-whisper-inline-v3.js?v=' in html
     assert 'whisper-small' in html and 'vuelve automáticamente a Base' in html
