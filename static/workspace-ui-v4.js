@@ -221,21 +221,23 @@
     // Apply the core editor geometry inline: it must not depend on a stale
     // cached stylesheet or on the browser resolving a cascade of old rules.
     const syncEditorGeometry=()=>{
-      const width=window.innerWidth;
+      const width=window.innerWidth;const height=window.visualViewport?.height||window.innerHeight;
       card.style.setProperty('display','flex','important');
       card.style.setProperty('flex-direction','column','important');
       card.style.setProperty('align-items','stretch','important');
       card.style.setProperty('width','100%','important');
       card.style.setProperty('min-width','0','important');
       layout.style.setProperty('display','grid','important');
-      layout.style.setProperty('grid-template-columns',width>=1380?'58px minmax(190px,220px) minmax(360px,1fr) minmax(300px,340px)':width>=1180?'54px minmax(170px,190px) minmax(320px,1fr) minmax(280px,310px)':width>=900?'48px minmax(145px,170px) minmax(300px,1fr) minmax(260px,290px)':'minmax(0,1fr)','important');
-      layout.style.setProperty('align-items','stretch','important');layout.style.setProperty('height','calc(100dvh - 370px)','important');layout.style.setProperty('max-height','calc(100dvh - 370px)','important');layout.style.setProperty('overflow','hidden','important');
+      layout.style.setProperty('grid-template-columns',width>=1400?'164px minmax(190px,220px) minmax(300px,1fr) minmax(330px,360px)':width>=1200?'150px minmax(165px,195px) minmax(270px,1fr) minmax(300px,330px)':width>=900?'132px minmax(245px,1fr) minmax(270px,310px)':'minmax(0,1fr)','important');
+      const timelineHeight=Math.max(138,Math.min(172,Math.round(height*.18)));
+      card.style.setProperty('flex','1 1 auto','important');card.style.setProperty('height','100%','important');card.style.setProperty('max-height','100%','important');card.style.setProperty('min-height','0','important');
+      layout.style.setProperty('align-items','stretch','important');layout.style.setProperty('flex','1 1 auto','important');layout.style.setProperty('height','0','important');layout.style.setProperty('min-height','0','important');layout.style.setProperty('max-height','none','important');layout.style.setProperty('overflow','hidden','important');
       layout.style.setProperty('gap',width<=650?'12px':'16px','important');
       layout.style.setProperty('width','100%','important');
       layout.style.setProperty('min-width','0','important');
       sidebar.style.setProperty('display','flex','important');
       sidebar.style.setProperty('flex-direction','column','important');
-      sidebar.style.setProperty('gap','12px','important');
+      sidebar.style.setProperty('gap','8px','important');
       sidebar.style.setProperty('min-width','0','important');
       clipPanel.style.setProperty('display','flex','important');
       clipPanel.style.setProperty('flex-direction','column','important');
@@ -249,9 +251,8 @@
       preview.style.setProperty('align-items','center','important');
       preview.style.setProperty('justify-content','center','important');
       preview.style.setProperty('min-width','0','important');
-      preview.style.setProperty('min-height','0','important');preview.style.setProperty('height','100%','important');preview.style.setProperty('max-height','100%','important');
-      preview.style.setProperty('height','auto','important');
-      preview.style.setProperty('padding','18px','important');
+      preview.style.setProperty('min-height','0','important');preview.style.setProperty('height','100%','important');preview.style.setProperty('max-height','100%','important');preview.style.setProperty('overflow','hidden','important');
+      preview.style.setProperty('padding','8px','important');
       const playerEl=preview.querySelector('.cf-inline-player');
       if(playerEl){
         playerEl.style.setProperty('display','flex','important');
@@ -263,19 +264,19 @@
         playerEl.style.setProperty('min-width','0','important');
         playerEl.style.setProperty('margin','0','important');
         const video=playerEl.querySelector('video');
-        if(video){video.style.setProperty('display','block','important');video.style.setProperty('width','100%','important');video.style.setProperty('max-width','100%','important');video.style.setProperty('height','auto','important');video.style.setProperty('max-height','min(38vh,340px)','important');video.style.setProperty('min-height','0','important');video.style.setProperty('aspect-ratio','9 / 16','important');video.style.setProperty('object-fit','contain','important');video.style.setProperty('box-sizing','border-box','important');}
+        if(video){video.style.setProperty('display','block','important');video.style.setProperty('width','100%','important');video.style.setProperty('max-width','100%','important');video.style.setProperty('height','auto','important');video.style.setProperty('max-height','min(40vh,360px)','important');video.style.setProperty('min-height','0','important');video.style.setProperty('aspect-ratio','9 / 16','important');video.style.setProperty('object-fit','contain','important');video.style.setProperty('box-sizing','border-box','important');}
       }
       inspector.style.setProperty('width','100%','important');
       inspector.style.setProperty('min-width','0','important');
       inspector.style.setProperty('align-self','stretch','important');inspector.style.setProperty('max-height','100%','important');inspector.style.setProperty('overflow','hidden','important');
-      if(timeline){timeline.style.setProperty('width','100%','important');timeline.style.setProperty('height','170px','important');timeline.style.setProperty('max-height','170px','important');timeline.style.setProperty('overflow','hidden','important');timeline.style.setProperty('max-width','100%','important');timeline.style.setProperty('min-width','0','important');timeline.style.setProperty('box-sizing','border-box','important');}
+      if(timeline){timeline.style.setProperty('width','100%','important');timeline.style.setProperty('height',timelineHeight+'px','important');timeline.style.setProperty('flex','0 0 '+timelineHeight+'px','important');timeline.style.setProperty('min-height','0','important');timeline.style.setProperty('max-height',timelineHeight+'px','important');timeline.style.setProperty('overflow','hidden','important');timeline.style.setProperty('max-width','100%','important');timeline.style.setProperty('min-width','0','important');timeline.style.setProperty('box-sizing','border-box','important');}
     };
     card.classList.add('cf-opus-editing-card');
     if(heading)card.append(heading);
     card.append(layout);
     if(timeline)card.append(timeline);
     syncEditorGeometry();
-    window.addEventListener('resize',syncEditorGeometry,{passive:true});
+    window.addEventListener('resize',syncEditorGeometry,{passive:true});window.visualViewport?.addEventListener('resize',syncEditorGeometry,{passive:true});requestAnimationFrame(syncEditorGeometry);
     const actions=document.createElement('div');actions.className='cf-opus-editor-actions';
     if(exportOne){exportOne.textContent='Exportar este clip MP4';actions.append(exportOne);}
     if(select)actions.append(select);
@@ -300,7 +301,7 @@
     if(candidateList&&!candidateList.querySelector('.cf-opus-active-clip-item')){
       const activePreview=card.cloneNode(true);activePreview.classList.add('cf-opus-active-clip-item');activePreview.dataset.activePreview='true';
       activePreview.querySelectorAll('button,input,textarea,select').forEach(el=>el.remove());
-      const activeVideo=activePreview.querySelector('video');if(activeVideo){activeVideo.muted=true;activeVideo.controls=false;activeVideo.pause();}
+      const activeVideo=activePreview.querySelector('video'),sourceVideo=card.querySelector('video');if(activeVideo){activeVideo.muted=true;activeVideo.controls=false;activeVideo.pause();if(sourceVideo?.poster)activeVideo.poster=sourceVideo.poster;sourceVideo?.addEventListener('cfposterready',()=>{if(sourceVideo.poster)activeVideo.poster=sourceVideo.poster;},{once:true});}
       candidateList.prepend(activePreview);
     }
     activeCard=card;activeIndex=Number(e.detail?.index)||0;
@@ -308,13 +309,13 @@
     const backHolder=editorScreen.querySelector('.cf-opus-section-head');
     const oldBack=backHolder.querySelector('.cf-opus-back');oldBack?.remove();
     const topBack=document.createElement('button');topBack.type='button';topBack.className='cf-opus-back';topBack.textContent='← Todos los clips';topBack.addEventListener('click',()=>{const list=$('#browserCandidateList');restoreCard(card);const nodes=[...list.children];const next=nodes[Math.min(activeIndex,nodes.length)]||null;list.insertBefore(card,next);activeCard=null;setStage('results');});
-    backHolder.prepend(topBack);
     editorSlot.replaceChildren();
     const appNav=document.createElement('div');appNav.className='cf-editor-appnav';appNav.innerHTML='<a class="cf-editor-logo" href="#cfCreate"><span>▶</span> ClipForge <b>PRO</b></a><nav><a href="#cfCreate">Inicio</a><a href="#cfCreate">Nuevo proyecto</a><a class="active" href="#cfEditor">Editor</a><a href="#cfResults">Proyectos</a></nav><div class="cf-editor-account"><span>PROYECTO EN CURSO</span><b>9:16</b></div>';
     const editorBar=document.createElement('div');editorBar.className='cf-editor-topbar';editorBar.innerHTML='<div class="cf-editor-project"><strong>ClipForge</strong><span>Proyecto editable</span><i>Cambios en esta sesión</i></div><div class="cf-editor-format"><span>Formato</span><b>9:16</b></div><button type="button" class="cf-editor-export-top">Exportar MP4 ↗</button>';editorBar.querySelector('.cf-editor-export-top').addEventListener('click',()=>card.querySelector('.candidate-export-one')?.click());const saveProjectAction=document.createElement('button');saveProjectAction.type='button';saveProjectAction.className='secondary cf-editor-save-project';saveProjectAction.textContent='Guardar proyecto';saveProjectAction.addEventListener('click',()=>saveTranscript?.click());saveProjectAction.style.setProperty('width',window.innerWidth<=650?'100%':'auto','important');saveProjectAction.style.setProperty('flex','0 0 auto','important');saveProjectAction.style.setProperty('white-space','nowrap','important');saveProjectAction.style.setProperty('max-width','100%','important');editorBar.insertBefore(saveProjectAction,editorBar.querySelector('.cf-editor-export-top'));
-    editorSlot.append(appNav,editorBar,card);
-    addInspector(card,e.detail?.clip||{start:0,end:1});
+    editorBar.prepend(topBack);
+    editorSlot.append(editorBar,card);
     setStage('editor');
+    addInspector(card,e.detail?.clip||{start:0,end:1});
   });
   if(candidates?.querySelector('.candidate-card'))reveal();
   $('#browserExportClips')?.addEventListener('click',()=>{const p=$('#cfProductionStatus');if(p)p.textContent='Preparando la exportación de tus clips…';});
