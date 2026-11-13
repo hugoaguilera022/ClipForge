@@ -17,7 +17,7 @@ function extract(name){
 }
 const store=new Map();
 const fields={
-  '#colabEditorUrl':{value:'https://clipforge-test.trycloudflare.com'},
+  '#colabEditorUrl':{value:'https://clipforge-test.trycloudflare.com/'},
   '#colabEditorToken':{value:'secret-token'},
   '#colabEditorStatus':{textContent:''},
   '#connectColabEditor':{disabled:false,textContent:'Comprobar y conectar',addEventListener:()=>{}}
