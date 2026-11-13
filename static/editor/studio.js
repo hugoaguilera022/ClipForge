@@ -172,8 +172,21 @@ function syncPreviewVideo(video,overlay){
   if(trans.in==="fade")opacity=Math.min(opacity,Math.max(0,local/dur));if(trans.out==="fade")opacity=Math.min(opacity,Math.max(0,(Number(item?.end)-t)/dur));
   if(trans.in==="zoom")scale=1+Math.max(0,1-local/dur)*.12;if(trans.out==="zoom")scale=Math.max(scale,1+Math.max(0,1-(Number(item?.end)-t)/dur)*.12);
   video.style.opacity=String(Math.max(0,Math.min(1,opacity*Number(item.opacity??100)/100)));video.style.transform="scale("+scale+")";
-  const {sub,txt}=previewLayerAt(t,t);
+  const {sub,txt,images}=previewLayerAt(t,t);
   overlay.replaceChildren();
+  for(const layer of images||[]){
+   let img=previewImages.get(layer.id);
+   if(!img){
+    img=document.createElement("img");img.className="cf-studio-image-preview";img.alt="Capa de imagen";img.draggable=false;
+    previewImages.set(layer.id,img);
+    getAssetUrl(layer.assetId).then(url=>{img.src=url;}).catch(error=>setStatus("No se pudo cargar la imagen: "+error.message));
+   }
+   const width=Math.max(5,Math.min(95,Number(layer.widthPct)||30));
+   img.style.width=width+"%";img.style.left=(Number(layer.x??50))+"%";img.style.top=(Number(layer.y??50))+"%";
+   img.style.opacity=String(Math.max(0,Math.min(1,Number(layer.opacity??100)/100)));
+   img.style.transform="translate(-50%,-50%) rotate("+Number(layer.rotation||0)+"deg)";
+   overlay.append(img);
+  }
   if(sub){
    const cap=document.createElement("div");cap.className="cf-studio-caption-preview";
    const style=sub.style||{};
