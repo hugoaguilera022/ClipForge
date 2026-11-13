@@ -712,7 +712,7 @@ class BrowserModelPreferenceTests(unittest.TestCase):
  def test_word_timed_base_model_is_default_with_small_option(self):
   html=(ROOT/"static"/"index.html").read_text()
   model=html.split('id="browserWhisperModel"',1)[1].split('</select>',1)[0]
-  self.assertIn('value="whisper-large-v3-turbo" selected',model)
+  self.assertIn('value="whisper-base" selected',model)
   self.assertIn('value="whisper-small"',model)
   self.assertIn('value="whisper-base"',model)
   module=(ROOT/"static"/"browser-whisper-inline-v3.js").read_text()
@@ -765,7 +765,7 @@ class BrowserWhisperDefaultTests(unittest.TestCase):
  def test_default_browser_model_prioritizes_word_timed_captions(self):
   html=(ROOT/'static'/'index.html').read_text()
   model=html.split('id="browserWhisperModel"',1)[1].split('</select>',1)[0]
-  self.assertIn('<option value="whisper-large-v3-turbo" selected>',model)
+  self.assertIn('<option value="whisper-base" selected>',model)
   self.assertIn('<option value="whisper-small">',model)
   self.assertIn('<option value="whisper-base">',model)
  def test_browser_language_defaults_to_automatic_spanish_or_english_detection(self):
