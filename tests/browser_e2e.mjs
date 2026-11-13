@@ -74,6 +74,9 @@ try {
   const videoClips=page.locator('#cfMultiTrackTimeline .cf-mt-clip.type-video');
   const initialVideoClipCount=await videoClips.count();
   if(initialVideoClipCount<1)throw new Error('No video clip is visible on the editing timeline.');
+  // The synthetic clips are sub-second long; zoom in so their minimum visual
+  // widths do not overlap and intercept each other's pointer targets.
+  await page.locator('#cfMultiTrackTimeline .cf-mt-zoom input').evaluate(el=>{el.value='24';el.dispatchEvent(new Event('input',{bubbles:true}));});
   await videoClips.first().click();
   await page.keyboard.press('Control+d');
   await page.waitForFunction(n=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-video').length===n+1,initialVideoClipCount);
