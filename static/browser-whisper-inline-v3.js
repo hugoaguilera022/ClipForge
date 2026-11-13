@@ -2108,7 +2108,14 @@ document.querySelector('#browserProjectImport')?.addEventListener('change', asyn
     if(project?.schema!=='clipforge-browser-project-v1' || !Array.isArray(project.clips)) throw new Error('Formato de proyecto no reconocido.');
     if(project.clips.length<1 || project.clips.length>10) throw new Error('El proyecto contiene demasiados clips.');
     if(project.clips.some(c=>!Number.isFinite(Number(c.start)) || !Number.isFinite(Number(c.end)) || Number(c.start)<0 || Number(c.end)<=Number(c.start))) throw new Error('Hay tiempos de clip inválidos.');
-    editableCandidates=project.clips.map((c,i)=>({...c,id:String(c.id||`clip-${i+1}`)}));
+    editableCandidates=project.clips.map((c,i)=>({
+      ...c,
+      id:String(c.id||`clip-${i+1}`),
+      start:Number(c.start),
+      end:Number(c.end),
+      duration:Number(c.end)-Number(c.start),
+      sourceStart:Number(c.sourceStart??c.start)
+    }));
     transcriptData=project.transcript || null;
     const sourceFile=document.querySelector('#video')?.files?.[0];
     importedProjectPendingSource=Boolean(transcriptData?.segments?.length && !sourceFile);
