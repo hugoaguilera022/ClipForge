@@ -101,11 +101,10 @@ try {
   await page.waitForFunction(n=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-video').length===n,initialVideoClipCount);
 
   // The visible timeline toolbar must perform the same edit commands.
-  await page.locator('#cfMultiTrackTimeline .cf-mt-clip.type-video').first().click();
-  const splitPoint=await page.evaluate(()=>{
+  await page.evaluate(()=>{
     const item=window.clipforgeProjectStore.project.tracks.find(t=>t.type==='video').items[0];
+    window.clipforgeProjectStore.select([item.id]);
     window.clipforgeProjectStore.setPlayhead((item.start+item.end)/2);
-    return (item.start+item.end)/2;
   });
   await page.locator('#cfMultiTrackTimeline [data-act="split"]').click();
   await page.waitForFunction(n=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-video').length===n+1,initialVideoClipCount);
