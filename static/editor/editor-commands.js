@@ -51,10 +51,14 @@ export class EditorCommands {
     const target=this.track(trackId||found.track.id);if(!target)throw new Error('Pista de destino no encontrada');
     if(found.track.locked||target.locked)throw new Error('Desbloquea la pista para mover elementos');
     const next=Math.max(0,Number(start)||0),duration=found.item.end-found.item.start;
+    if(target.type!==found.track.type)throw new Error('Mueve los elementos a una pista del mismo tipo.');
     this.store.commit('item:move',p=>{
       const from=p.tracks.find(t=>t.id===found.track.id),to=p.tracks.find(t=>t.id===target.id);
       const index=from.items.findIndex(x=>x.id===id),[item]=from.items.splice(index,1);
-      item.start=next;item.end=next+duration;to.items.push(item);
+      const delta=next-Number(item.start||0);
+      item.start=next;item.end=next+duration;
+      if(Number.isFinite(Number(item.sourceStart)))item.sourceStart=Math.max(0,Number(item.sourceStart)+delta);
+      to.items.push(item);
     });
   }
   trimItem(id,start,end) {
