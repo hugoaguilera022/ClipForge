@@ -155,9 +155,13 @@ try {
   const multiSelection=await page.evaluate(()=>window.clipforgeProjectStore.project.selection.length);
   if(multiSelection!==2)throw new Error('Shift-click did not select two timeline clips.');
   await page.locator('#cfMultiTrackTimeline [data-act="copy"]').click();
+  const clipboardCount=await page.evaluate(()=>window.clipforgeEditorCommands.clipboard.length);
+  if(clipboardCount!==2)throw new Error('Copy button stored '+clipboardCount+' items instead of two.');
   await page.evaluate(()=>window.clipforgeProjectStore.setPlayhead(10));
   await page.locator('#cfMultiTrackTimeline [data-act="paste"]').click();
-  await page.waitForFunction(n=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-video').length===n+2,initialVideoClipCount);
+  await page.waitForTimeout(250);
+  const pasteDebug=await page.evaluate(()=>({clipboard:window.clipforgeEditorCommands.clipboard.length,playhead:window.clipforgeProjectStore.project.playhead,duration:window.clipforgeProjectStore.project.duration,videoCount:window.clipforgeProjectStore.project.tracks.find(t=>t.type==='video').items.length,videoTrackLocked:window.clipforgeProjectStore.project.tracks.find(t=>t.type==='video').locked,status:document.querySelector('#cfMultiTrackTimeline .cf-mt-project-state')?.textContent}));
+  if(pasteDebug.videoCount!==initialVideoClipCount+2)throw new Error('Paste button did not create both copied video items: '+JSON.stringify(pasteDebug));
   await page.locator('#cfMultiTrackTimeline [data-act="delete"]').click();
   await page.waitForFunction(n=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-video').length===n+1,initialVideoClipCount);
   // Roll back the five temporary video edits so the export assertion remains four clips.
