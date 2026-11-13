@@ -120,6 +120,20 @@ try {
     throw new Error('Studio edits did not persist in the canonical project state: '+JSON.stringify(studioState));
   }
 
+  // Close and reopen the same source: edits and imported audio must survive a reload of the editor view.
+  await page.locator('.cf-studio-topbar [data-action="back"]').click();
+  await page.locator('.cf-studio-shell').waitFor({state:'hidden',timeout:10000});
+  await page.locator('.candidate-card .cf-open-clip-editor').first().click();
+  await page.locator('.cf-studio-shell').waitFor({state:'visible',timeout:10000});
+  await page.waitForFunction(()=>{
+    const p=window.ClipForgeStudio?.getProject?.();
+    const v=p?.tracks?.find(t=>t.type==='video')?.items?.[0];
+    const a=p?.tracks?.filter(t=>t.type==='audio').flatMap(t=>t.items||[]);
+    const text=p?.tracks?.find(t=>t.type==='text')?.items?.[0]?.text;
+    const sub=p?.tracks?.find(t=>t.type==='subtitles')?.items?.[0]?.style;
+    return v?.visualEffects?.preset==='cinematic'&&v.opacity===85&&a?.some(i=>i.assetId)&&text==='PRUEBA CLIPFORGE'&&sub?.wordMode==='highlight';
+  },undefined,{timeout:15000});
+
   // Attach rejection handling immediately: an unhandled Playwright timeout can terminate Node while the render is still running.
   const downloadPromise = page.waitForEvent('download', { timeout: 300000 }).then(download => ({download}), error => ({error}));
   await page.locator('.cf-studio-topbar [data-action="export"]').click();
