@@ -120,7 +120,8 @@ try {
     return {id:item.id,start:item.start,end:item.end,sourceStart:item.sourceStart};
   });
   const movingClip=page.locator('#cfMultiTrackTimeline .cf-mt-clip[data-item-id="'+beforeMove.id+'"]');
-  await movingClip.waitFor({state:'visible'});
+  await movingClip.waitFor({state:'attached'});
+  await movingClip.scrollIntoViewIfNeeded();
   const moveBox=await movingClip.boundingBox();
   if(!moveBox)throw new Error('The clip to drag is not visible on the timeline.');
   await page.mouse.move(moveBox.x+moveBox.width/2,moveBox.y+moveBox.height/2);
