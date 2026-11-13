@@ -37,6 +37,44 @@ jobs:
       - name: Run editor store and command regression tests
         run: node tests/editor_store_test.mjs
 
+
+  editor-browser-e2e:
+    name: Browser multipista import, edit and four-clip MP4 export
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+      - name: Create local E2E media
+        run: |
+          set -euo pipefail
+          mkdir -p test-output
+          ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc2=size=640x360:rate=30 -f lavfi -i sine=frequency=440:duration=8 -t 8 -c:v libvpx -deadline realtime -cpu-used 8 -pix_fmt yuv420p -c:a aac -b:a 96k -f matroska test-output/e2e-source.mkv
+          ffmpeg -hide_banner -loglevel error -f lavfi -i sine=frequency=880:duration=3 -c:a pcm_s16le test-output/music.wav
+      - name: Install Chromium
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+      - name: Run browser multipista and four-clip export test
+        run: |
+          set -euo pipefail
+          python -m http.server 8765 --directory static > /tmp/clipforge-static.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8765/ >/dev/null; then break; fi
+            sleep 1
+          done
+          node tests/browser_e2e.mjs
+
   quality:
     name: Python, JavaScript and media smoke tests
     runs-on: ubuntu-24.04
