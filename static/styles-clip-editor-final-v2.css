@@ -2131,3 +2131,20 @@ body.cf-opus-stage-editor .cf-opus-inspector .cf-subtitle-live-preview{display:f
  min-height:0!important;max-height:4.5rem!important;overflow:auto!important;
  margin:10px 0 14px!important;pointer-events:none!important;
 }
+
+
+@media(max-height:820px){
+ .cf-mt-panel{margin:6px 0 8px;padding:8px 10px}
+ .cf-mt-head{margin-bottom:4px;gap:8px}
+ .cf-mt-head strong{font-size:13px}
+ .cf-mt-help{font-size:9px;margin:2px 0 5px}
+ .cf-mt-scroll{max-height:174px;min-height:95px}
+ .cf-mt-ruler-row,.cf-mt-track-row{min-height:30px}
+ .cf-mt-ruler{height:22px}
+ .cf-mt-tick{height:22px}
+ .cf-mt-lane{height:30px}
+ .cf-mt-clip{top:4px;height:22px}
+ .cf-mt-foot{margin-top:4px}
+ .cf-mt-actions{gap:4px}
+ .cf-mt-actions button,.cf-mt-import{min-height:27px;padding:4px 7px}
+}
