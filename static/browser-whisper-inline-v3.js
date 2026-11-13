@@ -1574,12 +1574,12 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
       const left=Math.max(0,(Number(seg.start)-Number(c.start))/clipSpan*100),width=Math.max(1.2,(Number(seg.end)-Number(seg.start))/clipSpan*100);
       block.style.left=left+'%';block.style.width=Math.min(width,100-left)+'%';
       block.textContent=String(seg.text||'').slice(0,24);block.title=Number(seg.start).toFixed(2)+'–'+Number(seg.end).toFixed(2)+' s · '+String(seg.text||'');
-      block.addEventListener('click',()=>{film.pause();film.currentTime=Math.max(Number(c.start),Math.min(Number(c.end)-.01,Number(seg.start)));const row=subtitleRows.children[index];row?.scrollIntoView({behavior:'smooth',block:'nearest'});row?.classList.add('is-active');setTimeout(()=>row?.classList.remove('is-active'),900);});
+      block.addEventListener('click',()=>{film.pause();film.currentTime=Math.max(Number(c.start),Math.min(Number(c.end)-.01,Number(seg.start)));const row=subtitleRows.children[index];row?.scrollIntoView({behavior:'smooth',block:'nearest'});row?.click();});
       subtitleTrackRail.append(block);
     });
     subtitleTrackRail.append(subtitlePlayhead);
   };
-  subtitleTrack.addEventListener('click',event=>{if(event.target.closest('.cf-clip-subtitle-block'))return;const rect=subtitleTrackRail.getBoundingClientRect();const pct=Math.max(0,Math.min(1,(event.clientX-rect.left)/Math.max(1,rect.width)));film.currentTime=Math.max(Number(c.start),Math.min(Number(c.end)-.01,Number(c.start)+pct*(Number(c.end)-Number(c.start))));});
+  subtitleTrack.addEventListener('click',event=>{if(event.target.closest('.cf-clip-subtitle-block'))return;const rect=subtitleTrackRail.getBoundingClientRect();const pct=Math.max(0,Math.min(1,(event.clientX-rect.left)/Math.max(1,rect.width)));film.currentTime=Math.max(Number(c.start),Math.min(Number(c.end)-.01,Number(c.start)+pct*(Number(c.end)-Number(c.start))));film.play().catch(()=>{});});
   subtitleTrack.append(subtitleTrackRuler,subtitleTrackRail);
   subtitleTrackWrap.append(subtitleTrackTitle,subtitleTrack);timeline.append(subtitleTrackWrap);
   paintSubtitleTrack();
@@ -1603,7 +1603,7 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
         await new Promise(resolve=>{if(Math.abs(film.currentTime-t)<.08)return resolve();const done=()=>{film.removeEventListener('seeked',done);resolve();};film.addEventListener('seeked',done,{once:true});setTimeout(done,900);});
         ctx?.drawImage(film,0,0,canvas.width,canvas.height);
         const thumb=document.createElement('img');thumb.className='cf-video-track-thumb';thumb.alt='';thumb.src=canvas.toDataURL('image/jpeg',.65);thumb.dataset.time=String(t);
-        thumb.addEventListener('click',()=>{film.currentTime=t;});videoTrackRail.append(thumb);
+        thumb.addEventListener('click',()=>{film.currentTime=t;film.play().catch(()=>{});});videoTrackRail.append(thumb);
       }catch{const fallback=document.createElement('span');fallback.className='cf-video-track-thumb-fallback';fallback.textContent='▶';videoTrackRail.append(fallback);}
     }
     film.currentTime=oldTime;
@@ -1613,7 +1613,7 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
   };
   film.addEventListener('loadedmetadata',buildVideoThumbnails,{once:true});
   if(film.readyState>=1)buildVideoThumbnails();
-  videoTrackRail.addEventListener('click',event=>{if(event.target.closest('.cf-video-track-thumb'))return;const rect=videoTrackRail.getBoundingClientRect();const pct=Math.max(0,Math.min(1,(event.clientX-rect.left)/Math.max(1,rect.width)));film.currentTime=Number(c.start)+pct*(Number(c.end)-Number(c.start));});
+  videoTrackRail.addEventListener('click',event=>{if(event.target.closest('.cf-video-track-thumb'))return;const rect=videoTrackRail.getBoundingClientRect();const pct=Math.max(0,Math.min(1,(event.clientX-rect.left)/Math.max(1,rect.width)));film.currentTime=Number(c.start)+pct*(Number(c.end)-Number(c.start));film.play().catch(()=>{});});
   videoTrackWrap.append(videoTrackTitle,videoTrackRail);timeline.append(videoTrackWrap);
   // Audio waveform lane, decoded locally from the uploaded source file.
   const audioTrackWrap=document.createElement('section');audioTrackWrap.className='cf-audio-timeline-wrap';
