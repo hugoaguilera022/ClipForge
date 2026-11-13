@@ -63,6 +63,12 @@ export class EditorStore extends EventTarget {
     this.redoStack.length=0;
     mutator(this.project);
     this.project.tracks=(this.project.tracks||[]).map(normalizeTrack);
+    const videoTrack=this.project.tracks.find(t=>t.type==='video');
+    if(videoTrack)this.project.clips=videoTrack.items.map(item=>({...item,start:item.start,end:item.end,selected:true}));
+    const subtitleTrack=this.project.tracks.find(t=>t.type==='subtitles');
+    if(subtitleTrack&&this.project.transcript){
+      this.project.transcript={...this.project.transcript,segments:subtitleTrack.items.map(item=>({start:item.start,end:item.end,text:String(item.text||''),words:Array.isArray(item.words)?item.words:[]}))};
+    }
     this.project.duration=Math.max(0,...this.project.tracks.flatMap(t=>t.items.map(i=>i.end)));
     this.emit(reason);
     return this.snapshot();
