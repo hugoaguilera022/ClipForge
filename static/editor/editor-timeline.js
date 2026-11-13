@@ -93,21 +93,26 @@ import { uid } from './editor-store.js';
         </div>
       </div>
       <div class="cf-mt-foot"><span class="cf-mt-playhead-readout">00:00</span><span>Las pistas se guardan en este navegador.</span><span class="cf-mt-selection">Sin selección</span><label class="cf-mt-volume" hidden>Volumen <input type="range" min="0" max="200" value="100"><b>100%</b></label></div>`;
-    // The inspector/preview card must stay above the timeline in the editor
-    // flex column. Inserting the timeline before the card lets it intercept clicks.
+    // Keep the multipista timeline inside the editor card, after the workspace
+    // and before its action bar. As a sibling of the card it could overlap the
+    // inspector when the viewport is short and steal pointer events.
     const editingCard=editorSlot.querySelector('.cf-opus-editing-card')||editorSlot.querySelector('.candidate-card');
     if(editingCard){
-      // Keep the complete editor card in a higher stacking context than the
-      // timeline. A z-index on the nested inspector alone cannot win against
-      // a later sibling when the card itself has no stacking context.
       editingCard.style.setProperty('position','relative','important');
       editingCard.style.setProperty('z-index','20','important');
       editingCard.style.setProperty('isolation','isolate','important');
-      editingCard.after(panel);
+      const actionBar=editingCard.querySelector('.cf-opus-editor-actions');
+      if(actionBar)editingCard.insertBefore(panel,actionBar);
+      else editingCard.append(panel);
     }else editorSlot.append(panel);
     panel.style.setProperty('position','relative','important');
-    panel.style.setProperty('z-index','1','important');
-    panel.style.setProperty('flex','0 0 auto','important');
+    panel.style.setProperty('z-index','0','important');
+    panel.style.setProperty('flex','0 0 220px','important');
+    panel.style.setProperty('height','220px','important');
+    panel.style.setProperty('min-height','220px','important');
+    panel.style.setProperty('max-height','220px','important');
+    panel.style.setProperty('overflow','hidden','important');
+    panel.querySelector('.cf-mt-scroll')?.style.setProperty('max-height','105px','important');
     const scroll=panel.querySelector('.cf-mt-scroll'),board=panel.querySelector('.cf-mt-board'),ruler=panel.querySelector('.cf-mt-ruler'),lanes=panel.querySelector('.cf-mt-lanes');
     const zoomControl=panel.querySelector('.cf-mt-zoom input'),zoomLabel=panel.querySelector('.cf-mt-zoom b'),state=panel.querySelector('.cf-mt-project-state'),readout=panel.querySelector('.cf-mt-playhead-readout'),selectionLabel=panel.querySelector('.cf-mt-selection'),volumeControl=panel.querySelector('.cf-mt-volume'),volumeInput=volumeControl.querySelector('input'),volumeLabel=volumeControl.querySelector('b');
     const detach=[];const listen=(target,type,handler,options)=>{target.addEventListener(type,handler,options);detach.push(()=>target.removeEventListener(type,handler,options));};
