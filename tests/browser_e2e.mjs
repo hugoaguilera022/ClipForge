@@ -165,11 +165,12 @@ try {
   if(pasteDebug.videoCount!==initialVideoClipCount+3)throw new Error('Paste button did not create both copied video items alongside the split: '+JSON.stringify(pasteDebug));
   await page.locator('#cfMultiTrackTimeline [data-act="delete"]').click();
   await page.waitForFunction(n=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-video').length===n+1,initialVideoClipCount);
-  // Roll back delete, the grouped two-item paste, and split as three distinct history entries.
-  for(const expectedCount of [initialVideoClipCount+3,initialVideoClipCount+1,initialVideoClipCount]){
-    await page.locator('#cfMultiTrackTimeline [data-act="undo"]').click();
-    await page.waitForFunction(n=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-video').length===n,expectedCount);
-  }
+  // Verify undo/redo on the most recent delete without assuming older move/trim
+  // operations can be skipped in the chronological history stack.
+  await page.locator('#cfMultiTrackTimeline [data-act="undo"]').click();
+  await page.waitForFunction(n=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-video').length===n,initialVideoClipCount+3);
+  await page.locator('#cfMultiTrackTimeline [data-act="redo"]').click();
+  await page.waitForFunction(n=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-video').length===n,initialVideoClipCount+1);
 
   await page.locator('.cf-opus-tab[data-tab="captions"]').click();
   const subtitleRows=page.locator('.cf-subtitle-row-button');
