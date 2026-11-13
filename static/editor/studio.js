@@ -149,7 +149,7 @@ function syncPreviewVideo(video,overlay){
   if(trans.in==="fade")opacity=Math.min(opacity,Math.max(0,local/dur));if(trans.out==="fade")opacity=Math.min(opacity,Math.max(0,(Number(item?.end)-t)/dur));
   if(trans.in==="zoom")scale=1+Math.max(0,1-local/dur)*.12;if(trans.out==="zoom")scale=Math.max(scale,1+Math.max(0,1-(Number(item?.end)-t)/dur)*.12);
   video.style.opacity=String(Math.max(0,Math.min(1,opacity*Number(item.opacity??100)/100)));video.style.transform="scale("+scale+")";
-  const {sub,txt}=previewLayerAt(sourceTime,t);
+  const {sub,txt}=previewLayerAt(t,t);
   overlay.replaceChildren();
   if(sub){const cap=document.createElement("div");cap.className="cf-studio-caption-preview";cap.textContent=sub.text||"";const style=sub.style||{};cap.style.color=style.color||"#fff";cap.style.fontSize=Math.max(14,Number(style.size)||28)+"px";cap.style.background=style.background&&style.background!=="transparent"?style.background:"rgba(0,0,0,.68)";cap.style.fontFamily=style.font||"Inter,sans-serif";cap.style.fontWeight=style.bold===false?"500":"800";cap.style.top=style.position==="top"?"9%":style.position==="middle"?"48%":"auto";cap.style.bottom=style.position==="top"||style.position==="middle"?"auto":"8%";overlay.append(cap);}
   for(const layer of txt){const el=document.createElement("div");el.className="cf-studio-text-preview";el.textContent=layer.text||"";el.style.color=layer.color||"#fff";el.style.fontSize=Math.max(14,Number(layer.fontSize)||32)+"px";el.style.top=(Number(layer.y)||22)+"%";el.style.left=(Number(layer.x)||50)+"%";el.style.transform="translate(-50%,-50%)";overlay.append(el);}
@@ -456,6 +456,12 @@ export async function openStudio({card,clip,transcript,index=0,allClips=null,onB
  sourceInput.addEventListener("change",()=>{
   const replacement=sourceInput.files?.[0];if(!replacement)return;
   const url=URL.createObjectURL(replacement);if(linkedSourceUrl)URL.revokeObjectURL(linkedSourceUrl);linkedSourceUrl=url;video.pause();video.src=url;video.load();
+  const productionInput=document.querySelector("#video");
+  if(productionInput){
+   const transfer=new DataTransfer();transfer.items.add(replacement);productionInput.files=transfer.files;
+   productionInput.dataset.whisperAutoStarted="1";
+   productionInput.dispatchEvent(new Event("change",{bubbles:true}));
+  }
   state.source={name:replacement.name,size:replacement.size,lastModified:replacement.lastModified};
   video.addEventListener("loadedmetadata",()=>window.__cfStudioSeek?.(state.playhead),{once:true});
   setStatus("Vídeo original vinculado. Comprueba el encuadre antes de exportar.");
