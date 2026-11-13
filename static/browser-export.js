@@ -251,7 +251,9 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
       trackingMode='seguimiento facial con respaldo corporal';
     }catch(error){console.warn('Face/mouth tracking unavailable; using safe blurred background:',error);faceLandmarker=null;}
   }
-  const conversion=await Conversion.init({
+  let conversion;
+  try{
+    conversion=await Conversion.init({
     input,output,tracks:'primary',audio:{discard:true},composable:true,
     trim:{start:sourceStart,end:sourceStart+clipDuration},
     video:{
@@ -374,20 +376,26 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
       processedWidth:1080,processedHeight:1920
     },
   });
-  if(!conversion.isValid){
-    const reasons=(conversion.discardedTracks||[]).map(x=>x.reason).join(', ');
-    throw new Error(`El navegador no puede codificar todas las pistas MP4 de este vídeo (${reasons||'códec no compatible'}).`);
+  }catch(error){
+    faceLandmarker?.close?.();poseLandmarker?.close?.();input.dispose();
+    for(const bitmap of imageBitmaps.values())bitmap.close?.();
+    throw error;
   }
-  conversion.onProgress=p=>sayExport(`Clip ${index+1}/${total}: renderizando vídeo ${Math.round(p*100)}%…`);
-  const mixedAudio=await buildMixedAudioBuffer(file,clip,tracks);
-  const audioQuality=new Quality({bitrate:128e3});
-  if(!(await canEncodeAudio("aac",{numberOfChannels:2,sampleRate:48000,quality:audioQuality}))){
-    const {registerAacEncoder}=await import("https://esm.sh/@mediabunny/aac-encoder@1.65.2?external=mediabunny");
-    registerAacEncoder();
-  }
-  const audioSource=new AudioBufferSource({codec:"aac",quality:audioQuality});
-  output.addAudioTrack(audioSource,{name:"Mezcla ClipForge",languageCode:"spa"});
+  let audioSource=null;
   try{
+    if(!conversion.isValid){
+      const reasons=(conversion.discardedTracks||[]).map(x=>x.reason).join(', ');
+      throw new Error(`El navegador no puede codificar todas las pistas MP4 de este vídeo (${reasons||'códec no compatible'}).`);
+    }
+    conversion.onProgress=p=>sayExport(`Clip ${index+1}/${total}: renderizando vídeo ${Math.round(p*100)}%…`);
+    const mixedAudio=await buildMixedAudioBuffer(file,clip,tracks);
+    const audioQuality=new Quality({bitrate:128e3});
+    if(!(await canEncodeAudio("aac",{numberOfChannels:2,sampleRate:48000,quality:audioQuality}))){
+      const {registerAacEncoder}=await import("https://esm.sh/@mediabunny/aac-encoder@1.65.2?external=mediabunny");
+      registerAacEncoder();
+    }
+    audioSource=new AudioBufferSource({codec:"aac",quality:audioQuality});
+    output.addAudioTrack(audioSource,{name:"Mezcla ClipForge",languageCode:"spa"});
     await output.start();
     const results=await Promise.allSettled([
       conversion.execute(),
@@ -396,8 +404,13 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
     const failure=results.find(x=>x.status==="rejected");
     if(failure)throw failure.reason;
     await output.finalize();
-  }catch(error){await output.cancel().catch(()=>{});throw error;}
-  finally{audioSource.close();faceLandmarker?.close?.();poseLandmarker?.close?.();input.dispose();for(const bitmap of imageBitmaps.values())bitmap.close?.();}
+  }catch(error){
+    await output.cancel().catch(()=>{});
+    throw error;
+  }finally{
+    audioSource?.close?.();faceLandmarker?.close?.();poseLandmarker?.close?.();input.dispose();
+    for(const bitmap of imageBitmaps.values())bitmap.close?.();
+  }
   const buffer=output.target.buffer;
   if(!buffer||buffer.byteLength<1024)throw new Error('El render terminó sin generar un MP4 válido.');
   const blob=new Blob([buffer],{type:'video/mp4'});
