@@ -26,11 +26,11 @@ function normalizeItem(item, index = 0) {
   };
 }
 function makeTracks(clips, transcript) {
-  const validClips = (clips || []).filter(c => Number(c.end) > Number(c.start));
-  const cues = (transcript?.segments || []).filter(s => Number(s.end) > Number(s.start));
+  const validClips=(clips||[]).filter(c=>Number(c.end)>Number(c.start)).map((clip,i)=>({...clip,id:String(clip.id||uid('clip-'+(i+1)))}));
+  const cues=(transcript?.segments||[]).filter(s=>Number(s.end)>Number(s.start));
   return [
-    normalizeTrack({id:'track-v1',type:'video',name:'V1 · Vídeo principal',items:validClips.map(c=>({...c,id:String(c.id||uid('clip')),name:c.title||c.text||'Clip'}))},0),
-    normalizeTrack({id:'track-a1',type:'audio',name:'A1 · Audio original',items:validClips.map(c=>({id:`audio-source-${c.id||uid('clip')}`,name:'Audio original',start:Number(c.start),end:Number(c.end),sourceType:'primary',sourceStart:Number(c.start),gain:0.8,clipId:String(c.id||'')}))},1),
+    normalizeTrack({id:'track-v1',type:'video',name:'V1 · Vídeo principal',items:validClips.map(c=>({...c,name:c.title||c.text||'Clip'}))},0),
+    normalizeTrack({id:'track-a1',type:'audio',name:'A1 · Audio original',items:validClips.map(c=>({id:`audio-source-${c.id}`,clipId:c.id,name:'Audio original',start:Number(c.start),end:Number(c.end),sourceType:'primary',sourceStart:Number(c.start),gain:0.8}))},1),
     normalizeTrack({id:'track-a2',type:'audio',name:'A2 · Música',items:[]},2),
     normalizeTrack({id:'track-a3',type:'audio',name:'A3 · Efectos sonoros',items:[]},3),
     normalizeTrack({id:'track-s1',type:'subtitles',name:'S1 · Subtítulos',items:cues.map((s,i)=>({id:`subtitle-${i+1}`,start:s.start,end:s.end,text:s.text,words:s.words||[]}))},4),
