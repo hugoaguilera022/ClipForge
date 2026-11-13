@@ -32,6 +32,7 @@ jobs:
           node --check static/editor/editor-store.js
           node --check static/editor/editor-commands.js
           node --check static/editor/editor-core.js
+          node --check static/editor/editor-timeline.js
           node --check static/browser-export.js
       - name: Run editor store and command regression tests
         run: node tests/editor_store_test.mjs
