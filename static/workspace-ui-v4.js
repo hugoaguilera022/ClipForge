@@ -301,15 +301,17 @@
   });
   window.addEventListener('clipforge:clips-updated',reveal);
   window.addEventListener('clipforge:open-editor',e=>{
-    const card=e.detail?.card;if(!card)return;window.__cfActiveClipVideo=card.querySelector('video');
+    const card=e.detail?.card;if(!card)return;
     const candidateList=$('#browserCandidateList');
-    if(candidateList&&!candidateList.querySelector('.cf-opus-active-clip-item')){
-      const activePreview=card.cloneNode(true);activePreview.classList.add('cf-opus-active-clip-item');activePreview.dataset.activePreview='true';
-      activePreview.querySelectorAll('button,input,textarea,select').forEach(el=>el.remove());
-      const activeVideo=activePreview.querySelector('video'),sourceVideo=card.querySelector('video');if(activeVideo){activeVideo.muted=true;activeVideo.controls=false;activeVideo.pause();if(sourceVideo?.poster)activeVideo.poster=sourceVideo.poster;sourceVideo?.addEventListener('cfposterready',()=>{if(sourceVideo.poster)activeVideo.poster=sourceVideo.poster;},{once:true});}
-      candidateList.prepend(activePreview);
+    if(activeCard===card)return;
+    if(activeCard){
+      const previous=activeCard,previousIndex=activeIndex;
+      restoreCard(previous);
+      const anchor=candidateList?.children?.[previousIndex]||null;
+      candidateList?.insertBefore(previous,anchor);
     }
     activeCard=card;activeIndex=Number(e.detail?.index)||0;
+    window.__cfActiveClipVideo=card.querySelector('video');
     const title=editorScreen.querySelector('.cf-opus-section-head h2');if(title)title.textContent=card.querySelector(':scope > strong')?.textContent||'Editar clip';
     const backHolder=editorScreen.querySelector('.cf-opus-section-head');
     const oldBack=backHolder.querySelector('.cf-opus-back');oldBack?.remove();
