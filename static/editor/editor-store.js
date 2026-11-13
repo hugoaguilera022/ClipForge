@@ -29,8 +29,8 @@ function makeTracks(clips, transcript) {
   const validClips = (clips || []).filter(c => Number(c.end) > Number(c.start));
   const cues = (transcript?.segments || []).filter(s => Number(s.end) > Number(s.start));
   return [
-    normalizeTrack({id:'track-v1',type:'video',name:'V1 · Vídeo principal',items:validClips.map(c=>({...c,id:String(c.id),name:c.title||c.text||'Clip'}))},0),
-    normalizeTrack({id:'track-a1',type:'audio',name:'A1 · Audio original',items:validClips.map(c=>({id:`audio-source-${c.id}`,name:'Audio original',start:Number(c.start),end:Number(c.end),sourceType:'primary',sourceStart:Number(c.start),gain:0.8,clipId:String(c.id)}))},1),
+    normalizeTrack({id:'track-v1',type:'video',name:'V1 · Vídeo principal',items:validClips.map(c=>({...c,id:String(c.id||uid('clip')),name:c.title||c.text||'Clip'}))},0),
+    normalizeTrack({id:'track-a1',type:'audio',name:'A1 · Audio original',items:validClips.map(c=>({id:`audio-source-${c.id||uid('clip')}`,name:'Audio original',start:Number(c.start),end:Number(c.end),sourceType:'primary',sourceStart:Number(c.start),gain:0.8,clipId:String(c.id||'')}))},1),
     normalizeTrack({id:'track-a2',type:'audio',name:'A2 · Música',items:[]},2),
     normalizeTrack({id:'track-a3',type:'audio',name:'A3 · Efectos sonoros',items:[]},3),
     normalizeTrack({id:'track-s1',type:'subtitles',name:'S1 · Subtítulos',items:cues.map((s,i)=>({id:`subtitle-${i+1}`,start:s.start,end:s.end,text:s.text,words:s.words||[]}))},4),
@@ -95,6 +95,21 @@ export class EditorStore extends EventTarget {
     const clips=Array.isArray(p.clips)?p.clips:[];
     const transcript=p.transcript&&Array.isArray(p.transcript.segments)?p.transcript:null;
     const tracks=Array.isArray(p.tracks)&&p.tracks.length?p.tracks.map(normalizeTrack):makeTracks(clips,transcript);
+    // Upgrade older saved projects that had only the video/subtitle/text lanes.
+    if(!tracks.some(t=>t.type==='audio'&&t.id==='track-a1'))tracks.push(normalizeTrack({id:'track-a1',type:'audio',name:'A1 · Audio original',items:[]},tracks.length));
+    if(!tracks.some(t=>t.type==='audio'&&t.id==='track-a2'))tracks.push(normalizeTrack({id:'track-a2',type:'audio',name:'A2 · Música',items:[]},tracks.length));
+    if(!tracks.some(t=>t.type==='audio'&&t.id==='track-a3'))tracks.push(normalizeTrack({id:'track-a3',type:'audio',name:'A3 · Efectos sonoros',items:[]},tracks.length));
+    const sourceAudioTrack=tracks.find(t=>t.id==='track-a1');
+    if(sourceAudioTrack&&!sourceAudioTrack.items.some(item=>item.sourceType==='primary')){
+      sourceAudioTrack.items=(tracks.find(t=>t.type==='video')?.items||clips).map((clip,i)=>({
+        id:`audio-source-${clip.id||i+1}`,clipId:String(clip.id||''),sourceType:'primary',
+        name:'Audio original',start:Number(clip.start)||0,end:Number(clip.end)||0,
+        sourceStart:Number(clip.start)||0,gain:0.8
+      })).filter(item=>item.end>item.start);
+    }
+    if(!tracks.some(t=>t.type==='text'))tracks.push(normalizeTrack({id:'track-t1',type:'text',name:'T1 · Textos y títulos',items:[]},tracks.length));
+    if(!tracks.some(t=>t.type==='subtitles')&&transcript)tracks.push(normalizeTrack({id:'track-s1',type:'subtitles',name:'S1 · Subtítulos',items:transcript.segments},tracks.length));
+    if(!tracks.some(t=>t.type==='effects'))tracks.push(normalizeTrack({id:'track-fx',type:'effects',name:'FX · Efectos',items:[]},tracks.length));
     this.project={
       ...this.project,...p,schema:'clipforge-project-v3',
       id:String(p.id||this.project.id),source:String(p.source||''),
