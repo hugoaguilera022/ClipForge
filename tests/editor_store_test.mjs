@@ -31,6 +31,16 @@ commands.moveItem(audioItem,2);
 assert.equal(commands.item(audioItem).item.start,2);
 commands.trimItem(audioItem,3,7);
 assert.equal(commands.item(audioItem).item.end,7);
+assert.throws(()=>commands.moveItem('clip-1',22,audioId),/otro tipo/,'video clips must not be moved into audio lanes');
+
+const sourceVideo=commands.item('clip-1').item;
+assert.equal(sourceVideo.sourceStart,10,'source offset is captured before destination edits');
+commands.moveItem('clip-1',30);
+assert.equal(commands.item('clip-1').item.start,30);
+assert.equal(commands.item('clip-1').item.sourceStart,10,'moving a clip keeps its original source offset');
+const sourceAudioAfterMove=commands.item(sourceAudio.items.find(x=>x.clipId==='clip-1').id).item;
+assert.equal(sourceAudioAfterMove.start,30);
+assert.equal(sourceAudioAfterMove.sourceStart,10,'linked source audio stays aligned to the moved clip without changing source time');
 commands.copy(audioItem);
 const pasted=commands.paste(9);
 assert.equal(pasted.length,1);
