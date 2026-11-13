@@ -46,6 +46,14 @@ python server.py
 
 La primera descarga requiere Internet. En Apple Silicon el modelo predeterminado es `large-v3-turbo` si se define `CLIPFORGE_MLX_MODEL=large-v3-turbo`; se puede cambiar a `small`, `medium` o `tiny`. El software y los modelos se ejecutan localmente; no se envía el audio a una API. No se promete velocidad en tiempo real: depende de CPU, memoria y duración del vídeo.
 
+## Juez editorial generativo gratuito
+
+En la web estática, la selección generativa puede ejecutarse localmente con WebGPU (Qwen3 1.7B) o conectarse a una sesión temporal de Google Colab con Ollama. El cuaderno `colab/ClipForge_Editorial_Engine.ipynb` selecciona Qwen3 8B si detecta al menos 12 GB de VRAM, y Qwen3 4B como alternativa. La conexión está protegida con token, usa HTTPS temporal y envía solo el texto de candidatos/contexto, no el vídeo.
+
+La sesión gratuita de Colab **no es ilimitada ni permanente**: disponibilidad de GPU, cuotas, duración y desconexiones dependen de Google. Al reiniciar Colab hay que volver a iniciar el cuaderno y pegar la nueva URL/token en ClipForge. Sin Colab, el selector generativo local requiere WebGPU; el fallback heurístico se etiqueta como tal y no se presenta como IA.
+
+El selector revisa ventanas neutrales de todo el vídeo, genera finalistas, compara diversidad y exige que el pase crítico devuelva veredicto `pass` sin flags para cada clip. Los tests automáticos validan estructura, tiempos, solapamientos y el puente de conexión; **no prueban por sí solos la calidad semántica de Qwen ni equivalencia con OpusClip**.
+
 ## Selección semántica local opcional
 
 ClipForge consulta únicamente `http://127.0.0.1:11434` (Ollama local). Si existe el modelo `qwen2.5:3b`, reordena candidatos usando sus textos y contexto; devuelve IDs, nunca timestamps, para impedir que el LLM invente tiempos. Si Ollama o el modelo no están disponibles, la selección heurística sigue funcionando sin bloquear el trabajo. Puedes cambiar el modelo con `CLIPFORGE_OLLAMA_MODEL` y el endpoint con `CLIPFORGE_OLLAMA_URL`.
@@ -66,7 +74,7 @@ La batería automatizada verifica lógica y adaptadores con modelos simulados; *
 
 ## Limitaciones actuales
 
-- La selección de momentos aún utiliza reglas y puntuación editorial heurística. El siguiente hito es selección semántica local con Ollama y revisión manual de candidatos.
+- El Motor 02 del navegador ya incorpora selección generativa con Qwen3 1.7B mediante WebGPU o Qwen3 4B/8B mediante Colab, con evaluación por bloques, votación final y auditor crítico. La calidad semántica debe validarse con vídeos reales: los tests automáticos no certifican por sí solos que los cuatro clips sean buenos ni equivalentes a OpusClip.
 - El encuadre Haar puede seguir una cara equivocada en entrevistas con varias personas. El siguiente hito visual es detección y seguimiento de sujetos con análisis por escenas.
 - Publicación automática en redes no está habilitada: requiere OAuth, revisión de aplicaciones y permisos oficiales.
 - No exponer el servidor local a Internet: todavía no incorpora autenticación multiusuario, TLS ni almacenamiento de credenciales para despliegue público.
