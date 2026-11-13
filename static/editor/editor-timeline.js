@@ -36,7 +36,7 @@ import { uid } from './editor-store.js';
         if(active){
           const expected=Math.max(0,Number(item.sourceStart||0)+(t-Number(item.start||0)));
           if(Math.abs(audio.currentTime-expected)>.35){try{audio.currentTime=expected;}catch{}}
-          audio.volume=Math.max(0,Math.min(1,Number(item.gain??1)));
+          audio.volume=Math.max(0,Math.min(1,Number(track.volume??1)*Number(item.gain??1)));
           if(!film.paused&&audio.paused)audio.play().catch(()=>{});
         }else if(!audio.paused)audio.pause();
       });
@@ -168,6 +168,14 @@ import { uid } from './editor-store.js';
       const x=(Number(store.project.playhead)||0)*zoom,view=scroll.clientWidth;
       if(x>scroll.scrollLeft+view-80||x<scroll.scrollLeft)scroll.scrollTo({left:Math.max(0,x-view/2),behavior:'smooth'});
     }
+    volumeInput.addEventListener('input',()=>{
+      const id=store.project.selection?.[0];if(!id)return;
+      const found=commands.item(id);
+      if(found?.track.type==='audio'){
+        const gain=Number(volumeInput.value)/100;
+        commands.setItemVolume(id,gain);volumeLabel.textContent=Math.round(gain*100)+'%';
+      }
+    });
     panel.querySelector('[data-act="play"]').addEventListener('click',()=>{
       const v=videoFor(card);if(!v){setStatus('No hay vídeo de previsualización.');return;}
       if(v.paused){v.play().then(()=>{panel.querySelector('[data-act="play"]').textContent='Ⅱ Pausar';}).catch(()=>setStatus('Pulsa reproducir en el visor para iniciar.'));}
@@ -179,7 +187,7 @@ import { uid } from './editor-store.js';
     panel.querySelector('[data-act="add-text"]').addEventListener('click',()=>{
       commands.addTrack('text','T'+(project.tracks.filter(t=>t.type==='text').length+1)+' · Texto');setStatus('Pista de texto añadida.');
     });
-    panel.querySelector('.cf-mt-import input').addEventListener('change',event=>{
+    panel.querySelector('.cf-mt-import input').addEventListener('change',async event=>{
       const file=event.target.files?.[0];if(!file)return;
       try{
         let track=store.project.tracks.find(t=>t.type==='audio'&&!t.locked&&!t.name.includes('original'));
