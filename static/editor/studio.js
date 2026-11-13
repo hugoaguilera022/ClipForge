@@ -427,7 +427,8 @@ export function closeStudio(){
  for(const entry of previewAudio.values()){entry.el.pause();entry.el.removeAttribute("src");}
  previewAudio.clear();
  for(const url of assetUrls.values())URL.revokeObjectURL(url);
- assetUrls.clear();assetBlobs.clear();audioBuffers.clear();
+ for(const img of previewImages.values())img.remove();
+ previewImages.clear();assetUrls.clear();assetBlobs.clear();audioBuffers.clear();
  active.root.replaceChildren();window.__cfStudioActive=null;
 }
 export async function openStudio({card,clip,transcript,index=0,allClips=null,onBack,onSave,onExport}){
