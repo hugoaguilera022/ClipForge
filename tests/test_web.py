@@ -670,7 +670,7 @@ class MultilingualBrowserTranscriptionTests(unittest.TestCase):
  def test_browser_transcriber_honors_auto_spanish_and_english_selection(self):
   source=(ROOT/'static/browser-whisper-inline-v3.js').read_text()
   self.assertIn("async function transcribeAudioInChunks(asr, audio, onProgress = () => {}, timestampMode = 'word', language = null)",source)
-  self.assertIn('language: language || undefined',source)
+  self.assertIn("language: language === 'es' ? 'spanish' : language === 'en' ? 'english' : undefined",source)
   self.assertIn('const selectedLanguage',source)
   self.assertIn("selectedLanguage === 'auto' ? undefined : selectedLanguage",source)
   self.assertIn("transcribeAudioInChunks(asr, audio, reportProgress, 'word', sourceLanguage)",source)
@@ -688,9 +688,11 @@ class BrowserModelPreferenceTests(unittest.TestCase):
 
  def test_phrase_overlap_deduplication_uses_time_and_token_similarity(self):
   source=(ROOT/'static/browser-whisper-inline-v3.js').read_text()
-  self.assertIn('overlapRatio>=0.55 && textSimilarity>=0.82',source)
-  self.assertIn('let recentChunks = []',source)
+  self.assertIn('let recentChunks = [];',source)
   self.assertIn('recentChunks = recentChunks.filter(previous => previous.end >= absoluteStart - 0.45)',source)
+  self.assertIn('const sameText=previousText===normalized',source)
+  self.assertIn('Math.abs(previous.start-absoluteStart)<0.22 && overlap>0',source)
+  self.assertIn('Similarity-only matching dropped repeated words',source)
 class YouTubeProxyValidationTests(unittest.TestCase):
  def test_accepts_supported_youtube_video_urls(self):
   from youtube_proxy import validate_youtube_url
@@ -767,7 +769,7 @@ class BrowserGroupFramingSafetyTests(unittest.TestCase):
  def test_multi_face_framing_selects_a_stable_visible_subject_or_full_frame(self):
   source=(ROOT/'static/browser-export.js').read_text()
   self.assertIn("const primary=[...seen].sort((a,b)=>(b.faceArea||0)-(a.faceArea||0))[0]",source)
-  self.assertIn('lastFaceCenter=lastFaceCenter*.78+desired*.22',source)
+  self.assertIn('lastFaceCenter=lastFaceCenter===null?desired:lastFaceCenter*.78+desired*.22',source)
   self.assertIn("sample.drawWithFit(ctx,{fit:'contain'})",source)
   self.assertIn("sample.drawWithFit(ctx,{fit:'cover'})",source)
 class ViralMomentFallbackSignalsTests(unittest.TestCase):
