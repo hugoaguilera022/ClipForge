@@ -124,7 +124,7 @@ export class EditorStore extends EventTarget {
     this.project={
       ...this.project,...p,schema:'clipforge-project-v3',
       id:String(p.id||this.project.id),source:String(p.source||''),
-      clips,transcript,tracks,
+      clips:videoTrack?videoTrack.items.map(item=>({...item,selected:item.selected!==false})):clips,transcript,tracks,
       media:Array.isArray(p.media)?p.media:[],
       settings:{...this.project.settings,...(p.settings||{})},
       selection:Array.isArray(p.selection)?p.selection:[],
