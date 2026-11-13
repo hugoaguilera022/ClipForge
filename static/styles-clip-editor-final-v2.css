@@ -1706,3 +1706,44 @@ body.cf-opus-stage-editor .cf-opus-editor-actions{
 body.cf-opus-stage-editor .cf-opus-editor-actions button{
  width:auto!important;min-width:140px!important;
 }
+
+/* Subtitle studio: presets and controls */
+body.cf-opus-stage-editor .cf-subtitle-style-controls{
+ display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;
+ gap:8px!important;padding:12px!important;background:#171722!important;
+ border:1px solid #302e40!important;border-radius:11px!important;margin:10px 0!important;
+}
+body.cf-opus-stage-editor .cf-subtitle-style-controls select,
+body.cf-opus-stage-editor .cf-subtitle-style-controls input{
+ min-width:0!important;width:100%!important;height:38px!important;
+ background:#090a12!important;color:#f7f4ff!important;border:1px solid #383448!important;
+ border-radius:8px!important;padding:7px!important;font-size:11px!important;
+}
+body.cf-opus-stage-editor .cf-subtitle-style-controls .cf-subtitle-preset{grid-column:span 2!important}
+body.cf-opus-stage-editor .cf-subtitle-style-controls .cf-subtitle-position{grid-column:span 2!important}
+body.cf-opus-stage-editor .cf-subtitle-style-controls .cf-subtitle-bold{
+ min-height:38px!important;padding:6px!important;background:#7b42e8!important;color:white!important;
+}
+body.cf-opus-stage-editor .cf-subtitle-live-preview{
+ display:flex!important;align-items:center!important;justify-content:center!important;
+ min-height:86px!important;max-width:100%!important;margin:10px 0 14px!important;
+ overflow:hidden!important;white-space:normal!important;line-height:1.12!important;
+}
+body.cf-opus-stage-editor .cf-subtitle-video-overlay{
+ position:absolute!important;left:5%!important;width:90%!important;z-index:20!important;
+ text-align:center!important;line-height:1.08!important;padding:5px 8px!important;
+ border-radius:5px!important;pointer-events:none!important;white-space:pre-wrap!important;
+}
+body.cf-opus-stage-editor .cf-subtitle-video-overlay[data-position="bottom"]{bottom:8%!important;top:auto!important}
+body.cf-opus-stage-editor .cf-subtitle-video-overlay[data-position="middle"]{top:50%!important;bottom:auto!important;transform:translateY(-50%)}
+body.cf-opus-stage-editor .cf-subtitle-video-overlay[data-position="top"]{top:8%!important;bottom:auto!important}
+body.cf-opus-stage-editor .cf-subtitle-video-overlay[data-animation="pop"]{animation:cfCaptionPop .18s ease-out}
+body.cf-opus-stage-editor .cf-subtitle-video-overlay[data-animation="fade"]{animation:cfCaptionFade .2s ease-out}
+body.cf-opus-stage-editor .cf-subtitle-video-overlay[data-animation="slide"]{animation:cfCaptionSlide .2s ease-out}
+@keyframes cfCaptionPop{from{opacity:.4;transform:scale(.88)}to{opacity:1;transform:scale(1)}}
+@keyframes cfCaptionFade{from{opacity:0}to{opacity:1}}
+@keyframes cfCaptionSlide{from{opacity:0;translate:0 12px}to{opacity:1;translate:0 0}}
+body.cf-opus-stage-editor .cf-subtitle-row{display:grid!important;grid-template-columns:105px minmax(0,1fr) 76px!important;gap:8px!important;align-items:start!important;padding:10px 0!important;border-bottom:1px solid #2c2a39!important}
+body.cf-opus-stage-editor .cf-subtitle-row textarea{min-width:0!important;width:100%!important;min-height:58px!important}
+body.cf-opus-stage-editor .cf-subtitle-row button{width:auto!important;min-height:38px!important;padding:8px!important}
+@media(max-width:900px){body.cf-opus-stage-editor .cf-subtitle-style-controls{grid-template-columns:repeat(2,minmax(0,1fr))!important}body.cf-opus-stage-editor .cf-subtitle-row{grid-template-columns:1fr!important}}
