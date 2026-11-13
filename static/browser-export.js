@@ -279,7 +279,7 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
 
 exportButton?.addEventListener('click',async()=>{
   const file=document.querySelector('#video')?.files?.[0];
-  const project=window.clipforgeEditorBridge?.getProject?.();
+  const project=window.clipforgeProjectStore?.snapshot?.()||window.clipforgeEditorBridge?.getProject?.();
   const clips=(project?.clips||[]).filter(c=>c.selected!==false&&Number.isFinite(Number(c.start))&&Number.isFinite(Number(c.end))&&Number(c.start)>=0&&Number(c.end)>Number(c.start));
   const segments=project?.transcript?.segments||[];
   const tracks=project?.tracks||[];
