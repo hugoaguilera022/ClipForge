@@ -60,8 +60,12 @@ export class EditorCommands {
   trimItem(id,start,end) {
     const found=this.item(id);if(!found)throw new Error('Elemento no encontrado');
     const nextStart=Math.max(0,Number(start)||0);
-    const patch={start:nextStart,end:Number(end)};
-    if(Number.isFinite(Number(found.item.sourceStart)))patch.sourceStart=Number(found.item.sourceStart)+(nextStart-Number(found.item.start));
+    const nextEnd=Number(end);
+    if(!Number.isFinite(nextEnd)||nextEnd<=nextStart)throw new Error('Intervalo no válido');
+    const patch={start:nextStart,end:nextEnd};
+    if(Number.isFinite(Number(found.item.sourceStart))){
+      patch.sourceStart=Math.max(0,Number(found.item.sourceStart)+(nextStart-Number(found.item.start)));
+    }
     this.updateItem(id,patch);
   }
   splitItem(id,at=this.store.project.playhead) {
