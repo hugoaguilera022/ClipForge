@@ -59,9 +59,12 @@ jobs:
       - name: Validate JavaScript syntax
         run: |
           node --check static/app.js
+          node --check static/browser-whisper-inline-v3.js
           node --check static/browser-whisper.js
           node --check static/browser-export.js
           node --check static/browser-url.js
+          node --check static/workspace-ui-v4.js
+          node --input-type=module --check < static/editor/studio.js
           node --check static/editor.js
           node --check static/sw.js
           node tests/browser_ranker_test.mjs
