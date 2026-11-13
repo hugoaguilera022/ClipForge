@@ -70,15 +70,23 @@ export class EditorStore extends EventTarget {
       const sourceAudioTrack=this.project.tracks.find(t=>t.type==='audio'&&(t.id==='track-a1'||t.items.some(item=>item.sourceType==='primary')));
       if(sourceAudioTrack&&!sourceAudioTrack.locked){
         const clips=videoTrack.items,clipIds=new Set(clips.map(item=>String(item.id)));
-        sourceAudioTrack.items=sourceAudioTrack.items.filter(item=>item.sourceType!=='primary'||clipIds.has(String(item.clipId||item.id)));
+        const previous=sourceAudioTrack.items.filter(item=>item.sourceType==='primary');
+        sourceAudioTrack.items=sourceAudioTrack.items.filter(item=>item.sourceType!=='primary');
         for(const clip of clips){
-          let audio=sourceAudioTrack.items.find(item=>item.sourceType==='primary'&&String(item.clipId||item.id)===String(clip.id));
-          if(!audio){
-            audio={id:`audio-source-${clip.id}`,clipId:String(clip.id),sourceType:'primary',name:'Audio original',start:clip.start,end:clip.end,sourceStart:clip.start,gain:0.8};
-            sourceAudioTrack.items.push(audio);
-          }else{
-            audio.start=clip.start;audio.end=clip.end;audio.sourceStart=clip.start;
-          }
+          const prior=previous.find(item=>String(item.clipId||item.id)===String(clip.id));
+          sourceAudioTrack.items.push({
+            ...(prior||{}),
+            id:prior?.id||`audio-source-${clip.id}`,
+            clipId:String(clip.id),
+            sourceType:'primary',
+            name:prior?.name||'Audio original',
+            start:clip.start,
+            end:clip.end,
+            sourceStart:prior&&Number.isFinite(Number(prior.sourceStart))
+              ? Number(prior.sourceStart)+(Number(clip.start)-Number(prior.start))
+              : clip.start,
+            gain:prior?.gain??0.8
+          });
         }
       }
     }
