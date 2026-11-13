@@ -335,7 +335,50 @@
     const appNav=document.createElement('div');appNav.className='cf-editor-appnav';appNav.innerHTML='<a class="cf-editor-logo" href="#cfCreate"><span>▶</span> ClipForge <b>PRO</b></a><nav><a href="#cfCreate">Inicio</a><a href="#cfCreate">Nuevo proyecto</a><a class="active" href="#cfEditor">Editor</a><a href="#cfResults">Proyectos</a></nav><div class="cf-editor-account"><span>PROYECTO EN CURSO</span><b>9:16</b></div>';
     const editorBar=document.createElement('div');editorBar.className='cf-editor-topbar';editorBar.innerHTML='<div class="cf-editor-project"><strong>ClipForge</strong><span>Proyecto editable</span><i>Cambios en esta sesión</i></div><div class="cf-editor-format"><span>Formato</span><b>9:16</b></div><button type="button" class="cf-editor-export-top">Exportar MP4 ↗</button>';editorBar.querySelector('.cf-editor-export-top').addEventListener('click',()=>card.querySelector('.candidate-export-one')?.click());const saveProjectAction=document.createElement('button');saveProjectAction.type='button';saveProjectAction.className='secondary cf-editor-save-project';saveProjectAction.textContent='Guardar proyecto';saveProjectAction.addEventListener('click',()=>saveTranscript?.click());saveProjectAction.style.setProperty('width',window.innerWidth<=650?'100%':'auto','important');saveProjectAction.style.setProperty('flex','0 0 auto','important');saveProjectAction.style.setProperty('white-space','nowrap','important');saveProjectAction.style.setProperty('max-width','100%','important');editorBar.insertBefore(saveProjectAction,editorBar.querySelector('.cf-editor-export-top'));
     editorBar.prepend(topBack);
-    editorSlot.append(editorBar,card);
+    const commandBar=document.createElement('div');
+    commandBar.className='cf-editor-commandbar';
+    commandBar.setAttribute('aria-label','Acciones del proyecto');
+    commandBar.innerHTML='<button type="button" data-command="undo" title="Deshacer (⌘Z)">↶ Deshacer</button><button type="button" data-command="redo" title="Rehacer (⇧⌘Z)">↷ Rehacer</button><span></span><button type="button" data-command="split" title="Dividir en el cabezal">✂ Dividir</button><button type="button" data-command="duplicate" title="Duplicar elemento">▣ Duplicar</button><button type="button" data-command="copy" title="Copiar">Copiar</button><button type="button" data-command="paste" title="Pegar">Pegar</button><button type="button" data-command="delete" title="Eliminar">Eliminar</button><span></span><button type="button" data-command="audio">+ Pista audio</button><button type="button" data-command="text">+ Texto</button><small class="cf-editor-command-status" aria-live="polite">Guardado automático local</small>';
+    const commandStatus=commandBar.querySelector('.cf-editor-command-status');
+    const commandApi=()=>({store:window.clipforgeProjectStore,commands:window.clipforgeEditorCommands});
+    const activeItem=()=>{
+      const {store}=commandApi();if(!store?.ready)return null;
+      const selected=store.project.selection[0];
+      if(selected){for(const track of store.project.tracks){const item=track.items.find(x=>x.id===selected);if(item)return {track,item};}}
+      const videoTrack=store.project.tracks.find(t=>t.type==='video');
+      const match=videoTrack?.items.find(x=>Math.abs(Number(x.start)-Number(clip.start))<0.05&&Math.abs(Number(x.end)-Number(clip.end))<0.05);
+      return match?{track:videoTrack,item:match}:null;
+    };
+    const reportCommandError=error=>{if(commandStatus)commandStatus.textContent=error.message||'No se pudo ejecutar la acción';};
+    commandBar.addEventListener('click',event=>{
+      const button=event.target.closest('button[data-command]');if(!button)return;
+      const {store,commands}=commandApi();if(!store||!commands){reportCommandError(new Error('El motor central todavía no está disponible.'));return;}
+      try{
+        const found=activeItem();if(found)store.select([found.item.id]);
+        const selected=store.project.selection;
+        switch(button.dataset.command){
+          case 'undo':store.undo();break;
+          case 'redo':store.redo();break;
+          case 'split':{
+            const item=activeItem()?.item;if(!item)throw new Error('Selecciona un clip para dividirlo.');
+            const head=store.project.playhead>item.start&&store.project.playhead<item.end?store.project.playhead:(item.start+item.end)/2;
+            store.setPlayhead(head);commands.splitItem(item.id,head);break;
+          }
+          case 'duplicate':if(!selected.length)throw new Error('No hay ningún elemento seleccionado.');commands.duplicate(selected[0]);break;
+          case 'copy':if(!commands.copy(selected))throw new Error('No hay elementos para copiar.');break;
+          case 'paste':if(!commands.paste(store.project.playhead).length)throw new Error('No hay elementos copiados o una pista compatible.');break;
+          case 'delete':if(!selected.length)throw new Error('No hay ningún elemento seleccionado.');commands.remove(selected);store.select([]);break;
+          case 'audio':commands.addTrack('audio','Nueva pista de audio');break;
+          case 'text':{
+            const video=activeItem()?.item;const track=store.project.tracks.find(t=>t.type==='text'&&!t.locked)||store.project.tracks.find(t=>t.type==='text');
+            if(!track)throw new Error('No existe una pista de texto.');
+            const start=video?.start??store.project.playhead;commands.addItem(track.id,{start,end:start+3,text:'Nuevo texto',fontSize:48});break;
+          }
+        }
+        if(commandStatus)commandStatus.textContent='Cambio aplicado · guardado automático';
+      }catch(error){reportCommandError(error);}
+    });
+    editorSlot.append(editorBar,commandBar,card);
     setStage('editor');
     addInspector(card,e.detail?.clip||{start:0,end:1});
   });
