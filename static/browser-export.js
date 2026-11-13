@@ -73,9 +73,9 @@ function drawKaraokeCaption(ctx,cues,sourceTime,width,height,settings={}){
   }
   if(line.length)lines.push(line);
   const visible=lines.slice(-2),blockHeight=visible.length*lineHeight,pad=fontSize*.42;
-  const y0=(settings.captionPosition==='top'?height*.16:height*.78)-blockHeight/2;
-  if(style?.background||settings.captionBackground!=='none'){
-    ctx.fillStyle=style?.background|| (settings.captionBackground==='solid'?'rgba(0,0,0,1)':'rgba(0,0,0,.66)');
+  const position=style?.position||settings.captionPosition||'bottom';const y0=(position==='top'?height*.16:position==='middle'?height*.5:height*.78)-blockHeight/2;
+  if((style?.background&&style.background!=='transparent')||(!style&&settings.captionBackground!=='none')){
+    ctx.fillStyle=(style?.background&&style.background!=='transparent')?style.background:(settings.captionBackground==='solid'?'rgba(0,0,0,1)':'rgba(0,0,0,.66)');
     const boxW=Math.min(maxWidth+pad*2,width*.94),boxH=blockHeight+pad*2;
     const x=(width-boxW)/2,y=y0-pad,r=Math.round(fontSize*.22);
     ctx.beginPath();
@@ -88,8 +88,10 @@ function drawKaraokeCaption(ctx,cues,sourceTime,width,height,settings={}){
     for(const word of words){
       const text=word.text+' ',w=ctx.measureText(text).width;
       const active=sourceTime>=word.start&&sourceTime<=word.end+.06;
-      ctx.fillStyle=style?.color?(style.color):settings.captionColor==='white'?'#ffffff':(settings.captionColor==='yellow-solid'?'#ffe16b':(active?'#ffe16b':'#ffffff'));
-      ctx.fillText(text,xPos+w/2,y,maxWidth);
+      const highlighted=style?.wordMode==='highlight'&&active;
+      ctx.fillStyle=highlighted?(style.highlight||'#ffe600'):(style?.color|| (settings.captionColor==='white'?'#ffffff':(settings.captionColor==='yellow-solid'?'#ffe16b':'#ffffff')));
+      if(style?.outlineWidth){ctx.strokeStyle=style.outline||'#080808';ctx.lineWidth=Math.max(1,Math.min(18,Number(style.outlineWidth)*3));ctx.strokeText(text,xPos+w/2,y,maxWidth);}
+      if(style?.animation==='pop'&&active){ctx.save();ctx.translate(xPos+w/2,y);ctx.scale(1.06,1.06);ctx.fillText(text,0,0,maxWidth);ctx.restore();}else ctx.fillText(text,xPos+w/2,y,maxWidth);
       xPos+=w;
     }
   });
