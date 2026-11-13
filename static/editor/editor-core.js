@@ -13,7 +13,10 @@ function syncBridge(reason){
     // Keep the legacy engine informed about track layout, but do not rebuild
     // its candidate cards while an edit is in progress. Export reads the
     // canonical store directly, avoiding a second source of truth.
-    if(originalBridge.setTracks)originalBridge.setTracks(store.snapshot().tracks);
+    const project=store.snapshot();
+    const videoTrack=project.tracks.find(t=>t.type==='video');
+    if(videoTrack&&originalBridge.updateClipData)originalBridge.updateClipData(videoTrack.items.map(item=>({...item,id:String(item.id),start:item.start,end:item.end,title:item.title||item.text||item.name||'Clip'})));
+    if(originalBridge.setTracks)originalBridge.setTracks(project.tracks);
   }catch(error){status('No se pudo sincronizar la estructura de pistas: '+error.message);}
 }
 function connectBridge(){
