@@ -2080,7 +2080,8 @@ body.cf-opus-stage-editor .cf-opus-inspector .cf-subtitle-live-preview{display:f
 .cf-mt-board{position:relative;width:calc(150px + var(--mt-content-width,700px));min-width:100%;padding-bottom:5px}
 .cf-mt-board:after{content:"";position:absolute;z-index:8;pointer-events:none;top:0;bottom:0;left:calc(150px + var(--mt-playhead-x,0px));width:1px;background:#ff737c;box-shadow:0 0 0 1px #ff737c35}
 .cf-mt-ruler-row,.cf-mt-track-row{display:grid;grid-template-columns:150px max-content;min-height:43px}
-.cf-mt-ruler-row{position:sticky;top:0;z-index:5;background:#111a28;border-bottom:1px solid #344156;min-height:27px}
+.cf-mt-ruler-row{position:sticky;top:0;z-index:5;background:#111a28;border-bottom:1px solid #344156;min-height:27px;pointer-events:none}
+.cf-mt-ruler-row .cf-mt-ruler-label,.cf-mt-ruler-row .cf-mt-tick{pointer-events:auto}
 .cf-mt-label{position:sticky;left:0;z-index:6;background:#111a28;border-right:1px solid #344156}
 .cf-mt-ruler-label{display:flex;align-items:center;padding:0 10px;color:#92a0b4;font-size:9px;font-weight:800;letter-spacing:1px}
 .cf-mt-ruler{height:27px;position:relative;background:repeating-linear-gradient(90deg,transparent 0,transparent 39px,#233148 40px)}
