@@ -38,6 +38,20 @@ function buildCaptionCues(segments){
   }
   flush();return cues;
 }
+function drawImageLayers(ctx,tracks,timelineTime,width,height,bitmaps){
+  const layers=(tracks||[]).filter(t=>t.type==="image"&&!t.hidden).flatMap(t=>t.items||[])
+    .filter(item=>!item.hidden&&item.assetId&&timelineTime>=Number(item.start)&&timelineTime<=Number(item.end));
+  for(const item of layers){
+    const bitmap=bitmaps.get(item.assetId);if(!bitmap)continue;
+    const w=width*Math.max(.05,Math.min(.95,Number(item.widthPct)||30))/100;
+    const h=w*(bitmap.height/Math.max(1,bitmap.width));
+    const x=width*Math.max(0,Math.min(100,Number(item.x??50)))/100;
+    const y=height*Math.max(0,Math.min(100,Number(item.y??50)))/100;
+    ctx.save();ctx.globalAlpha=Math.max(0,Math.min(1,Number(item.opacity??100)/100));
+    ctx.translate(x,y);ctx.rotate((Number(item.rotation)||0)*Math.PI/180);
+    ctx.drawImage(bitmap,-w/2,-h/2,w,h);ctx.restore();
+  }
+}
 function drawTextLayers(ctx,tracks,sourceTime,width,height){
   const layers=(tracks||[]).filter(t=>t.type==='text'&&!t.hidden).flatMap(t=>t.items||[])
     .filter(item=>!item.hidden&&Number.isFinite(Number(item.start))&&Number.isFinite(Number(item.end))&&sourceTime>=Number(item.start)&&sourceTime<=Number(item.end)&&String(item.text||'').trim());
@@ -201,6 +215,16 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
   }
   const output=new Output({format:new Mp4OutputFormat(),target:new BufferTarget()});
   const cues=buildCaptionCues(segments);
+  const imageBitmaps=new Map();
+  const imageItems=(tracks||[]).filter(t=>t.type==="image"&&!t.hidden).flatMap(t=>t.items||[]).filter(x=>x.assetId);
+  try{
+    for(const item of imageItems){
+      if(imageBitmaps.has(item.assetId))continue;
+      const blob=await window.ClipForgeStudio?.getAssetBlob?.(item.assetId);
+      if(!blob)throw new Error("No se encuentra la imagen "+(item.assetName||item.assetId)+".");
+      imageBitmaps.set(item.assetId,await createImageBitmap(blob));
+    }
+  }catch(error){for(const bitmap of imageBitmaps.values())bitmap.close?.();input.dispose();throw error;}
   let canvas=null,ctx=null,sourceCanvas=null,sourceCtx=null,faceLandmarker=null,poseLandmarker=null;
   let lastFaceCenter=null,frameNumber=0,faceSamples=0,poseSamples=0,trackingMode='sin seguimiento';
   const speakerTracks=[];
@@ -342,6 +366,7 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
         // Mediabunny normalizes timestamps to zero after trim; captions keep source-video times.
         const sourceTime=sourceStart+stamp;
         const timelineTime=clip.start+stamp;
+        drawImageLayers(ctx,tracks,timelineTime,canvas.width,canvas.height,imageBitmaps);
         drawTextLayers(ctx,tracks,timelineTime,canvas.width,canvas.height);
         drawKaraokeCaption(ctx,cues,timelineTime,canvas.width,canvas.height,settings);
         return canvas;
@@ -372,7 +397,7 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
     if(failure)throw failure.reason;
     await output.finalize();
   }catch(error){await output.cancel().catch(()=>{});throw error;}
-  finally{audioSource.close();faceLandmarker?.close?.();poseLandmarker?.close?.();input.dispose();}
+  finally{audioSource.close();faceLandmarker?.close?.();poseLandmarker?.close?.();input.dispose();for(const bitmap of imageBitmaps.values())bitmap.close?.();}
   const buffer=output.target.buffer;
   if(!buffer||buffer.byteLength<1024)throw new Error('El render terminó sin generar un MP4 válido.');
   const blob=new Blob([buffer],{type:'video/mp4'});
