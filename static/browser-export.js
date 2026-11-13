@@ -411,12 +411,14 @@ exportButton?.addEventListener('click',async()=>{
   const studio=window.ClipForgeStudio?.getProject?.();
   const project=studio?.clips?.length?studio:bridge;
   const tracks=project?.tracks||[];
+  const hasVideoTracks=tracks.some(t=>t.type==="video");
   const videoTracks=tracks.filter(t=>t.type==="video"&&!t.hidden);
   const timelineClips=videoTracks.flatMap(t=>t.items||[]);
-  const clipSource=timelineClips.length?timelineClips:(project?.clips||[]);
+  const clipSource=hasVideoTracks?timelineClips:(project?.clips||[]);
   const clips=clipSource.filter(c=>c.selected!==false&&!c.hidden&&Number.isFinite(Number(c.start))&&Number.isFinite(Number(c.end))&&Number(c.end)>Number(c.start)).sort((a,b)=>Number(a.start)-Number(b.start));
-  const subtitleTrack=tracks.find(t=>t.type==='subtitles');
-  const segments=subtitleTrack?.items?.length?subtitleTrack.items:(project?.transcript?.segments||[]);
+  const hasSubtitleTrack=tracks.some(t=>t.type==='subtitles');
+  const subtitleTrack=tracks.find(t=>t.type==='subtitles'&&!t.hidden);
+  const segments=hasSubtitleTrack?(subtitleTrack?.items||[]):(project?.transcript?.segments||[]);
   if(!file){sayExport('Selecciona el MP4 original antes de exportar.');return;}
   if(!clips.length){sayExport('No hay clips seleccionados para exportar. Marca al menos uno en la lista de momentos.');return;}
   const expected=String(project?.source?.name||project?.source||'').split(/[\\/]/).pop();
