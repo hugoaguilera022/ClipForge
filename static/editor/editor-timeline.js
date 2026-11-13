@@ -51,7 +51,7 @@ import { uid } from './editor-store.js';
     if(!store?.ready||!commands)return;
     const editorSlot=document.querySelector('.cf-opus-editor-slot');
     if(!editorSlot)return;
-    editorSlot.querySelector('#cfMultiTrackTimeline')?.remove();
+    const previousPanel=editorSlot.querySelector('#cfMultiTrackTimeline');previousPanel?.__cfDestroy?.();previousPanel?.remove();
     const panel=document.createElement('section');
     panel.id='cfMultiTrackTimeline';panel.className='cf-mt-panel';
     panel.innerHTML=`
@@ -72,11 +72,12 @@ import { uid } from './editor-store.js';
           <div class="cf-mt-lanes"></div>
         </div>
       </div>
-      <div class="cf-mt-foot"><span class="cf-mt-playhead-readout">00:00</span><span>Las pistas se guardan en este navegador.</span><span class="cf-mt-selection">Sin selección</span></div>`;
+      <div class="cf-mt-foot"><span class="cf-mt-playhead-readout">00:00</span><span>Las pistas se guardan en este navegador.</span><span class="cf-mt-selection">Sin selección</span><label class="cf-mt-volume" hidden>Volumen <input type="range" min="0" max="200" value="100"><b>100%</b></label></div>`;
     const anchor=editorSlot.querySelector('.cf-editor-commandbar')||editorSlot.querySelector('.cf-editor-topbar');
     if(anchor)anchor.after(panel);else editorSlot.append(panel);
     const scroll=panel.querySelector('.cf-mt-scroll'),board=panel.querySelector('.cf-mt-board'),ruler=panel.querySelector('.cf-mt-ruler'),lanes=panel.querySelector('.cf-mt-lanes');
-    const zoomControl=panel.querySelector('.cf-mt-zoom input'),zoomLabel=panel.querySelector('.cf-mt-zoom b'),state=panel.querySelector('.cf-mt-project-state'),readout=panel.querySelector('.cf-mt-playhead-readout'),selectionLabel=panel.querySelector('.cf-mt-selection');
+    const zoomControl=panel.querySelector('.cf-mt-zoom input'),zoomLabel=panel.querySelector('.cf-mt-zoom b'),state=panel.querySelector('.cf-mt-project-state'),readout=panel.querySelector('.cf-mt-playhead-readout'),selectionLabel=panel.querySelector('.cf-mt-selection'),volumeControl=panel.querySelector('.cf-mt-volume'),volumeInput=volumeControl.querySelector('input'),volumeLabel=volumeControl.querySelector('b');
+    const detach=[];const listen=(target,type,handler,options)=>{target.addEventListener(type,handler,options);detach.push(()=>target.removeEventListener(type,handler,options));};
     let dragging=null,renderQueued=false;
     const timelineDuration=()=>Math.max(30,store.project.duration+5,Number(videoFor(card)?.duration)||0,Number(card.dataset.sourceDuration)||0);
     const setStatus=msg=>{state.textContent=msg;};
@@ -87,6 +88,7 @@ import { uid } from './editor-store.js';
       const selected=store.project.selection?.[0];
       const found=selected&&commands.item(selected);
       selectionLabel.textContent=found?found.item.name||found.item.text||found.track.name:'Sin selección';
+      if(found?.track.type==='audio'){volumeControl.hidden=false;const value=Math.round(Math.max(0,Math.min(2,Number(found.item.gain??1)))*100);volumeInput.value=String(value);volumeLabel.textContent=value+'%';}else volumeControl.hidden=true;
     };
     function render(){
       renderQueued=false;
@@ -194,26 +196,28 @@ import { uid } from './editor-store.js';
       event.target.value='';
     });
     zoomControl.addEventListener('input',()=>{zoom=Number(zoomControl.value)||4;zoomLabel.textContent=zoom+' px/s';requestRender();});
-    store.addEventListener('change',requestRender);
-    store.addEventListener('change',()=>{if(store.project.selection?.length)panel.classList.add('has-selection');else panel.classList.remove('has-selection');});
+    listen(store,'change',requestRender);
+    listen(store,'change',()=>{if(store.project.selection?.length)panel.classList.add('has-selection');else panel.classList.remove('has-selection');});
     const v=videoFor(card);
     if(v){
-      v.addEventListener('timeupdate',()=>{
-        store.project.playhead=Number(v.currentTime)||0;updateHead();
-      });
-      v.addEventListener('pause',()=>{panel.querySelector('[data-act="play"]').textContent='▶ Reproducir';});
-      v.addEventListener('play',()=>{panel.querySelector('[data-act="play"]').textContent='Ⅱ Pausar';});
+      listen(v,'timeupdate',()=>{store.project.playhead=Number(v.currentTime)||0;updateHead();});
+      listen(v,'pause',()=>{panel.querySelector('[data-act="play"]').textContent='▶ Reproducir';});
+      listen(v,'play',()=>{panel.querySelector('[data-act="play"]').textContent='Ⅱ Pausar';});
     }
-    store.addEventListener('change',()=>{setupAudioPreview(card);});
-    store.addEventListener('storage-error',event=>setStatus('No se pudo guardar: '+(event.detail?.message||'error de almacenamiento')));
-    zoom=4;zoomControl.value='4';render();setupAudioPreview(card);
+    listen(store,'change',()=>{setupAudioPreview(card);});
+    listen(store,'storage-error',event=>setStatus('No se pudo guardar: '+(event.detail?.message||'error de almacenamiento')));
+    zoom=4;zoomControl.value='4';
+    const activeClip=window.__cfTimelineActiveClip;
+    if(activeClip){const videoTrack=store.project.tracks.find(t=>t.type==='video');const match=videoTrack?.items.find(item=>item.id===String(activeClip.id)||(Math.abs(Number(item.start)-Number(activeClip.start))<.05&&Math.abs(Number(item.end)-Number(activeClip.end))<.05));if(match){store.select([match.id]);store.project.playhead=Number(match.start)||0;}}
+    render();setupAudioPreview(card);
     window.__cfTimelineSeek=seek;
-    panel.__cfDestroy=()=>{cleanupAudio();window.removeEventListener('resize',requestRender);};
+    panel.__cfDestroy=()=>{cleanupAudio();detach.forEach(remove=>remove());};
     return panel;
   }
 
   window.addEventListener('clipforge:open-editor',event=>{
     const card=event.detail?.card;if(!card)return;
+    window.__cfTimelineActiveClip=event.detail?.clip||null;
     requestAnimationFrame(()=>requestAnimationFrame(()=>{
       if(mountedCard===card&&document.querySelector('#cfMultiTrackTimeline'))return;
       mountedCard=card;
