@@ -19,12 +19,12 @@ export class EditorCommands {
   updateItem(id,patch={}) {
     const found=this.item(id);if(!found)throw new Error('Elemento no encontrado');
     if(found.track.locked)throw new Error('La pista está bloqueada');
+    const start='start'in patch?Math.max(0,Number(patch.start)||0):found.item.start;
+    const end='end'in patch?Number(patch.end):found.item.end;
+    if(!Number.isFinite(end)||end<=start)throw new Error('Intervalo no válido');
     this.store.commit('item:update',p=>{
       const t=p.tracks.find(x=>x.id===found.track.id),i=t.items.find(x=>x.id===id);
-      Object.assign(i,patch);
-      if('start'in patch)i.start=Math.max(0,Number(patch.start)||0);
-      if('end'in patch)i.end=Math.max(i.start,Number(patch.end)||i.start);
-      if(i.end<=i.start)throw new Error('Intervalo no válido');
+      Object.assign(i,patch,{start,end});
     });
   }
   moveItem(id,start,trackId) {
