@@ -181,8 +181,8 @@ import { uid } from './editor-store.js';
       const file=event.target.files?.[0];if(!file)return;
       try{
         let track=store.project.tracks.find(t=>t.type==='audio'&&!t.locked&&!t.name.includes('original'));
-        if(!track)trackId=commands.addTrack('audio','A'+(store.project.tracks.filter(t=>t.type==='audio').length+1)+' · Música');
-        const trackId=track?.id||store.project.tracks.find(t=>t.type==='audio'&&!t.locked)?.id;
+        if(!track){const newTrackId=commands.addTrack('audio','A'+(store.project.tracks.filter(t=>t.type==='audio').length+1)+' · Música');track=commands.track(newTrackId);}
+        const trackId=track?.id;
         commands.importAudioFile(file,trackId,store.project.playhead);
         setStatus('Audio importado: '+file.name);
         setupAudioPreview(card);
