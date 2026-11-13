@@ -209,7 +209,24 @@ try {
   if (inspect.status !== 0) throw new Error(inspect.stderr || inspect.stdout);
   const probe = spawnSync('bash', ['-lc', 'set -e; for f in test-output/exported/*.mp4; do ffprobe -v error -select_streams v:0 -show_entries stream=codec_name,width,height -of csv=p=0 "$f" | grep -E "^h264,1080,1920$"; ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of csv=p=0 "$f" | grep -qx aac; done'], {encoding:'utf8'});
   if (probe.status !== 0) throw new Error('Exported MP4 validation failed: '+probe.stderr+probe.stdout);
-  console.log('Browser E2E passed: project import, four MP4 exports, H.264 1080x1920 and AAC audio passthrough.');
+
+  // Reload the app and verify that timeline/text/effect edits survive IndexedDB recovery.
+  await page.waitForTimeout(800);
+  await page.reload({waitUntil:'networkidle'});
+  await page.waitForFunction(()=>window.clipforgeProjectStore?.ready===true,undefined,{timeout:15000});
+  await page.waitForFunction(()=>document.querySelector('#browserWhisperStatus')?.textContent.includes('Proyecto recuperado'),undefined,{timeout:15000});
+  const recovered=await page.evaluate(()=>{
+    const p=window.clipforgeProjectStore.project;
+    return {
+      textItems:p.tracks.find(t=>t.type==='text')?.items?.map(x=>x.text||x.name)||[],
+      filter:p.clips?.[0]?.visualEffects?.preset,
+      transition:p.clips?.[0]?.transitions?.in
+    };
+  });
+  if(!recovered.textItems.some(x=>x==='Texto de prueba editable')||recovered.filter!=='cinematic'||recovered.transition!=='fade') {
+    throw new Error('Project recovery did not preserve text/filter/transition edits: '+JSON.stringify(recovered));
+  }
+  console.log('Browser E2E passed: timeline edit commands, subtitle editing, text/filter/transition edits, IndexedDB recovery and four MP4 exports.');
   if (errors.length) throw new Error('Browser page errors: '+errors.join('; '));
 } finally {
   await browser.close();
