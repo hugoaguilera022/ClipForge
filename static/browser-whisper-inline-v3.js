@@ -1520,25 +1520,80 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
   const subtitlePanel=document.createElement('section');subtitlePanel.className='cf-inline-subtitles';
   const subtitleHead=document.createElement('div');subtitleHead.className='cf-inline-subtitles-head';subtitleHead.textContent='Subtítulos del clip';
   const subtitleControls=document.createElement('div');subtitleControls.className='cf-subtitle-style-controls';
+  const style=c.subtitleStyle||{};
+  const preset=document.createElement('select');preset.className='cf-subtitle-preset';preset.setAttribute('aria-label','Estilo preconfigurado');
+  [['custom','Personalizado'],['capcut-bold','Impacto viral'],['karaoke','Karaoke palabra activa'],['minimal','Minimal limpio'],['boxed','Caja de color'],['outline','Contorno pro'],['creator','Creador amarillo']].forEach(([v,l])=>preset.add(new Option(l,v)));
   const font=document.createElement('select');font.setAttribute('aria-label','Tipo de letra');
   [['Arial','Arial'],['Inter','Inter'],['Roboto','Roboto'],['Montserrat','Montserrat'],['Georgia','Georgia'],['Impact','Impact']].forEach(([v,l])=>font.add(new Option(l,v)));
-  const size=document.createElement('input');size.type='number';size.min='12';size.max='72';size.step='1';size.value=String(c.subtitleStyle?.size||28);size.setAttribute('aria-label','Tamaño de subtítulos');
-  const color=document.createElement('input');color.type='color';color.value=c.subtitleStyle?.color||'#ffffff';color.setAttribute('aria-label','Color de subtítulos');
-  const bg=document.createElement('input');bg.type='color';bg.value=c.subtitleStyle?.background||'#000000';bg.setAttribute('aria-label','Fondo de subtítulos');
-  const bold=document.createElement('button');bold.type='button';bold.className='secondary cf-subtitle-bold';bold.textContent='B';bold.setAttribute('aria-label','Negrita');bold.setAttribute('aria-pressed',String(c.subtitleStyle?.bold!==false));
+  const size=document.createElement('input');size.type='number';size.min='12';size.max='72';size.step='1';size.value=String(style.size||32);size.setAttribute('aria-label','Tamaño de subtítulos');
+  const color=document.createElement('input');color.type='color';color.value=style.color||'#ffffff';color.setAttribute('aria-label','Color de subtítulos');
+  const bg=document.createElement('input');bg.type='color';bg.value=style.background||'#000000';bg.setAttribute('aria-label','Fondo de subtítulos');
+  const bold=document.createElement('button');bold.type='button';bold.className='secondary cf-subtitle-bold';bold.textContent='B';bold.setAttribute('aria-label','Negrita');bold.setAttribute('aria-pressed',String(style.bold!==false));
+  const position=document.createElement('select');position.className='cf-subtitle-position';position.setAttribute('aria-label','Posición del subtítulo');
+  [['bottom','Abajo'],['middle','Centro'],['top','Arriba']].forEach(([v,l])=>position.add(new Option(l,v)));
+  const animation=document.createElement('select');animation.className='cf-subtitle-animation';animation.setAttribute('aria-label','Animación');
+  [['none','Sin animación'],['pop','Pop'],['fade','Fundido'],['slide','Deslizar']].forEach(([v,l])=>animation.add(new Option(l,v)));
   const subtitlePreview=document.createElement('div');subtitlePreview.className='cf-subtitle-live-preview';subtitlePreview.textContent='Vista previa del subtítulo';
   const subtitleRows=document.createElement('div');subtitleRows.className='cf-subtitle-rows';
   const subtitleSegments=(transcriptData?.segments||[]).map((seg,index)=>({...seg,_sourceIndex:index})).filter(seg=>Number(seg.end)>Number(c.start)&&Number(seg.start)<Number(c.end));
   const subtitleOverlay=document.createElement('div');subtitleOverlay.className='cf-subtitle-video-overlay';subtitleOverlay.hidden=true;player.append(subtitleOverlay);
-  const renderActiveSubtitle=()=>{const active=subtitleSegments.find(seg=>film.currentTime>=Number(seg.start)&&film.currentTime<=Number(seg.end));subtitleOverlay.textContent=active?String(active.text||''):'';subtitleOverlay.hidden=!active;};
+  const renderActiveSubtitle=()=>{
+    const active=subtitleSegments.find(seg=>film.currentTime>=Number(seg.start)&&film.currentTime<=Number(seg.end));
+    subtitleOverlay.hidden=!active;
+    subtitleOverlay.dataset.position=style.position||'bottom';
+    subtitleOverlay.dataset.animation=style.animation||'none';
+    if(!active){subtitleOverlay.replaceChildren();return;}
+    const words=String(active.text||'').split(/\\s+/).filter(Boolean);
+    const fraction=Math.max(0,Math.min(.999,(film.currentTime-Number(active.start))/Math.max(.01,Number(active.end)-Number(active.start))));
+    const activeWord=Math.min(words.length-1,Math.floor(fraction*Math.max(1,words.length)));
+    renderWords(subtitleOverlay,active.text,activeWord);
+  };
   film.addEventListener('timeupdate',renderActiveSubtitle);
-  const style={font:font.value,size:Number(size.value),color:color.value,background:bg.value,bold:bold.getAttribute('aria-pressed')==='true',...(c.subtitleStyle||{})};
-  font.value=style.font||'Arial';size.value=String(style.size||28);color.value=style.color||'#ffffff';bg.value=style.background||'#000000';bold.setAttribute('aria-pressed',String(style.bold!==false));
-  const paintSubtitle=()=>{const sizePx=Math.max(12,Math.min(72,Number(style.size)||28))+'px';subtitlePreview.style.fontFamily=style.font;subtitlePreview.style.fontSize=sizePx;subtitlePreview.style.color=style.color;subtitlePreview.style.backgroundColor=style.background;subtitlePreview.style.fontWeight=style.bold?'800':'400';subtitleOverlay.style.fontFamily=style.font;subtitleOverlay.style.fontSize=sizePx;subtitleOverlay.style.color=style.color;subtitleOverlay.style.backgroundColor=style.background;subtitleOverlay.style.fontWeight=style.bold?'800':'400';};
-  const saveSubtitleStyle=()=>{style.font=font.value;style.size=Number(size.value)||28;style.color=color.value;style.background=bg.value;style.bold=bold.getAttribute('aria-pressed')==='true';c.subtitleStyle={...style};editableCandidates[i]={...c};paintSubtitle();sync();};
-  [font,size,color,bg].forEach(el=>el.addEventListener('input',saveSubtitleStyle));
-  bold.addEventListener('click',()=>{bold.setAttribute('aria-pressed',String(bold.getAttribute('aria-pressed')!=='true'));saveSubtitleStyle();});
-  subtitleControls.append(font,size,color,bg,bold);
+  const presetDefs={
+    'capcut-bold':{font:'Impact',size:34,color:'#ffffff',background:'#080808',bold:true,outline:'#080808',outlineWidth:3,position:'bottom',animation:'pop',wordMode:'line'},
+    karaoke:{font:'Montserrat',size:32,color:'#ffffff',background:'transparent',bold:true,outline:'#111111',outlineWidth:3,position:'middle',animation:'pop',wordMode:'highlight',highlight:'#ffe600'},
+    minimal:{font:'Inter',size:27,color:'#ffffff',background:'transparent',bold:600,outline:'#111111',outlineWidth:2,position:'bottom',animation:'fade',wordMode:'line'},
+    boxed:{font:'Arial',size:29,color:'#ffffff',background:'#6d35dc',bold:true,outline:'#6d35dc',outlineWidth:0,position:'bottom',animation:'slide',wordMode:'line'},
+    outline:{font:'Montserrat',size:31,color:'#ffffff',background:'transparent',bold:true,outline:'#000000',outlineWidth:4,position:'bottom',animation:'none',wordMode:'line'},
+    creator:{font:'Impact',size:34,color:'#ffe600',background:'transparent',bold:true,outline:'#080808',outlineWidth:4,position:'bottom',animation:'pop',wordMode:'line'}
+  };
+  Object.assign(style,{font:'Arial',size:32,color:'#ffffff',background:'transparent',bold:true,outline:'#080808',outlineWidth:3,position:'bottom',animation:'none',wordMode:'line',highlight:'#ffe600',...(c.subtitleStyle||{})});
+  font.value=style.font;size.value=String(style.size);color.value=style.color;bg.value=style.background==='transparent'?'#000000':style.background;bold.setAttribute('aria-pressed',String(style.bold!==false&&style.bold!==400));position.value=style.position||'bottom';animation.value=style.animation||'none';preset.value=style.preset||'custom';
+  const renderWords=(target,textValue,activeIndex=-1)=>{
+    target.replaceChildren();const words=String(textValue||'').split(/(\\s+)/);let word=0;
+    words.forEach(part=>{if(!part)return;if(/^\\s+$/.test(part)){target.append(document.createTextNode(part));return;}const span=document.createElement('span');span.textContent=part;if(style.wordMode==='highlight'&&word===activeIndex){span.style.color=style.highlight||'#ffe600';span.style.transform='scale(1.06)';}target.append(span);word++;});
+  };
+  const paintSubtitle=()=>{
+    const sizePx=Math.max(12,Math.min(72,Number(style.size)||32))+'px';
+    [subtitlePreview,subtitleOverlay].forEach(el=>{
+      el.style.fontFamily=style.font;el.style.fontSize=sizePx;el.style.color=style.color;
+      el.style.backgroundColor=style.background||'transparent';el.style.fontWeight=style.bold?800:400;
+      el.style.webkitTextStroke=style.outlineWidth?Math.min(6,Number(style.outlineWidth))+'px '+(style.outline||'#000'):'0';
+      el.style.paintOrder='stroke fill';el.style.textShadow=style.outlineWidth?'0 2px 5px #000b':'none';
+      el.dataset.position=style.position||'bottom';el.dataset.animation=style.animation||'none';
+      el.dataset.wordMode=style.wordMode||'line';
+    });
+    subtitlePreview.textContent=subtitlePreview.dataset.sample||'¡Este es tu estilo de subtítulos!';
+    subtitlePreview.style.fontWeight=style.bold?800:400;
+    subtitlePreview.style.textAlign='center';subtitlePreview.style.padding='12px';
+    subtitlePreview.style.borderRadius='8px';
+  };
+  const saveSubtitleStyle=()=>{
+    style.font=font.value;style.size=Number(size.value)||32;style.color=color.value;
+    style.background=bg.value==='#000000'&&style.background==='transparent'?'transparent':bg.value;
+    style.bold=bold.getAttribute('aria-pressed')==='true';style.position=position.value;style.animation=animation.value;
+    style.preset=preset.value;c.subtitleStyle={...style};editableCandidates[i]={...c};paintSubtitle();renderActiveSubtitle();sync();
+  };
+  preset.addEventListener('change',()=>{
+    const def=presetDefs[preset.value];if(!def){style.preset='custom';saveSubtitleStyle();return;}
+    Object.assign(style,def,{preset:preset.value});
+    font.value=style.font;size.value=String(style.size);color.value=style.color;bg.value=style.background==='transparent'?'#000000':style.background;
+    bold.setAttribute('aria-pressed',String(!!style.bold));position.value=style.position;animation.value=style.animation;
+    saveSubtitleStyle();
+  });
+  [font,size,color,bg,position,animation].forEach(el=>el.addEventListener('input',()=>{preset.value='custom';saveSubtitleStyle();}));
+  bold.addEventListener('click',()=>{bold.setAttribute('aria-pressed',String(bold.getAttribute('aria-pressed')!=='true'));preset.value='custom';saveSubtitleStyle();});
+  subtitleControls.append(preset,font,size,color,bg,bold,position,animation);
   subtitleSegments.forEach(seg=>{
     const row=document.createElement('div');row.className='cf-subtitle-row';
     const times=document.createElement('div');times.className='cf-subtitle-times';
