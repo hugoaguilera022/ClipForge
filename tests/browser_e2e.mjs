@@ -14,7 +14,10 @@ try {
   if (!response?.ok()) throw new Error(`Web app returned HTTP ${response?.status()}`);
   await page.waitForFunction(() => document.body.dataset.browserOnly === 'true', undefined, {timeout:10000});
   const browserMode = await page.evaluate(() => ({
-    hiddenServerPanels: ['.publish','.channel-panel','.inbox-panel','.history-panel'].every(selector => document.querySelector(selector)?.hidden),
+    hiddenServerPanels: ['.publish','.channel-panel','.inbox-panel','.history-panel'].every(selector => {
+      const el=document.querySelector(selector);
+      return !el || el.hidden || getComputedStyle(el).display==='none' || getComputedStyle(el).visibility==='hidden';
+    }),
     hiddenServerControls: ['.url-source','.transcript-drop','.form-grid','#submit','.browser-auto-generate'].every(selector => !document.querySelector(selector) || document.querySelector(selector).hidden),
     directUrlVisible: !document.querySelector('.browser-url-import')?.hidden,
     filePickerVisible: !!document.querySelector('#video') && !document.querySelector('#video').disabled
