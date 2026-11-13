@@ -15,8 +15,11 @@ function syncBridge(reason){
     // canonical store directly, avoiding a second source of truth.
     const project=store.snapshot();
     const videoTrack=project.tracks.find(t=>t.type==='video');
-    if(videoTrack&&originalBridge.updateClipData)originalBridge.updateClipData(videoTrack.items.map(item=>({...item,id:String(item.id),start:item.start,end:item.end,title:item.title||item.text||item.name||'Clip'})));
+    const clipData=videoTrack?.items.map(item=>({...item,id:String(item.id),start:item.start,end:item.end,title:item.title||item.text||item.name||'Clip'}))||[];
+    if(reason==='hydrate'&&originalBridge.setClips)originalBridge.setClips(clipData);
+    else if(originalBridge.updateClipData)originalBridge.updateClipData(clipData);
     if(originalBridge.setTracks)originalBridge.setTracks(project.tracks);
+    if(project.transcript&&originalBridge.setTranscript)originalBridge.setTranscript(project.transcript);
   }catch(error){status('No se pudo sincronizar la estructura de pistas: '+error.message);}
 }
 function connectBridge(){
@@ -40,10 +43,23 @@ function connectBridge(){
   store.addEventListener('storage-error',event=>status('No se pudo guardar automáticamente: '+(event.detail?.message||'almacenamiento no disponible')));
   status('Proyecto central activo · guardado automático local');
   store.recoverLast().then(saved=>{
-    if(!saved||!saved.source||saved.source!==store.project.source||!saved.updatedAt)return;
+    if(!saved||!saved.source||!saved.updatedAt)return;
+    if(store.project.source&&saved.source!==store.project.source)return;
     store.hydrate(saved);
-    status('Se ha recuperado la última versión guardada de este proyecto.');
-  }).catch(()=>{});
+    // Restore the editable candidate cards after refreshing the canonical store.
+    if(originalBridge.setClips)originalBridge.setClips(saved.clips||[]);
+    if(saved.transcript&&originalBridge.setTranscript)originalBridge.setTranscript(saved.transcript);
+    const selectedFile=document.querySelector('#video')?.files?.[0];
+    status(selectedFile?.name===saved.source
+      ? 'Proyecto recuperado y vídeo original disponible.'
+      : `Proyecto recuperado: ${saved.source}. Selecciona ese vídeo original para previsualizar y exportar.`);
+  }).catch(error=>status('No se pudo recuperar el proyecto: '+error.message));
+  document.querySelector('#video')?.addEventListener('change',event=>{
+    const file=event.target.files?.[0];if(!file||!store.project.source)return;
+    status(file.name===store.project.source
+      ? 'Vídeo original localizado · proyecto listo para continuar.'
+      : `Este proyecto corresponde a ${store.project.source}. Has seleccionado ${file.name}; selecciona el original para evitar exportar el vídeo equivocado.`);
+  });
 }
 window.addEventListener('clipforge:editor-ready',connectBridge);
 if(window.clipforgeEditorBridge)connectBridge();
