@@ -29,8 +29,8 @@ function makeTracks(clips, transcript) {
   const validClips=(clips||[]).filter(c=>Number(c.end)>Number(c.start)).map((clip,i)=>({...clip,id:String(clip.id||uid('clip-'+(i+1)))}));
   const cues=(transcript?.segments||[]).filter(s=>Number(s.end)>Number(s.start));
   return [
-    normalizeTrack({id:'track-v1',type:'video',name:'V1 · Vídeo principal',items:validClips.map(c=>({...c,name:c.title||c.text||'Clip'}))},0),
-    normalizeTrack({id:'track-a1',type:'audio',name:'A1 · Audio original',items:validClips.map(c=>({id:`audio-source-${c.id}`,clipId:c.id,name:'Audio original',start:Number(c.start),end:Number(c.end),sourceType:'primary',sourceStart:Number(c.start),gain:0.8}))},1),
+    normalizeTrack({id:'track-v1',type:'video',name:'V1 · Vídeo principal',items:validClips.map(c=>({...c,sourceStart:Number.isFinite(Number(c.sourceStart))?Number(c.sourceStart):Number(c.start),name:c.title||c.text||'Clip'}))},0),
+    normalizeTrack({id:'track-a1',type:'audio',name:'A1 · Audio original',items:validClips.map(c=>({id:`audio-source-${c.id}`,clipId:c.id,name:'Audio original',start:Number(c.start),end:Number(c.end),sourceType:'primary',sourceStart:Number.isFinite(Number(c.sourceStart))?Number(c.sourceStart):Number(c.start),gain:0.8}))},1),
     normalizeTrack({id:'track-a2',type:'audio',name:'A2 · Música',items:[]},2),
     normalizeTrack({id:'track-a3',type:'audio',name:'A3 · Efectos sonoros',items:[]},3),
     normalizeTrack({id:'track-s1',type:'subtitles',name:'S1 · Subtítulos',items:cues.map((s,i)=>({id:`subtitle-${i+1}`,start:s.start,end:s.end,text:s.text,words:s.words||[]}))},4),
@@ -83,8 +83,8 @@ export class EditorStore extends EventTarget {
             start:clip.start,
             end:clip.end,
             sourceStart:prior&&Number.isFinite(Number(prior.sourceStart))
-              ? Number(prior.sourceStart)+(Number(clip.start)-Number(prior.start))
-              : clip.start,
+              ? Number(prior.sourceStart)+(reason==='item:move'?0:(Number(clip.start)-Number(prior.start)))
+              : (Number.isFinite(Number(clip.sourceStart))?Number(clip.sourceStart):clip.start),
             gain:prior?.gain??0.8
           });
         }
@@ -108,12 +108,14 @@ export class EditorStore extends EventTarget {
     if(!tracks.some(t=>t.type==='audio'&&t.id==='track-a1'))tracks.push(normalizeTrack({id:'track-a1',type:'audio',name:'A1 · Audio original',items:[]},tracks.length));
     if(!tracks.some(t=>t.type==='audio'&&t.id==='track-a2'))tracks.push(normalizeTrack({id:'track-a2',type:'audio',name:'A2 · Música',items:[]},tracks.length));
     if(!tracks.some(t=>t.type==='audio'&&t.id==='track-a3'))tracks.push(normalizeTrack({id:'track-a3',type:'audio',name:'A3 · Efectos sonoros',items:[]},tracks.length));
+    const videoTrack=tracks.find(t=>t.type==='video');
+    if(videoTrack)videoTrack.items=videoTrack.items.map(item=>({...item,sourceStart:Number.isFinite(Number(item.sourceStart))?Number(item.sourceStart):Number(item.start)}));
     const sourceAudioTrack=tracks.find(t=>t.id==='track-a1');
     if(sourceAudioTrack&&!sourceAudioTrack.locked&&!sourceAudioTrack.items.some(item=>item.sourceType==='primary')){
       sourceAudioTrack.items=(tracks.find(t=>t.type==='video')?.items||clips).map((clip,i)=>({
         id:`audio-source-${clip.id||i+1}`,clipId:String(clip.id||''),sourceType:'primary',
         name:'Audio original',start:Number(clip.start)||0,end:Number(clip.end)||0,
-        sourceStart:Number(clip.start)||0,gain:0.8
+        sourceStart:Number.isFinite(Number(clip.sourceStart))?Number(clip.sourceStart):Number(clip.start)||0,gain:0.8
       })).filter(item=>item.end>item.start);
     }
     if(!tracks.some(t=>t.type==='text'))tracks.push(normalizeTrack({id:'track-t1',type:'text',name:'T1 · Textos y títulos',items:[]},tracks.length));
