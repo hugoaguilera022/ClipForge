@@ -121,8 +121,9 @@ try {
   });
   const movingClip=page.locator('#cfMultiTrackTimeline .cf-mt-clip[data-item-id="'+beforeMove.id+'"]');
   await movingClip.waitFor({state:'attached'});
-  await movingClip.scrollIntoViewIfNeeded();
-  const moveBox=await movingClip.boundingBox();
+  await page.evaluate(id=>document.querySelector('#cfMultiTrackTimeline .cf-mt-clip[data-item-id="'+id+'"]')?.scrollIntoView({block:'center',inline:'center'}),beforeMove.id);
+  await page.waitForTimeout(100);
+  const moveBox=await page.locator('#cfMultiTrackTimeline .cf-mt-clip[data-item-id="'+beforeMove.id+'"]').boundingBox();
   if(!moveBox)throw new Error('The clip to drag is not visible on the timeline.');
   await page.mouse.move(moveBox.x+moveBox.width/2,moveBox.y+moveBox.height/2);
   await page.mouse.down();
@@ -135,8 +136,9 @@ try {
   const moved=await page.evaluate(id=>window.clipforgeProjectStore.project.tracks.find(t=>t.type==='video').items.find(x=>x.id===id),beforeMove.id);
   if(moved.sourceStart!==beforeMove.sourceStart)throw new Error('Moving a clip changed its source media in-point.');
   const rightHandle=page.locator('#cfMultiTrackTimeline [data-item-id="'+beforeMove.id+'"] .cf-mt-handle.right');
-  await rightHandle.scrollIntoViewIfNeeded();
-  const edgeBox=await rightHandle.boundingBox();
+  await page.evaluate(id=>document.querySelector('#cfMultiTrackTimeline [data-item-id="'+id+'"] .cf-mt-handle.right')?.scrollIntoView({block:'center',inline:'center'}),beforeMove.id);
+  await page.waitForTimeout(100);
+  const edgeBox=await page.locator('#cfMultiTrackTimeline [data-item-id="'+beforeMove.id+'"] .cf-mt-handle.right').boundingBox();
   if(!edgeBox)throw new Error('The trim handle is not visible on the timeline.');
   await page.mouse.move(edgeBox.x+edgeBox.width/2,edgeBox.y+edgeBox.height/2);
   await page.mouse.down();
