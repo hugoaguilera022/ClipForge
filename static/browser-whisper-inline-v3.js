@@ -907,6 +907,68 @@ function rerankWithSemanticEmbeddings(candidates, embeddings, limit = 4) {
 // model reads each candidate as an editor and makes a narrative-quality choice.
 // Runs locally through WebGPU: no API key, no paid inference endpoint, no upload.
 let editorialEnginePromise = null;
+
+// Optional remote Qwen endpoint exposed by a user's own Colab runtime.
+// Credentials are held in sessionStorage only and never written to a ClipForge backend.
+const COLAB_EDITOR_KEY='clipforge.colab.editor.v1';
+function getColabEditorConfig(){
+ try{
+  const saved=JSON.parse(sessionStorage.getItem(COLAB_EDITOR_KEY)||'null');
+  if(!saved||typeof saved.url!=="string"||typeof saved.token!=="string"||!saved.token.trim())return null;
+  const parsed=new URL(saved.url);
+  if(parsed.protocol!=="https:"&&parsed.hostname!=="localhost"&&parsed.hostname!=="127.0.0.1")return null;
+  return {url:parsed.href.replace(/\\/$/,''),token:saved.token,model:String(saved.model||"qwen3:4b")};
+ }catch{return null;}
+}
+function createRemoteEditorialEngine(config){
+ const base=String(config.url||"").replace(/\\/$/,'');
+ return {isRemote:true,provider:"colab",chat:{completions:{create:async options=>{
+  const response=await fetch(base+"/v1/chat/completions",{
+   method:"POST",
+   headers:{"Content-Type":"application/json","Authorization":"Bearer "+config.token},
+   body:JSON.stringify({...options,model:config.model||"qwen3:4b",stream:false}),
+   cache:"no-store"
+  });
+  if(!response.ok)throw new Error("El endpoint de Colab respondió HTTP "+response.status+": "+(await response.text()).slice(0,240));
+  const data=await response.json();
+  if(!data?.choices?.[0]?.message?.content)throw new Error("El juez remoto de Colab devolvió una respuesta vacía.");
+  return data;
+ }}}};
+}
+async function connectColabEditorialEngine(){
+ const urlInput=document.querySelector("#colabEditorUrl");
+ const tokenInput=document.querySelector("#colabEditorToken");
+ const status=document.querySelector("#colabEditorStatus");
+ const button=document.querySelector("#connectColabEditor");
+ const report=message=>{if(status)status.textContent=message;};
+ const rawUrl=String(urlInput?.value||"").trim().replace(/\\/+$/,'');
+ const token=String(tokenInput?.value||"").trim();
+ if(!rawUrl||!token){report("Introduce la URL HTTPS del túnel de Colab y su token de acceso.");return false;}
+ let parsed;
+ try{parsed=new URL(rawUrl);}catch{report("La URL de Colab no es válida.");return false;}
+ if(parsed.protocol!=="https:"&&parsed.hostname!=="localhost"&&parsed.hostname!=="127.0.0.1"){
+  report("La conexión remota requiere HTTPS. Activa un túnel HTTPS en Colab.");
+  return false;
+ }
+ if(button){button.disabled=true;button.textContent="Comprobando…";}
+ try{
+  const base=parsed.href.replace(/\\/$/,'');
+  const response=await fetch(base+"/health",{method:"GET",headers:{"Authorization":"Bearer "+token},cache:"no-store"});
+  if(!response.ok)throw new Error("HTTP "+response.status);
+  const health=await response.json();
+  if(health?.status!=="ready"&&health?.ready!==true)throw new Error("El servidor de Colab no está listo.");
+  const config={url:base,token,model:String(health.model||"qwen3:4b")};
+  sessionStorage.setItem(COLAB_EDITOR_KEY,JSON.stringify(config));
+  editorialEnginePromise=null;
+  report("Conectado y comprobado · "+config.model+". El token solo permanece en esta sesión del navegador.");
+  return true;
+ }catch(error){
+  report("No se pudo conectar con Colab: "+error.message+". Comprueba que el notebook siga ejecutándose y que exponga /health y /v1/chat/completions.");
+  return false;
+ }finally{
+  if(button){button.disabled=false;button.textContent="Comprobar y conectar";}
+ }
+}
 // Free AI provider router; independent editorial passes rotate across providers.
 
 const FREE_AI_PROVIDERS={
@@ -1038,7 +1100,10 @@ async function loadLocalEditorialJudge(onProgress=()=>{}){
  return editorialEnginePromise;
 }
 async function loadEditorialJudge(onProgress = () => {}) {
- // Prefer connected free API providers; use local WebGPU Qwen3 only as fallback.
+ // Prefer an explicitly connected Colab Qwen endpoint, then optional free APIs,
+ // and finally the local WebGPU judge. No credentials are required for local mode.
+ const colab=getColabEditorConfig();
+ if(colab){onProgress("Juez IA: usando la sesión Qwen conectada en Google Colab…");return createRemoteEditorialEngine(colab);}
  const freeProviders=configuredFreeAIProviders();
  if(freeProviders.length)return createFederatedFreeAIEngine(freeProviders,onProgress,()=>loadLocalEditorialJudge(onProgress));
  return loadLocalEditorialJudge(onProgress);
@@ -2202,3 +2267,6 @@ window.addEventListener('clipforge:workspace-ready', startWhisperForSelectedFile
 window.dispatchEvent(new CustomEvent('clipforge:whisper-ready'));
 if (sourceInput?.files?.length) setTimeout(startWhisperForSelectedFile, 0);
 document.querySelector('#browserWhisperModel')?.addEventListener('change',()=>{const file=document.querySelector('#video')?.files?.[0];if(file)updateVideoCapacity(file).catch(console.warn);});
+document.querySelector('#connectColabEditor')?.addEventListener('click',()=>connectColabEditorialEngine().catch(error=>{
+ const status=document.querySelector('#colabEditorStatus');if(status)status.textContent="No se pudo conectar: "+error.message;
+}));
