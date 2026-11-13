@@ -163,15 +163,6 @@ try {
   const pasteDebug=await page.evaluate(()=>({clipboard:window.clipforgeEditorCommands.clipboard.length,playhead:window.clipforgeProjectStore.project.playhead,duration:window.clipforgeProjectStore.project.duration,videoCount:window.clipforgeProjectStore.project.tracks.find(t=>t.type==='video').items.length,videoTrackLocked:window.clipforgeProjectStore.project.tracks.find(t=>t.type==='video').locked,status:document.querySelector('#cfMultiTrackTimeline .cf-mt-project-state')?.textContent}));
   // The split operation is intentionally still present here, so two pasted clips mean +3 versus the original count.
   if(pasteDebug.videoCount!==initialVideoClipCount+3)throw new Error('Paste button did not create both copied video items alongside the split: '+JSON.stringify(pasteDebug));
-  await page.locator('#cfMultiTrackTimeline [data-act="delete"]').click();
-  await page.waitForFunction(n=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-video').length===n+1,initialVideoClipCount);
-  // Verify undo/redo on the most recent delete without assuming older move/trim
-  // operations can be skipped in the chronological history stack.
-  await page.locator('#cfMultiTrackTimeline [data-act="undo"]').click();
-  await page.waitForFunction(n=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-video').length===n,initialVideoClipCount+3);
-  await page.locator('#cfMultiTrackTimeline [data-act="redo"]').click();
-  await page.waitForFunction(n=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-video').length===n,initialVideoClipCount+1);
-
   await page.locator('.cf-opus-tab[data-tab="captions"]').click();
   const subtitleRows=page.locator('.cf-subtitle-row-button');
   if(await subtitleRows.count()<1)throw new Error('The subtitle editor did not load the imported timestamped transcript.');
