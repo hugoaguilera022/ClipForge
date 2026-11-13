@@ -151,8 +151,36 @@ function syncPreviewVideo(video,overlay){
   video.style.opacity=String(Math.max(0,Math.min(1,opacity*Number(item.opacity??100)/100)));video.style.transform="scale("+scale+")";
   const {sub,txt}=previewLayerAt(t,t);
   overlay.replaceChildren();
-  if(sub){const cap=document.createElement("div");cap.className="cf-studio-caption-preview";cap.textContent=sub.text||"";const style=sub.style||{};cap.style.color=style.color||"#fff";cap.style.fontSize=Math.max(14,Number(style.size)||28)+"px";cap.style.background=style.background&&style.background!=="transparent"?style.background:"rgba(0,0,0,.68)";cap.style.fontFamily=style.font||"Inter,sans-serif";cap.style.fontWeight=style.bold===false?"500":"800";cap.style.top=style.position==="top"?"9%":style.position==="middle"?"48%":"auto";cap.style.bottom=style.position==="top"||style.position==="middle"?"auto":"8%";overlay.append(cap);}
-  for(const layer of txt){const el=document.createElement("div");el.className="cf-studio-text-preview";el.textContent=layer.text||"";el.style.color=layer.color||"#fff";el.style.fontSize=Math.max(14,Number(layer.fontSize)||32)+"px";el.style.top=(Number(layer.y)||22)+"%";el.style.left=(Number(layer.x)||50)+"%";el.style.transform="translate(-50%,-50%)";overlay.append(el);}
+  if(sub){
+   const cap=document.createElement("div");cap.className="cf-studio-caption-preview";
+   const style=sub.style||{};
+   cap.style.color=style.color||"#fff";cap.style.fontSize=Math.max(14,Number(style.size)||28)+"px";
+   cap.style.background=style.background&&style.background!=="transparent"?style.background:"rgba(0,0,0,.68)";
+   cap.style.fontFamily=style.font||"Inter,sans-serif";cap.style.fontWeight=style.bold===false?"500":"800";
+   cap.style.top=style.position==="top"?"9%":style.position==="middle"?"48%":"auto";
+   cap.style.bottom=style.position==="top"||style.position==="middle"?"auto":"8%";
+   cap.style.outline=Number(style.outlineWidth)>0?"1px solid "+(style.outline||"#080808"):"none";
+   const words=Array.isArray(sub.words)?sub.words:[];
+   if(words.length){
+    words.forEach(word=>{
+     const span=document.createElement("span");span.textContent=String(word.word||word.text||"")+" ";
+     const active=t>=Number(word.start)&&t<=Number(word.end)+.06;
+     if(style.wordMode==="highlight"&&active)span.style.color=style.highlight||"#ffe600";
+     if(style.animation==="pop"&&active){span.style.display="inline-block";span.style.transform="scale(1.06)";}
+     cap.append(span);
+    });
+   }else cap.textContent=sub.text||"";
+   overlay.append(cap);
+  }
+  for(const layer of txt){
+   const el=document.createElement("div");el.className="cf-studio-text-preview";el.textContent=layer.text||"";
+   el.style.color=layer.color||"#fff";el.style.fontSize=Math.max(14,Number(layer.fontSize)||32)+"px";
+   el.style.fontFamily=layer.font||"system-ui";el.style.fontWeight=layer.bold===false?"500":"800";
+   el.style.background=layer.background&&layer.background!=="transparent"?layer.background:"transparent";
+   el.style.textShadow=Number(layer.outlineWidth)>0?"-1px -1px 0 "+(layer.outline||"#080808")+",1px -1px 0 "+(layer.outline||"#080808")+",-1px 1px 0 "+(layer.outline||"#080808")+",1px 1px 0 "+(layer.outline||"#080808"):"0 2px 4px #000a";
+   el.style.top=(Number(layer.y)||22)+"%";el.style.left=(Number(layer.x)||50)+"%";
+   el.style.transform="translate(-50%,-50%)";overlay.append(el);
+  }
  };
  const onTime=()=>update(),onSeek=()=>update(),onMetadata=()=>{window.__cfStudioSeek?.(state.playhead);update();};
  const unsubscribe=studioStore.subscribe(()=>update());
