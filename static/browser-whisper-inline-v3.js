@@ -1603,6 +1603,13 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
   const videoTrackPlayhead=document.createElement('div');videoTrackPlayhead.className='cf-video-track-playhead';
   const paintVideoPlayhead=()=>{const span=Math.max(.001,Number(c.end)-Number(c.start));videoTrackPlayhead.style.left=Math.max(0,Math.min(100,(film.currentTime-Number(c.start))/span*100))+'%';};
   film.addEventListener('timeupdate',paintVideoPlayhead);
+  const seekForThumbnail=async time=>new Promise(resolve=>{
+    let finished=false;const target=Math.max(0,Math.min(Math.max(0,film.duration-.05),time));
+    const finish=()=>{if(finished)return;if(film.readyState<2||Math.abs(film.currentTime-target)>.25)return;finished=true;film.removeEventListener('seeked',finish);film.removeEventListener('loadeddata',finish);resolve(true);};
+    film.addEventListener('seeked',finish);film.addEventListener('loadeddata',finish);
+    if(Math.abs(film.currentTime-target)<.03&&film.readyState>=2)finish();else{try{film.currentTime=target;}catch{}}
+    setTimeout(()=>{if(!finished){finished=true;film.removeEventListener('seeked',finish);film.removeEventListener('loadeddata',finish);resolve(film.readyState>=2&&Math.abs(film.currentTime-target)<.4);}},2500);
+  });
   const buildVideoThumbnails=async()=>{
     if(!film.duration||!Number.isFinite(film.duration)||videoTrackRail.dataset.ready==='1')return;
     videoTrackRail.dataset.ready='1';
@@ -1612,17 +1619,16 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
     for(let n=0;n<count;n++){
       const t=Number(c.start)+(Number(c.end)-Number(c.start))*((n+.5)/count);
       try{
-        film.currentTime=Math.max(0,Math.min(film.duration-.05,t));
-        await new Promise(resolve=>{if(Math.abs(film.currentTime-t)<.08)return resolve();const done=()=>{film.removeEventListener('seeked',done);resolve();};film.addEventListener('seeked',done,{once:true});setTimeout(done,900);});
+        const ready=await seekForThumbnail(t);if(!ready)throw new Error('El fotograma no llegó a decodificarse');
+        if(film.requestVideoFrameCallback)await new Promise(resolve=>film.requestVideoFrameCallback(()=>resolve()));
         ctx?.drawImage(film,0,0,canvas.width,canvas.height);
-        const thumb=document.createElement('img');thumb.className='cf-video-track-thumb';thumb.alt='';thumb.src=canvas.toDataURL('image/jpeg',.65);thumb.dataset.time=String(t);
-        thumb.addEventListener('click',()=>{film.currentTime=t;film.play().catch(()=>{});});videoTrackRail.append(thumb);
-      }catch{const fallback=document.createElement('span');fallback.className='cf-video-track-thumb-fallback';fallback.textContent='▶';videoTrackRail.append(fallback);}
+        const thumb=document.createElement('img');thumb.className='cf-video-track-thumb';thumb.alt='';thumb.src=canvas.toDataURL('image/jpeg',.7);thumb.dataset.time=String(t);
+        thumb.addEventListener('click',event=>{event.stopPropagation();film.currentTime=t;film.play().catch(()=>{});});videoTrackRail.append(thumb);
+      }catch(error){const fallback=document.createElement('span');fallback.className='cf-video-track-thumb-fallback';fallback.textContent='▶';fallback.title='Fotograma no disponible';videoTrackRail.append(fallback);}
     }
-    film.currentTime=oldTime;
+    await seekForThumbnail(oldTime);
     if(!wasPaused)film.play().catch(()=>{});
-    paintVideoPlayhead();
-    videoTrackRail.append(videoTrackPlayhead);
+    paintVideoPlayhead();videoTrackRail.append(videoTrackPlayhead);
   };
   film.addEventListener('loadedmetadata',buildVideoThumbnails,{once:true});
   if(film.readyState>=1)buildVideoThumbnails();
