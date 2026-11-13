@@ -2012,3 +2012,10 @@ body.cf-opus-stage-editor .cf-subtitle-edit-actions{display:flex!important;flex-
 body.cf-opus-stage-editor .cf-subtitle-edit-actions button{flex:1 1 42%!important;min-width:0!important;min-height:31px!important;font-size:10px!important}
 body.cf-opus-stage-editor .cf-track-empty{display:flex!important;align-items:center!important;justify-content:center!important;width:100%!important;height:100%!important;min-height:15px!important;color:#a9a5b9!important;font-size:9px!important;letter-spacing:.1px!important;background:linear-gradient(90deg,#202638,#26314a,#202638)!important;border-radius:4px!important}
 body.cf-opus-stage-editor .cf-opus-inspector-tabs{grid-template-columns:repeat(9,minmax(68px,1fr))!important;overflow-x:auto!important}
+
+/* Inspector pane must consume the available column height; height:0 collapsed every tool */
+body.cf-opus-stage-editor .cf-opus-inspector{display:flex!important;flex-direction:column!important;height:100%!important;min-height:0!important}
+body.cf-opus-stage-editor .cf-opus-inspector-tabs{flex:0 0 38px!important}
+body.cf-opus-stage-editor .cf-opus-inspector-panes{display:block!important;flex:1 1 0!important;height:auto!important;min-height:0!important;max-height:none!important;overflow:auto!important}
+body.cf-opus-stage-editor .cf-opus-pane{display:none!important;width:100%!important;height:auto!important;min-height:100%!important;max-height:none!important;overflow:visible!important}
+body.cf-opus-stage-editor .cf-opus-pane.is-active{display:block!important;height:auto!important;min-height:100%!important}
