@@ -339,10 +339,13 @@
     setStage('editor');
     const legacyCard=card;
     if(window.ClipForgeStudio?.open){
+      const bridgeProject=window.clipforgeEditorBridge?.getProject?.()||{};
       window.ClipForgeStudio.open({
         card:legacyCard,
         clip:e.detail?.clip||{start:0,end:1},
-        transcript:window.clipforgeEditorBridge?.getProject?.().transcript||null,
+        index:activeIndex,
+        allClips:bridgeProject.clips||[],
+        transcript:bridgeProject.transcript||null,
         onBack:()=>{activeCard=null;setStage('results');},
         onSave:project=>{
           window.clipforgeEditorBridge?.setTracks?.(project.tracks);
