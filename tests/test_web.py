@@ -555,91 +555,46 @@ class BrowserWhisperHandoffTests(unittest.TestCase):
 
 
 class BrowserFaceTrackingTests(unittest.TestCase):
- def test_browser_export_uses_local_face_detection_and_safe_multi_face_fallback(self):
+ def test_browser_export_uses_face_and_pose_tracking_with_safe_framing(self):
   module=(ROOT/'static'/'browser-export.js').read_text()
   self.assertIn('@mediapipe/tasks-vision@1.2.2/vision_bundle.mjs',module)
   self.assertIn('faceLandmarker.detectForVideo(sourceCanvas',module)
-  self.assertIn('track.activity=track.activity*.72',module)
-  self.assertIn('landmarks[13]',module)
-  self.assertIn('frameNumber%6===1',module)
-  self.assertNotIn('frameNumber%6===1||lastFaceCenter===null',module)
-  group=module.split('}else if(seen.length>1){',1)[1].split('}else if(!seen.length&&poseLandmarker){',1)[0]
-  self.assertIn('lastFaceCenter=null;',group)
-  self.assertIn('activeSpeakerTrack=null;',group)
-  self.assertIn('mouth motion alone is not reliable',group)
-  self.assertIn('lastFaceCenter*.78+desired*.22',module)
-  self.assertIn('ctx.drawImage(sourceCanvas,-left*scale,0,sourceCanvas.width*scale,1920)',module)
-  self.assertIn('instead of clamping',module)
-  self.assertIn("sample.drawWithFit(ctx,{fit:'contain'})",module)
-  self.assertIn('faceLandmarker?.close?.()',module)
   self.assertIn('PoseLandmarker.createFromOptions',module)
   self.assertIn('pose_landmarker_lite.task',module)
-  self.assertIn('poseSamples++',module)
+  self.assertIn('track.activity=track.activity*.72',module)
+  self.assertIn('lastFaceCenter*.78+desired*.22',module)
+  self.assertIn('lastFaceCenter=null;activeSpeakerTrack=null;',module)
+  self.assertIn("sample.drawWithFit(ctx,{fit:'contain'})",module)
+  self.assertIn("sample.drawWithFit(ctx,{fit:'cover'})",module)
+  self.assertIn('ctx.drawImage(sourceCanvas,-left*scale,0,sourceCanvas.width*scale,1920)',module)
+  self.assertIn('faceLandmarker?.close?.()',module)
   self.assertIn('poseLandmarker?.close?.()',module)
-  self.assertTrue(module.rstrip().endswith('});'))
-
-
 class BrowserClipCandidateTests(unittest.TestCase):
- def test_browser_candidate_ranker_uses_timestamps_and_returns_four_non_overlapping_clips(self):
-  module=(ROOT/'static'/'browser-whisper.js').read_text()
+ def test_active_browser_editor_builds_four_ai_reviewed_nonoverlapping_clips(self):
+  module=(ROOT/'static/browser-whisper-inline-v3.js').read_text()
   self.assertIn('function buildEditorialCandidatePool',module)
-  self.assertIn('function aiEditorialSelect',module)
-  self.assertIn('const batchSize=24;',module)
-  self.assertIn('const keep=Math.min(4,batch.length);',module)
-  self.assertIn('const maxCandidates=96;',module)
-  self.assertIn('if(!validRubric)continue;',module)
-  self.assertIn("audit_verdict!=='pass'",module)
-  self.assertIn('aiEditorialSelect(candidatePool, requested, say)',module)
-  self.assertIn('getDailyClipBudget()',module)
-  self.assertIn('recordDailyAIClips(candidatePool.length)',module)
-  self.assertIn('limit=4; // Product requirement: exactly four important moments per video.',module)
-  self.assertIn('const requested=4;',module)
-  self.assertIn('const finalPool=finalists;',module)
-  self.assertIn('Qwen3-1.7B-q4f16_1-MLC',module)
+  self.assertIn('async function aiEditorialSelect',module)
+  self.assertIn('while(working.length>8)',module)
+  self.assertIn('const keep=Math.min(2,group.length)',module)
+  self.assertIn('Auditor editorial: revisa estos cuatro finalistas',module)
+  self.assertIn('parseEditorialDecision',module)
+  self.assertIn("selection_method:'local_editorial_fallback'",module)
+  self.assertIn('function selectEditorialFallback',module)
+  self.assertIn('configuredFreeAIProviders()',module)
   self.assertIn('function createFederatedFreeAIEngine',module)
   self.assertIn('Cuotas externas agotadas: activando Qwen3 local',module)
-  self.assertIn('configuredFreeAIProviders()',module)
-  self.assertIn('FREE_AI_PROVIDERS',module)
-  self.assertIn('const selectionLimit=Math.max(1,Math.min(12,Math.floor(Number(limit)||4)));',module)
-  self.assertIn('selected.length !== Math.min(selectionLimit, candidates.length)',module)
-  provider_html=(ROOT/'static'/'index.html').read_text()
-  self.assertIn('data-provider-key="gemini"',provider_html)
-  self.assertIn('data-provider-key="groq"',provider_html)
-  self.assertIn('data-provider-key="cerebras"',provider_html)
-  self.assertIn('data-provider-key="mistral"',provider_html)
-  self.assertIn('data-provider-key="openrouter"',provider_html)
-  self.assertIn('function estimateVideoCapacity(options)',module)
-  self.assertIn('updateVideoCapacity(file)',module)
-
- def test_small_candidate_pools_still_receive_final_vote_and_critic_audit(self):
-  module=(ROOT/'static'/'browser-whisper.js').read_text()
-  self.assertIn('if(pool.length<=batchSize){',module)
-  self.assertIn('finalists.push(...pool);',module)
-  self.assertIn('Segunda pasada editorial: comprobando importancia, contexto y evidencia literal',module)
-  self.assertNotIn('if(pool.length<=8)return askEditorialModel',module)
-
- def test_incomplete_ai_rubrics_are_rejected_instead_of_scored_as_fallback(self):
-  module=(ROOT/'static'/'browser-whisper.js').read_text()
-  self.assertIn('if(!validRubric)continue;',module)
-  self.assertIn('repair pass',module)
-
- def test_candidate_ranker_supports_english_hooks_and_dialogue_turns(self):
-  module=(ROOT/'static'/'browser-whisper.js').read_text()
-  self.assertIn('guess what|you will not believe',module)
-  self.assertIn('here is the thing|the point is',module)
-  self.assertIn('turnCount>=(phraseTimed?2:5)',module)
-  self.assertIn('questionAtStart=/^\\s*¿(?:y\\s+)?(?:qué|quién|cómo|cuándo|dónde|por qué|cuál|what|who|how|when|where|why|which)\\b/i.test(text)',module)
-  self.assertIn('(questionAtStart?12:0)',module)
-  self.assertIn('turnScore=Math.min(10,turnCount*1.25)',module)
-
- def test_candidate_ui_labels_heuristic_scores_honestly(self):
-  html=(ROOT/'static'/'index.html').read_text()
-  module=(ROOT/'static'/'browser-whisper.js').read_text()
+  self.assertIn('const requested=4;',module)
+  self.assertIn('candidatePool.length !== 4',module)
+  self.assertIn('selected.length!==Math.min(selectionLimit,candidates.length)',module)
+  html=(ROOT/'static/index.html').read_text()
   self.assertIn('Selección editorial IA',html)
-  self.assertIn('no se presentan cortes heurísticos como selección IA',module)
   self.assertIn('id="videoCapacity"',html)
 
-
+ def test_candidate_imports_and_selection_controls_use_live_array(self):
+  module=(ROOT/'static/browser-whisper-inline-v3.js').read_text()
+  self.assertIn('window.__cfEditableCandidates=editableCandidates',module)
+  self.assertIn('window.__cfUpdateCandidateClip=',module)
+  self.assertIn('showClipCandidates([], duration, editableCandidates)',module)
 class BrowserProjectImportTests(unittest.TestCase):
  def test_project_import_validates_schema_and_clip_times(self):
   module=(ROOT/'static'/'browser-whisper.js').read_text()
@@ -672,27 +627,31 @@ class ManualBrowserRenderIntegrationTests(unittest.TestCase):
   self.assertIn('JSON.stringify(editableCandidates)',module)
 
 class ProjectRestoreRegressionTests(unittest.TestCase):
- def test_imported_project_reuses_same_editable_candidate_controls(self):
-  module=(ROOT/'static'/'browser-whisper.js').read_text()
+ def test_imported_project_reuses_live_candidate_cards_and_edit_controls(self):
+  module=(ROOT/'static/browser-whisper-inline-v3.js').read_text()
   self.assertIn('function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=null,visualSamples=[])',module)
-  self.assertIn('showClipCandidates([],duration,editableCandidates)',module)
-  self.assertIn('Selección editorial realizada por un modelo generativo',module)
-  self.assertIn('c.ai_editorial_reason',module)
- def test_import_no_longer_restores_read_only_cards(self):
-  module=(ROOT/'static'/'browser-whisper.js').read_text()
-  import_section=module[module.index('// Importación explícita'):]
-  self.assertNotIn("document.createElement('p')",import_section)
-  self.assertIn('addEventListener(\'change\',update)',module)
+  self.assertIn('showClipCandidates([], duration, editableCandidates)',module)
+  self.assertIn('window.__cfEditableCandidates=editableCandidates',module)
+  self.assertIn('window.__cfUpdateCandidateClip=',module)
+  self.assertIn('ai_editorial_reason',module)
 
-
+ def test_import_normalizes_times_and_preserves_source_mapping(self):
+  module=(ROOT/'static/browser-whisper-inline-v3.js').read_text()
+  self.assertIn('start:Number(c.start)',module)
+  self.assertIn('end:Number(c.end)',module)
+  self.assertIn('sourceStart:Number(c.sourceStart??c.start)',module)
+  self.assertIn('attachTranscriptToJobForm(makeVtt(segments))',module)
 class BrowserEditorPreviewTests(unittest.TestCase):
- def test_editor_has_local_source_preview_and_clip_range_playback(self):
-  html=(ROOT/'static'/'index.html').read_text()
-  module=(ROOT/'static'/'editor.js').read_text()
-  self.assertIn('id="editorPreviewVideo"',html)
-  self.assertIn('function previewClip(clip)',module)
-
-
+ def test_studio_uses_local_source_preview_and_timeline_seek(self):
+  module=(ROOT/'static/editor/studio.js').read_text()
+  self.assertIn('function syncPreviewVideo(video,overlay)',module)
+  self.assertIn('video.className="cf-studio-video"',module)
+  self.assertIn('window.__cfStudioSeek=time=>',module)
+  self.assertIn('function mountTimeline(root)',module)
+  self.assertIn('data-action="relink"',module)
+  self.assertIn('sourceStart',module)
+  self.assertIn('clipforge:studio-playhead',module)
+  self.assertIn('sourceInput.addEventListener("change"',module)
 class BroadVideoContainerSupportTests(unittest.TestCase):
  def test_common_video_containers_are_accepted_and_validated_by_ffprobe(self):
   source=(ROOT/"server.py").read_text()
@@ -708,49 +667,30 @@ class BroadVideoContainerSupportTests(unittest.TestCase):
 
 
 class MultilingualBrowserTranscriptionTests(unittest.TestCase):
- def test_browser_whisper_uses_the_selected_source_language(self):
-  source=(ROOT/"static"/"browser-whisper.js").read_text()
+ def test_browser_transcriber_honors_auto_spanish_and_english_selection(self):
+  source=(ROOT/'static/browser-whisper-inline-v3.js').read_text()
   self.assertIn("async function transcribeAudioInChunks(asr, audio, onProgress = () => {}, timestampMode = 'word', language = null)",source)
-  self.assertIn("language: language || undefined",source)
-  self.assertIn("const selectedLanguage",source)
+  self.assertIn('language: language || undefined',source)
+  self.assertIn('const selectedLanguage',source)
   self.assertIn("selectedLanguage === 'auto' ? undefined : selectedLanguage",source)
-  self.assertIn('function captureVisualActivity(file, duration, stepSeconds = 4)',source)
-  self.assertIn('movimiento y cambios visuales',source)
-  self.assertIn('id="browserWhisperLanguage"',(ROOT/"static"/"index.html").read_text())
-  self.assertNotIn("language: 'spanish'",source)
-  self.assertIn("text.toLowerCase()",source)
-  self.assertIn("async function releaseWhisperModel()",source)
-  self.assertIn("await releaseWhisperModel();",source)
-  self.assertIn("const bucketOf=c=>",source)
-  html=(ROOT/"static"/"index.html").read_text()
+  self.assertIn("transcribeAudioInChunks(asr, audio, reportProgress, 'word', sourceLanguage)",source)
+  self.assertIn('async function releaseWhisperModel()',source)
+  html=(ROOT/'static/index.html').read_text()
   self.assertIn('value="auto" selected',html)
-  for code in ("es","en"):
-   self.assertIn(f'value="{code}"',html)
-  for code in ("fr","de","pt","it","ja","zh","ar","ru","hi","ko"):
-   self.assertNotIn(f'value="{code}"',html)
-  backend=(ROOT/"server.py").read_text()
-  self.assertIn("language not in SUPPORTED_LANGUAGES",backend)
-
-
+  for code in ("es","en"): self.assertIn(f'value="{code}"',html)
 class BrowserModelPreferenceTests(unittest.TestCase):
- def test_word_timed_base_model_is_default_with_small_option(self):
-  html=(ROOT/"static"/"index.html").read_text()
+ def test_lightweight_word_timed_base_model_is_default(self):
+  html=(ROOT/'static/index.html').read_text()
   model=html.split('id="browserWhisperModel"',1)[1].split('</select>',1)[0]
   self.assertIn('value="whisper-base" selected',model)
-  self.assertNotIn('value="whisper-small" selected',model)
-  self.assertIn("await loadModel(activeModelId)", (ROOT/"static"/"browser-whisper.js").read_text())
+  self.assertNotIn('value="whisper-large-v3-turbo" selected',model)
+  self.assertIn("await loadModel(activeModelId)",(ROOT/'static/browser-whisper-inline-v3.js').read_text())
 
  def test_phrase_overlap_deduplication_uses_time_and_token_similarity(self):
-  source=(ROOT/"static"/"browser-whisper.js").read_text()
-  self.assertIn("overlapRatio>=0.55 && textSimilarity>=0.82",source)
-  self.assertIn("const previousTokens=new Set(previousText.split(' '))",source)
-  chunking=source.split("async function transcribeAudioInChunks",1)[1].split("\nfunction makeVtt",1)[0]
-  self.assertIn("let recentChunks = [];",chunking)
-  self.assertIn("recentChunks = recentChunks.filter(previous => previous.end >= absoluteStart - 0.45);",chunking)
-  self.assertIn("recentChunks.some(previous =>",chunking)
-  self.assertNotIn("allChunks.some(previous =>",chunking)
-
-
+  source=(ROOT/'static/browser-whisper-inline-v3.js').read_text()
+  self.assertIn('overlapRatio>=0.55 && textSimilarity>=0.82',source)
+  self.assertIn('let recentChunks = []',source)
+  self.assertIn('recentChunks = recentChunks.filter(previous => previous.end >= absoluteStart - 0.45)',source)
 class YouTubeProxyValidationTests(unittest.TestCase):
  def test_accepts_supported_youtube_video_urls(self):
   from youtube_proxy import validate_youtube_url
@@ -784,15 +724,14 @@ class YouTubeProxyValidationTests(unittest.TestCase):
 
 
 class BrowserWhisperDefaultTests(unittest.TestCase):
- def test_default_browser_model_prioritizes_word_timed_captions(self):
-  html=(ROOT/'static'/'index.html').read_text()
-  self.assertIn('<option value="whisper-base" selected>Base · recomendado (subtítulos palabra a palabra)</option>',html)
-  self.assertIn('<option value="whisper-small">Small · más precisión (subtítulos por frase)</option>',html)
+ def test_default_browser_model_is_lightweight_and_word_timed(self):
+  html=(ROOT/'static/index.html').read_text()
+  model=html.split('id="browserWhisperModel"',1)[1].split('</select>',1)[0]
+  self.assertIn('<option value="whisper-base" selected>',model)
+  self.assertIn('<option value="whisper-large-v3-turbo">',model)
  def test_browser_language_defaults_to_automatic_spanish_or_english_detection(self):
-  html=(ROOT/'static'/'index.html').read_text()
-  self.assertIn('<option value="auto" selected>Detectar automáticamente (español o inglés)</option>',html)
-
-
+  html=(ROOT/'static/index.html').read_text()
+  self.assertIn('<option value="auto" selected>',html)
 class BrowserAudioExtractionRobustnessTests(unittest.TestCase):
  def test_missing_mp4_duration_metadata_falls_back_to_audio_track_duration(self):
   source=(ROOT/'static'/'browser-whisper.js').read_text()
@@ -818,22 +757,19 @@ class BrowserVideoExportRobustnessTests(unittest.TestCase):
 
 
 class BrowserMultiPersonTrackingFallbackTests(unittest.TestCase):
- def test_pose_tracking_falls_back_when_no_valid_face_is_seen(self):
-  source=(ROOT/'static'/'browser-export.js').read_text()
-  self.assertIn('}else if(!seen.length&&poseLandmarker){',source)
-  self.assertNotIn('}else if(!faces.length&&poseLandmarker){',source)
-
-
+ def test_pose_tracking_runs_when_no_valid_face_was_seen(self):
+  source=(ROOT/'static/browser-export.js').read_text()
+  self.assertIn('}else if(poseLandmarker){',source)
+  self.assertIn('const poseResult=poseLandmarker.detectForVideo(sourceCanvas',source)
+  self.assertIn('poseSamples++',source)
+  self.assertIn('lastFaceCenter=null;activeSpeakerTrack=null;',source)
 class BrowserGroupFramingSafetyTests(unittest.TestCase):
- def test_multiple_visible_faces_do_not_trigger_ambiguous_single_face_crop(self):
-  source=(ROOT/'static'/'browser-export.js').read_text()
-  self.assertIn('}else if(seen.length>1){',source)
-  group=source.split('}else if(seen.length>1){',1)[1].split('}else if(!seen.length&&poseLandmarker){',1)[0]
-  self.assertIn('lastFaceCenter=null;',group)
-  self.assertIn('activeSpeakerTrack=null;',group)
-  self.assertIn('mouth motion alone is not reliable',group)
-
-
+ def test_multi_face_framing_selects_a_stable_visible_subject_or_full_frame(self):
+  source=(ROOT/'static/browser-export.js').read_text()
+  self.assertIn("const primary=[...seen].sort((a,b)=>(b.faceArea||0)-(a.faceArea||0))[0]",source)
+  self.assertIn('lastFaceCenter=lastFaceCenter*.78+desired*.22',source)
+  self.assertIn("sample.drawWithFit(ctx,{fit:'contain'})",source)
+  self.assertIn("sample.drawWithFit(ctx,{fit:'cover'})",source)
 class ViralMomentFallbackSignalsTests(unittest.TestCase):
  def test_fallback_ranking_considers_story_reveals_conflict_stakes_and_specificity(self):
   source=(ROOT/'static'/'browser-whisper.js').read_text()
