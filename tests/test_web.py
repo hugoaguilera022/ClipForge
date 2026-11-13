@@ -767,7 +767,7 @@ class BrowserWhisperDefaultTests(unittest.TestCase):
   model=html.split('id="browserWhisperModel"',1)[1].split('</select>',1)[0]
   self.assertIn('<option value="whisper-base" selected>',model)
   self.assertIn('<option value="whisper-small">',model)
-  self.assertIn('<option value="whisper-base">',model)
+  self.assertIn('<option value="whisper-large-v3-turbo">',model)
  def test_browser_language_defaults_to_automatic_spanish_or_english_detection(self):
   html=(ROOT/'static'/'index.html').read_text()
   self.assertIn('<option value="auto" selected>Auto (español o inglés)</option>',html)
