@@ -65,7 +65,23 @@ export class EditorStore extends EventTarget {
     mutator(this.project);
     this.project.tracks=(this.project.tracks||[]).map(normalizeTrack);
     const videoTrack=this.project.tracks.find(t=>t.type==='video');
-    if(videoTrack)this.project.clips=videoTrack.items.map(item=>({...item,start:item.start,end:item.end,selected:true}));
+    if(videoTrack){
+      this.project.clips=videoTrack.items.map(item=>({...item,start:item.start,end:item.end,selected:true}));
+      const sourceAudioTrack=this.project.tracks.find(t=>t.type==='audio'&&(t.id==='track-a1'||t.items.some(item=>item.sourceType==='primary')));
+      if(sourceAudioTrack&&!sourceAudioTrack.locked){
+        const clips=videoTrack.items,clipIds=new Set(clips.map(item=>String(item.id)));
+        sourceAudioTrack.items=sourceAudioTrack.items.filter(item=>item.sourceType!=='primary'||clipIds.has(String(item.clipId||item.id)));
+        for(const clip of clips){
+          let audio=sourceAudioTrack.items.find(item=>item.sourceType==='primary'&&String(item.clipId||item.id)===String(clip.id));
+          if(!audio){
+            audio={id:`audio-source-${clip.id}`,clipId:String(clip.id),sourceType:'primary',name:'Audio original',start:clip.start,end:clip.end,sourceStart:clip.start,gain:0.8};
+            sourceAudioTrack.items.push(audio);
+          }else{
+            audio.start=clip.start;audio.end=clip.end;audio.sourceStart=clip.start;
+          }
+        }
+      }
+    }
     const subtitleTrack=this.project.tracks.find(t=>t.type==='subtitles');
     if(subtitleTrack&&this.project.transcript){
       this.project.transcript={...this.project.transcript,segments:subtitleTrack.items.map(item=>({start:item.start,end:item.end,text:String(item.text||''),words:Array.isArray(item.words)?item.words:[]}))};
