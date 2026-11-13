@@ -56,9 +56,8 @@ export class EditorCommands {
     this.store.commit('item:move',p=>{
       const from=p.tracks.find(t=>t.id===found.track.id),to=p.tracks.find(t=>t.id===target.id);
       const index=from.items.findIndex(x=>x.id===id),[item]=from.items.splice(index,1);
-      const delta=next-Number(item.start||0);
+      // Moving changes the timeline position, not the in-point inside the source media.
       item.start=next;item.end=next+duration;
-      if(Number.isFinite(Number(item.sourceStart)))item.sourceStart=Math.max(0,Number(item.sourceStart)+delta);
       to.items.push(item);
     });
   }
