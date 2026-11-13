@@ -911,6 +911,7 @@ let editorialEnginePromise = null;
 // Optional remote Qwen endpoint exposed by a user's own Colab runtime.
 // Credentials are held in sessionStorage only and never written to a ClipForge backend.
 const COLAB_EDITOR_KEY='clipforge.colab.editor.v1';
+function trimColabEndpoint(value){let output=String(value||'').trim();while(output.endsWith('/'))output=output.slice(0,-1);return output;}
 function getColabEditorConfig(){
  try{
   const saved=JSON.parse(sessionStorage.getItem(COLAB_EDITOR_KEY)||'null');
