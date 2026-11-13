@@ -14,8 +14,11 @@ assert.equal(store.project.tracks.filter(t=>t.type==='subtitles').length,1);
 
 const video=store.project.tracks.find(t=>t.type==='video');
 const right=commands.splitItem('clip-1',15);
-assert.equal(video.items[0].end,15);
-assert.equal(video.items.find(x=>x.id===right).start,15);
+assert.equal(store.project.tracks.find(t=>t.type==='video').items[0].end,15);
+assert.equal(store.project.tracks.find(t=>t.type==='video').items.find(x=>x.id===right).start,15);
+const sourceAudio=store.project.tracks.find(t=>t.id==='track-a1');
+assert.equal(sourceAudio.items.find(x=>x.clipId==='clip-1').end,15);
+assert.equal(sourceAudio.items.find(x=>x.clipId===right).sourceStart,15);
 assert.equal(store.project.clips.length,2);
 assert.equal(store.undo(),true);
 assert.equal(store.project.clips.length,1);
@@ -34,6 +37,14 @@ assert.equal(pasted.length,1);
 assert.equal(commands.item(pasted[0]).item.start,9);
 commands.remove(pasted[0]);
 assert.equal(commands.item(pasted[0]),null);
+
+const audioFile=new Blob(['mock-audio-data'],{type:'audio/wav'});
+const imported=commands.importAudioFile(audioFile,audioId,12,6);
+const importedItem=commands.item(imported).item;
+assert.equal(importedItem.end,18);
+const snapshot=store.snapshot();
+assert.equal(snapshot.media[0].blob.size,audioFile.size,'project snapshots must preserve imported audio blobs');
+assert.equal(commands.item(imported).item.mediaId,snapshot.media[0].id);
 
 const before=commands.item(audioItem).item.start;
 assert.throws(()=>commands.updateItem(audioItem,{start:10,end:9}),/Intervalo/);
