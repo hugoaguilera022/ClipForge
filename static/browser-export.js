@@ -164,6 +164,13 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
         }
         ctx.clearRect(0,0,canvas.width,canvas.height);
         const stamp=Number(sample.timestamp)||0;
+        const fx=clip.visualEffects||{};
+        const filterPresets={cinematic:'contrast(1.14) saturate(.82)',warm:'sepia(.16) saturate(1.2)',cool:'hue-rotate(12deg) saturate(.9)',bw:'grayscale(1) contrast(1.08)',vintage:'sepia(.32) contrast(.92) saturate(.78)',vivid:'saturate(1.45) contrast(1.08)'};
+        const filterParts=[filterPresets[fx.preset]||'',fx.brightness&&fx.brightness!==100?'brightness('+fx.brightness+'%)':'',fx.contrast&&fx.contrast!==100?'contrast('+fx.contrast+'%)':'',fx.saturation&&fx.saturation!==100?'saturate('+fx.saturation+'%)':''].filter(Boolean);
+        const transition=clip.transitions||{},duration=Math.max(.1,Math.min(2,Number(transition.duration)||.5));
+        const fadeIn=transition.in==='fade'?Math.min(1,Math.max(0,stamp/duration)):1;
+        const fadeOut=transition.out==='fade'?Math.min(1,Math.max(0,(clip.end-clip.start-stamp)/duration)):1;
+        ctx.save();ctx.filter=filterParts.join(' ')||'none';ctx.globalAlpha=Math.min(fadeIn,fadeOut);
         if(sourceCanvas){
           sourceCtx.clearRect(0,0,sourceCanvas.width,sourceCanvas.height);
           sample.drawWithFit(sourceCtx,{fit:'contain'});
@@ -247,6 +254,7 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
           ctx.save();ctx.filter='blur(24px)';sample.drawWithFit(ctx,{fit:'cover'});ctx.restore();
           sample.drawWithFit(ctx,{fit:'contain'});
         }
+        ctx.restore();
         // Mediabunny normalizes timestamps to zero after trim; captions keep source-video times.
         const local=clip.start+stamp;
         drawTextLayers(ctx,tracks,local,canvas.width,canvas.height);
