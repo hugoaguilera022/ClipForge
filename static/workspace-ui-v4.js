@@ -158,6 +158,7 @@
     window.scrollTo({top:0,behavior:'instant'});
   }
   function restoreCard(card){
+    card.querySelectorAll?.('.cf-opus-pane[data-pane="audio"]').forEach(pane=>pane.__cfCleanup?.());
     const original=originalCardNodes.get(card);if(!original)return;
     card.replaceChildren(...original);card.classList.remove('cf-opus-editing-card');
     originalCardNodes.delete(card);
@@ -235,8 +236,8 @@
     const syncAudioControls=()=>{const found=sourceAudioControl();if(!found)return;const value=Math.round(Math.max(0,Math.min(1,Number(found.item.gain??.8)))*100);volumeControl.value=String(value);muteControl.checked=value===0;film.volume=value/100;film.muted=value===0;};
     volumeControl.addEventListener('input',event=>{const value=Math.max(0,Math.min(1,Number(event.target.value)/100));film.volume=value;film.muted=value===0;const found=sourceAudioControl();if(found)found.commands.updateItem(found.item.id,{gain:value});});
     muteControl.addEventListener('change',event=>{const found=sourceAudioControl();const value=event.target.checked?0:Number(volumeControl.value)/100;film.volume=value;film.muted=value===0;if(found)found.commands.updateItem(found.item.id,{gain:value});});
-    window.addEventListener('clipforge:project-store-ready',syncAudioControls,{once:true});
-    window.addEventListener('clipforge:project-changed',syncAudioControls);
+    const canonicalStore=window.clipforgeProjectStore;
+    if(canonicalStore){canonicalStore.addEventListener('change',syncAudioControls);audioPane.__cfCleanup=()=>canonicalStore.removeEventListener('change',syncAudioControls);}
     syncAudioControls();
     const trackingPane=document.createElement('section');trackingPane.className='cf-opus-pane';trackingPane.dataset.pane='tracking';
     trackingPane.innerHTML='<div class="cf-opus-pane-title">Encuadre y seguimiento</div><p>Elige cómo adaptar el vídeo al formato vertical 9:16. El seguimiento facial utiliza el detector disponible en el navegador y puede recurrir a un encuadre seguro si no detecta una persona.</p>';
