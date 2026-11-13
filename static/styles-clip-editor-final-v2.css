@@ -2149,3 +2149,9 @@ body.cf-opus-stage-editor .cf-opus-inspector .cf-subtitle-live-preview{display:f
  .cf-mt-actions{gap:4px}
  .cf-mt-actions button,.cf-mt-import{min-height:27px;padding:4px 7px}
 }
+
+
+/* Keep inspector controls above the timeline stacking context. The timeline is
+   intentionally a sibling below the preview, but must never cover its tabs. */
+body.cf-opus-stage-editor .cf-opus-inspector{position:relative!important;z-index:2!important;}
+body.cf-opus-stage-editor #cfMultiTrackTimeline{position:relative!important;z-index:0!important;}
