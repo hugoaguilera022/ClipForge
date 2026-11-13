@@ -10,9 +10,10 @@ function extract(name){
     ?source.indexOf(`async function ${name}(`)
     :source.indexOf(`function ${name}(`);
   assert.ok(start>=0,name+' must exist in the active browser module');
-  const brace=source.indexOf('{',start);
+  const body=source.indexOf(') {',start)+2;
+  assert.ok(body>1,name+' must have a function body');
   let depth=0,end=-1;
-  for(let i=brace;i<source.length;i++){
+  for(let i=body;i<source.length;i++){
     if(source[i]==='{')depth++;
     else if(source[i]==='}'&&--depth===0){end=i+1;break;}
   }
