@@ -25,24 +25,6 @@ try {
   if (await page.locator('#browserWhisperLanguage').inputValue() !== 'auto') {
     throw new Error('Browser transcription must default to automatic Spanish/English language detection.');
   }
-  await page.locator('#video').setInputFiles('test-output/e2e-source.mkv');
-  await page.waitForFunction(() => {
-    const panel=document.querySelector('#videoCapacity');
-    return panel && document.querySelector('#capacityRam')?.textContent.includes('GB') &&
-      document.querySelector('#capacityGpu')?.textContent.includes('GB') &&
-      document.querySelector('#capacityDisk')?.textContent.includes('GB');
-  }, undefined, {timeout:20000});
-  const capacity=await page.evaluate(()=>({
-    status:document.querySelector('#capacityStatus')?.textContent,
-    ram:document.querySelector('#capacityRam')?.textContent,
-    gpu:document.querySelector('#capacityGpu')?.textContent,
-    disk:document.querySelector('#capacityDisk')?.textContent,
-    model:document.querySelector('#capacityModel')?.textContent
-  }));
-  if(!capacity.model?.includes('Qwen3') || !capacity.ram || !capacity.gpu || !capacity.disk) {
-    throw new Error('Per-video capacity panel did not produce complete requirements: '+JSON.stringify(capacity));
-  }
-
   const project = {
     schema: 'clipforge-browser-project-v1',
     source: 'e2e-source.mkv',
@@ -64,6 +46,26 @@ try {
   await page.locator('#browserCandidates').waitFor({state:'visible', timeout:10000});
   const projectState = await page.locator('#browserWhisperStatus').innerText();
   if (!projectState.includes('Proyecto recuperado')) throw new Error('Browser project import did not complete: '+projectState);
+
+  await page.locator('#video').setInputFiles('test-output/e2e-source.mkv');
+  await page.waitForFunction(() => {
+    const panel=document.querySelector('#videoCapacity');
+    return panel && document.querySelector('#capacityRam')?.textContent.includes('GB') &&
+      document.querySelector('#capacityGpu')?.textContent.includes('GB') &&
+      document.querySelector('#capacityDisk')?.textContent.includes('GB');
+  }, undefined, {timeout:20000});
+  const capacity=await page.evaluate(()=>({
+    status:document.querySelector('#capacityStatus')?.textContent,
+    ram:document.querySelector('#capacityRam')?.textContent,
+    gpu:document.querySelector('#capacityGpu')?.textContent,
+    disk:document.querySelector('#capacityDisk')?.textContent,
+    model:document.querySelector('#capacityModel')?.textContent
+  }));
+  if(!capacity.model?.includes('Qwen3') || !capacity.ram || !capacity.gpu || !capacity.disk) {
+    throw new Error('Per-video capacity panel did not produce complete requirements: '+JSON.stringify(capacity));
+  }
+
+
 
   // Exercise the actual clip inspector and multipista editor.
   await page.locator('.candidate-card').first().locator('.cf-open-clip-editor').click();
