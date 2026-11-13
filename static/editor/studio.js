@@ -243,7 +243,7 @@ function renderInspector(root){
   if(track.type==="video"&&["preset","brightness","contrast","saturation"].includes(key))patch.visualEffects={...(item.visualEffects||{}),[key]:value};
   else if(track.type==="video"&&key==="opacity")patch.opacity=value;
   else if(track.type==="video"&&key.startsWith("transition")){const k=key==="transitionIn"?"in":key==="transitionOut"?"out":"duration";patch.transitions={...(item.transitions||{}),[k]:value};}
-  else if(track.type==="subtitles"&&key==="stylePreset"){patch.style={...(presetStyles[value]||presetStyles.classic),...(item.style||{}),preset:value};}
+  else if(track.type==="subtitles"&&key==="stylePreset"){patch.style={...(item.style||{}),...(presetStyles[value]||presetStyles.classic),preset:value};}
   else if(track.type==="subtitles"&&["position","color","fontSize","highlight","background","outline","outlineWidth","wordMode","animation"].includes(key)){const k=key==="fontSize"?"size":key;patch.style={...(item.style||{}),[k]:value,preset:item.style?.preset||"classic"};}
   else if(track.type==="text"&&["text","fontSize","color","background","x","y","outline","outlineWidth","font","bold"].includes(key))patch[key]=value;
   else patch[key]=value;
@@ -423,12 +423,14 @@ export async function openStudio({card,clip,transcript,index=0,allClips=null,onB
    const sourceRow=document.createElement("div");sourceRow.className="cf-studio-media-row";
    sourceRow.innerHTML="<b>Vídeo original</b><span>"+escapeHtml(state.source?.name||"Vídeo no vinculado")+"</span>";
    library.append(sourceRow);
-   for(const asset of await all("assets")){
-    const row=document.createElement("div");row.className="cf-studio-media-row";
-    const name=document.createElement("b");name.textContent=asset.name;
-    const meta=document.createElement("span");meta.textContent=(Number(asset.size||0)/1024/1024).toFixed(1)+" MB · audio local";
-    row.append(name,meta);library.append(row);
-   }
+   try{
+    for(const asset of await all("assets")){
+     const row=document.createElement("div");row.className="cf-studio-media-row";
+     const name=document.createElement("b");name.textContent=asset.name;
+     const meta=document.createElement("span");meta.textContent=(Number(asset.size||0)/1024/1024).toFixed(1)+" MB · audio local";
+     row.append(name,meta);library.append(row);
+    }
+   }catch(error){setStatus("No se pudo leer la biblioteca local: "+error.message);}
    if(!library.children.length)library.textContent="Todavía no has importado archivos adicionales.";
   }
   if(tool==="audio")fileInput.click();
@@ -439,9 +441,10 @@ export async function openStudio({card,clip,transcript,index=0,allClips=null,onB
  });
  const off=studioStore.subscribe(s=>{const el=shell.querySelector(".cf-studio-project-name");if(el)el.textContent=s.source?.name||"Proyecto editable";});
  const sourceInput=shell.querySelector("[data-source-input]");
+ let linkedSourceUrl=null;
  sourceInput.addEventListener("change",()=>{
   const replacement=sourceInput.files?.[0];if(!replacement)return;
-  const url=URL.createObjectURL(replacement);video.pause();video.src=url;video.load();
+  const url=URL.createObjectURL(replacement);if(linkedSourceUrl)URL.revokeObjectURL(linkedSourceUrl);linkedSourceUrl=url;video.pause();video.src=url;video.load();
   state.source={name:replacement.name,size:replacement.size,lastModified:replacement.lastModified};
   video.addEventListener("loadedmetadata",()=>window.__cfStudioSeek?.(state.playhead),{once:true});
   setStatus("Vídeo original vinculado. Comprueba el encuadre antes de exportar.");
@@ -452,7 +455,7 @@ export async function openStudio({card,clip,transcript,index=0,allClips=null,onB
   if(window.clipforgeEditorBridge?.setTracks)window.clipforgeEditorBridge.setTracks(s.tracks);
   if(Array.isArray(window.__cfEditableCandidates))s.clips.forEach((c,i)=>{if(window.__cfEditableCandidates[i])Object.assign(window.__cfEditableCandidates[i],c);});
  });
- window.__cfStudioActive={root:shell,cleanup:[timelineCleanup,inspectorCleanup,detachOverlay,detachAudio,()=>{video.pause();video.removeAttribute("src");video.load();},()=>off(),()=>bridgeSync(),()=>video.removeEventListener("timeupdate",clock),()=>{delete window.__cfStudioSeek;}]};
+ window.__cfStudioActive={root:shell,cleanup:[timelineCleanup,inspectorCleanup,detachOverlay,detachAudio,()=>{video.pause();video.removeAttribute("src");video.load();if(linkedSourceUrl)URL.revokeObjectURL(linkedSourceUrl);},()=>off(),()=>bridgeSync(),()=>video.removeEventListener("timeupdate",clock),()=>{delete window.__cfStudioSeek;}]};
  await saveProject(false).catch(e=>setStatus("El guardado automático local no está disponible: "+e.message));
  return shell;
 }
