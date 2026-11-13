@@ -85,7 +85,7 @@ try {
     hasPreview:!!document.querySelector('.cf-studio-video'),
     api:typeof window.ClipForgeStudio?.open
   }));
-  if(initialStudio.rows!==7||initialStudio.clips!==4||!initialStudio.hasPreview||initialStudio.api!=='function'){
+  if(initialStudio.rows!==8||initialStudio.clips!==4||!initialStudio.hasPreview||initialStudio.api!=='function'){
     throw new Error('Studio did not mount the full project timeline: '+JSON.stringify(initialStudio));
   }
 
@@ -100,9 +100,12 @@ try {
   await page.locator('.cf-studio-inspector input[data-field="text"]').fill('PRUEBA CLIPFORGE');
   await page.locator('.cf-studio-import input').setInputFiles('test-output/studio-music.wav');
   await page.waitForFunction(()=>[...document.querySelectorAll('.cf-studio-track-row')].some(row=>row.innerText.includes('A2')&&row.querySelectorAll('.cf-studio-block').length>0),undefined,{timeout:15000});
+  await page.locator('.cf-studio-import input').setInputFiles('test-output/studio-sticker.png');
+  await page.waitForFunction(()=>[...document.querySelectorAll('.cf-studio-track-row')].some(row=>row.innerText.includes('I1')&&row.querySelectorAll('.cf-studio-block').length>0),undefined,{timeout:15000});
+  await page.waitForFunction(()=>{const img=document.querySelector('.cf-studio-image-preview');return !!img&&img.complete&&img.naturalWidth>0;},undefined,{timeout:10000});
   await page.locator('.cf-studio-tools [data-tool="media"]').click();
   await page.locator('.cf-studio-media-dialog').waitFor({state:'visible'});
-  await page.waitForFunction(()=>document.querySelectorAll('.cf-studio-media-library .cf-studio-media-row').length>=2,undefined,{timeout:10000});
+  await page.waitForFunction(()=>document.querySelectorAll('.cf-studio-media-library .cf-studio-media-row').length>=3,undefined,{timeout:10000});
   await page.locator('.cf-studio-media-dialog [data-action="media-close"]').click();
 
   // Check split + undo on the selected video clip, not the previously edited title.
@@ -118,9 +121,10 @@ try {
     title:window.ClipForgeStudio.getProject().tracks.find(t=>t.type==='text')?.items?.[0]?.text,
     filter:window.ClipForgeStudio.getProject().tracks.find(t=>t.type==='video')?.items?.[0]?.visualEffects?.preset,
     opacity:window.ClipForgeStudio.getProject().tracks.find(t=>t.type==='video')?.items?.[0]?.opacity,
-    subtitleStyle:window.ClipForgeStudio.getProject().tracks.find(t=>t.type==='subtitles')?.items?.[0]?.style
+    subtitleStyle:window.ClipForgeStudio.getProject().tracks.find(t=>t.type==='subtitles')?.items?.[0]?.style,
+    imageCount:window.ClipForgeStudio.getProject().tracks.find(t=>t.type==='image')?.items?.length
   }));
-  if(!studioState.tracks.some(t=>t.type==='audio'&&t.items.length>0)||studioState.title!=='PRUEBA CLIPFORGE'||studioState.filter!=='cinematic'||studioState.opacity!==85||studioState.subtitleStyle?.wordMode!=='highlight'){
+  if(!studioState.tracks.some(t=>t.type==='audio'&&t.items.length>0)||studioState.imageCount!==1||studioState.title!=='PRUEBA CLIPFORGE'||studioState.filter!=='cinematic'||studioState.opacity!==85||studioState.subtitleStyle?.wordMode!=='highlight'){
     throw new Error('Studio edits did not persist in the canonical project state: '+JSON.stringify(studioState));
   }
 
@@ -135,7 +139,8 @@ try {
     const a=p?.tracks?.filter(t=>t.type==='audio').flatMap(t=>t.items||[]);
     const text=p?.tracks?.find(t=>t.type==='text')?.items?.[0]?.text;
     const sub=p?.tracks?.find(t=>t.type==='subtitles')?.items?.[0]?.style;
-    return v?.visualEffects?.preset==='cinematic'&&v.opacity===85&&a?.some(i=>i.assetId)&&text==='PRUEBA CLIPFORGE'&&sub?.wordMode==='highlight';
+    const image=p?.tracks?.find(t=>t.type==='image')?.items?.[0];
+    return v?.visualEffects?.preset==='cinematic'&&v.opacity===85&&a?.some(i=>i.assetId)&&image?.assetId&&text==='PRUEBA CLIPFORGE'&&sub?.wordMode==='highlight';
   },undefined,{timeout:15000});
 
   // Attach rejection handling immediately: an unhandled Playwright timeout can terminate Node while the render is still running.
