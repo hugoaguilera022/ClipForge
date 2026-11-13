@@ -81,6 +81,7 @@ try {
   await page.waitForFunction(n=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-video').length===n,initialVideoClipCount);
   await page.keyboard.press('Control+Shift+z');
   await page.waitForFunction(n=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-video').length===n+1,initialVideoClipCount);
+  await page.locator('#cfMultiTrackTimeline .cf-mt-clip.type-video').nth(initialVideoClipCount).click();
   await page.keyboard.press('Delete');
   await page.waitForFunction(n=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-video').length===n,initialVideoClipCount);
 
