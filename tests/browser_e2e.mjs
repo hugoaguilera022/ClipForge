@@ -161,7 +161,8 @@ try {
   await page.locator('#cfMultiTrackTimeline [data-act="paste"]').click();
   await page.waitForTimeout(250);
   const pasteDebug=await page.evaluate(()=>({clipboard:window.clipforgeEditorCommands.clipboard.length,playhead:window.clipforgeProjectStore.project.playhead,duration:window.clipforgeProjectStore.project.duration,videoCount:window.clipforgeProjectStore.project.tracks.find(t=>t.type==='video').items.length,videoTrackLocked:window.clipforgeProjectStore.project.tracks.find(t=>t.type==='video').locked,status:document.querySelector('#cfMultiTrackTimeline .cf-mt-project-state')?.textContent}));
-  if(pasteDebug.videoCount!==initialVideoClipCount+2)throw new Error('Paste button did not create both copied video items: '+JSON.stringify(pasteDebug));
+  // The split operation is intentionally still present here, so two pasted clips mean +3 versus the original count.
+  if(pasteDebug.videoCount!==initialVideoClipCount+3)throw new Error('Paste button did not create both copied video items alongside the split: '+JSON.stringify(pasteDebug));
   await page.locator('#cfMultiTrackTimeline [data-act="delete"]').click();
   await page.waitForFunction(n=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-video').length===n+1,initialVideoClipCount);
   // Roll back the five temporary video edits so the export assertion remains four clips.
