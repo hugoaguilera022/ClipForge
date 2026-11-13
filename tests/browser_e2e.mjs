@@ -25,6 +25,10 @@ try {
   if (await page.locator('#browserWhisperLanguage').inputValue() !== 'auto') {
     throw new Error('Browser transcription must default to automatic Spanish/English language detection.');
   }
+  // The browser fixture is an import/export regression, not an ASR benchmark.
+  // Suppress the automatic first-run Whisper trigger so the test is deterministic
+  // and does not download a model before loading its known transcript fixture.
+  await page.evaluate(()=>{const input=document.querySelector('#video');if(input)input.dataset.whisperAutoStarted='1';});
   await page.locator('#video').setInputFiles('test-output/e2e-source.mkv');
   await page.waitForFunction(() => {
     const panel=document.querySelector('#videoCapacity');
