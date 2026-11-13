@@ -2,58 +2,47 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 
-const source=fs.readFileSync('static/browser-whisper.js','utf8');
+// The current editor no longer contains the legacy Colab tunnel bridge.
+// Validate the active free-provider -> local WebGPU Qwen3 routing instead.
+const source=fs.readFileSync('static/browser-whisper-inline-v3.js','utf8');
 function extract(name){
-  const asyncStart=source.indexOf(`async function ${name}(`);
-  const start=asyncStart>=0?asyncStart:source.indexOf(`function ${name}(`);
-  assert.ok(start>=0,name);
-  let depth=0,end=-1,body=source.indexOf(') {',start)+2;
-  for(let i=body;i<source.length;i++){
+  const start=source.indexOf(`async function ${name}(`)>=0
+    ?source.indexOf(`async function ${name}(`)
+    :source.indexOf(`function ${name}(`);
+  assert.ok(start>=0,name+' must exist in the active browser module');
+  const brace=source.indexOf('{',start);
+  let depth=0,end=-1;
+  for(let i=brace;i<source.length;i++){
     if(source[i]==='{')depth++;
     else if(source[i]==='}'&&--depth===0){end=i+1;break;}
   }
-  assert.ok(end>start,name+' closes');
+  assert.ok(end>start,name+' must be a complete function');
   return source.slice(start,end);
 }
-const store=new Map();
-const fields={
-  '#colabEditorUrl':{value:'https://clipforge-test.trycloudflare.com'},
-  '#colabEditorToken':{value:'secret-token'},
-  '#colabEditorStatus':{textContent:''},
-  '#connectColabEditor':{disabled:false,textContent:'Comprobar y conectar',addEventListener:()=>{}}
-};
-const requests=[];
-const context={
-  URL,AbortController,setTimeout,clearTimeout,console,
-  sessionStorage:{getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,v),removeItem:k=>store.delete(k)},
-  document:{querySelector:s=>fields[s]||null},
-  fetch:async(url,options={})=>{
-    requests.push({url,options});
-    if(url.endsWith('/health'))return {ok:true,status:200,json:async()=>({status:'ready',model:'qwen3:4b'})};
-    return {ok:true,status:200,json:async()=>({choices:[{message:{content:'{"selected":[]}'}}]})};
-  }
-};
+const context={Math,Number,String,Boolean,Object,Array};
 vm.createContext(context);
-vm.runInContext("const COLAB_EDITOR_KEY='clipforge.colab.editor.v1'; let editorialEnginePromise=null;",context);
-for(const name of ['getColabEditorConfig','createRemoteEditorialEngine','connectColabEditorialEngine','loadEditorialJudge']){
-  vm.runInContext(extract(name)+`;this.${name}=${name};`,context);
-}
-assert.equal(context.getColabEditorConfig(),null);
-await context.connectColabEditorialEngine();
-assert.ok(fields['#colabEditorStatus'].textContent.includes('Conectado y comprobado'));
-assert.equal(requests[0].url,'https://clipforge-test.trycloudflare.com/health');
-assert.equal(requests[0].options.headers.Authorization,'Bearer secret-token');
-const config=context.getColabEditorConfig();
-assert.equal(config.url,'https://clipforge-test.trycloudflare.com');
-const engine=await context.loadEditorialJudge(()=>{});
-assert.equal(engine.isRemote,true,'remote inference must not require local WebGPU');
-const result=await engine.chat.completions.create({messages:[{role:'user',content:'test'}],max_tokens:100});
-assert.equal(result.choices[0].message.content,'{"selected":[]}');
-assert.equal(requests[1].url,'https://clipforge-test.trycloudflare.com/v1/chat/completions');
-assert.equal(requests[1].options.headers.Authorization,'Bearer secret-token');
-assert.equal(requests[1].options.cache,'no-store');
-fields['#colabEditorUrl'].value='http://insecure.example';
-await context.connectColabEditorialEngine();
-assert.ok(fields['#colabEditorStatus'].textContent.includes('HTTPS'));
-assert.equal(requests.length,2,'invalid URL must never be called');
-console.log('Colab browser bridge passed: authenticated health check, session-only token, remote model without WebGPU, OpenAI-compatible requests and HTTPS host validation.');
+let providerList=[];
+let localCalls=0;
+const localEngine={isRemote:false,chat:{completions:{create:async()=>({choices:[{message:{content:'local-ok'}}]})}}};
+context.configuredFreeAIProviders=()=>providerList;
+context.loadLocalEditorialJudge=async()=>{localCalls++;return localEngine;};
+context.createFederatedFreeAIEngine=(providers,onProgress,fallback)=>({isRemote:true,providerChain:providers.map(p=>p.id),fallback});
+vm.runInContext(extract('loadEditorialJudge')+';this.loadJudge=loadEditorialJudge;',context);
+
+const local=await context.loadJudge(()=>{});
+assert.equal(local,localEngine,'Qwen3 local engine must be used when no free provider is configured');
+assert.equal(localCalls,1);
+providerList=[{id:'provider-a',label:'Proveedor gratuito'}];
+const federated=await context.loadJudge(()=>{});
+assert.equal(federated.isRemote,true,'configured free providers must be preferred over local inference');
+assert.deepEqual(Array.from(federated.providerChain),['provider-a']);
+assert.equal(typeof federated.fallback,'function','local Qwen3 must remain available as fallback');
+
+vm.runInContext(extract('estimateVideoCapacity')+';this.estimateCapacity=estimateVideoCapacity;',context);
+const noWebGpu=context.estimateCapacity({durationSeconds:460,fileBytes:28034880,whisperModel:'whisper-base',deviceMemoryGb:8,webgpu:false});
+assert.equal(noWebGpu.status,'incompatible','the capacity estimate must not claim local Qwen3 works without WebGPU');
+assert.equal(noWebGpu.ramFit,true);
+const gpuReady=context.estimateCapacity({durationSeconds:460,fileBytes:28034880,whisperModel:'whisper-base',deviceMemoryGb:8,webgpu:true});
+assert.equal(gpuReady.status,'ready');
+assert.ok(gpuReady.systemRamGb>0&&gpuReady.gpuRamGb>0&&gpuReady.freeDiskGb>0);
+console.log('Browser AI routing passed: free providers first, Qwen3 local fallback, and honest WebGPU/resource compatibility checks.');
