@@ -18,12 +18,13 @@ function buildCaptionCues(segments){
     const sourceText=sourceWords.map(w=>String(w.word||w.text||'').trim()).filter(Boolean).join(' ');
     const normalize=value=>String(value||'').toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim().replace(/\s+/g,' ');
     const reusable=sourceWords.length===tokens.length&&normalize(sourceText)===normalize(text)&&sourceWords.every(w=>Number.isFinite(Number(w.start))&&Number.isFinite(Number(w.end))&&Number(w.end)>Number(w.start));
+    const style=segment.style||null;
     if(reusable){
-      sourceWords.forEach((word,i)=>words.push({start:Math.max(start,Number(word.start)),end:Math.min(end,Number(word.end)),text:tokens[i]}));
+      sourceWords.forEach((word,i)=>words.push({start:Math.max(start,Number(word.start)),end:Math.min(end,Number(word.end)),text:tokens[i],style}));
     }else{
       const weights=tokens.map(token=>Math.max(1,token.replace(/[^\p{L}\p{N}]/gu,'').length));
       const total=weights.reduce((a,b)=>a+b,0);let cursor=start;
-      tokens.forEach((token,i)=>{const next=i===tokens.length-1?end:cursor+(end-start)*weights[i]/total;words.push({start:cursor,end:next,text:token});cursor=next;});
+      tokens.forEach((token,i)=>{const next=i===tokens.length-1?end:cursor+(end-start)*weights[i]/total;words.push({start:cursor,end:next,text:token,style});cursor=next;});
     }
   }
   const ordered=words.filter(w=>w.end>w.start).sort((a,b)=>a.start-b.start);
@@ -37,14 +38,28 @@ function buildCaptionCues(segments){
   }
   flush();return cues;
 }
+function drawImageLayers(ctx,tracks,timelineTime,width,height,bitmaps){
+  const layers=(tracks||[]).filter(t=>t.type==="image"&&!t.hidden).flatMap(t=>t.items||[])
+    .filter(item=>!item.hidden&&item.assetId&&timelineTime>=Number(item.start)&&timelineTime<=Number(item.end));
+  for(const item of layers){
+    const bitmap=bitmaps.get(item.assetId);if(!bitmap)continue;
+    const w=width*Math.max(.05,Math.min(.95,Number(item.widthPct)||30))/100;
+    const h=w*(bitmap.height/Math.max(1,bitmap.width));
+    const x=width*Math.max(0,Math.min(100,Number(item.x??50)))/100;
+    const y=height*Math.max(0,Math.min(100,Number(item.y??50)))/100;
+    ctx.save();ctx.globalAlpha=Math.max(0,Math.min(1,Number(item.opacity??100)/100));
+    ctx.translate(x,y);ctx.rotate((Number(item.rotation)||0)*Math.PI/180);
+    ctx.drawImage(bitmap,-w/2,-h/2,w,h);ctx.restore();
+  }
+}
 function drawTextLayers(ctx,tracks,sourceTime,width,height){
-  const layers=(tracks||[]).filter(t=>t.type==='text').flatMap(t=>t.items||[])
-    .filter(item=>Number.isFinite(Number(item.start))&&Number.isFinite(Number(item.end))&&sourceTime>=Number(item.start)&&sourceTime<=Number(item.end)&&String(item.text||'').trim());
+  const layers=(tracks||[]).filter(t=>t.type==='text'&&!t.hidden).flatMap(t=>t.items||[])
+    .filter(item=>!item.hidden&&Number.isFinite(Number(item.start))&&Number.isFinite(Number(item.end))&&sourceTime>=Number(item.start)&&sourceTime<=Number(item.end)&&String(item.text||'').trim());
   if(!layers.length)return;
   ctx.save();
   layers.forEach((item,index)=>{
-    const fontSize=Math.round(width*.052),text=String(item.text).trim().slice(0,180);
-    ctx.font=`800 ${fontSize}px system-ui,sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+    const fontSize=Math.max(18,Math.min(240,Math.round(Number(item.fontSize)||width*.052))),text=String(item.text).trim().slice(0,180);
+    ctx.font=(item.bold===false?'500':'800')+' '+fontSize+'px '+(item.font||'system-ui')+', sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
     const maxWidth=width*.86,lines=[];let line='';
     for(const word of text.split(/\s+/)){
       const next=line?line+' '+word:word;
@@ -52,18 +67,21 @@ function drawTextLayers(ctx,tracks,sourceTime,width,height){
     }
     if(line)lines.push(line);
     const visible=lines.slice(0,3),lineHeight=fontSize*1.2,pad=fontSize*.45;
-    const y=height*.22+index*(lineHeight*visible.length+pad*2);
+    const xCenter=width*Math.max(0,Math.min(100,Number(item.x??50)))/100;
+    const yCenter=height*Math.max(0,Math.min(100,Number(item.y??22)))/100+index*(lineHeight*visible.length+pad*2);
     const boxW=Math.min(maxWidth+pad*2,Math.max(...visible.map(x=>ctx.measureText(x).width))+pad*2);
-    const boxH=visible.length*lineHeight+pad*2,x=(width-boxW)/2;
-    ctx.fillStyle='rgba(0,0,0,.68)';ctx.fillRect(x,y,boxW,boxH);
-    ctx.fillStyle='#fff';visible.forEach((lineText,i)=>ctx.fillText(lineText,width/2,y+pad+lineHeight*(i+.5),maxWidth));
+    const boxH=visible.length*lineHeight+pad*2,x=xCenter-boxW/2,y=yCenter-boxH/2;
+    if(item.background&&item.background!=='transparent'){ctx.fillStyle=item.background;ctx.fillRect(x,y,boxW,boxH);}
+    ctx.fillStyle=item.color||'#fff';
+    if(item.outline&&Number(item.outlineWidth)>0){ctx.strokeStyle=item.outline;ctx.lineWidth=Math.max(1,Math.min(24,Number(item.outlineWidth)*2));visible.forEach((lineText,i)=>ctx.strokeText(lineText,xCenter,yCenter-boxH/2+pad+lineHeight*(i+.5),maxWidth));}
+    visible.forEach((lineText,i)=>ctx.fillText(lineText,xCenter,yCenter-boxH/2+pad+lineHeight*(i+.5),maxWidth));
   });
   ctx.restore();
 }
 function drawKaraokeCaption(ctx,cues,sourceTime,width,height,settings={}){
   const cue=cues.find(words=>sourceTime>=words[0].start&&sourceTime<=words[words.length-1].end+.18);
   if(!cue)return;
-  const style=settings.subtitleStyle||null,fontSize=style?Math.round((Number(style.size)||28)*3):Math.round(width*(Number(settings.captionSize)||5.2)/100),lineHeight=Math.round(fontSize*1.2),maxWidth=width*.86;
+  const style=cue[0]?.style||settings.subtitleStyle||null,fontSize=style?Math.round((Number(style.size)||28)*3):Math.round(width*(Number(settings.captionSize)||5.2)/100),lineHeight=Math.round(fontSize*1.2),maxWidth=width*.86;
   ctx.save();ctx.font=`${style?.bold===false?400:800} ${fontSize}px ${style?.font||'system-ui'}, sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
   const lines=[];let line=[],lineWidth=0;
   for(const word of cue){
@@ -98,8 +116,85 @@ function drawKaraokeCaption(ctx,cues,sourceTime,width,height,settings={}){
   ctx.restore();
 }
 
+
+const decodedAudioCache=new Map();
+async function readAudioRegion(blob,key,start,end){
+ const cacheKey=key+":"+Number(start).toFixed(3)+":"+Number(end).toFixed(3);
+ if(decodedAudioCache.has(cacheKey))return decodedAudioCache.get(cacheKey);
+ const {Input,BlobSource,ALL_FORMATS,AudioBufferSink}=await import("https://esm.sh/mediabunny@1.65.2");
+ const input=new Input({source:new BlobSource(blob),formats:ALL_FORMATS});
+ try{
+  const track=await input.getPrimaryAudioTrack();
+  if(!track)return [];
+  const sink=new AudioBufferSink(track),chunks=[];
+  for await(const entry of sink.buffers(Math.max(0,start),Math.max(start+.01,end))){
+   chunks.push({buffer:entry.buffer,timestamp:Number(entry.timestamp)||0,duration:Number(entry.duration)||entry.buffer.duration});
+  }
+  decodedAudioCache.set(cacheKey,chunks);
+  return chunks;
+ }finally{input.dispose();}
+}
+function addMixedChunks(context,compressor,chunks,rangeStart,rangeEnd,outputStart,volume,fadeIn,fadeOut,itemStart,itemEnd,rangeTimelineStart){
+ for(const chunk of chunks){
+  const chunkStart=Number(chunk.timestamp)||0,chunkEnd=chunkStart+(Number(chunk.duration)||chunk.buffer.duration);
+  const overlapStart=Math.max(rangeStart,chunkStart),overlapEnd=Math.min(rangeEnd,chunkEnd);
+  if(overlapEnd<=overlapStart)continue;
+  const sourceOffset=overlapStart-chunkStart,playable=overlapEnd-overlapStart;
+  const at=outputStart+(overlapStart-rangeStart);
+  const relative= itemStart+(overlapStart-rangeStart)-itemStart;
+  const gain=context.createGain(),source=context.createBufferSource();source.buffer=chunk.buffer;
+  const v=Math.max(0,Math.min(2,Number(volume)||0)),fin=Math.max(0,Number(fadeIn)||0),fout=Math.max(0,Number(fadeOut)||0);
+  const timelineStart=rangeTimelineStart+(overlapStart-rangeStart);
+  const timelineEnd=timelineStart+playable;
+  const levelAt=time=>{
+   const inGain=fin>0?Math.max(0,Math.min(1,(time-itemStart)/fin)):1;
+   const outGain=fout>0?Math.max(0,Math.min(1,(itemEnd-time)/fout)):1;
+   return v*inGain*outGain;
+  };
+  gain.gain.setValueAtTime(levelAt(timelineStart),at);
+  const fadeInEnd=itemStart+fin;
+  if(fin>0&&fadeInEnd>timelineStart&&fadeInEnd<timelineEnd)gain.gain.linearRampToValueAtTime(levelAt(fadeInEnd),at+(fadeInEnd-timelineStart));
+  const fadeOutStart=itemEnd-fout;
+  if(fout>0&&fadeOutStart>timelineStart&&fadeOutStart<timelineEnd)gain.gain.setValueAtTime(levelAt(fadeOutStart),at+(fadeOutStart-timelineStart));
+  gain.gain.linearRampToValueAtTime(levelAt(timelineEnd),at+playable);
+  source.connect(gain).connect(compressor);
+  source.start(at,sourceOffset,playable);
+ }
+}
+async function buildMixedAudioBuffer(file,clip,tracks){
+ const duration=Math.max(.05,Number(clip.end)-Number(clip.start)),sampleRate=48000;
+ const Offline=window.OfflineAudioContext||window.webkitOfflineAudioContext;
+ if(!Offline)throw new Error("Este navegador no admite mezcla local (OfflineAudioContext).");
+ const context=new Offline(2,Math.ceil(duration*sampleRate),sampleRate);
+ const compressor=context.createDynamicsCompressor();compressor.threshold.value=-3;compressor.knee.value=8;compressor.ratio.value=3;compressor.attack.value=.004;compressor.release.value=.18;compressor.connect(context.destination);
+ for(const track of (tracks||[]).filter(t=>t.type==="audio"&&!t.muted&&!t.hidden)){
+  for(const item of track.items||[]){
+   const itemStart=Number(item.start)||0,itemEnd=Number(item.end)||0;
+   const overlapStart=Math.max(Number(clip.start),itemStart),overlapEnd=Math.min(Number(clip.end),itemEnd);
+   if(overlapEnd<=overlapStart||Number(item.volume??1)<=0)continue;
+   const outputStart=overlapStart-Number(clip.start);
+   let blob,key,rangeStart,rangeEnd;
+   if(item.source==="source-audio"){
+    blob=file;key="video:"+file.name+":"+file.size+":"+file.lastModified;
+    rangeStart=(Number(clip.sourceStart)||Number(clip.start)||0)+(overlapStart-Number(clip.start));
+    rangeEnd=rangeStart+(overlapEnd-overlapStart);
+   }else{
+    if(!item.assetId)continue;
+    blob=await window.ClipForgeStudio?.getAssetBlob?.(item.assetId);
+    if(!blob)throw new Error("No se encuentra el archivo de audio "+(item.assetName||item.assetId)+". Vuelve a importarlo.");
+    key="asset:"+item.assetId;
+    rangeStart=(Number(item.sourceStart)||0)+(overlapStart-itemStart);
+    rangeEnd=rangeStart+(overlapEnd-overlapStart);
+   }
+   const chunks=await readAudioRegion(blob,key,rangeStart,rangeEnd);
+   addMixedChunks(context,compressor,chunks,rangeStart,rangeEnd,outputStart,Number(item.volume??1),Number(item.fadeIn)||0,Number(item.fadeOut)||0,itemStart,itemEnd,overlapStart);
+  }
+ }
+ return await context.startRendering();
+}
+
 async function exportOne(file,clip,segments,tracks,index,total,settings={}){
-  const {Input,Output,Conversion,ALL_FORMATS,BlobSource,Mp4OutputFormat,BufferTarget,Quality}=await import('https://esm.sh/mediabunny@1.65.2');
+  const {Input,Output,Conversion,ALL_FORMATS,BlobSource,Mp4OutputFormat,BufferTarget,Quality,AudioBufferSource,canEncodeAudio}=await import('https://esm.sh/mediabunny@1.65.2');
   const input=new Input({source:new BlobSource(file),formats:ALL_FORMATS});
   // MOV/MP4 files can be valid even when the container omits duration metadata.
   // Measure the primary video track before rejecting a usable source.
@@ -112,14 +207,24 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
     input.dispose();
     throw new Error('No se pudo verificar la duración del vídeo original mediante metadatos ni midiendo la pista de vídeo.');
   }
-  if(clip.start<0||clip.end<=clip.start||clip.start>=sourceDuration||clip.end>sourceDuration+.05){
+  const sourceStart=Math.max(0,Number(clip.sourceStart??clip.start)||0);
+  const clipDuration=Number(clip.end)-Number(clip.start);
+  if(clipDuration<=0||sourceStart>=sourceDuration||sourceStart+clipDuration>sourceDuration+.05){
     input.dispose();
-    throw new Error(`El corte ${index+1} (${clip.start.toFixed(2)}–${clip.end.toFixed(2)} s) queda fuera de la duración real del vídeo (${sourceDuration.toFixed(2)} s).`);
+    throw new Error(`El corte ${index+1} (${sourceStart.toFixed(2)}–${(sourceStart+clipDuration).toFixed(2)} s) queda fuera de la duración real del vídeo (${sourceDuration.toFixed(2)} s).`);
   }
-  // Keep the original compressed audio track whenever MP4 supports it.
-  // This avoids unnecessary lossy re-encoding and does not require an AAC encoder.
   const output=new Output({format:new Mp4OutputFormat(),target:new BufferTarget()});
   const cues=buildCaptionCues(segments);
+  const imageBitmaps=new Map();
+  const imageItems=(tracks||[]).filter(t=>t.type==="image"&&!t.hidden).flatMap(t=>t.items||[]).filter(x=>x.assetId);
+  try{
+    for(const item of imageItems){
+      if(imageBitmaps.has(item.assetId))continue;
+      const blob=await window.ClipForgeStudio?.getAssetBlob?.(item.assetId);
+      if(!blob)throw new Error("No se encuentra la imagen "+(item.assetName||item.assetId)+".");
+      imageBitmaps.set(item.assetId,await createImageBitmap(blob));
+    }
+  }catch(error){for(const bitmap of imageBitmaps.values())bitmap.close?.();input.dispose();throw error;}
   let canvas=null,ctx=null,sourceCanvas=null,sourceCtx=null,faceLandmarker=null,poseLandmarker=null;
   let lastFaceCenter=null,frameNumber=0,faceSamples=0,poseSamples=0,trackingMode='sin seguimiento';
   const speakerTracks=[];
@@ -146,9 +251,11 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
       trackingMode='seguimiento facial con respaldo corporal';
     }catch(error){console.warn('Face/mouth tracking unavailable; using safe blurred background:',error);faceLandmarker=null;}
   }
-  const conversion=await Conversion.init({
-    input,output,tracks:'primary',
-    trim:{start:clip.start,end:clip.end},
+  let conversion;
+  try{
+    conversion=await Conversion.init({
+    input,output,tracks:'primary',audio:{discard:true},composable:true,
+    trim:{start:sourceStart,end:sourceStart+clipDuration},
     video:{
       width:1080,height:1920,fit:'cover',frameRate:30,codec:'avc',
       quality:new Quality('high'),hardwareAcceleration:'no-preference',
@@ -169,8 +276,11 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
         const filterParts=[filterPresets[fx.preset]||'',fx.brightness&&fx.brightness!==100?'brightness('+fx.brightness+'%)':'',fx.contrast&&fx.contrast!==100?'contrast('+fx.contrast+'%)':'',fx.saturation&&fx.saturation!==100?'saturate('+fx.saturation+'%)':''].filter(Boolean);
         const transition=clip.transitions||{},duration=Math.max(.1,Math.min(2,Number(transition.duration)||.5));
         const fadeIn=transition.in==='fade'?Math.min(1,Math.max(0,stamp/duration)):1;
-        const fadeOut=transition.out==='fade'?Math.min(1,Math.max(0,(clip.end-clip.start-stamp)/duration)):1;
-        ctx.save();ctx.filter=filterParts.join(' ')||'none';ctx.globalAlpha=Math.min(fadeIn,fadeOut);
+        const fadeOut=transition.out==='fade'?Math.min(1,Math.max(0,(clipDuration-stamp)/duration)):1;
+        const zoomIn=transition.in==='zoom'?1+Math.max(0,1-stamp/duration)*.12:1;
+        const zoomOut=transition.out==='zoom'?1+Math.max(0,1-(clipDuration-stamp)/duration)*.12:1;
+        ctx.save();ctx.filter=filterParts.join(' ')||'none';ctx.globalAlpha=Math.min(fadeIn,fadeOut,Math.max(0,Math.min(1,Number(clip.opacity??100)/100)));
+        const zoom=Math.max(zoomIn,zoomOut);ctx.translate(540,960);ctx.scale(zoom,zoom);ctx.translate(-540,-960);
         if(sourceCanvas){
           sourceCtx.clearRect(0,0,sourceCanvas.width,sourceCanvas.height);
           sample.drawWithFit(sourceCtx,{fit:'contain'});
@@ -256,37 +366,76 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
         }
         ctx.restore();
         // Mediabunny normalizes timestamps to zero after trim; captions keep source-video times.
-        const local=clip.start+stamp;
-        drawTextLayers(ctx,tracks,local,canvas.width,canvas.height);
-        drawKaraokeCaption(ctx,cues,local,canvas.width,canvas.height,settings);
+        const sourceTime=sourceStart+stamp;
+        const timelineTime=clip.start+stamp;
+        drawImageLayers(ctx,tracks,timelineTime,canvas.width,canvas.height,imageBitmaps);
+        drawTextLayers(ctx,tracks,timelineTime,canvas.width,canvas.height);
+        drawKaraokeCaption(ctx,cues,timelineTime,canvas.width,canvas.height,settings);
         return canvas;
       },
       processedWidth:1080,processedHeight:1920
     },
   });
-  if(!conversion.isValid){
-    const reasons=(conversion.discardedTracks||[]).map(x=>x.reason).join(', ');
-    throw new Error(`El navegador no puede codificar todas las pistas MP4 de este vídeo (${reasons||'códec no compatible'}).`);
+  }catch(error){
+    faceLandmarker?.close?.();poseLandmarker?.close?.();input.dispose();
+    for(const bitmap of imageBitmaps.values())bitmap.close?.();
+    throw error;
   }
-  conversion.onProgress=p=>sayExport(`Clip ${index+1}/${total}: renderizando ${Math.round(p*100)}%…`);
-  try{await conversion.execute();}finally{faceLandmarker?.close?.();poseLandmarker?.close?.();input.dispose();}
+  let audioSource=null;
+  try{
+    if(!conversion.isValid){
+      const reasons=(conversion.discardedTracks||[]).map(x=>x.reason).join(', ');
+      throw new Error(`El navegador no puede codificar todas las pistas MP4 de este vídeo (${reasons||'códec no compatible'}).`);
+    }
+    conversion.onProgress=p=>sayExport(`Clip ${index+1}/${total}: renderizando vídeo ${Math.round(p*100)}%…`);
+    const mixedAudio=await buildMixedAudioBuffer(file,clip,tracks);
+    const audioQuality=new Quality({bitrate:128e3});
+    if(!(await canEncodeAudio("aac",{numberOfChannels:2,sampleRate:48000,quality:audioQuality}))){
+      const {registerAacEncoder}=await import("https://esm.sh/@mediabunny/aac-encoder@1.65.2?external=mediabunny");
+      registerAacEncoder();
+    }
+    audioSource=new AudioBufferSource({codec:"aac",quality:audioQuality});
+    output.addAudioTrack(audioSource,{name:"Mezcla ClipForge",languageCode:"spa"});
+    await output.start();
+    const results=await Promise.allSettled([
+      conversion.execute(),
+      audioSource.add(mixedAudio).then(()=>audioSource.close())
+    ]);
+    const failure=results.find(x=>x.status==="rejected");
+    if(failure)throw failure.reason;
+    await output.finalize();
+  }catch(error){
+    await output.cancel().catch(()=>{});
+    throw error;
+  }finally{
+    audioSource?.close?.();faceLandmarker?.close?.();poseLandmarker?.close?.();input.dispose();
+    for(const bitmap of imageBitmaps.values())bitmap.close?.();
+  }
   const buffer=output.target.buffer;
   if(!buffer||buffer.byteLength<1024)throw new Error('El render terminó sin generar un MP4 válido.');
   const blob=new Blob([buffer],{type:'video/mp4'});
   const verifiedTrackingMode=faceSamples>0?'seguimiento facial':poseSamples>0?'seguimiento corporal de respaldo':'encuadre vertical seguro sin detección de persona';
-  return {blob,bytes:blob.size,duration:clip.end-clip.start,trackingMode:verifiedTrackingMode,faceSamples,poseSamples,name:`clipforge-${String(index+1).padStart(2,'0')}.mp4`};
+  return {blob,bytes:blob.size,duration:clipDuration,trackingMode:verifiedTrackingMode,faceSamples,poseSamples,name:`clipforge-${String(index+1).padStart(2,'0')}.mp4`};
 }
 
 exportButton?.addEventListener('click',async()=>{
   const file=document.querySelector('#video')?.files?.[0];
-  const project=window.clipforgeEditorBridge?.getProject?.();
-  const clips=(project?.clips||[]).filter(c=>c.selected!==false&&Number.isFinite(Number(c.start))&&Number.isFinite(Number(c.end))&&Number(c.start)>=0&&Number(c.end)>Number(c.start));
-  const segments=project?.transcript?.segments||[];
+  const bridge=window.clipforgeEditorBridge?.getProject?.()||{};
+  const studio=window.ClipForgeStudio?.getProject?.();
+  const project=studio?.clips?.length?studio:bridge;
   const tracks=project?.tracks||[];
+  const hasVideoTracks=tracks.some(t=>t.type==="video");
+  const videoTracks=tracks.filter(t=>t.type==="video"&&!t.hidden);
+  const timelineClips=videoTracks.flatMap(t=>t.items||[]);
+  const clipSource=hasVideoTracks?timelineClips:(project?.clips||[]);
+  const clips=clipSource.filter(c=>c.selected!==false&&!c.hidden&&Number.isFinite(Number(c.start))&&Number.isFinite(Number(c.end))&&Number(c.end)>Number(c.start)).sort((a,b)=>Number(a.start)-Number(b.start));
+  const hasSubtitleTrack=tracks.some(t=>t.type==='subtitles');
+  const subtitleTrack=tracks.find(t=>t.type==='subtitles'&&!t.hidden);
+  const segments=hasSubtitleTrack?(subtitleTrack?.items||[]):(project?.transcript?.segments||[]);
   if(!file){sayExport('Selecciona el MP4 original antes de exportar.');return;}
   if(!clips.length){sayExport('No hay clips seleccionados para exportar. Marca al menos uno en la lista de momentos.');return;}
-  const expected=String(project?.source||'').split(/[\\/]/).pop();
-  if(expected&&expected!==file.name){sayExport(`El proyecto corresponde a ${expected}; has seleccionado ${file.name}. Para evitar exportar el vídeo equivocado, selecciona el original.`);return;}
+  const expected=String(project?.source?.name||project?.source||'').split(/[\\/]/).pop();
+  if(expected&&expected!==file.name){sayExport('El proyecto corresponde a '+expected+'; selecciona el vídeo original para evitar exportar otro archivo.');return;}
   if(!('VideoEncoder'in window)||!('OffscreenCanvas'in window)){sayExport('Este navegador no ofrece WebCodecs/OffscreenCanvas. Usa Chrome o Edge actualizado.');return;}
   exportButton.disabled=true;
   const results=[];
@@ -299,29 +448,25 @@ exportButton?.addEventListener('click',async()=>{
   };
   try{
     for(let i=0;i<clips.length;i++){
-      const clip={...clips[i],start:Number(clips[i].start),end:Number(clips[i].end)};
-      if(clip.end>36000)throw new Error('Un corte supera el límite de seguridad de 10 horas.');
+      const clip={...clips[i],start:Number(clips[i].start),end:Number(clips[i].end),sourceStart:Number(clips[i].sourceStart??clips[i].start)};
+      if(clip.end-clip.start>36000)throw new Error('Un corte supera el límite de seguridad de 10 horas.');
       results.push(await exportOne(file,clip,segments,tracks,i,clips.length,{...settings,subtitleStyle:clips[i].subtitleStyle||null}));
     }
     if(results.length===1){
       const url=URL.createObjectURL(results[0].blob),a=document.createElement('a');
-      a.href=url;a.download=results[0].name;
-      document.body.append(a);a.click();a.remove();
+      a.href=url;a.download=results[0].name;document.body.append(a);a.click();a.remove();
       setTimeout(()=>URL.revokeObjectURL(url),60000);
-      sayExport(`Exportación terminada: 1 MP4 individual · 1080×1920 · 30 fps · H.264 + audio original · ${results[0].trackingMode}${results[0].faceSamples?' · rostro detectado':' · encuadre seguro sin rostro detectado'} · ${(results[0].bytes/1024/1024).toFixed(1)} MB.`);
+      sayExport('Exportación terminada: 1 MP4 · 1080×1920 · H.264 + AAC mezclado · vídeo, música, efectos, subtítulos y capas de texto renderizados.');
       return;
     }
     sayExport('Preparando paquete ZIP con los MP4…');
     const JSZip=(await import('https://esm.sh/jszip@3.10.1')).default;
-    const zip=new JSZip();
-    results.forEach(item=>zip.file(item.name,item.blob));
+    const zip=new JSZip();results.forEach(item=>zip.file(item.name,item.blob));
     const archive=await zip.generateAsync({type:'blob',compression:'STORE'});
     const url=URL.createObjectURL(archive),a=document.createElement('a');
-    a.href=url;a.download='clipforge-exportacion-mp4.zip';
-    document.body.append(a);a.click();a.remove();
+    a.href=url;a.download='clipforge-exportacion-mp4.zip';document.body.append(a);a.click();a.remove();
     setTimeout(()=>URL.revokeObjectURL(url),60000);
-    const totalBytes=results.reduce((n,x)=>n+x.bytes,0);
-    sayExport(`Exportación terminada: ${results.length} MP4 en un ZIP · 1080×1920 · 30 fps · H.264 + audio original · ${results.some(x=>x.faceSamples)?'seguimiento facial':results.some(x=>x.poseSamples)?'seguimiento corporal':'encuadre seguro'} · ${(totalBytes/1024/1024).toFixed(1)} MB de vídeo.`);
-  }catch(error){console.error(error);sayExport(`Exportación detenida: ${error.message}. No se ha enviado el vídeo a ningún servidor.`);}
+    sayExport('Exportación terminada: '+results.length+' MP4 en ZIP · H.264 + AAC mezclado · vídeo, música, efectos, subtítulos y capas de texto.');
+  }catch(error){console.error(error);sayExport('Exportación detenida: '+error.message+'. Comprueba el archivo de audio original y las pistas importadas; no se ha enviado el vídeo a ningún servidor.');}
   finally{exportButton.disabled=false;}
 });

@@ -5,9 +5,10 @@ import math
 ROOT=Path(__file__).resolve().parents[1]
 
 def test_imported_clip_numbers_are_normalized():
-    js=(ROOT/'static/browser-whisper.js').read_text()
-    assert 'Number(c.start).toFixed(2)' in js
-    assert 'Number(c.end).toFixed(2)' in js
+    js=(ROOT/'static/browser-whisper-inline-v3.js').read_text()
+    assert 'start:Number(c.start)' in js
+    assert 'end:Number(c.end)' in js
+    assert 'sourceStart:Number(c.sourceStart??c.start)' in js
 
 def test_import_restores_transcript_attachment():
     js=(ROOT/'static/browser-whisper.js').read_text()

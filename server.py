@@ -322,8 +322,8 @@ class Handler(BaseHTTPRequestHandler):
    return self.json(200,public)
   if path=='/' or path=='/index.html': return self.send(200,(STATIC/'index.html').read_bytes(),'text/html; charset=utf-8')
   name=path.lstrip('/')
-  if name in {'app.js','browser-whisper.js','browser-whisper-v2.js','editor.js','styles.css','manifest.webmanifest','sw.js'}:
-   types={'app.js':'text/javascript','browser-whisper.js':'text/javascript','browser-whisper-v2.js':'text/javascript','editor.js':'text/javascript','styles.css':'text/css','manifest.webmanifest':'application/manifest+json','sw.js':'text/javascript'}
+  if name in {'app.js','browser-whisper.js','browser-whisper-v2.js','browser-whisper-inline-v3.js','browser-export.js','browser-url.js','workspace-ui-v4.js','editor.js','editor/studio.js','styles.css','styles-clip-editor-final-v2.css','manifest.webmanifest','sw.js'}:
+   types={'app.js':'text/javascript','browser-whisper.js':'text/javascript','browser-whisper-v2.js':'text/javascript','browser-whisper-inline-v3.js':'text/javascript','browser-export.js':'text/javascript','browser-url.js':'text/javascript','workspace-ui-v4.js':'text/javascript','editor.js':'text/javascript','editor/studio.js':'text/javascript','styles.css':'text/css','styles-clip-editor-final-v2.css':'text/css','manifest.webmanifest':'application/manifest+json','sw.js':'text/javascript'}
    return self.send(200,(STATIC/name).read_bytes(),types[name])
   return self.json(404,{'error':'not_found'})
  def do_DELETE(self):

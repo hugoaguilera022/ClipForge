@@ -173,10 +173,39 @@ for(let i=0;i<3600;i++){
 }
 const longPool=context.buildPool(longVideo,7400);
 assert.ok(longPool.length<=96,'long videos must cap AI candidates to keep local inference bounded');
-assert.ok(longPool.length>=90,'long-video sampling should retain broad temporal coverage');
+assert.ok(longPool.length>=40,'long-video sampling should retain a bounded but broad temporal sample');
 assert.ok(longPool[0].start<30,'long-video sample must retain the opening');
 assert.ok(longPool.at(-1).end>7300,'long-video sample must retain the ending');
 assert.ok(longPool[Math.floor(longPool.length/2)].start>3500&&longPool[Math.floor(longPool.length/2)].start<3900,'long-video sample must retain the middle');
+assert.ok(longPool.length>=40,'long source must retain at least 40 candidates after length-aware sampling');
+
+// Run the candidate builder actually loaded by the current ClipForge page.
+// Long sources (over 30 minutes) intentionally cap to 48 evenly distributed
+// candidates; shorter sources retain a larger pool for the AI tournament.
+const activeSource=fs.readFileSync('static/browser-whisper-inline-v3.js','utf8');
+const activePoolStart=activeSource.indexOf('function buildEditorialCandidatePool(');
+assert.notEqual(activePoolStart,-1,'active browser module must expose the neutral candidate builder');
+let activeDepth=0,activePoolEnd=-1;
+for(let i=activeSource.indexOf('{',activePoolStart);i<activeSource.length;i++){
+  if(activeSource[i]==='{')activeDepth++;
+  else if(activeSource[i]==='}'&&--activeDepth===0){activePoolEnd=i+1;break;}
+}
+assert.notEqual(activePoolEnd,-1,'active candidate builder must parse as a complete function');
+vm.runInContext(activeSource.slice(activePoolStart,activePoolEnd)+'; this.buildActivePool=buildEditorialCandidatePool;',context);
+const activeLongTranscript=[];
+for(let i=0;i<2000;i++){
+  const start=i*3.7;
+  activeLongTranscript.push({start,end:start+2,text:i%5===0?'What happened next?':i%5===1?'Then something unexpected happened.':i%5===2?'Everyone started laughing.':i%5===3?'We could not believe it.':'That was the whole story.'});
+}
+const activeLongPool=context.buildActivePool(activeLongTranscript,7400);
+assert.ok(activeLongPool.length>=40&&activeLongPool.length<=48,'active editor must cap videos over 30 minutes to 48 candidates');
+assert.ok(activeLongPool[0].start<30,'active editor must retain the opening');
+assert.ok(activeLongPool.at(-1).end>7300,'active editor must retain the ending');
+assert.ok(activeLongPool[Math.floor(activeLongPool.length/2)].start>3500&&activeLongPool[Math.floor(activeLongPool.length/2)].start<3900,'active editor must retain the middle');
+const activeMediumPool=context.buildActivePool(longTranscript,455);
+assert.ok(activeMediumPool.length<=96&&activeMediumPool.length>=40,'active editor should keep a larger bounded pool for shorter sources');
+assert.ok(activeMediumPool[0].start<30&&activeMediumPool.at(-1).end>430,'shorter source sample must retain the beginning and ending');
+
 console.log('Long-video coverage passed: at most 96 uniformly distributed candidates across the full source.');
 console.log('Neutral candidate generation passed: broad coverage, bounded surrounding context, and no heuristic pre-ranking.');
 assert.ok(source.includes('showClipCandidates(transcriptData.segments, audio.length / 16000, null, audio, visualSamples);'),'WebGPU failure must retain a usable local fallback');

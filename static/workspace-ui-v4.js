@@ -16,7 +16,7 @@
   const downloadTranscript=$('#downloadBrowserTranscript');
   const saveTranscript=$('#saveBrowserProject');
   const capacityPanel=$('#videoCapacity');
-  if(language)language.value='es';
+  if(language && !language.value)language.value='auto';
   // Respect the HTML default and any user choice; never silently downgrade a selected model.
   if(model && !model.value) model.value='whisper-large-v3-turbo';
   if(urlImport){urlImport.hidden=true;urlImport.setAttribute('aria-hidden','true');}
@@ -335,9 +335,30 @@
     const appNav=document.createElement('div');appNav.className='cf-editor-appnav';appNav.innerHTML='<a class="cf-editor-logo" href="#cfCreate"><span>▶</span> ClipForge <b>PRO</b></a><nav><a href="#cfCreate">Inicio</a><a href="#cfCreate">Nuevo proyecto</a><a class="active" href="#cfEditor">Editor</a><a href="#cfResults">Proyectos</a></nav><div class="cf-editor-account"><span>PROYECTO EN CURSO</span><b>9:16</b></div>';
     const editorBar=document.createElement('div');editorBar.className='cf-editor-topbar';editorBar.innerHTML='<div class="cf-editor-project"><strong>ClipForge</strong><span>Proyecto editable</span><i>Cambios en esta sesión</i></div><div class="cf-editor-format"><span>Formato</span><b>9:16</b></div><button type="button" class="cf-editor-export-top">Exportar MP4 ↗</button>';editorBar.querySelector('.cf-editor-export-top').addEventListener('click',()=>card.querySelector('.candidate-export-one')?.click());const saveProjectAction=document.createElement('button');saveProjectAction.type='button';saveProjectAction.className='secondary cf-editor-save-project';saveProjectAction.textContent='Guardar proyecto';saveProjectAction.addEventListener('click',()=>saveTranscript?.click());saveProjectAction.style.setProperty('width',window.innerWidth<=650?'100%':'auto','important');saveProjectAction.style.setProperty('flex','0 0 auto','important');saveProjectAction.style.setProperty('white-space','nowrap','important');saveProjectAction.style.setProperty('max-width','100%','important');editorBar.insertBefore(saveProjectAction,editorBar.querySelector('.cf-editor-export-top'));
     editorBar.prepend(topBack);
-    editorSlot.append(editorBar,card);
+    editorSlot.append(editorBar);
     setStage('editor');
-    addInspector(card,e.detail?.clip||{start:0,end:1});
+    const legacyCard=card;
+    if(window.ClipForgeStudio?.open){
+      const bridgeProject=window.clipforgeEditorBridge?.getProject?.()||{};
+      window.ClipForgeStudio.open({
+        card:legacyCard,
+        clip:e.detail?.clip||{start:0,end:1},
+        index:activeIndex,
+        allClips:bridgeProject.clips||[],
+        transcript:bridgeProject.transcript||null,
+        onBack:()=>{activeCard=null;setStage('results');},
+        onSave:project=>{
+          // Studio already persists its canonical project and synchronizes tracks/candidate edits.
+          // Rebuilding all result cards here would detach the active editor and lose card state.
+          const button=editorSlot.querySelector('.cf-studio-topbar [data-action="save"]');
+          if(button)button.title='Proyecto guardado localmente';
+        },
+        onExport:()=>$('#browserExportClips')?.click()
+      });
+    }else{
+      editorSlot.append(legacyCard);
+      addInspector(legacyCard,e.detail?.clip||{start:0,end:1});
+    }
   });
   if(candidates?.querySelector('.candidate-card'))reveal();
   $('#browserExportClips')?.addEventListener('click',()=>{const p=$('#cfProductionStatus');if(p)p.textContent='Preparando la exportación de tus clips…';});

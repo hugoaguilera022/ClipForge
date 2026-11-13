@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 
-const source=fs.readFileSync('static/browser-whisper.js','utf8');
+const source=fs.readFileSync('static/browser-whisper-inline-v3.js','utf8');
 function extract(name){
   const asyncStart=source.indexOf(`async function ${name}(`);
   const start=asyncStart>=0?asyncStart:source.indexOf(`function ${name}(`);
@@ -17,7 +17,7 @@ function extract(name){
 }
 const store=new Map();
 const fields={
-  '#colabEditorUrl':{value:'https://clipforge-test.trycloudflare.com'},
+  '#colabEditorUrl':{value:'https://clipforge-test.trycloudflare.com/'},
   '#colabEditorToken':{value:'secret-token'},
   '#colabEditorStatus':{textContent:''},
   '#connectColabEditor':{disabled:false,textContent:'Comprobar y conectar',addEventListener:()=>{}}
@@ -35,7 +35,7 @@ const context={
 };
 vm.createContext(context);
 vm.runInContext("const COLAB_EDITOR_KEY='clipforge.colab.editor.v1'; let editorialEnginePromise=null;",context);
-for(const name of ['getColabEditorConfig','createRemoteEditorialEngine','connectColabEditorialEngine','loadEditorialJudge']){
+for(const name of ['trimColabEndpoint','getColabEditorConfig','createRemoteEditorialEngine','connectColabEditorialEngine','loadEditorialJudge']){
   vm.runInContext(extract(name)+`;this.${name}=${name};`,context);
 }
 assert.equal(context.getColabEditorConfig(),null);
