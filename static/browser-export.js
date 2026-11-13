@@ -120,7 +120,7 @@ async function readAudioRegion(blob,key,start,end){
   return chunks;
  }finally{input.dispose();}
 }
-function addMixedChunks(context,compressor,chunks,rangeStart,rangeEnd,outputStart,volume,fadeIn,fadeOut,itemStart,itemEnd){
+function addMixedChunks(context,compressor,chunks,rangeStart,rangeEnd,outputStart,volume,fadeIn,fadeOut,itemStart,itemEnd,rangeTimelineStart){
  for(const chunk of chunks){
   const chunkStart=Number(chunk.timestamp)||0,chunkEnd=chunkStart+(Number(chunk.duration)||chunk.buffer.duration);
   const overlapStart=Math.max(rangeStart,chunkStart),overlapEnd=Math.min(rangeEnd,chunkEnd);
@@ -130,16 +130,19 @@ function addMixedChunks(context,compressor,chunks,rangeStart,rangeEnd,outputStar
   const relative= itemStart+(overlapStart-rangeStart)-itemStart;
   const gain=context.createGain(),source=context.createBufferSource();source.buffer=chunk.buffer;
   const v=Math.max(0,Math.min(2,Number(volume)||0)),fin=Math.max(0,Number(fadeIn)||0),fout=Math.max(0,Number(fadeOut)||0);
-  const into=overlapStart-itemStart,remaining=itemEnd-overlapStart;
-  const startLevel=fin>0?Math.min(1,Math.max(0,into/fin))*v:v;
-  gain.gain.setValueAtTime(startLevel,at);
-  if(fin>into&&fin>0)gain.gain.linearRampToValueAtTime(v,at+(fin-into));
+  const timelineStart=rangeTimelineStart+(overlapStart-rangeStart);
+  const timelineEnd=timelineStart+playable;
+  const levelAt=time=>{
+   const inGain=fin>0?Math.max(0,Math.min(1,(time-itemStart)/fin)):1;
+   const outGain=fout>0?Math.max(0,Math.min(1,(itemEnd-time)/fout)):1;
+   return v*inGain*outGain;
+  };
+  gain.gain.setValueAtTime(levelAt(timelineStart),at);
+  const fadeInEnd=itemStart+fin;
+  if(fin>0&&fadeInEnd>timelineStart&&fadeInEnd<timelineEnd)gain.gain.linearRampToValueAtTime(levelAt(fadeInEnd),at+(fadeInEnd-timelineStart));
   const fadeOutStart=itemEnd-fout;
-  if(fout>0&&overlapEnd>fadeOutStart){
-   const beforeFade=Math.max(0,fadeOutStart-overlapStart);
-   if(beforeFade>0)gain.gain.setValueAtTime(v,at+beforeFade);
-   gain.gain.linearRampToValueAtTime(0,at+playable);
-  }
+  if(fout>0&&fadeOutStart>timelineStart&&fadeOutStart<timelineEnd)gain.gain.setValueAtTime(levelAt(fadeOutStart),at+(fadeOutStart-timelineStart));
+  gain.gain.linearRampToValueAtTime(levelAt(timelineEnd),at+playable);
   source.connect(gain).connect(compressor);
   source.start(at,sourceOffset,playable);
  }
@@ -170,14 +173,14 @@ async function buildMixedAudioBuffer(file,clip,tracks){
     rangeEnd=rangeStart+(overlapEnd-overlapStart);
    }
    const chunks=await readAudioRegion(blob,key,rangeStart,rangeEnd);
-   addMixedChunks(context,compressor,chunks,rangeStart,rangeEnd,outputStart,Number(item.volume??1),Number(item.fadeIn)||0,Number(item.fadeOut)||0,itemStart,itemEnd);
+   addMixedChunks(context,compressor,chunks,rangeStart,rangeEnd,outputStart,Number(item.volume??1),Number(item.fadeIn)||0,Number(item.fadeOut)||0,itemStart,itemEnd,overlapStart);
   }
  }
  return await context.startRendering();
 }
 
 async function exportOne(file,clip,segments,tracks,index,total,settings={}){
-  const {Input,Output,Conversion,ALL_FORMATS,BlobSource,Mp4OutputFormat,BufferTarget,Quality,AudioBufferSource}=await import('https://esm.sh/mediabunny@1.65.2');
+  const {Input,Output,Conversion,ALL_FORMATS,BlobSource,Mp4OutputFormat,BufferTarget,Quality,AudioBufferSource,canEncodeAudio}=await import('https://esm.sh/mediabunny@1.65.2');
   const input=new Input({source:new BlobSource(file),formats:ALL_FORMATS});
   // MOV/MP4 files can be valid even when the container omits duration metadata.
   // Measure the primary video track before rejecting a usable source.
@@ -352,7 +355,12 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
   }
   conversion.onProgress=p=>sayExport(`Clip ${index+1}/${total}: renderizando vídeo ${Math.round(p*100)}%…`);
   const mixedAudio=await buildMixedAudioBuffer(file,clip,tracks);
-  const audioSource=new AudioBufferSource({codec:"aac",quality:new Quality("medium")});
+  const audioQuality=new Quality({bitrate:128e3});
+  if(!(await canEncodeAudio("aac",{numberOfChannels:2,sampleRate:48000,quality:audioQuality}))){
+    const {registerAacEncoder}=await import("https://esm.sh/@mediabunny/aac-encoder@1.65.2?external=mediabunny");
+    registerAacEncoder();
+  }
+  const audioSource=new AudioBufferSource({codec:"aac",quality:audioQuality});
   output.addAudioTrack(audioSource,{name:"Mezcla ClipForge",languageCode:"spa"});
   try{
     await output.start();
@@ -377,8 +385,11 @@ exportButton?.addEventListener('click',async()=>{
   const bridge=window.clipforgeEditorBridge?.getProject?.()||{};
   const studio=window.ClipForgeStudio?.getProject?.();
   const project=studio?.clips?.length?studio:bridge;
-  const clips=(project?.clips||[]).filter(c=>c.selected!==false&&Number.isFinite(Number(c.start))&&Number.isFinite(Number(c.end))&&Number(c.end)>Number(c.start));
   const tracks=project?.tracks||[];
+  const videoTracks=tracks.filter(t=>t.type==="video"&&!t.hidden);
+  const timelineClips=videoTracks.flatMap(t=>t.items||[]);
+  const clipSource=timelineClips.length?timelineClips:(project?.clips||[]);
+  const clips=clipSource.filter(c=>c.selected!==false&&!c.hidden&&Number.isFinite(Number(c.start))&&Number.isFinite(Number(c.end))&&Number(c.end)>Number(c.start)).sort((a,b)=>Number(a.start)-Number(b.start));
   const subtitleTrack=tracks.find(t=>t.type==='subtitles');
   const segments=subtitleTrack?.items?.length?subtitleTrack.items:(project?.transcript?.segments||[]);
   if(!file){sayExport('Selecciona el MP4 original antes de exportar.');return;}
