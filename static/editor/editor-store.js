@@ -1,0 +1,132 @@
+const clone = value => value == null ? value : JSON.parse(JSON.stringify(value));
+const uid = prefix => `${prefix}-${globalThis.crypto?.randomUUID?.() || Math.random().toString(36).slice(2)}`;
+const TRACK_TYPES = ['video','audio','subtitles','text','effects'];
+
+function normalizeTrack(track, index = 0) {
+  const type = TRACK_TYPES.includes(track?.type) ? track.type : 'video';
+  return {
+    id: String(track?.id || uid('track')),
+    type,
+    name: String(track?.name || `Pista ${index + 1}`),
+    muted: Boolean(track?.muted),
+    hidden: Boolean(track?.hidden),
+    locked: Boolean(track?.locked),
+    items: (Array.isArray(track?.items) ? track.items : []).map((item, itemIndex) => normalizeItem(item, itemIndex))
+  };
+}
+function normalizeItem(item, index = 0) {
+  const start = Math.max(0, Number(item?.start) || 0);
+  const end = Math.max(start, Number(item?.end) || start);
+  return {
+    ...clone(item || {}),
+    id: String(item?.id || uid('item')),
+    start, end,
+    name: String(item?.name || item?.title || item?.text || `Elemento ${index + 1}`)
+  };
+}
+function makeTracks(clips, transcript) {
+  const validClips = (clips || []).filter(c => Number(c.end) > Number(c.start));
+  const cues = (transcript?.segments || []).filter(s => Number(s.end) > Number(s.start));
+  return [
+    normalizeTrack({id:'track-v1',type:'video',name:'V1 · Vídeo principal',items:validClips.map(c=>({...c,id:String(c.id),name:c.title||c.text||'Clip'}))},0),
+    normalizeTrack({id:'track-a1',type:'audio',name:'A1 · Audio original',items:[]},1),
+    normalizeTrack({id:'track-a2',type:'audio',name:'A2 · Música',items:[]},2),
+    normalizeTrack({id:'track-a3',type:'audio',name:'A3 · Efectos sonoros',items:[]},3),
+    normalizeTrack({id:'track-s1',type:'subtitles',name:'S1 · Subtítulos',items:cues.map((s,i)=>({id:`subtitle-${i+1}`,start:s.start,end:s.end,text:s.text,words:s.words||[]}))},4),
+    normalizeTrack({id:'track-t1',type:'text',name:'T1 · Textos y títulos',items:[]},5),
+    normalizeTrack({id:'track-fx',type:'effects',name:'FX · Efectos',items:[]},6)
+  ];
+}
+
+export class EditorStore extends EventTarget {
+  constructor() {
+    super();
+    this.project = {
+      schema:'clipforge-project-v3', id:uid('project'), name:'Proyecto sin título',
+      source:'', media:[], clips:[], transcript:null, tracks:[],
+      settings:{width:1080,height:1920,fps:30,format:'9:16'},
+      selection:[], playhead:0, duration:0, updatedAt:Date.now()
+    };
+    this.undoStack=[]; this.redoStack=[]; this.limit=100; this.revision=0;
+    this.saveTimer=null; this.dbPromise=null; this.ready=false;
+  }
+  snapshot(){ return clone(this.project); }
+  emit(reason='update') {
+    this.project.updatedAt=Date.now(); this.revision++;
+    this.dispatchEvent(new CustomEvent('change',{detail:{project:this.snapshot(),reason,revision:this.revision}}));
+    this.dispatchEvent(new CustomEvent('clipforge:project-changed',{detail:{project:this.snapshot(),reason,revision:this.revision}}));
+    this.scheduleSave();
+  }
+  commit(reason, mutator) {
+    this.undoStack.push(this.snapshot());
+    if(this.undoStack.length>this.limit)this.undoStack.shift();
+    this.redoStack.length=0;
+    mutator(this.project);
+    this.project.tracks=(this.project.tracks||[]).map(normalizeTrack);
+    this.project.duration=Math.max(0,...this.project.tracks.flatMap(t=>t.items.map(i=>i.end)));
+    this.emit(reason);
+    return this.snapshot();
+  }
+  hydrate(data={}) {
+    const p=clone(data)||{};
+    const clips=Array.isArray(p.clips)?p.clips:[];
+    const transcript=p.transcript&&Array.isArray(p.transcript.segments)?p.transcript:null;
+    const tracks=Array.isArray(p.tracks)&&p.tracks.length?p.tracks.map(normalizeTrack):makeTracks(clips,transcript);
+    this.project={
+      ...this.project,...p,schema:'clipforge-project-v3',
+      id:String(p.id||this.project.id),source:String(p.source||''),
+      clips,transcript,tracks,
+      media:Array.isArray(p.media)?p.media:[],
+      settings:{...this.project.settings,...(p.settings||{})},
+      selection:Array.isArray(p.selection)?p.selection:[],
+      playhead:Math.max(0,Number(p.playhead)||0),
+      duration:Math.max(0,...tracks.flatMap(t=>t.items.map(i=>i.end)))
+    };
+    this.ready=true; this.emit('hydrate'); return this.snapshot();
+  }
+  async openDB() {
+    if(this.dbPromise)return this.dbPromise;
+    this.dbPromise=new Promise((resolve,reject)=>{
+      if(!('indexedDB' in globalThis)){reject(new Error('IndexedDB no disponible'));return;}
+      const req=indexedDB.open('clipforge-editor-v3',1);
+      req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains('projects'))req.result.createObjectStore('projects',{keyPath:'id'});};
+      req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);
+    });
+    return this.dbPromise;
+  }
+  scheduleSave() {
+    clearTimeout(this.saveTimer);
+    this.saveTimer=setTimeout(()=>this.save().catch(error=>this.dispatchEvent(new CustomEvent('storage-error',{detail:error}))),500);
+  }
+  async save() {
+    const db=await this.openDB();
+    await new Promise((resolve,reject)=>{
+      const tx=db.transaction('projects','readwrite');
+      tx.objectStore('projects').put(this.snapshot());
+      tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error||new Error('No se pudo guardar el proyecto'));
+    });
+    try{localStorage.setItem('clipforge.editor.lastProject',this.project.id);}catch{}
+    return this.project.id;
+  }
+  async recoverLast() {
+    try{
+      const id=localStorage.getItem('clipforge.editor.lastProject');if(!id)return null;
+      const db=await this.openDB();
+      return await new Promise((resolve,reject)=>{
+        const tx=db.transaction('projects','readonly'),req=tx.objectStore('projects').get(id);
+        req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error);
+      });
+    }catch(error){this.dispatchEvent(new CustomEvent('storage-error',{detail:error}));return null;}
+  }
+  undo() {
+    if(!this.undoStack.length)return false;
+    this.redoStack.push(this.snapshot());this.project=this.undoStack.pop();this.emit('undo');return true;
+  }
+  redo() {
+    if(!this.redoStack.length)return false;
+    this.undoStack.push(this.snapshot());this.project=this.redoStack.pop();this.emit('redo');return true;
+  }
+  select(ids){this.project.selection=[...new Set((Array.isArray(ids)?ids:[ids]).filter(Boolean).map(String))];this.emit('selection');}
+  setPlayhead(seconds){this.project.playhead=Math.max(0,Math.min(this.project.duration,Number(seconds)||0));this.emit('playhead');}
+}
+export { normalizeTrack, normalizeItem, makeTracks, uid };
