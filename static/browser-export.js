@@ -100,72 +100,69 @@ function drawKaraokeCaption(ctx,cues,sourceTime,width,height,settings={}){
 
 
 const decodedAudioCache=new Map();
-async function decodeAudioBlob(blob,key){
- if(decodedAudioCache.has(key))return decodedAudioCache.get(key);
- const AudioCtx=window.AudioContext||window.webkitAudioContext;
- if(!AudioCtx)throw new Error("Web Audio no está disponible para mezclar las pistas.");
- const ctx=new AudioCtx();
+async function readAudioRegion(blob,key,start,end){
+ const cacheKey=key+":"+Number(start).toFixed(3)+":"+Number(end).toFixed(3);
+ if(decodedAudioCache.has(cacheKey))return decodedAudioCache.get(cacheKey);
+ const {Input,BlobSource,ALL_FORMATS,AudioBufferSink}=await import("https://esm.sh/mediabunny@1.65.2");
+ const input=new Input({source:new BlobSource(blob),formats:ALL_FORMATS});
  try{
-  const buffer=await ctx.decodeAudioData(await blob.arrayBuffer());
-  decodedAudioCache.set(key,buffer);
-  return buffer;
- }finally{await ctx.close().catch(()=>{});}
+  const track=await input.getPrimaryAudioTrack();
+  if(!track)return [];
+  const sink=new AudioBufferSink(track),chunks=[];
+  for await(const entry of sink.buffers(Math.max(0,start),Math.max(start+.01,end))){
+   chunks.push({buffer:entry.buffer,timestamp:Number(entry.timestamp)||0,duration:Number(entry.duration)||entry.buffer.duration});
+  }
+  decodedAudioCache.set(cacheKey,chunks);
+  return chunks;
+ }finally{input.dispose();}
+}
+function addMixedChunks(context,compressor,chunks,rangeStart,rangeEnd,outputStart,volume,fadeIn,fadeOut,itemStart,itemEnd){
+ for(const chunk of chunks){
+  const chunkStart=Number(chunk.timestamp)||0,chunkEnd=chunkStart+(Number(chunk.duration)||chunk.buffer.duration);
+  const overlapStart=Math.max(rangeStart,chunkStart),overlapEnd=Math.min(rangeEnd,chunkEnd);
+  if(overlapEnd<=overlapStart)continue;
+  const sourceOffset=overlapStart-chunkStart,playable=overlapEnd-overlapStart;
+  const at=outputStart+(overlapStart-rangeStart);
+  const relative= itemStart+(overlapStart-rangeStart)-itemStart;
+  const gain=context.createGain(),source=context.createBufferSource();source.buffer=chunk.buffer;
+  const v=Math.max(0,Math.min(2,Number(volume)||0)),fin=Math.max(0,Number(fadeIn)||0),fout=Math.max(0,Number(fadeOut)||0);
+  const into=overlapStart-itemStart,remaining=itemEnd-overlapStart;
+  const startLevel=fin>0?Math.min(1,Math.max(0,into/fin))*v:v;
+  gain.gain.setValueAtTime(startLevel,at);
+  if(fin>into&&fin>0)gain.gain.linearRampToValueAtTime(v,at+(fin-into));
+  if(fout>0&&remaining<=fout)gain.gain.setValueAtTime(v*Math.min(1,remaining/fout),at);
+  if(fout>0&&remaining>0)gain.gain.linearRampToValueAtTime(0,at+playable);
+  source.connect(gain).connect(compressor);
+  source.start(at,sourceOffset,playable);
+ }
 }
 async function buildMixedAudioBuffer(file,clip,tracks){
- const duration=Math.max(.05,Number(clip.end)-Number(clip.start));
- const sampleRate=48000;
+ const duration=Math.max(.05,Number(clip.end)-Number(clip.start)),sampleRate=48000;
  const Offline=window.OfflineAudioContext||window.webkitOfflineAudioContext;
- if(!Offline)throw new Error("Este navegador no admite mezcla de audio local (OfflineAudioContext).");
- const audioTracks=(tracks||[]).filter(t=>t.type==="audio"&&!t.muted&&!t.hidden);
+ if(!Offline)throw new Error("Este navegador no admite mezcla local (OfflineAudioContext).");
  const context=new Offline(2,Math.ceil(duration*sampleRate),sampleRate);
- const compressor=context.createDynamicsCompressor();
- compressor.threshold.value=-3;compressor.knee.value=8;compressor.ratio.value=3;compressor.attack.value=.004;compressor.release.value=.18;
- compressor.connect(context.destination);
- let sourceBuffer=null;
- const sourceItems=audioTracks.flatMap(t=>(t.items||[]).filter(x=>x.source==="source-audio").map(item=>({track:t,item})));
- if(sourceItems.length){
-  sourceBuffer=await decodeAudioBlob(file,"video:"+file.name+":"+file.size+":"+file.lastModified);
- }
- const assetPromises=new Map();
- for(const track of audioTracks){
+ const compressor=context.createDynamicsCompressor();compressor.threshold.value=-3;compressor.knee.value=8;compressor.ratio.value=3;compressor.attack.value=.004;compressor.release.value=.18;compressor.connect(context.destination);
+ for(const track of (tracks||[]).filter(t=>t.type==="audio"&&!t.muted&&!t.hidden)){
   for(const item of track.items||[]){
-   if(item.source==="source-audio"||!item.assetId)continue;
-   if(!assetPromises.has(item.assetId)){
-    const blob=await window.ClipForgeStudio?.getAssetBlob?.(item.assetId);
-    if(!blob)throw new Error("No se encuentra el archivo de audio "+(item.assetName||item.assetId)+". Vuelve a importarlo.");
-    assetPromises.set(item.assetId,decodeAudioBlob(blob,"asset:"+item.assetId));
-   }
-  }
- }
- for(const track of audioTracks){
-  for(const item of track.items||[]){
-   const overlapStart=Math.max(Number(clip.start),Number(item.start)||0);
-   const overlapEnd=Math.min(Number(clip.end),Number(item.end)||0);
-   if(overlapEnd<=overlapStart)continue;
+   const itemStart=Number(item.start)||0,itemEnd=Number(item.end)||0;
+   const overlapStart=Math.max(Number(clip.start),itemStart),overlapEnd=Math.min(Number(clip.end),itemEnd);
+   if(overlapEnd<=overlapStart||Number(item.volume??1)<=0)continue;
    const outputStart=overlapStart-Number(clip.start);
-   const requestedDuration=overlapEnd-overlapStart;
-   let buffer,sourceOffset;
+   let blob,key,rangeStart,rangeEnd;
    if(item.source==="source-audio"){
-    buffer=sourceBuffer;
-    sourceOffset=(Number(clip.sourceStart)||Number(clip.start)||0)+(overlapStart-Number(clip.start));
+    blob=file;key="video:"+file.name+":"+file.size+":"+file.lastModified;
+    rangeStart=(Number(clip.sourceStart)||Number(clip.start)||0)+(overlapStart-Number(clip.start));
+    rangeEnd=rangeStart+(overlapEnd-overlapStart);
    }else{
     if(!item.assetId)continue;
-    buffer=await assetPromises.get(item.assetId);
-    sourceOffset=(Number(item.sourceStart)||0)+(overlapStart-(Number(item.start)||0));
+    blob=await window.ClipForgeStudio?.getAssetBlob?.(item.assetId);
+    if(!blob)throw new Error("No se encuentra el archivo de audio "+(item.assetName||item.assetId)+". Vuelve a importarlo.");
+    key="asset:"+item.assetId;
+    rangeStart=(Number(item.sourceStart)||0)+(overlapStart-itemStart);
+    rangeEnd=rangeStart+(overlapEnd-overlapStart);
    }
-   if(!buffer||sourceOffset>=buffer.duration)continue;
-   const playable=Math.min(requestedDuration,buffer.duration-sourceOffset);
-   if(playable<=.01)continue;
-   const src=context.createBufferSource();src.buffer=buffer;
-   const gain=context.createGain();const volume=Math.max(0,Math.min(2,Number(item.volume??1)));
-   const fadeIn=Math.max(0,Math.min(playable,Number(item.fadeIn)||0));
-   const fadeOut=Math.max(0,Math.min(playable,Number(item.fadeOut)||0));
-   const end=outputStart+playable;
-   gain.gain.setValueAtTime(fadeIn>0?0:volume,outputStart);
-   if(fadeIn>0)gain.gain.linearRampToValueAtTime(volume,outputStart+fadeIn);
-   if(fadeOut>0){gain.gain.setValueAtTime(volume,Math.max(outputStart,end-fadeOut));gain.gain.linearRampToValueAtTime(0,end);}
-   src.connect(gain).connect(compressor);
-   src.start(outputStart,sourceOffset,playable);
+   const chunks=await readAudioRegion(blob,key,rangeStart,rangeEnd);
+   addMixedChunks(context,compressor,chunks,rangeStart,rangeEnd,outputStart,Number(item.volume??1),Number(item.fadeIn)||0,Number(item.fadeOut)||0,itemStart,itemEnd);
   }
  }
  return await context.startRendering();
