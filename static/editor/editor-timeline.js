@@ -44,7 +44,7 @@ import { uid } from './editor-store.js';
     }
     const sync=()=>{
       const t=Number(film.currentTime)||0;
-      sources.forEach(({audio,item})=>{
+      sources.forEach(({audio,item,track})=>{
         const active=!item.disabled&&t>=item.start&&t<item.end;
         if(active){
           const expected=Math.max(0,Number(item.sourceStart||0)+(t-Number(item.start||0)));
