@@ -3,8 +3,8 @@
 // v180 invalidates the old app shell after the editorial engine bridge update.
 // Invalidates previous cache clipforge-web-v181; v186 rebuilds ClipForge interface to clients; v205 ships the export and AI compatibility fixes.
 // Invalidates legacy app shells including clipforge-web-v144 and clipforge-web-v230.
-const CACHE='clipforge-web-v246';
-const FILES=['/','/styles.css','/app.js','/browser-whisper.js','/editor.js','/browser-export.js','/browser-url.js','/ffmpeg-worker.js','/workspace-ui-v4.js','/styles-clip-editor-final-v2.css','/browser-whisper-inline-v3.js','/editor/editor-core.js','/editor/editor-store.js','/editor/editor-commands.js','/manifest.webmanifest'];
+const CACHE='clipforge-web-v247';
+const FILES=['/','/styles.css','/app.js','/browser-whisper.js','/editor.js','/browser-export.js','/browser-url.js','/ffmpeg-worker.js','/workspace-ui-v4.js','/styles-clip-editor-final-v2.css','/browser-whisper-inline-v3.js','/editor/editor-core.js','/editor/editor-store.js','/editor/editor-commands.js','/editor/editor-timeline.js','/manifest.webmanifest'];
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(FILES)).then(()=>self.skipWaiting()));
 });
