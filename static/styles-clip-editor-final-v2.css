@@ -2019,3 +2019,8 @@ body.cf-opus-stage-editor .cf-opus-inspector-tabs{flex:0 0 38px!important}
 body.cf-opus-stage-editor .cf-opus-inspector-panes{display:block!important;flex:1 1 0!important;height:auto!important;min-height:0!important;max-height:none!important;overflow:auto!important}
 body.cf-opus-stage-editor .cf-opus-pane{display:none!important;width:100%!important;height:auto!important;min-height:100%!important;max-height:none!important;overflow:visible!important}
 body.cf-opus-stage-editor .cf-opus-pane.is-active{display:block!important;height:auto!important;min-height:100%!important}
+
+body.cf-opus-stage-editor .cf-opus-inspector .cf-inline-subtitles{display:block!important;width:100%!important;height:auto!important;min-height:0!important;max-height:none!important;visibility:visible!important;opacity:1!important}
+body.cf-opus-stage-editor .cf-opus-inspector .cf-subtitle-style-controls,body.cf-opus-stage-editor .cf-opus-inspector .cf-caption-style-cards{display:grid!important;width:100%!important;height:auto!important;min-height:0!important}
+body.cf-opus-stage-editor .cf-opus-inspector .cf-caption-style-card{display:flex!important;width:100%!important;height:38px!important;min-height:38px!important}
+body.cf-opus-stage-editor .cf-opus-inspector .cf-subtitle-live-preview{display:flex!important}
