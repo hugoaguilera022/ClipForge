@@ -32,7 +32,7 @@ function history(label,mutator){
 export const studioStore={
  getState:()=>clone(state),
  subscribe(fn){listeners.add(fn);return()=>listeners.delete(fn);},
- load(project){undoStack=[];redoStack=[];state={...clone(project),schema:"clipforge-studio-v2"};emit("load");},
+ load(project){undoStack=[];redoStack=[];state=migrateProject(project);emit("load");},
  transact:history,
  undo(){if(!undoStack.length)return false;redoStack.push(clone(state));const old=undoStack.pop();state=old.state;emit("undo:"+old.label);return true;},
  redo(){if(!redoStack.length)return false;undoStack.push(clone(state));state=redoStack.pop();emit("redo");return true;},
@@ -86,6 +86,15 @@ function createTracks(clips,transcript,duration){
   {id:"track-i1",type:"image",name:"I1 · Imágenes y stickers",locked:false,muted:false,hidden:false,items:[]},
   {id:"track-fx",type:"effects",name:"FX · Efectos",locked:false,muted:false,hidden:false,items:[]}
  ];
+}
+function migrateProject(value){
+ const project=clone(value||{});
+ if(!Array.isArray(project.tracks))project.tracks=createTracks(project.clips||[],project.transcript,Number(project.duration)||0);
+ if(!project.tracks.some(t=>t.type==="image"))project.tracks.splice(Math.min(6,project.tracks.length),0,{id:"track-i1",type:"image",name:"I1 · Imágenes y stickers",locked:false,muted:false,hidden:false,items:[]});
+ if(!project.tracks.some(t=>t.type==="effects"))project.tracks.push({id:"track-fx",type:"effects",name:"FX · Efectos",locked:false,muted:false,hidden:false,items:[]});
+ project.tracks.forEach(track=>{if(!Array.isArray(track.items))track.items=[];if(track.locked===undefined)track.locked=false;if(track.muted===undefined)track.muted=false;if(track.hidden===undefined)track.hidden=false;});
+ project.schema="clipforge-studio-v3";
+ return project;
 }
 async function saveProject(downloadBackup=true){
  const id=state.projectId||("project-"+Date.now());state.projectId=id;
@@ -442,11 +451,11 @@ export async function openStudio({card,clip,transcript,index=0,allClips=null,onB
  const duration=Math.max(Number(clip.end)||0,...videoItems.map(x=>Number(x.end)||0),...(transcript?.segments||[]).map(x=>Number(x.end)||0));
  const projectId="clipforge-"+(file?.name||"video").replace(/[^a-z0-9]+/gi,"-").toLowerCase()+"-"+(file?.lastModified||Date.now());
  const sourceInfo={name:file?.name||"Vídeo original",size:file?.size||0,lastModified:file?.lastModified||0};
- const freshProject={schema:"clipforge-studio-v2",revision:0,duration,fps:30,profile:{width:1080,height:1920,aspect:"9:16"},source:sourceInfo,projectId,clips:clone(videoItems),tracks:createTracks(videoItems,transcript,duration),transcript:clone(transcript||null),selected:null,playhead:Number(clip.start)||0,zoom:1,activeClipIndex:Number(index)||0};
+ const freshProject={schema:"clipforge-studio-v3",revision:0,duration,fps:30,profile:{width:1080,height:1920,aspect:"9:16"},source:sourceInfo,projectId,clips:clone(videoItems),tracks:createTracks(videoItems,transcript,duration),transcript:clone(transcript||null),selected:null,playhead:Number(clip.start)||0,zoom:1,activeClipIndex:Number(index)||0};
  const saved=await get("projects",projectId).catch(()=>null);
  let openProject=freshProject;
- if(saved?.project&&saved.project.schema==="clipforge-studio-v2"&&saved.project.source?.name===sourceInfo.name&&Number(saved.project.source?.lastModified||0)===Number(sourceInfo.lastModified||0)){
-  openProject=clone(saved.project);
+ if(saved?.project&&["clipforge-studio-v2","clipforge-studio-v3"].includes(saved.project.schema)&&saved.project.source?.name===sourceInfo.name&&Number(saved.project.source?.lastModified||0)===Number(sourceInfo.lastModified||0)){
+  openProject=migrateProject(saved.project);
   openProject.activeClipIndex=Number(index)||0;
   const activeItem=openProject.tracks.find(t=>t.type==="video")?.items?.find(x=>Number(x.clipIndex)===Number(index));
   if(activeItem){openProject.playhead=Number(activeItem.start)||0;openProject.selected=activeItem.id;}
