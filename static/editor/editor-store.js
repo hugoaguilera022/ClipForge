@@ -55,7 +55,7 @@ export class EditorStore extends EventTarget {
     this.project.updatedAt=Date.now(); this.revision++;
     this.dispatchEvent(new CustomEvent('change',{detail:{project:this.snapshot(),reason,revision:this.revision}}));
     this.dispatchEvent(new CustomEvent('clipforge:project-changed',{detail:{project:this.snapshot(),reason,revision:this.revision}}));
-    this.scheduleSave();
+    if(reason!=='hydrate')this.scheduleSave();
   }
   commit(reason, mutator) {
     this.undoStack.push(this.snapshot());
