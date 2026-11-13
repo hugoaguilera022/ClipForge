@@ -59,7 +59,7 @@ function drawTextLayers(ctx,tracks,sourceTime,width,height){
     const boxH=visible.length*lineHeight+pad*2,x=xCenter-boxW/2,y=yCenter-boxH/2;
     if(item.background&&item.background!=='transparent'){ctx.fillStyle=item.background;ctx.fillRect(x,y,boxW,boxH);}
     ctx.fillStyle=item.color||'#fff';
-    if(item.outline){ctx.strokeStyle=item.outline;ctx.lineWidth=Number(item.outlineWidth)||4;visible.forEach((lineText,i)=>ctx.strokeText(lineText,xCenter,yCenter-boxH/2+pad+lineHeight*(i+.5),maxWidth));}
+    if(item.outline&&Number(item.outlineWidth)>0){ctx.strokeStyle=item.outline;ctx.lineWidth=Math.max(1,Math.min(24,Number(item.outlineWidth)*2));visible.forEach((lineText,i)=>ctx.strokeText(lineText,xCenter,yCenter-boxH/2+pad+lineHeight*(i+.5),maxWidth));}
     visible.forEach((lineText,i)=>ctx.fillText(lineText,xCenter,yCenter-boxH/2+pad+lineHeight*(i+.5),maxWidth));
   });
   ctx.restore();
@@ -343,7 +343,7 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
         const sourceTime=sourceStart+stamp;
         const timelineTime=clip.start+stamp;
         drawTextLayers(ctx,tracks,timelineTime,canvas.width,canvas.height);
-        drawKaraokeCaption(ctx,cues,sourceTime,canvas.width,canvas.height,settings);
+        drawKaraokeCaption(ctx,cues,timelineTime,canvas.width,canvas.height,settings);
         return canvas;
       },
       processedWidth:1080,processedHeight:1920
