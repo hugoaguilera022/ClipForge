@@ -42,7 +42,7 @@ export const studioCommands={
  addTrack(type,name){const id=uid();history("Añadir pista",s=>s.tracks.push({id,type,name:name||type,locked:false,muted:false,hidden:false,items:[]}));return id;},
  addItem(trackId,item){const id=item.id||uid();history("Añadir elemento",s=>{const t=s.tracks.find(x=>x.id===trackId);if(!t||t.locked)throw Error("La pista está bloqueada");const start=Math.max(0,Number(item.start)||0),end=Math.max(0,Number(item.end)||0);if(end<=start)throw Error("La duración del elemento debe ser positiva");t.items.push({...item,id,start,end});});return id;},
  patch(id,patch){history("Editar elemento",s=>{const f=locate(id);if(!f||f.track.locked)throw Error("Elemento bloqueado o inexistente");const next={...f.item,...patch};if(next.end<=next.start)throw Error("El final debe ser posterior al inicio");Object.assign(f.item,patch);syncClipFromVideoItem(f.item);});},
- remove(id){history("Eliminar elemento",s=>{const found=locate(id);if(found?.track.type==="video"&&found.item.clipIndex!==undefined&&found.item.clipIndex!==null)s.clips=s.clips.filter((x,i)=>i!==Number(found.item.clipIndex));for(const t of s.tracks)t.items=t.items.filter(x=>x.id!==id);if(s.selected===id)s.selected=null;});},
+ remove(id){history("Eliminar elemento",s=>{const found=locate(id);if(found?.track.type==="video"&&found.item.clipIndex!==undefined&&found.item.clipIndex!==null){const original=s.clips[Number(found.item.clipIndex)];if(original)original.selected=false;}for(const t of s.tracks)t.items=t.items.filter(x=>x.id!==id);if(s.selected===id)s.selected=null;});},
  duplicate(id){let next;history("Duplicar elemento",()=>{const f=locate(id);if(!f||f.track.locked)throw Error("Elemento bloqueado");next={...f.item,id:uid(),start:f.item.start+.1,end:f.item.end+.1};if(f.track.type==="video")next.clipIndex=null;f.track.items.push(next);});return next.id;},
  move(id,toTrack,start){history("Mover elemento",s=>{const f=locate(id),to=s.tracks.find(x=>x.id===toTrack);if(!f||f.track.locked||!to||to.locked)throw Error("No se puede mover el elemento");if(f.track.type!==to.type)throw Error("Solo puedes mover elementos entre pistas del mismo tipo");const duration=f.item.end-f.item.start;const next={...f.item,start:Math.max(0,start),end:Math.max(0,start)+duration};f.track.items=f.track.items.filter(x=>x.id!==id);to.items.push(next);syncClipFromVideoItem(next);});},
  trim(id,edge,time){history("Recortar elemento",()=>{const f=locate(id);if(!f||f.track.locked)throw Error("Elemento bloqueado");const t=Math.max(0,Number(time)||0);if(edge==="start"){const next=Math.min(t,f.item.end-.05);const delta=next-f.item.start;f.item.start=next;f.item.sourceStart=(Number(f.item.sourceStart)||0)+delta;}else f.item.end=Math.max(f.item.start+.05,t);syncClipFromVideoItem(f.item);});},
@@ -81,7 +81,7 @@ function createTracks(clips,transcript,duration){
   {id:"track-fx",type:"effects",name:"FX · Efectos",locked:false,muted:false,hidden:false,items:[]}
  ];
 }
-async function saveProject(downloadBackup=true){
+async async function saveProject(downloadBackup=true){
  const id=state.projectId||("project-"+Date.now());state.projectId=id;
  const project=clone(state);project.savedAt=new Date().toISOString();
  await put("projects",{id,name:state.source?.name||"Proyecto ClipForge",sourceName:state.source?.name||"",updatedAt:Date.now(),project});
@@ -99,7 +99,7 @@ async function saveProject(downloadBackup=true){
  setStatus("Proyecto guardado localmente"+(downloadBackup?" y copia JSON descargada.":"."));
  return project;
 }
-async function addAudioAsset(file){
+async async function addAudioAsset(file){
  const id=uid(),blob=file;
  await put("assets",{id,name:file.name,type:file.type||"audio/*",blob,size:file.size});
  assetBlobs.set(id,blob);assetUrls.set(id,URL.createObjectURL(blob));
