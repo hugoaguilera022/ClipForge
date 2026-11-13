@@ -278,8 +278,10 @@
       layout.style.setProperty('display','grid','important');
       layout.style.setProperty('grid-template-columns',width>=1400?'164px minmax(190px,220px) minmax(300px,1fr) minmax(330px,360px)':width>=1200?'150px minmax(165px,195px) minmax(270px,1fr) minmax(300px,330px)':width>=900?'132px minmax(245px,1fr) minmax(270px,310px)':'minmax(0,1fr)','important');
       const timelineHeight=Math.max(190,Math.min(230,Math.round(height*.24)));
-      card.style.setProperty('flex','1 1 auto','important');card.style.setProperty('height','0','important');card.style.setProperty('max-height','none','important');card.style.setProperty('min-height','0','important');
-      layout.style.setProperty('align-items','stretch','important');layout.style.setProperty('flex','1 1 auto','important');layout.style.setProperty('height','0','important');layout.style.setProperty('min-height','0','important');layout.style.setProperty('max-height','none','important');layout.style.setProperty('overflow','hidden','important');
+      // Use natural document flow for the workspace. A zero-height flex child
+      // lets the following timeline overlap the inspector and intercept clicks.
+      card.style.setProperty('flex','0 0 auto','important');card.style.setProperty('height','auto','important');card.style.setProperty('max-height','none','important');card.style.setProperty('min-height','0','important');
+      layout.style.setProperty('align-items','stretch','important');layout.style.setProperty('flex','0 0 auto','important');layout.style.setProperty('height','auto','important');layout.style.setProperty('min-height','0','important');layout.style.setProperty('max-height','none','important');layout.style.setProperty('overflow','visible','important');
       layout.style.setProperty('gap',width<=650?'12px':'16px','important');
       layout.style.setProperty('width','100%','important');
       layout.style.setProperty('min-width','0','important');
