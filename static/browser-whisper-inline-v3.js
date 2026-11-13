@@ -911,12 +911,12 @@ let editorialEnginePromise = null;
 // Optional remote Qwen endpoint exposed by a user's own Colab runtime.
 // Credentials are held in sessionStorage only and never written to a ClipForge backend.
 const COLAB_EDITOR_KEY='clipforge.colab.editor.v1';
-function trimColabEndpoint(value){
+function trimColabEndpoint(value) {
  let output=String(value||'').trim();
  while(output.endsWith('/'))output=output.slice(0,-1);
  return output;
 }
-function getColabEditorConfig(){
+function getColabEditorConfig() {
  try{
   const saved=JSON.parse(sessionStorage.getItem(COLAB_EDITOR_KEY)||'null');
   if(!saved||typeof saved.url!=="string"||typeof saved.token!=="string"||!saved.token.trim())return null;
@@ -925,7 +925,7 @@ function getColabEditorConfig(){
   return {url:trimColabEndpoint(parsed.href),token:saved.token,model:String(saved.model||"qwen3:4b")};
  }catch{return null;}
 }
-function createRemoteEditorialEngine(config){
+function createRemoteEditorialEngine(config) {
  const base=trimColabEndpoint(config.url);
  return {isRemote:true,provider:"colab",chat:{completions:{create:async options=>{
   const response=await fetch(base+"/v1/chat/completions",{
@@ -940,7 +940,7 @@ function createRemoteEditorialEngine(config){
   return data;
  }}}};
 }
-async function connectColabEditorialEngine(){
+async function connectColabEditorialEngine() {
  const urlInput=document.querySelector("#colabEditorUrl");
  const tokenInput=document.querySelector("#colabEditorToken");
  const status=document.querySelector("#colabEditorStatus");
