@@ -16,6 +16,25 @@ export class EditorCommands {
     if(item.end<=item.start)throw new Error('La duración del elemento debe ser mayor que cero');
     this.store.commit('item:add',p=>p.tracks.find(t=>t.id===trackId).items.push(item));return item.id;
   }
+  importAudioFile(file,trackId,start=this.store.project.playhead) {
+    if(!(file instanceof Blob)||!file.size)throw new Error('Selecciona un archivo de audio válido');
+    let track=trackId?this.track(trackId):this.store.project.tracks.find(t=>t.type==='audio'&&!t.locked);
+    if(!track)throw new Error('Crea una pista de audio antes de importar');
+    if(track.type!=='audio'||track.locked)throw new Error('La pista seleccionada no admite audio o está bloqueada');
+    const id=uid('media'),asset={id,name:String(file.name||'audio'),type:file.type||'audio/*',size:file.size,blob:file};
+    const duration=Number(file.duration)||0;
+    const itemId=uid('item'),at=Math.max(0,Number(start)||0);
+    this.store.commit('media:import',p=>{
+      p.media=[...(p.media||[]),asset];
+      p.tracks.find(t=>t.id===track.id).items.push({id:itemId,mediaId:id,name:asset.name,start:at,end:at+(duration>0?duration:30),sourceStart:0,gain:1});
+    });
+    return itemId;
+  }
+  setItemVolume(id,gain) {
+    const found=this.item(id);if(!found)throw new Error('Elemento no encontrado');
+    if(found.track.type!=='audio')throw new Error('El volumen solo se aplica a elementos de audio');
+    this.updateItem(id,{gain:Math.max(0,Math.min(2,Number(gain)||0))});
+  }
   updateItem(id,patch={}) {
     const found=this.item(id);if(!found)throw new Error('Elemento no encontrado');
     if(found.track.locked)throw new Error('La pista está bloqueada');
