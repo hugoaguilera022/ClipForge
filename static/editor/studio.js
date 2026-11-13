@@ -5,7 +5,7 @@ const HISTORY_LIMIT = 100;
 const DB_NAME = "clipforge-studio-local-v1";
 let state = {schema:"clipforge-studio-v2",revision:0,duration:0,fps:30,profile:{width:1080,height:1920,aspect:"9:16"},source:null,projectId:null,clips:[],tracks:[],transcript:null,selected:null,playhead:0,zoom:1,activeClipIndex:0};
 let undoStack=[],redoStack=[],dbPromise=null,saveTimer=null;
-const assetUrls=new Map(),assetBlobs=new Map(),previewAudio=new Map(),audioBuffers=new Map();
+const assetUrls=new Map(),assetBlobs=new Map(),previewAudio=new Map(),audioBuffers=new Map(),previewImages=new Map();
 const uid=()=>crypto.randomUUID?.()||("cf-"+Date.now()+"-"+Math.random().toString(36).slice(2));
 function emit(reason){state.revision++;for(const fn of listeners)fn(clone(state),reason);window.dispatchEvent(new CustomEvent("clipforge:studio-state",{detail:{state:clone(state),reason}}));scheduleAutosave();}
 function db(){
@@ -83,6 +83,7 @@ function createTracks(clips,transcript,duration){
   {id:"track-a3",type:"audio",name:"A3 · Efectos sonoros",locked:false,muted:false,hidden:false,items:[]},
   {id:"track-s1",type:"subtitles",name:"S1 · Subtítulos",locked:false,muted:false,hidden:false,items:captions},
   {id:"track-t1",type:"text",name:"T1 · Textos y títulos",locked:false,muted:false,hidden:false,items:[]},
+  {id:"track-i1",type:"image",name:"I1 · Imágenes y stickers",locked:false,muted:false,hidden:false,items:[]},
   {id:"track-fx",type:"effects",name:"FX · Efectos",locked:false,muted:false,hidden:false,items:[]}
  ];
 }
@@ -121,6 +122,17 @@ async function addAudioAsset(file){
  }catch(error){console.warn("No se pudo medir el audio; se usará una duración aproximada",error);}
  return {id,name:file.name,duration};
 }
+async function addImageAsset(file){
+ const id=uid(),blob=file;
+ await put("assets",{id,name:file.name,type:file.type||"image/*",blob,size:file.size});
+ assetBlobs.set(id,blob);const url=URL.createObjectURL(blob);assetUrls.set(id,url);
+ const dimensions=await new Promise((resolve,reject)=>{
+  const img=new Image();img.onload=()=>resolve({width:img.naturalWidth,height:img.naturalHeight});
+  img.onerror=()=>reject(new Error("La imagen no se puede decodificar"));
+  img.src=url;
+ });
+ return {id,name:file.name,width:dimensions.width,height:dimensions.height};
+}
 async function getAssetBlob(id){
  if(assetBlobs.has(id))return assetBlobs.get(id);
  const record=await get("assets",id);if(!record?.blob)throw new Error("No se encuentra el archivo de audio "+id);
@@ -141,7 +153,9 @@ function previewLayerAt(sourceTime,timelineTime){
  const textTrack=state.tracks.find(t=>t.type==="text"&&!t.hidden);
  const sub=subTrack?.items.find(x=>sourceTime>=x.start&&sourceTime<=x.end);
  const txt=textTrack?.items.filter(x=>timelineTime>=x.start&&timelineTime<=x.end)||[];
- return {sub,txt};
+ const imageTrack=state.tracks.find(t=>t.type==="image"&&!t.hidden);
+ const images=imageTrack?.items.filter(x=>timelineTime>=x.start&&timelineTime<=x.end&&!x.hidden)||[];
+ return {sub,txt,images};
 }
 function syncPreviewVideo(video,overlay){
  const update=()=>{
@@ -255,6 +269,11 @@ function renderInspector(root){
   html+='<label>Brillo<input data-field="brightness" type="range" min="50" max="160" value="'+Number(fx.brightness||100)+'"></label><label>Contraste<input data-field="contrast" type="range" min="50" max="180" value="'+Number(fx.contrast||100)+'"></label><label>Saturación<input data-field="saturation" type="range" min="0" max="200" value="'+Number(fx.saturation||100)+'"></label>';
   html+='<label>Opacidad<input data-field="opacity" type="range" min="0" max="100" value="'+Number(item.opacity??100)+'"></label>';
   html+='<div class="cf-studio-fields"><label>Entrada<select data-field="transitionIn"><option value="none">Ninguna</option><option value="fade">Fundido</option><option value="zoom">Zoom</option></select></label><label>Salida<select data-field="transitionOut"><option value="none">Ninguna</option><option value="fade">Fundido</option><option value="zoom">Zoom</option></select></label></div><label>Duración de transición<input data-field="transitionDuration" type="number" min=".1" max="2" step=".1" value="'+Number(item.transitions?.duration||.5)+'"></label>';
+ } else if(track.type==="image"){
+  html+='<label>Tamaño / ancho (%)<input data-field="widthPct" type="range" min="5" max="95" value="'+Number(item.widthPct||30)+'"></label>';
+  html+='<label>Opacidad<input data-field="opacity" type="range" min="0" max="100" value="'+Number(item.opacity??100)+'"></label>';
+  html+='<div class="cf-studio-fields"><label>Horizontal (%)<input data-field="x" type="number" min="0" max="100" value="'+Number(item.x??50)+'"></label><label>Vertical (%)<input data-field="y" type="number" min="0" max="100" value="'+Number(item.y??50)+'"></label></div>';
+  html+='<label>Rotación (°)<input data-field="rotation" type="number" min="-180" max="180" value="'+Number(item.rotation||0)+'"></label><small>Archivo: '+escapeHtml(item.assetName||"Imagen")+'</small>';
  } else if(track.type==="text"){
   html+='<label>Tamaño<input data-field="fontSize" type="range" min="14" max="120" value="'+Number(item.fontSize||32)+'"></label>';
   html+='<div class="cf-studio-fields"><label>Color<input data-field="color" type="color" value="'+(item.color||"#ffffff")+'"></label><label>Fondo<input data-field="background" type="color" value="'+(item.background&&item.background!=="transparent"?item.background:"#000000")+'"></label></div>';
@@ -281,7 +300,7 @@ function renderInspector(root){
  };
  root.querySelectorAll("[data-field]").forEach(el=>el.addEventListener("change",()=>{
   const key=el.dataset.field;let value=el.value;
-  if(["start","end","volume","fadeIn","fadeOut","fontSize","brightness","contrast","saturation","transitionDuration","x","y","outlineWidth","opacity"].includes(key))value=Number(value);
+  if(["start","end","volume","fadeIn","fadeOut","fontSize","brightness","contrast","saturation","transitionDuration","x","y","outlineWidth","opacity","widthPct","rotation"].includes(key))value=Number(value);
   if(key==="volume")value/=100;
   if(key==="bold")value=value!=="false";
   let patch={};
@@ -291,6 +310,7 @@ function renderInspector(root){
   else if(track.type==="subtitles"&&key==="stylePreset"){patch.style={...(item.style||{}),...(presetStyles[value]||presetStyles.classic),preset:value};}
   else if(track.type==="subtitles"&&["position","color","fontSize","highlight","background","outline","outlineWidth","wordMode","animation"].includes(key)){const k=key==="fontSize"?"size":key;patch.style={...(item.style||{}),[k]:value,preset:item.style?.preset||"classic"};}
   else if(track.type==="text"&&["text","fontSize","color","background","x","y","outline","outlineWidth","font","bold"].includes(key))patch[key]=value;
+  else if(track.type==="image"&&["widthPct","opacity","x","y","rotation"].includes(key))patch[key]=value;
   else patch[key]=value;
   try{studioCommands.patch(item.id,patch);}catch(error){setStatus(error.message);}
  }));
@@ -317,7 +337,7 @@ function mountTimeline(root){
    label.append(name,lock,mute,hide);const lane=document.createElement("div");lane.className="cf-studio-lane";lane.style.width=width+"px";lane.style.opacity=track.hidden?".35":"1";
    for(const item of track.items){
     const block=document.createElement("div");block.className="cf-studio-block"+(s.selected===item.id?" selected":"");block.style.left=(item.start*scale())+"px";block.style.width=Math.max(14,(item.end-item.start)*scale())+"px";block.title=item.start.toFixed(2)+"–"+item.end.toFixed(2)+" s";
-    const text=document.createElement("span");text.textContent=item.text||item.title||item.assetName||track.type;block.append(text);
+    block.dataset.type=track.type;const text=document.createElement("span");text.textContent=item.text||item.title||item.assetName||track.type;block.append(text);
     const left=document.createElement("button"),right=document.createElement("button");left.className="cf-studio-trim cf-left";right.className="cf-studio-trim cf-right";left.title="Recortar inicio";right.title="Recortar final";block.append(left,right);
     block.addEventListener("click",e=>{if(e.target===left||e.target===right)return;studioCommands.select(item.id);});
     block.addEventListener("pointerdown",e=>{
@@ -385,7 +405,7 @@ async function restoreProject(id){
 }
 function makeEditorShell(){
  const shell=document.createElement("section");shell.className="cf-studio-shell";
- shell.innerHTML='<header class="cf-studio-topbar"><button data-action="back">← Clips</button><strong>ClipForge Studio</strong><span class="cf-studio-project-name"></span><button data-action="relink">Vincular vídeo</button><input data-source-input type="file" accept="video/*" hidden><button data-action="undo">↶</button><button data-action="redo">↷</button><button data-action="open">Abrir</button><button data-action="save">Guardar</button><button data-action="export">Exportar MP4</button></header><div class="cf-studio-workspace"><aside class="cf-studio-tools"><b>PROYECTO</b><div class="cf-studio-source">Vídeo original<br><small>Fuente local vinculada</small></div><nav><button data-tool="media">Medios</button><button data-tool="audio">♫ Añadir audio</button><button data-tool="text">T Añadir texto</button><button data-tool="subtitles">CC Subtítulos</button><button data-tool="effects">✧ Efectos</button><button data-tool="transitions">Transiciones</button><button data-addtrack="video">+ Pista vídeo</button><button data-addtrack="audio">+ Pista audio</button></nav><label class="cf-studio-import">Importar audio / música<input type="file" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.flac"></label><button data-action="addtext">+ Crear texto</button><div class="cf-studio-media-list"></div></aside><section class="cf-studio-monitor"><div class="cf-studio-preview"><div class="cf-studio-overlay"></div></div><div class="cf-studio-transport"><button data-action="play">▶</button><button data-action="pause">Ⅱ</button><span data-clock>00:00.00</span><span>Previsualización sincronizada</span></div></section><aside class="cf-studio-inspector"></aside></div><div class="cf-studio-timeline-host"></div><section class="cf-studio-media-dialog" data-media-dialog hidden role="dialog" aria-modal="true" aria-label="Medios del proyecto"><div class="cf-studio-media-dialog-card"><header><b>Medios del proyecto</b><button data-action="media-close" aria-label="Cerrar">✕</button></header><p>Vídeo original y archivos de audio importados. Los archivos permanecen en este navegador.</p><div class="cf-studio-media-library"></div><footer><button data-action="relink">Vincular otro vídeo</button><button data-action="media-import-audio">Importar música / sonido</button></footer></div></section><div class="cf-studio-status" role="status">Listo para editar</div>';
+ shell.innerHTML='<header class="cf-studio-topbar"><button data-action="back">← Clips</button><strong>ClipForge Studio</strong><span class="cf-studio-project-name"></span><button data-action="relink">Vincular vídeo</button><input data-source-input type="file" accept="video/*" hidden><button data-action="undo">↶</button><button data-action="redo">↷</button><button data-action="open">Abrir</button><button data-action="save">Guardar</button><button data-action="export">Exportar MP4</button></header><div class="cf-studio-workspace"><aside class="cf-studio-tools"><b>PROYECTO</b><div class="cf-studio-source">Vídeo original<br><small>Fuente local vinculada</small></div><nav><button data-tool="media">Medios</button><button data-tool="audio">♫ Añadir audio</button><button data-tool="text">T Añadir texto</button><button data-tool="subtitles">CC Subtítulos</button><button data-tool="effects">✧ Efectos</button><button data-tool="transitions">Transiciones</button><button data-addtrack="video">+ Pista vídeo</button><button data-addtrack="audio">+ Pista audio</button></nav><label class="cf-studio-import">Importar audio, música o imagen<input type="file" accept="audio/*,image/*,.mp3,.wav,.m4a,.aac,.ogg,.flac,.png,.jpg,.jpeg,.webp"></label><button data-action="addtext">+ Crear texto</button><div class="cf-studio-media-list"></div></aside><section class="cf-studio-monitor"><div class="cf-studio-preview"><div class="cf-studio-overlay"></div></div><div class="cf-studio-transport"><button data-action="play">▶</button><button data-action="pause">Ⅱ</button><span data-clock>00:00.00</span><span>Previsualización sincronizada</span></div></section><aside class="cf-studio-inspector"></aside></div><div class="cf-studio-timeline-host"></div><section class="cf-studio-media-dialog" data-media-dialog hidden role="dialog" aria-modal="true" aria-label="Medios del proyecto"><div class="cf-studio-media-dialog-card"><header><b>Medios del proyecto</b><button data-action="media-close" aria-label="Cerrar">✕</button></header><p>Vídeo original y archivos de audio importados. Los archivos permanecen en este navegador.</p><div class="cf-studio-media-library"></div><footer><button data-action="relink">Vincular otro vídeo</button><button data-action="media-import-audio">Importar música / sonido</button></footer></div></section><div class="cf-studio-status" role="status">Listo para editar</div>';
  return shell;
 }
 export function closeStudio(){
@@ -439,15 +459,26 @@ export async function openStudio({card,clip,transcript,index=0,allClips=null,onB
  video.addEventListener("timeupdate",clock);
  const fileInput=shell.querySelector(".cf-studio-import input");
  fileInput.addEventListener("change",async()=>{
-  const audioFile=fileInput.files?.[0];if(!audioFile)return;
+  const mediaFile=fileInput.files?.[0];if(!mediaFile)return;
   try{
-   const asset=await addAudioAsset(audioFile);
-   let track=state.tracks.find(t=>t.type==="audio"&&t.id!=="track-a1");
-   if(!track){const id=studioCommands.addTrack("audio","A2 · Música");track=state.tracks.find(t=>t.id===id);}
-   studioCommands.addItem(track.id,{type:"audio",assetId:asset.id,assetName:asset.name,start:state.playhead,end:Math.min(state.duration,state.playhead+asset.duration),sourceStart:0,volume:1,fadeIn:0,fadeOut:0,text:asset.name});
-   const row=document.createElement("div");row.className="cf-studio-media-item";row.textContent="♫ "+asset.name;shell.querySelector(".cf-studio-media-list").append(row);
-   setStatus("Audio añadido a la pista. Ya está disponible para previsualización y exportación.");
-  }catch(error){setStatus("No se pudo importar el audio: "+error.message);}
+   if(mediaFile.type.startsWith("audio/")){
+    const asset=await addAudioAsset(mediaFile);
+    let track=state.tracks.find(t=>t.type==="audio"&&t.id!=="track-a1");
+    if(!track){const id=studioCommands.addTrack("audio","A2 · Música");track=state.tracks.find(t=>t.id===id);}
+    studioCommands.addItem(track.id,{type:"audio",assetId:asset.id,assetName:asset.name,start:state.playhead,end:Math.min(state.duration,state.playhead+asset.duration),sourceStart:0,volume:1,fadeIn:0,fadeOut:0,text:asset.name});
+    const row=document.createElement("div");row.className="cf-studio-media-item";row.textContent="♫ "+asset.name;shell.querySelector(".cf-studio-media-list").append(row);
+    setStatus("Audio añadido a la pista. Ya está disponible para previsualización y exportación.");
+   }else if(mediaFile.type.startsWith("image/")){
+    const asset=await addImageAsset(mediaFile);
+    let track=state.tracks.find(t=>t.type==="image");
+    if(!track){const id=studioCommands.addTrack("image","I1 · Imágenes y stickers");track=state.tracks.find(t=>t.id===id);}
+    studioCommands.addItem(track.id,{type:"image",assetId:asset.id,assetName:asset.name,width:asset.width,height:asset.height,widthPct:30,x:50,y:50,opacity:100,rotation:0,start:state.playhead,end:Math.min(state.duration,state.playhead+4),text:asset.name});
+    const row=document.createElement("div");row.className="cf-studio-media-item";row.textContent="▧ "+asset.name;shell.querySelector(".cf-studio-media-list").append(row);
+    setStatus("Imagen añadida como capa editable. Ajusta tamaño, posición, rotación y opacidad en el inspector.");
+   }else{
+    throw new Error("Formato no compatible. Importa audio o imagen; el vídeo original se vincula desde «Vincular vídeo».");
+   }
+  }catch(error){setStatus("No se pudo importar el recurso: "+error.message);}
   finally{fileInput.value="";}
  });
  shell.addEventListener("click",async e=>{
