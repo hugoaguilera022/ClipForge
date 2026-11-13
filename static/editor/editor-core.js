@@ -64,7 +64,8 @@ window.addEventListener('keydown',event=>{
   }else if(event.key==='Delete'||event.key==='Backspace'){
     if(store.project.selection.length){event.preventDefault();commands.remove(store.project.selection);store.select([]);}
   }else if(event.code==='Space'){
-    event.preventDefault();window.dispatchEvent(new CustomEvent('clipforge:toggle-playback'));
+    const video=document.querySelector('#cfWorkspace .cf-opus-editing-card video, #cfWorkspace .cf-inline-player video, #editorPreviewVideo');
+    if(video){event.preventDefault();if(video.paused)video.play().catch(()=>{});else video.pause();}
   }
 });
 window.addEventListener('clipforge:clips-updated',()=>{
