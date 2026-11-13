@@ -44,14 +44,19 @@ export const studioCommands={
  trim(id,edge,time){history("Recortar elemento",()=>{const f=locate(id);if(!f||f.track.locked)throw Error("Elemento bloqueado");const t=Math.max(0,Number(time)||0);if(edge==="start"){const next=Math.min(t,f.item.end-.05);const delta=next-f.item.start;f.item.start=next;f.item.sourceStart=(Number(f.item.sourceStart)||0)+delta;}else f.item.end=Math.max(f.item.start+.05,t);syncClipFromVideoItem(f.item);});},
  split(id,time){let right;history("Dividir elemento",()=>{const f=locate(id),t=Number(time);if(!f||f.track.locked||t<=f.item.start+.03||t>=f.item.end-.03)throw Error("Coloca el cabezal dentro del elemento");right={...f.item,id:uid(),start:t,sourceStart:(Number(f.item.sourceStart)||0)+(t-f.item.start)};f.item.end=t;f.track.items.push(right);syncClipFromVideoItem(f.item);syncClipFromVideoItem(right);});return right.id;},
  setTrack(id,key,value){studioStore.ephemeral("track-setting",{tracks:state.tracks.map(t=>t.id===id?{...t,[key]:value}:t)});scheduleAutosave();},
- select(id){studioStore.ephemeral("selection",{selected:id});},
- playhead(time){studioStore.ephemeral("playhead",{playhead:Math.max(0,Math.min(state.duration,Number(time)||0))});},
+ select(id){
+  const found=locate(id),patch={selected:id};
+  if(found?.item?.clipIndex!==undefined){patch.activeClipIndex=Number(found.item.clipIndex);patch.playhead=Number(found.item.start)||0;window.__cfStudioSeek?.(patch.playhead);}
+  studioStore.ephemeral("selection",patch);
+ },
+ playhead(time){const next=Math.max(0,Math.min(state.duration,Number(time)||0));studioStore.ephemeral("playhead",{playhead:next});window.__cfStudioSeek?.(next);},
  zoom(value){studioStore.ephemeral("zoom",{zoom:Math.max(.25,Math.min(8,Number(value)||1))});}
 };
 function syncClipFromVideoItem(item){
  if(item.clipIndex===undefined||item.clipIndex===null)return;
  const c=state.clips[Number(item.clipIndex)];if(!c)return;
  c.start=Number(item.start);c.end=Number(item.end);c.duration=c.end-c.start;
+ c.sourceStart=Number(item.sourceStart??c.sourceStart??item.start);
  if(item.visualEffects)c.visualEffects=clone(item.visualEffects);
  if(item.transitions)c.transitions=clone(item.transitions);
 }
@@ -101,25 +106,33 @@ async function getAssetBlob(id){
 }
 async function getAssetUrl(id){if(assetUrls.has(id))return assetUrls.get(id);const blob=await getAssetBlob(id);const url=URL.createObjectURL(blob);assetUrls.set(id,url);return url;}
 function escapeHtml(value){return String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
-function currentVideoItem(s=state){return s.tracks.find(t=>t.type==="video")?.items.find(x=>s.playhead>=x.start&&s.playhead<=x.end)||s.tracks.find(t=>t.type==="video")?.items[s.activeClipIndex]||null;}
-function previewLayerAt(time){
+function currentVideoItem(s=state){
+ const items=s.tracks.find(t=>t.type==="video")?.items||[];
+ return items.find(x=>Number(x.clipIndex)===Number(s.activeClipIndex))||items[s.activeClipIndex]||null;
+}
+function previewLayerAt(sourceTime,timelineTime){
  const subTrack=state.tracks.find(t=>t.type==="subtitles"&&!t.hidden);
  const textTrack=state.tracks.find(t=>t.type==="text"&&!t.hidden);
- const sub=subTrack?.items.find(x=>time>=x.start&&time<=x.end);
- const txt=textTrack?.items.filter(x=>time>=x.start&&time<=x.end)||[];
+ const sub=subTrack?.items.find(x=>sourceTime>=x.start&&sourceTime<=x.end);
+ const txt=textTrack?.items.filter(x=>timelineTime>=x.start&&timelineTime<=x.end)||[];
  return {sub,txt};
 }
 function syncPreviewVideo(video,overlay){
  const update=()=>{
-  const t=Number(video.currentTime)||0;studioStore.ephemeral("preview",{playhead:t});
-  const item=currentVideoItem();const fx=item?.visualEffects||{};
+  const sourceTime=Number(video.currentTime)||0;
+  const item=currentVideoItem();
+  if(!item)return;
+  const t=Number(item.start)+(sourceTime-Number(item.sourceStart??item.start));
+  studioStore.ephemeral("preview",{playhead:t});
+  if(sourceTime>=Number(item.sourceStart??item.start)+(Number(item.end)-Number(item.start))-.03&& !video.paused){video.pause();}
+  const fx=item?.visualEffects||{};
   const filters={cinematic:"contrast(1.14) saturate(.82)",warm:"sepia(.16) saturate(1.2)",cool:"hue-rotate(12deg) saturate(.9)",bw:"grayscale(1) contrast(1.08)",vintage:"sepia(.32) contrast(.78)",vivid:"saturate(1.45) contrast(1.08)"};
   video.style.filter=[filters[fx.preset]||"",fx.brightness&&fx.brightness!==100?"brightness("+fx.brightness+"%)":"",fx.contrast&&fx.contrast!==100?"contrast("+fx.contrast+"%)":"",fx.saturation&&fx.saturation!==100?"saturate("+fx.saturation+"%)":""].filter(Boolean).join(" ");
   const trans=item?.transitions||{};const dur=Math.max(.1,Math.min(2,Number(trans.duration)||.5));const local=t-(Number(item?.start)||0);let opacity=1,scale=1;
   if(trans.in==="fade")opacity=Math.min(opacity,Math.max(0,local/dur));if(trans.out==="fade")opacity=Math.min(opacity,Math.max(0,(Number(item?.end)-t)/dur));
   if(trans.in==="zoom")scale=1+Math.max(0,1-local/dur)*.12;if(trans.out==="zoom")scale=Math.max(scale,1+Math.max(0,1-(Number(item?.end)-t)/dur)*.12);
   video.style.opacity=String(opacity);video.style.transform="scale("+scale+")";
-  const {sub,txt}=previewLayerAt(t);
+  const {sub,txt}=previewLayerAt(sourceTime,t);
   overlay.replaceChildren();
   if(sub){const cap=document.createElement("div");cap.className="cf-studio-caption-preview";cap.textContent=sub.text||"";const style=sub.style||{};cap.style.color=style.color||"#fff";cap.style.fontSize=Math.max(14,Number(style.size)||28)+"px";cap.style.background=style.background&&style.background!=="transparent"?style.background:"rgba(0,0,0,.68)";cap.style.fontFamily=style.font||"Inter,sans-serif";cap.style.fontWeight=style.bold===false?"500":"800";cap.style.top=style.position==="top"?"9%":style.position==="middle"?"48%":"auto";cap.style.bottom=style.position==="top"||style.position==="middle"?"auto":"8%";overlay.append(cap);}
   for(const layer of txt){const el=document.createElement("div");el.className="cf-studio-text-preview";el.textContent=layer.text||"";el.style.color=layer.color||"#fff";el.style.fontSize=Math.max(14,Number(layer.fontSize)||32)+"px";el.style.top=(Number(layer.y)||22)+"%";el.style.left=(Number(layer.x)||50)+"%";el.style.transform="translate(-50%,-50%)";overlay.append(el);}
@@ -129,15 +142,20 @@ function syncPreviewVideo(video,overlay){
 function syncExternalAudio(video){
  const audioItems=()=>state.tracks.filter(t=>t.type==="audio"&&!t.muted).flatMap(t=>t.items.filter(x=>x.source!=="source-audio"&&x.assetId).map(x=>({track:t,item:x})));
  async function update(){
-  const time=Number(video.currentTime)||0;const wanted=audioItems().filter(x=>time>=x.item.start&&time<x.item.end);
+  const time=Number(state.playhead)||0;
+  const sourceTrack=state.tracks.find(t=>t.id==="track-a1"||t.name?.startsWith("A1"));
+  const sourceItem=sourceTrack?.items?.find(x=>time>=x.start&&time<x.end);
+  video.muted=!sourceItem||!!sourceTrack?.muted||Number(sourceItem?.volume??1)<=0;
+  if(sourceItem)video.volume=Math.max(0,Math.min(1,Number(sourceItem.volume??1)));
+  const wanted=audioItems().filter(x=>time>=x.item.start&&time<x.item.end);
   const keys=new Set(wanted.map(x=>x.item.id));
   for(const [id,entry] of previewAudio){if(!keys.has(id)){entry.el.pause();entry.el.removeAttribute("src");entry.el.load();previewAudio.delete(id);}}
   for(const entry of wanted){
    let current=previewAudio.get(entry.item.id);
    if(!current){const el=new Audio();el.preload="auto";el.src=await getAssetUrl(entry.item.assetId);current={el,track:entry.track,item:entry.item};previewAudio.set(entry.item.id,current);}
    current.track=entry.track;current.item=entry.item;
-   const sourceTime=(Number(entry.item.sourceStart)||0)+(time-entry.item.start);
-   if(Math.abs((current.el.currentTime||0)-sourceTime)>.35){try{current.el.currentTime=Math.max(0,sourceTime);}catch{}}
+   const audioSourceTime=(Number(entry.item.sourceStart)||0)+(time-entry.item.start);
+   if(Math.abs((current.el.currentTime||0)-audioSourceTime)>.35){try{current.el.currentTime=Math.max(0,audioSourceTime);}catch{}}
    current.el.volume=Math.max(0,Math.min(1,Number(entry.item.volume??1)));
    if(video.paused)current.el.pause();else current.el.play().catch(()=>{});
   }
@@ -265,7 +283,7 @@ async function restoreProject(id){
 }
 function makeEditorShell(){
  const shell=document.createElement("section");shell.className="cf-studio-shell";
- shell.innerHTML='<header class="cf-studio-topbar"><button data-action="back">← Clips</button><strong>ClipForge Studio</strong><span class="cf-studio-project-name"></span><button data-action="undo">↶</button><button data-action="redo">↷</button><button data-action="open">Abrir</button><button data-action="save">Guardar</button><button data-action="export">Exportar MP4</button></header><div class="cf-studio-workspace"><aside class="cf-studio-tools"><b>PROYECTO</b><div class="cf-studio-source">Vídeo original<br><small>Fuente local vinculada</small></div><nav><button data-tool="media">Medios</button><button data-tool="audio">♫ Añadir audio</button><button data-tool="text">T Añadir texto</button><button data-tool="subtitles">CC Subtítulos</button><button data-tool="effects">✧ Efectos</button><button data-tool="transitions">Transiciones</button><button data-addtrack="video">+ Pista vídeo</button><button data-addtrack="audio">+ Pista audio</button></nav><label class="cf-studio-import">Importar audio / música<input type="file" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.flac"></label><button data-action="addtext">+ Crear texto</button><div class="cf-studio-media-list"></div></aside><section class="cf-studio-monitor"><div class="cf-studio-preview"><div class="cf-studio-overlay"></div></div><div class="cf-studio-transport"><button data-action="play">▶</button><button data-action="pause">Ⅱ</button><span data-clock>00:00.00</span><span>Previsualización sincronizada</span></div></section><aside class="cf-studio-inspector"></aside></div><div class="cf-studio-timeline-host"></div><div class="cf-studio-status" role="status">Listo para editar</div>';
+ shell.innerHTML='<header class="cf-studio-topbar"><button data-action="back">← Clips</button><strong>ClipForge Studio</strong><span class="cf-studio-project-name"></span><button data-action="relink">Vincular vídeo</button><input data-source-input type="file" accept="video/*" hidden><button data-action="undo">↶</button><button data-action="redo">↷</button><button data-action="open">Abrir</button><button data-action="save">Guardar</button><button data-action="export">Exportar MP4</button></header><div class="cf-studio-workspace"><aside class="cf-studio-tools"><b>PROYECTO</b><div class="cf-studio-source">Vídeo original<br><small>Fuente local vinculada</small></div><nav><button data-tool="media">Medios</button><button data-tool="audio">♫ Añadir audio</button><button data-tool="text">T Añadir texto</button><button data-tool="subtitles">CC Subtítulos</button><button data-tool="effects">✧ Efectos</button><button data-tool="transitions">Transiciones</button><button data-addtrack="video">+ Pista vídeo</button><button data-addtrack="audio">+ Pista audio</button></nav><label class="cf-studio-import">Importar audio / música<input type="file" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.flac"></label><button data-action="addtext">+ Crear texto</button><div class="cf-studio-media-list"></div></aside><section class="cf-studio-monitor"><div class="cf-studio-preview"><div class="cf-studio-overlay"></div></div><div class="cf-studio-transport"><button data-action="play">▶</button><button data-action="pause">Ⅱ</button><span data-clock>00:00.00</span><span>Previsualización sincronizada</span></div></section><aside class="cf-studio-inspector"></aside></div><div class="cf-studio-timeline-host"></div><div class="cf-studio-status" role="status">Listo para editar</div>';
  return shell;
 }
 export function closeStudio(){
@@ -287,7 +305,13 @@ export async function openStudio({card,clip,transcript,index=0,allClips=null,onB
  studioStore.load({schema:"clipforge-studio-v2",revision:0,duration,fps:30,profile:{width:1080,height:1920,aspect:"9:16"},source:{name:file?.name||"Vídeo original",size:file?.size||0,lastModified:file?.lastModified||0},projectId,clips:clone(videoItems),tracks,transcript:clone(transcript||null),selected:null,playhead:Number(clip.start)||0,zoom:1,activeClipIndex:Number(index)||0});
  const shell=makeEditorShell();root.replaceChildren(shell);
  const viewer=shell.querySelector(".cf-studio-preview"),overlay=shell.querySelector(".cf-studio-overlay");if(video.src)viewer.prepend(video);
- if(video.src)try{video.currentTime=Number(clip.start)||0;}catch{}
+ const initialVideoItem=currentVideoItem();
+ if(video.src)try{video.currentTime=Number(initialVideoItem?.sourceStart??clip.start)||0;}catch{}
+ window.__cfStudioSeek=time=>{
+  const item=currentVideoItem();if(!item||!video.src)return;
+  const wanted=Number(item.sourceStart??item.start)+(Number(time)-Number(item.start));
+  try{if(Math.abs(video.currentTime-wanted)>.08)video.currentTime=Math.max(0,wanted);}catch{}
+ };
  const detachOverlay=syncPreviewVideo(video,overlay);
  const detachAudio=syncExternalAudio(video);
  const timelineCleanup=mountTimeline(shell.querySelector(".cf-studio-timeline-host"));
@@ -314,6 +338,7 @@ export async function openStudio({card,clip,transcript,index=0,allClips=null,onB
    if(action==="undo")studioStore.undo();if(action==="redo")studioStore.redo();
    if(action==="play"){if(video.src)await video.play().catch(()=>{});}
    if(action==="pause")video.pause();
+   if(action==="relink")sourceInput.click();
    if(action==="save"){const project=await saveProject(true);onSave?.(project);setStatus("Proyecto guardado localmente. La copia JSON también está descargada.");}
    if(action==="export"){await saveProject(false);onExport?.(studioStore.getState());}
    if(action==="addtext"){const id=state.tracks.find(t=>t.type==="text")?.id||studioCommands.addTrack("text","T1 · Textos y títulos");studioCommands.addItem(id,{type:"text",text:"Nuevo título",start:state.playhead,end:Math.min(state.duration,state.playhead+4),fontSize:36,color:"#ffffff",x:50,y:22});}
@@ -332,12 +357,20 @@ export async function openStudio({card,clip,transcript,index=0,allClips=null,onB
   const add=e.target.closest("[data-addtrack]")?.dataset.addtrack;if(add)studioCommands.addTrack(add,add==="audio"?"Nueva pista de audio":"Nueva pista de vídeo");
  });
  const off=studioStore.subscribe(s=>{const el=shell.querySelector(".cf-studio-project-name");if(el)el.textContent=s.source?.name||"Proyecto editable";});
+ const sourceInput=shell.querySelector("[data-source-input]");
+ sourceInput.addEventListener("change",()=>{
+  const replacement=sourceInput.files?.[0];if(!replacement)return;
+  const url=URL.createObjectURL(replacement);video.pause();video.src=url;video.load();
+  state.source={name:replacement.name,size:replacement.size,lastModified:replacement.lastModified};
+  window.__cfStudioSeek?.(state.playhead);setStatus("Vídeo original vinculado. Comprueba el encuadre antes de exportar.");
+  saveProject(false).catch(e=>setStatus("No se pudo guardar el vínculo del vídeo: "+e.message));
+ });
  // Keep the canonical project in the existing project bridge without rebuilding the result cards.
  const bridgeSync=studioStore.subscribe(s=>{
   if(window.clipforgeEditorBridge?.setTracks)window.clipforgeEditorBridge.setTracks(s.tracks);
   if(Array.isArray(window.__cfEditableCandidates))s.clips.forEach((c,i)=>{if(window.__cfEditableCandidates[i])Object.assign(window.__cfEditableCandidates[i],c);});
  });
- window.__cfStudioActive={root:shell,cleanup:[timelineCleanup,inspectorCleanup,detachOverlay,detachAudio,()=>off(),()=>bridgeSync(),()=>video.removeEventListener("timeupdate",clock)]};
+ window.__cfStudioActive={root:shell,cleanup:[timelineCleanup,inspectorCleanup,detachOverlay,detachAudio,()=>off(),()=>bridgeSync(),()=>video.removeEventListener("timeupdate",clock),()=>{delete window.__cfStudioSeek;}]};
  if(file){getAssetBlob("source-"+projectId).catch(()=>{});}
  await saveProject(false).catch(e=>setStatus("El guardado automático local no está disponible: "+e.message));
  return shell;
