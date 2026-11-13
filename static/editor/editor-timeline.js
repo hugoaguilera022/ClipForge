@@ -14,10 +14,23 @@ import { uid } from './editor-store.js';
     for(const url of urls.values())URL.revokeObjectURL(url);
     urls.clear();
   }
+  function syncOriginalVideoAudio(card){
+    const {store}=getApi();if(!store?.ready)return;
+    const film=videoFor(card);if(!film)return;
+    const lane=store.project.tracks.find(t=>t.type==='audio'&&(t.id==='track-a1'||t.items.some(item=>item.sourceType==='primary')));
+    const active=window.__cfTimelineActiveClip;
+    const item=lane?.items.find(x=>x.sourceType==='primary'&&String(x.clipId||'')===String(active?.id))
+      ||lane?.items.find(x=>x.sourceType==='primary'&&active&&Math.abs(Number(x.start)-Number(active.start))<.05&&Math.abs(Number(x.end)-Number(active.end))<.05);
+    const gain=item?Number(item.gain??.8):.8;
+    film.volume=Math.max(0,Math.min(1,gain*Number(lane?.volume??1)));
+    film.muted=Boolean(lane?.muted)||gain<=0;
+  }
+
   function setupAudioPreview(card){
     cleanupAudio();
     const {store}=getApi();if(!store?.ready)return;
     const film=videoFor(card);if(!film)return;
+    syncOriginalVideoAudio(card);
     const sources=[];
     for(const track of store.project.tracks.filter(t=>t.type==='audio'&&!t.muted)){
       for(const item of track.items||[]){
@@ -212,7 +225,7 @@ import { uid } from './editor-store.js';
       listen(v,'pause',()=>{panel.querySelector('[data-act="play"]').textContent='▶ Reproducir';});
       listen(v,'play',()=>{panel.querySelector('[data-act="play"]').textContent='Ⅱ Pausar';});
     }
-    listen(store,'change',()=>{setupAudioPreview(card);});
+    listen(store,'change',()=>{syncOriginalVideoAudio(card);setupAudioPreview(card);});
     listen(store,'storage-error',event=>setStatus('No se pudo guardar: '+(event.detail?.message||'error de almacenamiento')));
     zoom=4;zoomControl.value='4';
     const activeClip=window.__cfTimelineActiveClip;
