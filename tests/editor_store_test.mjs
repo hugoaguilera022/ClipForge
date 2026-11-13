@@ -48,6 +48,14 @@ assert.equal(pasted.length,1);
 assert.equal(commands.item(pasted[0]).item.start,9);
 commands.remove(pasted[0]);
 assert.equal(commands.item(pasted[0]),null);
+const duplicateId=commands.duplicate(audioItem,1);
+assert.equal(commands.item(duplicateId).item.start,commands.item(audioItem).item.start+1);
+assert.equal(commands.item(duplicateId).item.sourceStart,commands.item(audioItem).item.sourceStart,'duplicating preserves the source in-point');
+commands.copy(duplicateId);
+const duplicatePaste=commands.paste(20);
+assert.equal(duplicatePaste.length,1);
+assert.equal(commands.item(duplicatePaste[0]).item.start,20);
+assert.equal(commands.item(duplicatePaste[0]).item.sourceStart,commands.item(duplicateId).item.sourceStart);
 
 const audioFile=new Blob(['mock-audio-data'],{type:'audio/wav'});
 const imported=commands.importAudioFile(audioFile,audioId,12,6);
