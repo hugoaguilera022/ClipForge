@@ -67,6 +67,7 @@ jobs:
           node --check static/editor/editor-store.js
           node --check static/editor/editor-commands.js
           node --check static/editor/editor-core.js
+          node tests/editor_store_test.mjs
           node --check static/sw.js
           node tests/browser_ranker_test.mjs
           node tests/editorial_quality_test.mjs
