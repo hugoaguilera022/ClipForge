@@ -75,6 +75,7 @@
     app.querySelector('.cf-opus-editor-slot').append(editor);
   }
   if(exportPanel){const h=exportPanel.querySelector('h3');if(h)h.textContent='Exportar clips';exportPanel.querySelector(':scope > p.hint')?.remove();if($('#browserExportClips'))$('#browserExportClips').textContent='Exportar los 4 clips';app.querySelector('.cf-opus-export-slot').append(exportPanel);}
+  const visibleExportStatus=$('#browserExportStatus');if(visibleExportStatus){visibleExportStatus.classList.add('cf-opus-export-status');app.querySelector('.cf-opus-main').append(visibleExportStatus);}
   const fileInput=$('#video'),sourceVideo=$('#cfSourcePreview'),empty=app.querySelector('.cf-opus-demo-empty');
   fileInput?.addEventListener('change',()=>{
     const file=fileInput.files?.[0];if(!file)return;
@@ -146,12 +147,15 @@
       results.hidden=false;editorScreen.hidden=true;exportSlot.hidden=true;
       app.querySelector('.cf-opus-hero').hidden=true;app.querySelector('.cf-opus-showcase').hidden=true;
       app.querySelector('.cf-opus-footer').hidden=true;
+      if(visibleExportStatus)visibleExportStatus.hidden=false;
     }else if(stage==='editor'){
       results.hidden=true;editorScreen.hidden=false;exportSlot.hidden=true;
       app.querySelector('.cf-opus-hero').hidden=true;app.querySelector('.cf-opus-showcase').hidden=true;
       app.querySelector('.cf-opus-footer').hidden=true;
+      if(visibleExportStatus)visibleExportStatus.hidden=false;
     }else{
       results.hidden=true;editorScreen.hidden=true;exportSlot.hidden=true;
+      if(visibleExportStatus)visibleExportStatus.hidden=true;
       app.querySelector('.cf-opus-hero').hidden=false;app.querySelector('.cf-opus-showcase').hidden=false;
       app.querySelector('.cf-opus-footer').hidden=false;
     }
