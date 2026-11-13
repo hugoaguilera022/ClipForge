@@ -96,9 +96,17 @@ import { uid } from './editor-store.js';
     // The inspector/preview card must stay above the timeline in the editor
     // flex column. Inserting the timeline before the card lets it intercept clicks.
     const editingCard=editorSlot.querySelector('.cf-opus-editing-card')||editorSlot.querySelector('.candidate-card');
-    if(editingCard)editingCard.after(panel);else editorSlot.append(panel);
+    if(editingCard){
+      // Keep the complete editor card in a higher stacking context than the
+      // timeline. A z-index on the nested inspector alone cannot win against
+      // a later sibling when the card itself has no stacking context.
+      editingCard.style.setProperty('position','relative','important');
+      editingCard.style.setProperty('z-index','20','important');
+      editingCard.style.setProperty('isolation','isolate','important');
+      editingCard.after(panel);
+    }else editorSlot.append(panel);
     panel.style.setProperty('position','relative','important');
-    panel.style.setProperty('z-index','0','important');
+    panel.style.setProperty('z-index','1','important');
     panel.style.setProperty('flex','0 0 auto','important');
     const scroll=panel.querySelector('.cf-mt-scroll'),board=panel.querySelector('.cf-mt-board'),ruler=panel.querySelector('.cf-mt-ruler'),lanes=panel.querySelector('.cf-mt-lanes');
     const zoomControl=panel.querySelector('.cf-mt-zoom input'),zoomLabel=panel.querySelector('.cf-mt-zoom b'),state=panel.querySelector('.cf-mt-project-state'),readout=panel.querySelector('.cf-mt-playhead-readout'),selectionLabel=panel.querySelector('.cf-mt-selection'),volumeControl=panel.querySelector('.cf-mt-volume'),volumeInput=volumeControl.querySelector('input'),volumeLabel=volumeControl.querySelector('b');
