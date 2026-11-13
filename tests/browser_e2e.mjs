@@ -70,9 +70,49 @@ try {
   await page.locator('#browserCropMode').selectOption('center');
   const projectState = await page.locator('#browserWhisperStatus').innerText();
   if (!projectState.includes('Proyecto recuperado')) throw new Error('Browser project import did not complete: '+projectState);
+
+  // Open the real Studio editor, not only the legacy candidate exporter.
+  await page.locator('.candidate-card .cf-open-clip-editor').first().click();
+  await page.locator('.cf-studio-shell').waitFor({state:'visible',timeout:10000});
+  await page.waitForFunction(()=>window.ClipForgeStudio?.getProject?.()?.tracks?.length>=7,undefined,{timeout:10000});
+  const initialStudio=await page.evaluate(()=>({
+    rows:document.querySelectorAll('.cf-studio-track-row').length,
+    clips:document.querySelectorAll('.cf-studio-track-row:first-child .cf-studio-block').length,
+    hasPreview:!!document.querySelector('.cf-studio-video'),
+    api:typeof window.ClipForgeStudio?.open
+  }));
+  if(initialStudio.rows!==7||initialStudio.clips!==4||!initialStudio.hasPreview||initialStudio.api!=='function'){
+    throw new Error('Studio did not mount the full project timeline: '+JSON.stringify(initialStudio));
+  }
+
+  // Edit video, title and music in the same project state.
+  await page.locator('.cf-studio-track-row').first().locator('.cf-studio-block').first().click();
+  await page.locator('.cf-studio-inspector select[data-field="preset"]').selectOption('cinematic');
+  await page.locator('.cf-studio-tools [data-action="addtext"]').click();
+  await page.locator('.cf-studio-track-row').nth(5).locator('.cf-studio-block').first().click();
+  await page.locator('.cf-studio-inspector input[data-field="text"]').fill('PRUEBA CLIPFORGE');
+  await page.locator('.cf-studio-import input').setInputFiles('test-output/studio-music.wav');
+  await page.waitForFunction(()=>[...document.querySelectorAll('.cf-studio-track-row')].some(row=>row.innerText.includes('A2')&&row.querySelectorAll('.cf-studio-block').length>0),undefined,{timeout:15000});
+
+  // Check split + undo without changing the final four-clip export.
+  await page.locator('.cf-studio-ruler').click({position:{x:15,y:10}});
+  await page.locator('.cf-studio-actions [data-cmd="split"]').click();
+  await page.waitForFunction(()=>document.querySelectorAll('.cf-studio-track-row:first-child .cf-studio-block').length===5,undefined,{timeout:5000});
+  await page.locator('.cf-studio-topbar [data-action="undo"]').click();
+  await page.waitForFunction(()=>document.querySelectorAll('.cf-studio-track-row:first-child .cf-studio-block').length===4,undefined,{timeout:5000});
+
+  const studioState=await page.evaluate(()=>({
+    tracks:window.ClipForgeStudio.getProject().tracks.map(t=>({type:t.type,items:t.items.length})),
+    title:window.ClipForgeStudio.getProject().tracks.find(t=>t.type==='text')?.items?.[0]?.text,
+    filter:window.ClipForgeStudio.getProject().tracks.find(t=>t.type==='video')?.items?.[0]?.visualEffects?.preset
+  }));
+  if(!studioState.tracks.some(t=>t.type==='audio'&&t.items>1)||studioState.title!=='PRUEBA CLIPFORGE'||studioState.filter!=='cinematic'){
+    throw new Error('Studio edits did not persist in the canonical project state: '+JSON.stringify(studioState));
+  }
+
   // Attach rejection handling immediately: an unhandled Playwright timeout can terminate Node while the render is still running.
   const downloadPromise = page.waitForEvent('download', { timeout: 300000 }).then(download => ({download}), error => ({error}));
-  await page.locator('#browserExportClips').click();
+  await page.locator('.cf-studio-topbar [data-action="export"]').click();
   const status = page.locator('#browserExportStatus');
   await status.waitFor({ state:'visible' });
   await page.waitForFunction(() => {
@@ -93,7 +133,24 @@ try {
   if (inspect.status !== 0) throw new Error(inspect.stderr || inspect.stdout);
   const probe = spawnSync('bash', ['-lc', 'set -e; for f in test-output/exported/*.mp4; do ffprobe -v error -select_streams v:0 -show_entries stream=codec_name,width,height -of csv=p=0 "$f" | grep -E "^h264,1080,1920$"; ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of csv=p=0 "$f" | grep -qx aac; done'], {encoding:'utf8'});
   if (probe.status !== 0) throw new Error('Exported MP4 validation failed: '+probe.stderr+probe.stdout);
-  console.log('Browser E2E passed: project import, four MP4 exports, H.264 1080x1920 and AAC audio passthrough.');
+  const audioCheck=spawnSync('python',['-c',String.raw`import subprocess,struct,math,sys
+f='test-output/exported/clipforge-01.mp4'
+raw=subprocess.run(['ffmpeg','-v','error','-i',f,'-map','0:a:0','-f','f32le','-ac','1','-ar','48000','pipe:1'],check=True,stdout=subprocess.PIPE).stdout
+samples=struct.unpack('<%df'%(len(raw)//4),raw)
+rate=48000
+def amplitude(freq):
+ n=min(len(samples),int(rate*.35))
+ re=im=0.0
+ for i,x in enumerate(samples[:n]):
+  angle=2*math.pi*freq*i/rate
+  re+=x*math.cos(angle);im-=x*math.sin(angle)
+ return 2*math.hypot(re,im)/max(1,n)
+amps={f:amplitude(f) for f in (440,660)}
+print(amps)
+assert amps[440]>.01 and amps[660]>.01,amps
+`],{encoding:'utf8'});
+  if(audioCheck.status!==0)throw new Error('The mixed export is missing the original or added music signal: '+audioCheck.stderr+audioCheck.stdout);
+  console.log('Browser E2E passed: project import, Studio editing, split/undo, imported music, four H.264 1080x1920 MP4 exports and mixed AAC audio.');
   if (errors.length) throw new Error('Browser page errors: '+errors.join('; '));
 } finally {
   await browser.close();
