@@ -74,6 +74,13 @@ import { uid } from './editor-store.js';
           <button type="button" data-act="play">▶ Reproducir</button>
           <button type="button" data-act="add-audio">+ Pista audio</button>
           <button type="button" data-act="add-text">+ Pista texto</button>
+          <button type="button" data-act="split" title="Dividir elemento seleccionado en el cabezal">Dividir</button>
+          <button type="button" data-act="duplicate" title="Duplicar elemento seleccionado">Duplicar</button>
+          <button type="button" data-act="copy" title="Copiar elementos seleccionados">Copiar</button>
+          <button type="button" data-act="paste" title="Pegar en la posición del cabezal">Pegar</button>
+          <button type="button" data-act="delete" title="Eliminar elementos seleccionados">Eliminar</button>
+          <button type="button" data-act="undo" title="Deshacer">↶</button>
+          <button type="button" data-act="redo" title="Rehacer">↷</button>
           <label class="cf-mt-import">Importar audio<input type="file" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.flac"></label>
           <label class="cf-mt-zoom">Zoom <input type="range" min="2" max="24" value="4" step="1"><b>4 px/s</b></label>
         </div>
@@ -203,8 +210,32 @@ import { uid } from './editor-store.js';
       commands.addTrack('audio','A'+(project.tracks.filter(t=>t.type==='audio').length+1)+' · Audio');setStatus('Pista de audio añadida.');
     });
     panel.querySelector('[data-act="add-text"]').addEventListener('click',()=>{
-      commands.addTrack('text','T'+(project.tracks.filter(t=>t.type==='text').length+1)+' · Texto');setStatus('Pista de texto añadida.');
+      commands.addTrack('text','T'+(store.project.tracks.filter(t=>t.type==='text').length+1)+' · Texto');setStatus('Pista de texto añadida.');
     });
+    const selectedIds=()=>[...(store.project.selection||[])];
+    const runSelected=(label,action)=>{
+      const ids=selectedIds();if(!ids.length){setStatus('Selecciona primero un elemento de la línea de tiempo.');return;}
+      try{action(ids);setStatus(label+' · guardado automático');}catch(error){setStatus(error.message);}
+    };
+    panel.querySelector('[data-act="split"]').addEventListener('click',()=>runSelected('Elemento dividido',ids=>{
+      if(ids.length!==1)throw new Error('Selecciona un solo elemento para dividir.');
+      commands.splitItem(ids[0],store.project.playhead);
+    }));
+    panel.querySelector('[data-act="duplicate"]').addEventListener('click',()=>runSelected('Elemento duplicado',ids=>{
+      const copies=ids.map(id=>commands.duplicate(id));store.select(copies);
+    }));
+    panel.querySelector('[data-act="copy"]').addEventListener('click',()=>runSelected('Elementos copiados',ids=>{
+      const count=commands.copy(ids);if(!count)throw new Error('No hay elementos que copiar.');
+    }));
+    panel.querySelector('[data-act="paste"]').addEventListener('click',()=>{
+      const ids=commands.paste(store.project.playhead);if(ids.length)store.select(ids);
+      setStatus(ids.length?ids.length+' elemento(s) pegado(s) · guardado automático':'No hay elementos copiados o no existe una pista compatible.');
+    });
+    panel.querySelector('[data-act="delete"]').addEventListener('click',()=>runSelected('Elementos eliminados',ids=>{
+      commands.remove(ids);store.select([]);
+    }));
+    panel.querySelector('[data-act="undo"]').addEventListener('click',()=>setStatus(store.undo()?'Cambio deshecho.':'No hay cambios que deshacer.'));
+    panel.querySelector('[data-act="redo"]').addEventListener('click',()=>setStatus(store.redo()?'Cambio rehecho.':'No hay cambios que rehacer.'));
     panel.querySelector('.cf-mt-import input').addEventListener('change',async event=>{
       const file=event.target.files?.[0];if(!file)return;
       try{
