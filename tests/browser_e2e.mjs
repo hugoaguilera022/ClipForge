@@ -140,7 +140,11 @@ try {
     return item&&Math.abs(item.end-(end+.5))<.1;
   },{id:beforeMove.id,end:moved.end});
 
-  await page.locator('#cfMultiTrackTimeline .cf-mt-clip.type-video').first().click();
+  const visibleVideoClips=page.locator('#cfMultiTrackTimeline .cf-mt-clip.type-video');
+  await visibleVideoClips.nth(0).click();
+  await visibleVideoClips.nth(1).click({modifiers:['Shift']});
+  const multiSelection=await page.evaluate(()=>window.clipforgeProjectStore.project.selection.length);
+  if(multiSelection!==2)throw new Error('Shift-click did not select two timeline clips.');
   await page.locator('#cfMultiTrackTimeline [data-act="copy"]').click();
   await page.evaluate(()=>window.clipforgeProjectStore.setPlayhead(10));
   await page.locator('#cfMultiTrackTimeline [data-act="paste"]').click();
