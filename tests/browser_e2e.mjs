@@ -70,6 +70,36 @@ try {
   // Exercise the actual clip inspector and multipista editor.
   await page.locator('.candidate-card').first().locator('.cf-open-clip-editor').click();
   await page.locator('#cfMultiTrackTimeline').waitFor({state:'visible',timeout:10000});
+  // Exercise editor actions through the visible inspector and keyboard shortcuts.
+  const videoClips=page.locator('#cfMultiTrackTimeline .cf-mt-clip.type-video');
+  const initialVideoClipCount=await videoClips.count();
+  if(initialVideoClipCount<1)throw new Error('No video clip is visible on the editing timeline.');
+  await videoClips.first().click();
+  await page.keyboard.press('Control+d');
+  await page.waitForFunction(n=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-video').length===n+1,initialVideoClipCount);
+  await page.keyboard.press('Control+z');
+  await page.waitForFunction(n=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-video').length===n,initialVideoClipCount);
+  await page.keyboard.press('Control+Shift+z');
+  await page.waitForFunction(n=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-video').length===n+1,initialVideoClipCount);
+  await page.keyboard.press('Delete');
+  await page.waitForFunction(n=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-video').length===n,initialVideoClipCount);
+
+  await page.locator('.cf-opus-tab[data-tab="text"]').click();
+  await page.locator('.cf-overlay-copy').fill('Texto de prueba editable');
+  await page.locator('.cf-opus-add-overlay').click();
+  await page.waitForFunction(()=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-text').length>=1);
+  if(!await page.locator('#cfMultiTrackTimeline .cf-mt-clip.type-text').first().innerText().then(t=>t.includes('Texto de prueba editable'))) {
+    throw new Error('The text inspector did not create a visible editable text item.');
+  }
+
+  await page.locator('.cf-opus-tab[data-tab="effects"]').click();
+  await page.locator('.cf-video-filter').selectOption('cinematic');
+  if(!(await page.locator('.cf-inline-player video').evaluate(el=>el.style.filter.includes('contrast(1.14)')))) {
+    throw new Error('The cinematic filter did not apply to the preview.');
+  }
+  await page.locator('.cf-opus-tab[data-tab="transitions"]').click();
+  await page.locator('.cf-transition-in').selectOption('fade');
+  await page.locator('.cf-transition-in').dispatchEvent('change');
   await page.locator('.cf-opus-tab[data-tab="tracking"]').click();
   await page.locator('#browserCropMode').selectOption('center');
   const trackRows=page.locator('#cfMultiTrackTimeline .cf-mt-track-row');
