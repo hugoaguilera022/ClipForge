@@ -2116,3 +2116,9 @@ body.cf-opus-stage-editor .cf-opus-inspector .cf-subtitle-live-preview{display:f
  .cf-mt-scroll{max-height:260px;min-height:150px}
  .cf-mt-foot{flex-wrap:wrap}
 }
+
+
+.cf-mt-volume{display:inline-flex;align-items:center;gap:6px;color:#a9b8cc;font-size:9px}
+.cf-mt-volume input{width:78px;accent-color:#9b8cff}
+.cf-mt-volume b{min-width:30px;color:#e5eafb;font-size:9px}
+.cf-opus-editor-actions .candidate-export-one{min-width:140px}
