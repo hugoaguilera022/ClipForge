@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 
-const source=fs.readFileSync('static/browser-whisper.js','utf8');
+const source=fs.readFileSync('static/browser-whisper-inline-v3.js','utf8');
 function extract(name){
   const asyncStart=source.indexOf(`async function ${name}(`);
   const start=asyncStart>=0?asyncStart:source.indexOf(`function ${name}(`);
