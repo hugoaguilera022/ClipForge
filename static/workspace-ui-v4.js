@@ -198,12 +198,16 @@
     addOverlay.addEventListener('click',()=>{
       const copy=textPane.querySelector('.cf-overlay-copy').value.trim(),start=Number(textPane.querySelector('.cf-overlay-start').value),end=Number(textPane.querySelector('.cf-overlay-end').value);
       if(!copy||!Number.isFinite(start)||!Number.isFinite(end)||start<Number(clip.start)||end>Number(clip.end)||end<=start){textPane.querySelector('.cf-overlay-copy').focus();return;}
-      const project=window.clipforgeEditorBridge?.getProject?.()||{tracks:[]},tracks=project.tracks||[];
-      let track=tracks.find(t=>t.type==='text');if(!track){track={id:'text-overlays',type:'text',name:'Texto',items:[]};tracks.push(track);}
-      track.items.push({id:'text-'+Date.now(),start,end,text:copy});
-      window.clipforgeEditorBridge?.setTracks?.(tracks);
-      const list=textPane.querySelector('.cf-opus-overlay-list'),item=document.createElement('div');item.className='cf-opus-overlay-item';item.textContent=copy+' · '+start.toFixed(2)+'–'+end.toFixed(2)+' s';list.append(item);
-      textPane.querySelector('.cf-overlay-copy').value='';
+      const store=window.clipforgeProjectStore,commands=window.clipforgeEditorCommands;
+      if(!store?.ready||!commands){window.dispatchEvent(new CustomEvent('clipforge:editor-status',{detail:{message:'El proyecto todavía no está listo para añadir texto.'}}));return;}
+      try{
+        let track=store.project.tracks.find(t=>t.type==='text'&&!t.locked);
+        if(!track)track=commands.track(commands.addTrack('text','Textos y títulos'));
+        const id=commands.addItem(track.id,{start,end,text:copy,name:copy});
+        store.select([id]);
+        const list=textPane.querySelector('.cf-opus-overlay-list'),item=document.createElement('div');item.className='cf-opus-overlay-item';item.textContent=copy+' · '+start.toFixed(2)+'–'+end.toFixed(2)+' s';list.append(item);
+        textPane.querySelector('.cf-overlay-copy').value='';
+      }catch(error){window.clipforgeEditorBridge?.setStatus?.(error.message);console.error(error);}
     });
     const mediaPane=document.createElement('section');mediaPane.className='cf-opus-pane';mediaPane.dataset.pane='media';
     mediaPane.innerHTML='<div class="cf-opus-pane-title">Medios del proyecto</div><p>El vídeo original está vinculado a este clip. Puedes añadir capas de texto desde la pestaña Texto y audio desde la pista de audio.</p><button type="button" class="cf-media-replace">Reemplazar vídeo fuente</button><input class="cf-media-file" type="file" accept="video/*" hidden><div class="cf-media-info"></div>';
@@ -218,8 +222,22 @@
     transitionsPane.innerHTML='<div class="cf-opus-pane-title">Transiciones del clip</div><label>Entrada<select class="cf-transition-in"><option value="none">Ninguna</option><option value="fade">Fundido</option><option value="zoom">Zoom suave</option></select></label><label>Salida<select class="cf-transition-out"><option value="none">Ninguna</option><option value="fade">Fundido</option><option value="zoom">Zoom suave</option></select></label><label>Duración (s)<input class="cf-transition-duration" type="number" min="0.1" max="2" step="0.1" value="0.5"></label><p>Las transiciones se guardan como ajustes del clip. La previsualización y exportación se sincronizarán en el siguiente paso del motor de render.</p>';
     const applyTransitions=()=>{persistClipEdit({transitions:{in:transitionsPane.querySelector('.cf-transition-in').value,out:transitionsPane.querySelector('.cf-transition-out').value,duration:Math.max(.1,Math.min(2,Number(transitionsPane.querySelector('.cf-transition-duration').value)||.5))}});const t=Math.max(0,film.currentTime-Number(clip.start)),d=clip.transitions.duration;let opacity=1;if(clip.transitions.in==='fade')opacity=Math.min(opacity,t/d);if(clip.transitions.out==='fade')opacity=Math.min(opacity,Math.max(0,(Number(clip.end)-film.currentTime)/d));film.style.opacity=String(Math.max(0,Math.min(1,opacity)));film.style.transition='opacity 80ms linear';};
     transitionsPane.querySelectorAll('select,input').forEach(el=>el.addEventListener('change',applyTransitions));film.addEventListener('timeupdate',applyTransitions);
-    const audioPane=document.createElement('section');audioPane.className='cf-opus-pane';audioPane.dataset.pane='audio';audioPane.innerHTML='<div class="cf-opus-pane-title">Audio</div><label>Volumen del vídeo<input class="cf-audio-volume" type="range" min="0" max="100" value="80"></label><label>Silenciar vídeo<input class="cf-audio-mute" type="checkbox"></label><p>La pista de forma de onda muestra el audio original. La mezcla multipista se prepara desde el audio del proyecto.</p>';
-    audioPane.querySelector('.cf-audio-volume').addEventListener('input',event=>{film.volume=Number(event.target.value)/100;film.muted=film.volume===0;});audioPane.querySelector('.cf-audio-mute').addEventListener('change',event=>{film.muted=event.target.checked;});
+    const audioPane=document.createElement('section');audioPane.className='cf-opus-pane';audioPane.dataset.pane='audio';audioPane.innerHTML='<div class="cf-opus-pane-title">Audio del vídeo</div><label>Volumen del clip<input class="cf-audio-volume" type="range" min="0" max="100" value="80"></label><label>Silenciar clip<input class="cf-audio-mute" type="checkbox"></label><p>Este control modifica la pista A1 del proyecto y también se aplica a la mezcla del MP4 exportado. Importa música o efectos desde la línea de tiempo multipista.</p>';
+    const sourceAudioControl=()=>{
+      const store=window.clipforgeProjectStore,commands=window.clipforgeEditorCommands;if(!store?.ready||!commands)return null;
+      const lane=store.project.tracks.find(t=>t.type==='audio'&&String(t.name||'').toLowerCase().includes('original'));
+      if(!lane)return null;
+      let item=lane.items.find(x=>String(x.clipId||'')===String(clip.id));
+      if(!item)item=lane.items.find(x=>Math.abs(Number(x.start)-Number(clip.start))<.05&&Math.abs(Number(x.end)-Number(clip.end))<.05);
+      return item?{store,commands,item}:null;
+    };
+    const volumeControl=audioPane.querySelector('.cf-audio-volume'),muteControl=audioPane.querySelector('.cf-audio-mute');
+    const syncAudioControls=()=>{const found=sourceAudioControl();if(!found)return;const value=Math.round(Math.max(0,Math.min(1,Number(found.item.gain??.8)))*100);volumeControl.value=String(value);muteControl.checked=value===0;film.volume=value/100;film.muted=value===0;};
+    volumeControl.addEventListener('input',event=>{const value=Math.max(0,Math.min(1,Number(event.target.value)/100));film.volume=value;film.muted=value===0;const found=sourceAudioControl();if(found)found.commands.updateItem(found.item.id,{gain:value});});
+    muteControl.addEventListener('change',event=>{const found=sourceAudioControl();const value=event.target.checked?0:Number(volumeControl.value)/100;film.volume=value;film.muted=value===0;if(found)found.commands.updateItem(found.item.id,{gain:value});});
+    window.addEventListener('clipforge:project-store-ready',syncAudioControls,{once:true});
+    window.addEventListener('clipforge:project-changed',syncAudioControls);
+    syncAudioControls();
     const trackingPane=document.createElement('section');trackingPane.className='cf-opus-pane';trackingPane.dataset.pane='tracking';
     trackingPane.innerHTML='<div class="cf-opus-pane-title">Encuadre y seguimiento</div><p>Elige cómo adaptar el vídeo al formato vertical 9:16. El seguimiento facial utiliza el detector disponible en el navegador y puede recurrir a un encuadre seguro si no detecta una persona.</p>';
     const cropSelect=$('#browserCropMode');if(cropSelect){const label=cropSelect.closest('label');if(label)trackingPane.append(label);}
