@@ -49,6 +49,7 @@ export class EditorCommands {
   moveItem(id,start,trackId) {
     const found=this.item(id);if(!found)throw new Error('Elemento no encontrado');
     const target=this.track(trackId||found.track.id);if(!target)throw new Error('Pista de destino no encontrada');
+    if(found.track.type!==target.type)throw new Error('No se puede mover un elemento a una pista de otro tipo');
     if(found.track.locked||target.locked)throw new Error('Desbloquea la pista para mover elementos');
     const next=Math.max(0,Number(start)||0),duration=found.item.end-found.item.start;
     if(target.type!==found.track.type)throw new Error('Mueve los elementos a una pista del mismo tipo.');
