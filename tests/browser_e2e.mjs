@@ -130,7 +130,7 @@ try {
     subtitleStyle:window.ClipForgeStudio.getProject().tracks.find(t=>t.type==='subtitles')?.items?.[0]?.style,
     imageCount:window.ClipForgeStudio.getProject().tracks.find(t=>t.type==='image')?.items?.length
   }));
-  if(!studioState.tracks.some(t=>t.type==='audio'&&t.items.length>0)||studioState.imageCount!==1||studioState.title!=='PRUEBA CLIPFORGE'||studioState.filter!=='cinematic'||studioState.opacity!==85||studioState.subtitleStyle?.wordMode!=='highlight'){
+  if(!studioState.tracks.some(t=>t.type==='audio'&&t.items>0)||studioState.imageCount!==1||studioState.title!=='PRUEBA CLIPFORGE'||studioState.filter!=='cinematic'||studioState.opacity!==85||studioState.subtitleStyle?.wordMode!=='highlight'){
     throw new Error('Studio edits did not persist in the canonical project state: '+JSON.stringify(studioState));
   }
 
