@@ -164,7 +164,7 @@
   }
   function addInspector(card,clip){
     const original=[...card.childNodes];originalCardNodes.set(card,original);
-    const player=card.querySelector('.cf-inline-player'),film=player?.querySelector('video'),persistClipEdit=patch=>{Object.assign(clip,patch||{});window.__cfUpdateCandidateClip?.(Number(card.dataset.candidateIndex),patch||{});},timeline=card.querySelector('.cf-clip-timeline'),captions=card.querySelector('.cf-inline-subtitles');
+    const player=card.querySelector('.cf-inline-player'),film=player?.querySelector('video'),persistClipEdit=patch=>{Object.assign(clip,patch||{});const index=Number(card.dataset.candidateIndex);if(window.__cfUpdateCandidateClip?.(index,patch||{}))return;const field=document.querySelector('[name=\"selected_clip_ranges\"]');if(field){try{const items=JSON.parse(field.value||'[]');if(items[index]){items[index]={...items[index],...(patch||{})};field.value=JSON.stringify(items);window.dispatchEvent(new CustomEvent('clipforge:candidate-edited'));}}catch(error){console.warn('No se pudo guardar el ajuste del clip:',error);}}},timeline=card.querySelector('.cf-clip-timeline'),captions=card.querySelector('.cf-inline-subtitles');
     const heading=card.querySelector(':scope > strong');
     const exportOne=card.querySelector('.candidate-export-one'),select=card.querySelector('.candidate-select');
     const layout=document.createElement('div');layout.className='cf-opus-editor-layout';
