@@ -16,7 +16,7 @@ def test_browser_whisper_uses_word_and_phrase_timestamp_modes():
     assert "let asrModelId = null;" in js
     assert "asrModelId !== modelId" in js
     html = (ROOT / 'static/index.html').read_text()
-    assert 'value="whisper-large-v3-turbo" selected' in html
+    assert 'value="whisper-base" selected' in html
     assert 'value="whisper-small"' in html and 'value="whisper-base"' in html
     assert 'value="auto" selected' in html
     assert 'src="/browser-whisper-inline-v3.js?v=' in html
