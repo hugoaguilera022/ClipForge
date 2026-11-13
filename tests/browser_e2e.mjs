@@ -119,9 +119,10 @@ try {
     const item=window.clipforgeProjectStore.project.tracks.find(t=>t.type==='video').items[0];
     return {id:item.id,start:item.start,end:item.end,sourceStart:item.sourceStart};
   });
-  const movingClip=page.locator('#cfMultiTrackTimeline .cf-mt-clip.type-video').first();
-  await movingClip.scrollIntoViewIfNeeded();
+  const movingClip=page.locator('#cfMultiTrackTimeline .cf-mt-clip[data-item-id="'+beforeMove.id+'"]');
+  await movingClip.waitFor({state:'visible'});
   const moveBox=await movingClip.boundingBox();
+  if(!moveBox)throw new Error('The clip to drag is not visible on the timeline.');
   await page.mouse.move(moveBox.x+moveBox.width/2,moveBox.y+moveBox.height/2);
   await page.mouse.down();
   await page.mouse.move(moveBox.x+moveBox.width/2+24,moveBox.y+moveBox.height/2,{steps:4});
