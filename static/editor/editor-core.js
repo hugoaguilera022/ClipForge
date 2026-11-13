@@ -78,9 +78,11 @@ window.addEventListener('clipforge:clips-updated',()=>{
 window.addEventListener('clipforge:candidate-edited',()=>{
   const current=window.clipforgeEditorBridge?.getProject?.();
   if(!current)return;
-  const video=store.project.tracks.find(t=>t.type==='video');
-  if(video&&Array.isArray(current.clips)){
-    video.items=current.clips.map((clip,i)=>({...clip,id:String(clip.id||`clip-${i+1}`),start:Number(clip.start),end:Number(clip.end)}));
-    store.project.clips=clone(current.clips);store.emit('candidate-edit');
+  if(Array.isArray(current.clips)){
+    store.commit('candidate-edit',project=>{
+      const video=project.tracks.find(t=>t.type==='video');
+      if(video)video.items=current.clips.map((clip,i)=>({...clip,id:String(clip.id||`clip-${i+1}`),start:Number(clip.start),end:Number(clip.end)}));
+      project.clips=clone(current.clips);
+    });
   }
 });
