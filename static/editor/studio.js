@@ -31,7 +31,11 @@ export const studioStore={
  transact:history,
  undo(){if(!undoStack.length)return false;redoStack.push(clone(state));const old=undoStack.pop();state=old.state;emit("undo:"+old.label);return true;},
  redo(){if(!redoStack.length)return false;undoStack.push(clone(state));state=redoStack.pop();emit("redo");return true;},
- ephemeral(reason,patch){Object.assign(state,patch);for(const fn of listeners)fn(clone(state),reason);}
+ ephemeral(reason,patch){Object.assign(state,patch);for(const fn of listeners)fn(clone(state),reason);},
+ setPlayheadFromPreview(time){
+  state.playhead=Math.max(0,Math.min(state.duration,Number(time)||0));
+  window.dispatchEvent(new CustomEvent("clipforge:studio-playhead",{detail:{time:state.playhead}}));
+ }
 };
 function locate(id){for(const track of state.tracks){const item=track.items.find(x=>x.id===id);if(item)return {track,item};}return null;}
 export const studioCommands={
@@ -42,7 +46,7 @@ export const studioCommands={
  duplicate(id){let next;history("Duplicar elemento",()=>{const f=locate(id);if(!f||f.track.locked)throw Error("Elemento bloqueado");next={...f.item,id:uid(),start:f.item.start+.1,end:f.item.end+.1};f.track.items.push(next);});return next.id;},
  move(id,toTrack,start){history("Mover elemento",s=>{const f=locate(id),to=s.tracks.find(x=>x.id===toTrack);if(!f||f.track.locked||!to||to.locked)throw Error("No se puede mover el elemento");const duration=f.item.end-f.item.start;const next={...f.item,start:Math.max(0,start),end:Math.max(0,start)+duration};f.track.items=f.track.items.filter(x=>x.id!==id);to.items.push(next);syncClipFromVideoItem(next);});},
  trim(id,edge,time){history("Recortar elemento",()=>{const f=locate(id);if(!f||f.track.locked)throw Error("Elemento bloqueado");const t=Math.max(0,Number(time)||0);if(edge==="start"){const next=Math.min(t,f.item.end-.05);const delta=next-f.item.start;f.item.start=next;f.item.sourceStart=(Number(f.item.sourceStart)||0)+delta;}else f.item.end=Math.max(f.item.start+.05,t);syncClipFromVideoItem(f.item);});},
- split(id,time){let right;history("Dividir elemento",()=>{const f=locate(id),t=Number(time);if(!f||f.track.locked||t<=f.item.start+.03||t>=f.item.end-.03)throw Error("Coloca el cabezal dentro del elemento");right={...f.item,id:uid(),start:t,sourceStart:(Number(f.item.sourceStart)||0)+(t-f.item.start)};f.item.end=t;f.track.items.push(right);syncClipFromVideoItem(f.item);syncClipFromVideoItem(right);});return right.id;},
+ split(id,time){let right;history("Dividir elemento",s=>{const f=locate(id),t=Number(time);if(!f||f.track.locked||t<=f.item.start+.03||t>=f.item.end-.03)throw Error("Coloca el cabezal dentro del elemento");const oldEnd=f.item.end;right={...f.item,id:uid(),start:t,sourceStart:(Number(f.item.sourceStart)||0)+(t-f.item.start),end:oldEnd};f.item.end=t;if(f.track.type==="video")right.clipIndex=null;f.track.items.push(right);syncClipFromVideoItem(f.item);});return right.id;},
  setTrack(id,key,value){studioStore.ephemeral("track-setting",{tracks:state.tracks.map(t=>t.id===id?{...t,[key]:value}:t)});scheduleAutosave();},
  select(id){
   const found=locate(id),patch={selected:id};
@@ -123,8 +127,8 @@ function syncPreviewVideo(video,overlay){
   const item=currentVideoItem();
   if(!item)return;
   const t=Number(item.start)+(sourceTime-Number(item.sourceStart??item.start));
-  studioStore.ephemeral("preview",{playhead:t});
-  if(sourceTime>=Number(item.sourceStart??item.start)+(Number(item.end)-Number(item.start))-.03&& !video.paused){video.pause();}
+  studioStore.setPlayheadFromPreview(t);
+  if(sourceTime>=Number(item.sourceStart??item.start)+(Number(item.end)-Number(item.start))-.03&&!video.paused){video.pause();}
   const fx=item?.visualEffects||{};
   const filters={cinematic:"contrast(1.14) saturate(.82)",warm:"sepia(.16) saturate(1.2)",cool:"hue-rotate(12deg) saturate(.9)",bw:"grayscale(1) contrast(1.08)",vintage:"sepia(.32) contrast(.78)",vivid:"saturate(1.45) contrast(1.08)"};
   video.style.filter=[filters[fx.preset]||"",fx.brightness&&fx.brightness!==100?"brightness("+fx.brightness+"%)":"",fx.contrast&&fx.contrast!==100?"contrast("+fx.contrast+"%)":"",fx.saturation&&fx.saturation!==100?"saturate("+fx.saturation+"%)":""].filter(Boolean).join(" ");
@@ -137,10 +141,12 @@ function syncPreviewVideo(video,overlay){
   if(sub){const cap=document.createElement("div");cap.className="cf-studio-caption-preview";cap.textContent=sub.text||"";const style=sub.style||{};cap.style.color=style.color||"#fff";cap.style.fontSize=Math.max(14,Number(style.size)||28)+"px";cap.style.background=style.background&&style.background!=="transparent"?style.background:"rgba(0,0,0,.68)";cap.style.fontFamily=style.font||"Inter,sans-serif";cap.style.fontWeight=style.bold===false?"500":"800";cap.style.top=style.position==="top"?"9%":style.position==="middle"?"48%":"auto";cap.style.bottom=style.position==="top"||style.position==="middle"?"auto":"8%";overlay.append(cap);}
   for(const layer of txt){const el=document.createElement("div");el.className="cf-studio-text-preview";el.textContent=layer.text||"";el.style.color=layer.color||"#fff";el.style.fontSize=Math.max(14,Number(layer.fontSize)||32)+"px";el.style.top=(Number(layer.y)||22)+"%";el.style.left=(Number(layer.x)||50)+"%";el.style.transform="translate(-50%,-50%)";overlay.append(el);}
  };
- video.addEventListener("timeupdate",update);update();return ()=>video.removeEventListener("timeupdate",update);
+ const onTime=()=>update(),onSeek=()=>update(),onMetadata=()=>{window.__cfStudioSeek?.(state.playhead);update();};
+ video.addEventListener("timeupdate",onTime);video.addEventListener("seeked",onSeek);video.addEventListener("loadedmetadata",onMetadata);update();
+ return ()=>{video.removeEventListener("timeupdate",onTime);video.removeEventListener("seeked",onSeek);video.removeEventListener("loadedmetadata",onMetadata);};
 }
 function syncExternalAudio(video){
- const audioItems=()=>state.tracks.filter(t=>t.type==="audio"&&!t.muted).flatMap(t=>t.items.filter(x=>x.source!=="source-audio"&&x.assetId).map(x=>({track:t,item:x})));
+ const audioItems=()=>state.tracks.filter(t=>t.type==="audio"&&!t.muted&&!t.hidden).flatMap(t=>t.items.filter(x=>x.source!=="source-audio"&&x.assetId).map(x=>({track:t,item:x})));
  async function update(){
   const time=Number(state.playhead)||0;
   const sourceTrack=state.tracks.find(t=>t.id==="track-a1"||t.name?.startsWith("A1"));
@@ -154,16 +160,18 @@ function syncExternalAudio(video){
    let current=previewAudio.get(entry.item.id);
    if(!current){const el=new Audio();el.preload="auto";el.src=await getAssetUrl(entry.item.assetId);current={el,track:entry.track,item:entry.item};previewAudio.set(entry.item.id,current);}
    current.track=entry.track;current.item=entry.item;
-   const audioSourceTime=(Number(entry.item.sourceStart)||0)+(time-entry.item.start);
-   if(Math.abs((current.el.currentTime||0)-audioSourceTime)>.35){try{current.el.currentTime=Math.max(0,audioSourceTime);}catch{}}
+   const sourceTime=(Number(entry.item.sourceStart)||0)+(time-entry.item.start);
+   if(Math.abs((current.el.currentTime||0)-sourceTime)>.35){try{current.el.currentTime=Math.max(0,sourceTime);}catch{}}
    current.el.volume=Math.max(0,Math.min(1,Number(entry.item.volume??1)));
    if(video.paused)current.el.pause();else current.el.play().catch(()=>{});
   }
  }
- video.addEventListener("timeupdate",()=>update().catch(e=>console.warn("Audio preview:",e)));
- video.addEventListener("play",()=>update().catch(e=>console.warn("Audio preview:",e)));
- video.addEventListener("pause",()=>previewAudio.forEach(x=>x.el.pause()));
- return ()=>{video.removeEventListener("pause",()=>{});for(const x of previewAudio.values()){x.el.pause();x.el.src="";}previewAudio.clear();};
+ const onTime=()=>update().catch(e=>console.warn("Audio preview:",e));
+ const onPlay=()=>update().catch(e=>console.warn("Audio preview:",e));
+ const onPause=()=>previewAudio.forEach(x=>x.el.pause());
+ video.addEventListener("timeupdate",onTime);video.addEventListener("play",onPlay);video.addEventListener("pause",onPause);
+ update().catch(e=>console.warn("Audio preview:",e));
+ return ()=>{video.removeEventListener("timeupdate",onTime);video.removeEventListener("play",onPlay);video.removeEventListener("pause",onPause);for(const x of previewAudio.values()){x.el.pause();x.el.removeAttribute("src");}previewAudio.clear();};
 }
 function renderInspector(root){
  const s=state,item=locate(s.selected)?.item,found=locate(s.selected);
@@ -234,7 +242,7 @@ function mountTimeline(root){
      const edge=e.target===left?"start":e.target===right?"end":null;
      const x=e.clientX,initial=edge?(edge==="start"?item.start:item.end):item.start;block.setPointerCapture?.(e.pointerId);
      const move=ev=>{const t=Math.max(0,initial+(ev.clientX-x)/scale());if(edge==="start")block.style.left=t*scale()+"px";else if(edge==="end")block.style.width=Math.max(12,(t-item.start)*scale())+"px";else block.style.left=Math.max(0,t)*scale()+"px";};
-     const stop=ev=>{block.removeEventListener("pointermove",move);block.removeEventListener("pointerup",stop);const t=Math.max(0,initial+(ev.clientX-x)/scale());if(edge)studioCommands.trim(item.id,edge,t);else studioCommands.move(item.id,track.id,t);};
+     const stop=ev=>{block.removeEventListener("pointermove",move);block.removeEventListener("pointerup",stop);block.removeEventListener("pointercancel",stop);const t=Math.max(0,initial+(ev.clientX-x)/scale());if(edge)studioCommands.trim(item.id,edge,t);else studioCommands.move(item.id,track.id,t);};
      block.addEventListener("pointermove",move);block.addEventListener("pointerup",stop,{once:true});block.addEventListener("pointercancel",stop,{once:true});
     });
     lane.append(block);
@@ -244,7 +252,10 @@ function mountTimeline(root){
   }
  }
  const unsubscribe=studioStore.subscribe(render);render(state);
- ruler.addEventListener("dblclick",e=>{const r=ruler.getBoundingClientRect();studioCommands.playhead(Math.max(0,(e.clientX-r.left)/scale()));});
+ const previewHead=e=>{const t=Number(e.detail?.time)||0;panel.querySelectorAll(".cf-studio-head").forEach((head)=>{head.style.left=t*scale()+"px";});};
+ window.addEventListener("clipforge:studio-playhead",previewHead);
+ const seekFromRuler=e=>{const r=ruler.getBoundingClientRect();studioCommands.playhead(Math.max(0,(e.clientX-r.left)/scale()));};
+ ruler.addEventListener("click",seekFromRuler);
  panel.addEventListener("click",e=>{
   const cmd=e.target.closest("[data-cmd]")?.dataset.cmd;if(!cmd)return;
   const s=state,id=s.selected,found=locate(id);
@@ -267,7 +278,7 @@ function mountTimeline(root){
   else if((e.key==="Delete"||e.key==="Backspace")&&state.selected){e.preventDefault();studioCommands.remove(state.selected);}
  };
  window.addEventListener("keydown",keydown);
- return ()=>{unsubscribe();window.removeEventListener("keydown",keydown);root.replaceChildren();};
+ return ()=>{unsubscribe();window.removeEventListener("keydown",keydown);window.removeEventListener("clipforge:studio-playhead",previewHead);ruler.removeEventListener("click",seekFromRuler);root.replaceChildren();};
 }
 function mountInspector(root){const off=studioStore.subscribe(s=>renderInspector(root));renderInspector(root);return ()=>{off();root.replaceChildren();};}
 async function loadProjectList(){
@@ -370,7 +381,7 @@ export async function openStudio({card,clip,transcript,index=0,allClips=null,onB
   if(window.clipforgeEditorBridge?.setTracks)window.clipforgeEditorBridge.setTracks(s.tracks);
   if(Array.isArray(window.__cfEditableCandidates))s.clips.forEach((c,i)=>{if(window.__cfEditableCandidates[i])Object.assign(window.__cfEditableCandidates[i],c);});
  });
- window.__cfStudioActive={root:shell,cleanup:[timelineCleanup,inspectorCleanup,detachOverlay,detachAudio,()=>off(),()=>bridgeSync(),()=>video.removeEventListener("timeupdate",clock),()=>{delete window.__cfStudioSeek;}]};
+ window.__cfStudioActive={root:shell,cleanup:[timelineCleanup,inspectorCleanup,detachOverlay,detachAudio,()=>{video.pause();video.removeAttribute("src");video.load();},()=>off(),()=>bridgeSync(),()=>video.removeEventListener("timeupdate",clock),()=>{delete window.__cfStudioSeek;}]};
  if(file){getAssetBlob("source-"+projectId).catch(()=>{});}
  await saveProject(false).catch(e=>setStatus("El guardado automático local no está disponible: "+e.message));
  return shell;
