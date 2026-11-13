@@ -1495,19 +1495,7 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
   }
   const player=document.createElement('div');player.className='cf-inline-player';
   const film=document.createElement('video');film.className='candidate-filmstrip';film.muted=false;film.volume=.8;film.playsInline=true;film.preload='metadata';film.controls=false;film.setAttribute('aria-label','Vista previa integrada del clip');
-  if(candidatePreviewUrl){film.src=candidatePreviewUrl;film.muted=true;film.addEventListener('loadedmetadata',()=>{const target=Math.min(Math.max(0,Number(c.start)||0),Math.max(0,film.duration-.15));try{film.currentTime=target;}catch{}},{once:true});film.addEventListener('seeked',()=>{
-    film.pause();film.muted=false;
-    try{
-      const thumb=document.createElement('canvas');
-      const tw=320,th=180;thumb.width=tw;thumb.height=th;
-      const ctx=thumb.getContext('2d');
-      const vw=film.videoWidth||tw,vh=film.videoHeight||th;
-      const scale=Math.max(tw/vw,th/vh),sw=tw/scale,sh=th/scale,sx=(vw-sw)/2,sy=(vh-sh)/2;
-      ctx.drawImage(film,sx,sy,sw,sh,0,0,tw,th);
-      film.poster=thumb.toDataURL('image/jpeg',.78);
-      film.dataset.posterReady='1';
-    }catch(error){console.warn('No se pudo crear miniatura del clip:',error);}
-  },{once:true});film.addEventListener('error',()=>{film.dataset.previewError='1';},{once:true});film.load();}
+  if(candidatePreviewUrl){film.src=candidatePreviewUrl;film.muted=true;const poster=()=>{if(film.dataset.posterReady==='1'||film.readyState<2||!film.videoWidth)return;try{const cv=document.createElement('canvas');cv.width=480;cv.height=270;const x=cv.getContext('2d'),w=film.videoWidth,h=film.videoHeight,k=Math.max(480/w,270/h),sw=480/k,sh=270/k;x.drawImage(film,(w-sw)/2,(h-sh)/2,sw,sh,0,0,480,270);film.poster=cv.toDataURL('image/jpeg',.84);film.dataset.posterReady='1';}catch(e){console.warn('Poster no disponible',e);}};film.addEventListener('loadedmetadata',()=>{const t=Math.min(Math.max(0,Number(c.start)||0),Math.max(0,film.duration-.2));try{film.currentTime=t;}catch{}if(t===0)film.addEventListener('loadeddata',poster,{once:true});},{once:true});film.addEventListener('seeked',()=>{film.pause();poster();},{once:true});film.addEventListener('loadeddata',()=>{if(Number(c.start)===0)poster();},{once:true});film.addEventListener('error',()=>{film.dataset.previewError='1';},{once:true});film.load();}
   const playerBar=document.createElement('div');playerBar.className='cf-inline-player-controls';
   const seekBack=document.createElement('button');seekBack.type='button';seekBack.className='cf-player-seek';seekBack.textContent='↶ 5';seekBack.setAttribute('aria-label','Retroceder 5 segundos');seekBack.title='Retroceder 5 segundos';seekBack.addEventListener('click',()=>{if(Number.isFinite(film.duration))film.currentTime=Math.max(0,film.currentTime-5);});
   const play=document.createElement('button');play.type='button';play.className='cf-player-play';play.textContent='▶';play.setAttribute('aria-label','Reproducir');play.addEventListener('click',async()=>{if(film.paused){try{await film.play();}catch{} }else film.pause();});
@@ -1534,81 +1522,26 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
   const animation=document.createElement('select');animation.className='cf-subtitle-animation';animation.setAttribute('aria-label','Animación');
   [['none','Sin animación'],['pop','Pop'],['fade','Fundido'],['slide','Deslizar']].forEach(([v,l])=>animation.add(new Option(l,v)));
   const subtitlePreview=document.createElement('div');subtitlePreview.className='cf-subtitle-live-preview';subtitlePreview.textContent='Vista previa del subtítulo';
-  const subtitleRows=document.createElement('div');subtitleRows.className='cf-subtitle-rows';
+  const subtitleRows=document.createElement('div');subtitleRows.className='cf-subtitle-rows cf-subtitle-compact-list';
   const subtitleSegments=(transcriptData?.segments||[]).map((seg,index)=>({...seg,_sourceIndex:index})).filter(seg=>Number(seg.end)>Number(c.start)&&Number(seg.start)<Number(c.end));
   const subtitleOverlay=document.createElement('div');subtitleOverlay.className='cf-subtitle-video-overlay';subtitleOverlay.hidden=true;player.append(subtitleOverlay);
-  const renderActiveSubtitle=()=>{
-    const active=subtitleSegments.find(seg=>film.currentTime>=Number(seg.start)&&film.currentTime<=Number(seg.end));
-    subtitleOverlay.hidden=!active;
-    subtitleOverlay.dataset.position=style.position||'bottom';
-    subtitleOverlay.dataset.animation=style.animation||'none';
-    if(!active){subtitleOverlay.replaceChildren();return;}
-    const words=String(active.text||'').split(/\s+/).filter(Boolean);
-    const fraction=Math.max(0,Math.min(.999,(film.currentTime-Number(active.start))/Math.max(.01,Number(active.end)-Number(active.start))));
-    const activeWord=Math.min(words.length-1,Math.floor(fraction*Math.max(1,words.length)));
-    renderWords(subtitleOverlay,active.text,activeWord);
-  };
-  film.addEventListener('timeupdate',renderActiveSubtitle);
-  const presetDefs={
-    'capcut-bold':{font:'Impact',size:34,color:'#ffffff',background:'#080808',bold:true,outline:'#080808',outlineWidth:3,position:'bottom',animation:'pop',wordMode:'line'},
-    karaoke:{font:'Montserrat',size:32,color:'#ffffff',background:'transparent',bold:true,outline:'#111111',outlineWidth:3,position:'middle',animation:'pop',wordMode:'highlight',highlight:'#ffe600'},
-    minimal:{font:'Inter',size:27,color:'#ffffff',background:'transparent',bold:600,outline:'#111111',outlineWidth:2,position:'bottom',animation:'fade',wordMode:'line'},
-    boxed:{font:'Arial',size:29,color:'#ffffff',background:'#6d35dc',bold:true,outline:'#6d35dc',outlineWidth:0,position:'bottom',animation:'slide',wordMode:'line'},
-    outline:{font:'Montserrat',size:31,color:'#ffffff',background:'transparent',bold:true,outline:'#000000',outlineWidth:4,position:'bottom',animation:'none',wordMode:'line'},
-    creator:{font:'Impact',size:34,color:'#ffe600',background:'transparent',bold:true,outline:'#080808',outlineWidth:4,position:'bottom',animation:'pop',wordMode:'line'}
-  };
-  Object.assign(style,{font:'Arial',size:32,color:'#ffffff',background:'transparent',bold:true,outline:'#080808',outlineWidth:3,position:'bottom',animation:'none',wordMode:'line',highlight:'#ffe600',...(c.subtitleStyle||{})});
-  font.value=style.font;size.value=String(style.size);color.value=style.color;bg.value=style.background==='transparent'?'#000000':style.background;bold.setAttribute('aria-pressed',String(style.bold!==false&&style.bold!==400));position.value=style.position||'bottom';animation.value=style.animation||'none';preset.value=style.preset||'custom';
-  const renderWords=(target,textValue,activeIndex=-1)=>{
-    target.replaceChildren();const words=String(textValue||'').split(/(\s+)/);let word=0;
-    words.forEach(part=>{if(!part)return;if(/^\s+$/.test(part)){target.append(document.createTextNode(part));return;}const span=document.createElement('span');span.textContent=part;if(style.wordMode==='highlight'&&word===activeIndex){span.style.color=style.highlight||'#ffe600';span.style.transform='scale(1.06)';}target.append(span);word++;});
-  };
-  const paintSubtitle=()=>{
-    const sizePx=Math.max(12,Math.min(72,Number(style.size)||32))+'px';
-    [subtitlePreview,subtitleOverlay].forEach(el=>{
-      el.style.fontFamily=style.font;el.style.fontSize=sizePx;el.style.color=style.color;
-      el.style.backgroundColor=style.background||'transparent';el.style.fontWeight=style.bold?800:400;
-      el.style.webkitTextStroke=style.outlineWidth?Math.min(6,Number(style.outlineWidth))+'px '+(style.outline||'#000'):'0';
-      el.style.paintOrder='stroke fill';el.style.textShadow=style.outlineWidth?'0 2px 5px #000b':'none';
-      el.dataset.position=style.position||'bottom';el.dataset.animation=style.animation||'none';
-      el.dataset.wordMode=style.wordMode||'line';
-    });
-    subtitlePreview.textContent=subtitlePreview.dataset.sample||'¡Este es tu estilo de subtítulos!';
-    subtitlePreview.style.fontWeight=style.bold?800:400;
-    subtitlePreview.style.textAlign='center';subtitlePreview.style.padding='12px';
-    subtitlePreview.style.borderRadius='8px';
-  };
-  const saveSubtitleStyle=()=>{
-    style.font=font.value;style.size=Number(size.value)||32;style.color=color.value;
-    style.background=bg.value==='#000000'&&style.background==='transparent'?'transparent':bg.value;
-    style.bold=bold.getAttribute('aria-pressed')==='true';style.position=position.value;style.animation=animation.value;
-    style.preset=preset.value;c.subtitleStyle={...style};editableCandidates[i]={...c};paintSubtitle();renderActiveSubtitle();sync();
-  };
-  preset.addEventListener('change',()=>{
-    const def=presetDefs[preset.value];if(!def){style.preset='custom';saveSubtitleStyle();return;}
-    Object.assign(style,def,{preset:preset.value});
-    font.value=style.font;size.value=String(style.size);color.value=style.color;bg.value=style.background==='transparent'?'#000000':style.background;
-    bold.setAttribute('aria-pressed',String(!!style.bold));position.value=style.position;animation.value=style.animation;
-    saveSubtitleStyle();
-  });
-  [font,size,color,bg,position,animation].forEach(el=>el.addEventListener('input',()=>{preset.value='custom';saveSubtitleStyle();}));
-  bold.addEventListener('click',()=>{bold.setAttribute('aria-pressed',String(bold.getAttribute('aria-pressed')!=='true'));preset.value='custom';saveSubtitleStyle();});
-  subtitleControls.append(preset,font,size,color,bg,bold,position,animation);
-  subtitleSegments.forEach(seg=>{
-    const row=document.createElement('div');row.className='cf-subtitle-row';
-    const times=document.createElement('div');times.className='cf-subtitle-times';
-    const st=document.createElement('input');st.type='number';st.step='.01';st.min=String(c.start);st.max=String(c.end);st.value=Number(seg.start).toFixed(2);st.setAttribute('aria-label','Inicio del subtítulo');
-    const en=document.createElement('input');en.type='number';en.step='.01';en.min=String(c.start);en.max=String(c.end);en.value=Number(seg.end).toFixed(2);en.setAttribute('aria-label','Final del subtítulo');
-    times.append(st,en);
-    const txt=document.createElement('textarea');txt.rows=2;txt.value=String(seg.text||'');txt.setAttribute('aria-label','Texto del subtítulo');
-    const applySub=document.createElement('button');applySub.type='button';applySub.className='secondary';applySub.textContent='Aplicar';
-    applySub.addEventListener('click',()=>{const a=Number(st.value),b=Number(en.value);if(!Number.isFinite(a)||!Number.isFinite(b)||a<Number(c.start)||b>Number(c.end)||b<=a){say('Revisa los tiempos del subtítulo: deben quedar dentro del clip.');return;}const original=transcriptData?.segments?.[seg._sourceIndex];if(original){original.start=a;original.end=b;original.text=txt.value;seg.start=a;seg.end=b;seg.text=txt.value;paintSubtitleTrack();renderActiveSubtitle();sync();say('Subtítulo actualizado y sincronizado con su bloque en la línea de tiempo.');}});
-    txt.addEventListener('input',()=>{subtitlePreview.textContent=txt.value||'Vista previa del subtítulo';});
-    row.append(times,txt,applySub);subtitleRows.append(row);
-  });
-  if(!subtitleSegments.length){const empty=document.createElement('p');empty.className='cf-subtitle-empty';empty.textContent=transcriptData?'No hay subtítulos dentro de este fragmento.':'Transcribe el vídeo para generar y editar los subtítulos aquí.';subtitleRows.append(empty);}
-  subtitlePanel.append(subtitleHead,subtitleControls,subtitlePreview,subtitleRows);
+  const renderActiveSubtitle=()=>{const active=subtitleSegments.find(seg=>film.currentTime>=Number(seg.start)&&film.currentTime<=Number(seg.end));subtitleOverlay.hidden=!active;subtitleOverlay.dataset.position=style.position||'bottom';subtitleOverlay.dataset.animation=style.animation||'none';if(!active){subtitleOverlay.replaceChildren();return;}renderWords(subtitleOverlay,active.text,-1);};film.addEventListener('timeupdate',renderActiveSubtitle);
+  const presetDefs={'capcut-bold':{font:'Impact',size:42,color:'#fff',background:'transparent',bold:true,outline:'#080808',outlineWidth:4,position:'bottom',animation:'pop',wordMode:'line'},karaoke:{font:'Montserrat',size:42,color:'#fff',background:'transparent',bold:true,outline:'#111',outlineWidth:3,position:'bottom',animation:'pop',wordMode:'highlight',highlight:'#9148f5'},minimal:{font:'Inter',size:30,color:'#fff',background:'transparent',bold:600,outline:'#111',outlineWidth:1,position:'bottom',animation:'fade',wordMode:'line'},boxed:{font:'Arial',size:32,color:'#fff',background:'#6d35dc',bold:true,outline:'#6d35dc',outlineWidth:0,position:'bottom',animation:'slide',wordMode:'line'},outline:{font:'Montserrat',size:36,color:'#fff',background:'transparent',bold:true,outline:'#000',outlineWidth:4,position:'bottom',animation:'none',wordMode:'line'},creator:{font:'Impact',size:40,color:'#ffe600',background:'transparent',bold:true,outline:'#080808',outlineWidth:4,position:'bottom',animation:'pop',wordMode:'line'}};
+  Object.assign(style,{font:'Montserrat',size:42,color:'#ffffff',background:'transparent',bold:true,outline:'#080808',outlineWidth:3,position:'bottom',animation:'none',wordMode:'line',highlight:'#9148f5',...(window.__cfSubtitleGlobalStyle||{}),...(c.subtitleStyle||{})});
+  const renderWords=(target,value)=>{target.replaceChildren();target.textContent=String(value||'');};
+  const subtitlePreview=document.createElement('div');subtitlePreview.className='cf-subtitle-live-preview';subtitlePreview.textContent='¡Este es tu estilo de subtítulos!';
+  const subtitleEditor=document.createElement('div');subtitleEditor.className='cf-subtitle-single-editor';subtitleEditor.hidden=true;subtitleEditor.innerHTML='<strong>Editar subtítulo</strong><div class="cf-subtitle-times"><input type="number" step=".01" aria-label="Inicio"><input type="number" step=".01" aria-label="Final"></div><textarea rows="3" aria-label="Texto"></textarea><button type="button" class="secondary">Guardar subtítulo</button>';
+  const editStart=subtitleEditor.querySelector('input:first-child'),editEnd=subtitleEditor.querySelector('input:nth-child(2)'),editText=subtitleEditor.querySelector('textarea'),applySub=subtitleEditor.querySelector('button');let selectedSegment=null;const rowButtons=[];
+  subtitleSegments.forEach(seg=>{const row=document.createElement('button');row.type='button';row.className='cf-subtitle-row cf-subtitle-row-button';const stamp=document.createElement('span');stamp.textContent=Number(seg.start).toFixed(1)+'s';const copy=document.createElement('span');copy.textContent=String(seg.text||'').slice(0,90);row.append(stamp,copy);row.addEventListener('click',()=>{selectedSegment=seg;subtitleEditor.hidden=false;editStart.value=Number(seg.start).toFixed(2);editEnd.value=Number(seg.end).toFixed(2);editText.value=String(seg.text||'');rowButtons.forEach(x=>x.classList.toggle('is-active',x===row));film.pause();film.currentTime=Math.max(Number(c.start),Number(seg.start));});subtitleRows.append(row);rowButtons.push(row);});
+  applySub.addEventListener('click',()=>{if(!selectedSegment)return;const a=Number(editStart.value),b=Number(editEnd.value);if(!Number.isFinite(a)||!Number.isFinite(b)||a<Number(c.start)||b>Number(c.end)||b<=a){say('Revisa los tiempos del subtítulo.');return;}const original=transcriptData?.segments?.[selectedSegment._sourceIndex];if(original){original.start=a;original.end=b;original.text=editText.value;selectedSegment.start=a;selectedSegment.end=b;selectedSegment.text=editText.value;const row=rowButtons[subtitleSegments.indexOf(selectedSegment)];if(row)row.lastChild.textContent=editText.value.slice(0,90);paintSubtitleTrack();renderActiveSubtitle();sync();say('Subtítulo actualizado. El estilo se aplica a todos.');}});
+
   paintSubtitle();
+  const paintSubtitle=()=>{[subtitlePreview,subtitleOverlay].forEach(el=>{el.style.fontFamily=style.font;el.style.fontSize=Math.max(18,Math.min(72,Number(style.size)||42))+'px';el.style.color=style.color;el.style.backgroundColor=style.background||'transparent';el.style.fontWeight=style.bold?800:400;el.style.webkitTextStroke=style.outlineWidth?Math.min(6,Number(style.outlineWidth))+'px '+(style.outline||'#000'):'0';el.style.paintOrder='stroke fill';el.style.textShadow=style.outlineWidth?'0 2px 5px #000b':'none';el.dataset.position=style.position||'bottom';el.dataset.animation=style.animation||'none';});};
+  const saveSubtitleStyle=()=>{style.font=font.value;style.size=Number(size.value)||42;style.color=color.value;style.background=bg.value==='#000000'&&style.background==='transparent'?'transparent':bg.value;style.bold=bold.getAttribute('aria-pressed')==='true';style.position=position.value;style.animation=animation.value;style.preset=preset.value;window.__cfSubtitleGlobalStyle={...style};editableCandidates=editableCandidates.map(x=>({...x,subtitleStyle:{...style}}));c.subtitleStyle={...style};paintSubtitle();renderActiveSubtitle();sync();};
+  const applyPreset=key=>{const def=presetDefs[key];if(!def)return;Object.assign(style,def,{preset:key});font.value=style.font;size.value=style.size;color.value=style.color;bg.value=style.background==='transparent'?'#000000':style.background;bold.setAttribute('aria-pressed',String(!!style.bold));position.value=style.position;animation.value=style.animation;preset.value=key;saveSubtitleStyle();};
+  font.value=style.font;size.value=style.size;color.value=style.color;bg.value=style.background==='transparent'?'#000000':style.background;bold.setAttribute('aria-pressed',String(!!style.bold));position.value=style.position;animation.value=style.animation;preset.value=style.preset||'custom';
+  preset.addEventListener('change',()=>applyPreset(preset.value));[font,size,color,bg,position,animation].forEach(el=>el.addEventListener('input',saveSubtitleStyle));bold.addEventListener('click',()=>{bold.setAttribute('aria-pressed',String(bold.getAttribute('aria-pressed')!=='true'));saveSubtitleStyle();});
+  subtitlePanel.append(subtitleHead,subtitleControls,subtitlePreview,subtitleRows,subtitleEditor);paintSubtitle();
   const timeline=document.createElement('div');timeline.className='cf-clip-timeline';timeline.setAttribute('aria-label','Ajuste preciso de inicio y final');
   const zoomWrap=document.createElement('div');zoomWrap.className='cf-clip-zoom-wrap';
   const overviewHead=document.createElement('div');overviewHead.className='cf-clip-overview-head';overviewHead.textContent='Vídeo completo · referencia';
