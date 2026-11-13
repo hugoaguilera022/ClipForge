@@ -24,6 +24,7 @@ assert.equal(store.undo(),true);
 assert.equal(store.project.clips.length,1);
 assert.equal(store.redo(),true);
 assert.equal(store.project.clips.length,2);
+assert.equal(store.project.clips.find(x=>x.id==='clip-1').sourceStart,10,'the exported clip carries its media source offset');
 
 const audioId=commands.addTrack('audio','Música');
 const audioItem=commands.addItem(audioId,{start:0,end:8,name:'Música'});
