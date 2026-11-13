@@ -98,6 +98,37 @@ try {
   await page.waitForFunction(n=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-video').length===n,initialVideoClipCount);
   await page.locator('#cfMultiTrackTimeline [data-act="redo"]').click();
   await page.waitForFunction(n=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-video').length===n+1,initialVideoClipCount);
+
+  // Dragging a clip changes its timeline position; dragging its edge trims it.
+  await page.locator('#cfMultiTrackTimeline .cf-mt-zoom input').evaluate(el=>{el.value='24';el.dispatchEvent(new Event('input',{bubbles:true}));});
+  const beforeMove=await page.evaluate(()=>{
+    const item=window.clipforgeProjectStore.project.tracks.find(t=>t.type==='video').items[0];
+    return {id:item.id,start:item.start,end:item.end,sourceStart:item.sourceStart};
+  });
+  const moveBox=await page.locator('#cfMultiTrackTimeline .cf-mt-clip.type-video').first().boundingBox();
+  await page.mouse.move(moveBox.x+moveBox.width/2,moveBox.y+moveBox.height/2);
+  await page.mouse.down();
+  await page.mouse.move(moveBox.x+moveBox.width/2+24,moveBox.y+moveBox.height/2,{steps:4});
+  await page.mouse.up();
+  await page.waitForFunction(({id,start})=>{
+    const item=window.clipforgeProjectStore.project.tracks.find(t=>t.type==='video').items.find(x=>x.id===id);
+    return item&&Math.abs(item.start-(start+1))<.08;
+  },{id:beforeMove.id,start:beforeMove.start});
+  const moved=await page.evaluate(id=>window.clipforgeProjectStore.project.tracks.find(t=>t.type==='video').items.find(x=>x.id===id),beforeMove.id);
+  if(moved.sourceStart!==beforeMove.sourceStart)throw new Error('Moving a clip changed its source media in-point.');
+  const trimBox=await page.locator('#cfMultiTrackTimeline .cf-mt-clip.type-video').filter({has:page.locator('[data-item-id="'+beforeMove.id+'"]')}).first().boundingBox().catch(()=>null);
+  const block=page.locator('#cfMultiTrackTimeline .cf-mt-clip.type-video').filter({has:page.locator('.cf-mt-clip-name')}).first();
+  const rightHandle=page.locator('#cfMultiTrackTimeline [data-item-id="'+beforeMove.id+'"] .cf-mt-handle.right');
+  const edgeBox=await rightHandle.boundingBox();
+  await page.mouse.move(edgeBox.x+edgeBox.width/2,edgeBox.y+edgeBox.height/2);
+  await page.mouse.down();
+  await page.mouse.move(edgeBox.x+edgeBox.width/2+12,edgeBox.y+edgeBox.height/2,{steps:3});
+  await page.mouse.up();
+  await page.waitForFunction(({id,end})=>{
+    const item=window.clipforgeProjectStore.project.tracks.find(t=>t.type==='video').items.find(x=>x.id===id);
+    return item&&Math.abs(item.end-(end+.5))<.1;
+  },{id:beforeMove.id,end:moved.end});
+
   await page.locator('#cfMultiTrackTimeline .cf-mt-clip.type-video').first().click();
   await page.locator('#cfMultiTrackTimeline [data-act="copy"]').click();
   await page.evaluate(()=>window.clipforgeProjectStore.setPlayhead(10));
