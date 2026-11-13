@@ -88,11 +88,18 @@ try {
   // Edit video, title and music in the same project state.
   await page.locator('.cf-studio-track-row').first().locator('.cf-studio-block').first().click();
   await page.locator('.cf-studio-inspector select[data-field="preset"]').selectOption('cinematic');
+  await page.locator('.cf-studio-inspector input[data-field="opacity"]').fill('85');
+  await page.locator('.cf-studio-track-row').nth(4).locator('.cf-studio-block').first().click();
+  await page.locator('.cf-studio-inspector select[data-field="stylePreset"]').selectOption('karaoke');
   await page.locator('.cf-studio-tools [data-action="addtext"]').click();
   await page.locator('.cf-studio-track-row').nth(5).locator('.cf-studio-block').first().click();
   await page.locator('.cf-studio-inspector input[data-field="text"]').fill('PRUEBA CLIPFORGE');
   await page.locator('.cf-studio-import input').setInputFiles('test-output/studio-music.wav');
   await page.waitForFunction(()=>[...document.querySelectorAll('.cf-studio-track-row')].some(row=>row.innerText.includes('A2')&&row.querySelectorAll('.cf-studio-block').length>0),undefined,{timeout:15000});
+  await page.locator('.cf-studio-tools [data-tool="media"]').click();
+  await page.locator('.cf-studio-media-dialog').waitFor({state:'visible'});
+  await page.waitForFunction(()=>document.querySelectorAll('.cf-studio-media-library .cf-studio-media-row').length>=2,undefined,{timeout:10000});
+  await page.locator('.cf-studio-media-dialog [data-action="media-close"]').click();
 
   // Check split + undo without changing the final four-clip export.
   await page.locator('.cf-studio-ruler').click({position:{x:15,y:10}});
@@ -104,9 +111,11 @@ try {
   const studioState=await page.evaluate(()=>({
     tracks:window.ClipForgeStudio.getProject().tracks.map(t=>({type:t.type,items:t.items.length})),
     title:window.ClipForgeStudio.getProject().tracks.find(t=>t.type==='text')?.items?.[0]?.text,
-    filter:window.ClipForgeStudio.getProject().tracks.find(t=>t.type==='video')?.items?.[0]?.visualEffects?.preset
+    filter:window.ClipForgeStudio.getProject().tracks.find(t=>t.type==='video')?.items?.[0]?.visualEffects?.preset,
+    opacity:window.ClipForgeStudio.getProject().tracks.find(t=>t.type==='video')?.items?.[0]?.opacity,
+    subtitleStyle:window.ClipForgeStudio.getProject().tracks.find(t=>t.type==='subtitles')?.items?.[0]?.style
   }));
-  if(!studioState.tracks.some(t=>t.type==='audio'&&t.items>1)||studioState.title!=='PRUEBA CLIPFORGE'||studioState.filter!=='cinematic'){
+  if(!studioState.tracks.some(t=>t.type==='audio'&&t.items.length>0)||studioState.title!=='PRUEBA CLIPFORGE'||studioState.filter!=='cinematic'||studioState.opacity!==85||studioState.subtitleStyle?.wordMode!=='highlight'){
     throw new Error('Studio edits did not persist in the canonical project state: '+JSON.stringify(studioState));
   }
 
