@@ -155,8 +155,9 @@ function syncPreviewVideo(video,overlay){
   for(const layer of txt){const el=document.createElement("div");el.className="cf-studio-text-preview";el.textContent=layer.text||"";el.style.color=layer.color||"#fff";el.style.fontSize=Math.max(14,Number(layer.fontSize)||32)+"px";el.style.top=(Number(layer.y)||22)+"%";el.style.left=(Number(layer.x)||50)+"%";el.style.transform="translate(-50%,-50%)";overlay.append(el);}
  };
  const onTime=()=>update(),onSeek=()=>update(),onMetadata=()=>{window.__cfStudioSeek?.(state.playhead);update();};
+ const unsubscribe=studioStore.subscribe(()=>update());
  video.addEventListener("timeupdate",onTime);video.addEventListener("seeked",onSeek);video.addEventListener("loadedmetadata",onMetadata);update();
- return ()=>{video.removeEventListener("timeupdate",onTime);video.removeEventListener("seeked",onSeek);video.removeEventListener("loadedmetadata",onMetadata);};
+ return ()=>{unsubscribe();video.removeEventListener("timeupdate",onTime);video.removeEventListener("seeked",onSeek);video.removeEventListener("loadedmetadata",onMetadata);};
 }
 function syncExternalAudio(video){
  const audioItems=()=>state.tracks.filter(t=>t.type==="audio"&&!t.muted&&!t.hidden).flatMap(t=>t.items.filter(x=>x.source!=="source-audio"&&x.assetId).map(x=>({track:t,item:x})));
@@ -182,9 +183,10 @@ function syncExternalAudio(video){
  const onTime=()=>update().catch(e=>console.warn("Audio preview:",e));
  const onPlay=()=>update().catch(e=>console.warn("Audio preview:",e));
  const onPause=()=>previewAudio.forEach(x=>x.el.pause());
+ const unsubscribe=studioStore.subscribe(()=>update().catch(e=>console.warn("Audio preview:",e)));
  video.addEventListener("timeupdate",onTime);video.addEventListener("play",onPlay);video.addEventListener("pause",onPause);
  update().catch(e=>console.warn("Audio preview:",e));
- return ()=>{video.removeEventListener("timeupdate",onTime);video.removeEventListener("play",onPlay);video.removeEventListener("pause",onPause);for(const x of previewAudio.values()){x.el.pause();x.el.removeAttribute("src");}previewAudio.clear();};
+ return ()=>{unsubscribe();video.removeEventListener("timeupdate",onTime);video.removeEventListener("play",onPlay);video.removeEventListener("pause",onPause);for(const x of previewAudio.values()){x.el.pause();x.el.removeAttribute("src");}previewAudio.clear();};
 }
 function renderInspector(root){
  const s=state,item=locate(s.selected)?.item,found=locate(s.selected);
@@ -360,9 +362,18 @@ export async function openStudio({card,clip,transcript,index=0,allClips=null,onB
  const file=document.querySelector("#video")?.files?.[0];
  if(source){video.src=source.currentSrc||source.src;video.preload="auto";video.playsInline=true;video.controls=true;video.className="cf-studio-video";}
  const duration=Math.max(Number(clip.end)||0,...videoItems.map(x=>Number(x.end)||0),...(transcript?.segments||[]).map(x=>Number(x.end)||0));
- const tracks=Array.isArray(window.clipforgeEditorBridge?.getProject?.().tracks)&&window.clipforgeEditorBridge.getProject().tracks.length?clone(window.clipforgeEditorBridge.getProject().tracks):createTracks(videoItems,transcript,duration);
  const projectId="clipforge-"+(file?.name||"video").replace(/[^a-z0-9]+/gi,"-").toLowerCase()+"-"+(file?.lastModified||Date.now());
- studioStore.load({schema:"clipforge-studio-v2",revision:0,duration,fps:30,profile:{width:1080,height:1920,aspect:"9:16"},source:{name:file?.name||"Vídeo original",size:file?.size||0,lastModified:file?.lastModified||0},projectId,clips:clone(videoItems),tracks,transcript:clone(transcript||null),selected:null,playhead:Number(clip.start)||0,zoom:1,activeClipIndex:Number(index)||0});
+ const sourceInfo={name:file?.name||"Vídeo original",size:file?.size||0,lastModified:file?.lastModified||0};
+ const freshProject={schema:"clipforge-studio-v2",revision:0,duration,fps:30,profile:{width:1080,height:1920,aspect:"9:16"},source:sourceInfo,projectId,clips:clone(videoItems),tracks:createTracks(videoItems,transcript,duration),transcript:clone(transcript||null),selected:null,playhead:Number(clip.start)||0,zoom:1,activeClipIndex:Number(index)||0};
+ const saved=await get("projects",projectId).catch(()=>null);
+ let openProject=freshProject;
+ if(saved?.project&&saved.project.schema==="clipforge-studio-v2"&&saved.project.source?.name===sourceInfo.name&&Number(saved.project.source?.lastModified||0)===Number(sourceInfo.lastModified||0)){
+  openProject=clone(saved.project);
+  openProject.activeClipIndex=Number(index)||0;
+  const activeItem=openProject.tracks.find(t=>t.type==="video")?.items?.find(x=>Number(x.clipIndex)===Number(index));
+  if(activeItem){openProject.playhead=Number(activeItem.start)||0;openProject.selected=activeItem.id;}
+ }
+ studioStore.load(openProject);
  const shell=makeEditorShell();root.replaceChildren(shell);
  const viewer=shell.querySelector(".cf-studio-preview"),overlay=shell.querySelector(".cf-studio-overlay");if(video.src)viewer.prepend(video);
  const initialVideoItem=currentVideoItem();
