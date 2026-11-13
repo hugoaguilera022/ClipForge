@@ -136,6 +136,9 @@ try {
   await page.waitForFunction(n=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-video').length===n+2,initialVideoClipCount);
   await page.locator('#cfMultiTrackTimeline [data-act="delete"]').click();
   await page.waitForFunction(n=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-video').length===n+1,initialVideoClipCount);
+  // Roll back the five temporary video edits so the export assertion remains four clips.
+  for(let i=0;i<5;i++)await page.locator('#cfMultiTrackTimeline [data-act="undo"]').click();
+  await page.waitForFunction(n=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-video').length===n,initialVideoClipCount);
 
   await page.locator('.cf-opus-tab[data-tab="captions"]').click();
   const subtitleRows=page.locator('.cf-subtitle-row-button');
