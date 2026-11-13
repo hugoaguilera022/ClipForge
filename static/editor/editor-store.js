@@ -9,6 +9,7 @@ function normalizeTrack(track, index = 0) {
     type,
     name: String(track?.name || `Pista ${index + 1}`),
     muted: Boolean(track?.muted),
+    volume: Math.max(0, Math.min(2, Number(track?.volume ?? 1))),
     hidden: Boolean(track?.hidden),
     locked: Boolean(track?.locked),
     items: (Array.isArray(track?.items) ? track.items : []).map((item, itemIndex) => normalizeItem(item, itemIndex))
