@@ -105,7 +105,9 @@ try {
     const item=window.clipforgeProjectStore.project.tracks.find(t=>t.type==='video').items[0];
     return {id:item.id,start:item.start,end:item.end,sourceStart:item.sourceStart};
   });
-  const moveBox=await page.locator('#cfMultiTrackTimeline .cf-mt-clip.type-video').first().boundingBox();
+  const movingClip=page.locator('#cfMultiTrackTimeline .cf-mt-clip.type-video').first();
+  await movingClip.scrollIntoViewIfNeeded();
+  const moveBox=await movingClip.boundingBox();
   await page.mouse.move(moveBox.x+moveBox.width/2,moveBox.y+moveBox.height/2);
   await page.mouse.down();
   await page.mouse.move(moveBox.x+moveBox.width/2+24,moveBox.y+moveBox.height/2,{steps:4});
