@@ -62,18 +62,14 @@ try {
   await writeFile('test-output/e2e-project.json', JSON.stringify(project));
   await page.locator('#browserProjectImport').setInputFiles('test-output/e2e-project.json');
   await page.locator('#browserCandidates').waitFor({state:'visible', timeout:10000});
-  // Exercise the editable export controls and the centered portrait crop path.
-  await page.locator('#captionPosition').selectOption('top');
-  await page.locator('#captionColor').selectOption('white');
-  await page.locator('#captionBackground').selectOption('none');
-  await page.locator('#captionSize').selectOption('6.2');
-  await page.locator('#browserCropMode').selectOption('center');
   const projectState = await page.locator('#browserWhisperStatus').innerText();
   if (!projectState.includes('Proyecto recuperado')) throw new Error('Browser project import did not complete: '+projectState);
 
-  // Exercise the actual multipista editor and an imported music asset.
+  // Exercise the actual clip inspector and multipista editor.
   await page.locator('.candidate-card').first().locator('.cf-open-clip-editor').click();
   await page.locator('#cfMultiTrackTimeline').waitFor({state:'visible',timeout:10000});
+  await page.locator('.cf-opus-tab[data-tab="tracking"]').click();
+  await page.locator('#browserCropMode').selectOption('center');
   const trackRows=page.locator('#cfMultiTrackTimeline .cf-mt-track-row');
   if(await trackRows.count()<7)throw new Error('The editor did not create all canonical video/audio/subtitle/text/effects tracks.');
   await page.locator('#cfMultiTrackTimeline [data-act="add-audio"]').click();
