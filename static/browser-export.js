@@ -98,8 +98,81 @@ function drawKaraokeCaption(ctx,cues,sourceTime,width,height,settings={}){
   ctx.restore();
 }
 
+
+const decodedAudioCache=new Map();
+async function decodeAudioBlob(blob,key){
+ if(decodedAudioCache.has(key))return decodedAudioCache.get(key);
+ const AudioCtx=window.AudioContext||window.webkitAudioContext;
+ if(!AudioCtx)throw new Error("Web Audio no está disponible para mezclar las pistas.");
+ const ctx=new AudioCtx();
+ try{
+  const buffer=await ctx.decodeAudioData(await blob.arrayBuffer());
+  decodedAudioCache.set(key,buffer);
+  return buffer;
+ }finally{await ctx.close().catch(()=>{});}
+}
+async function buildMixedAudioBuffer(file,clip,tracks){
+ const duration=Math.max(.05,Number(clip.end)-Number(clip.start));
+ const sampleRate=48000;
+ const Offline=window.OfflineAudioContext||window.webkitOfflineAudioContext;
+ if(!Offline)throw new Error("Este navegador no admite mezcla de audio local (OfflineAudioContext).");
+ const audioTracks=(tracks||[]).filter(t=>t.type==="audio"&&!t.muted&&!t.hidden);
+ const context=new Offline(2,Math.ceil(duration*sampleRate),sampleRate);
+ const compressor=context.createDynamicsCompressor();
+ compressor.threshold.value=-3;compressor.knee.value=8;compressor.ratio.value=3;compressor.attack.value=.004;compressor.release.value=.18;
+ compressor.connect(context.destination);
+ let sourceBuffer=null;
+ const sourceItems=audioTracks.flatMap(t=>(t.items||[]).filter(x=>x.source==="source-audio").map(item=>({track:t,item})));
+ if(sourceItems.length){
+  sourceBuffer=await decodeAudioBlob(file,"video:"+file.name+":"+file.size+":"+file.lastModified);
+ }
+ const assetPromises=new Map();
+ for(const track of audioTracks){
+  for(const item of track.items||[]){
+   if(item.source==="source-audio"||!item.assetId)continue;
+   if(!assetPromises.has(item.assetId)){
+    const blob=await window.ClipForgeStudio?.getAssetBlob?.(item.assetId);
+    if(!blob)throw new Error("No se encuentra el archivo de audio "+(item.assetName||item.assetId)+". Vuelve a importarlo.");
+    assetPromises.set(item.assetId,decodeAudioBlob(blob,"asset:"+item.assetId));
+   }
+  }
+ }
+ for(const track of audioTracks){
+  for(const item of track.items||[]){
+   const overlapStart=Math.max(Number(clip.start),Number(item.start)||0);
+   const overlapEnd=Math.min(Number(clip.end),Number(item.end)||0);
+   if(overlapEnd<=overlapStart)continue;
+   const outputStart=overlapStart-Number(clip.start);
+   const requestedDuration=overlapEnd-overlapStart;
+   let buffer,sourceOffset;
+   if(item.source==="source-audio"){
+    buffer=sourceBuffer;
+    sourceOffset=(Number(clip.sourceStart)||Number(clip.start)||0)+(overlapStart-Number(clip.start));
+   }else{
+    if(!item.assetId)continue;
+    buffer=await assetPromises.get(item.assetId);
+    sourceOffset=(Number(item.sourceStart)||0)+(overlapStart-(Number(item.start)||0));
+   }
+   if(!buffer||sourceOffset>=buffer.duration)continue;
+   const playable=Math.min(requestedDuration,buffer.duration-sourceOffset);
+   if(playable<=.01)continue;
+   const src=context.createBufferSource();src.buffer=buffer;
+   const gain=context.createGain();const volume=Math.max(0,Math.min(2,Number(item.volume??1)));
+   const fadeIn=Math.max(0,Math.min(playable,Number(item.fadeIn)||0));
+   const fadeOut=Math.max(0,Math.min(playable,Number(item.fadeOut)||0));
+   const end=outputStart+playable;
+   gain.gain.setValueAtTime(fadeIn>0?0:volume,outputStart);
+   if(fadeIn>0)gain.gain.linearRampToValueAtTime(volume,outputStart+fadeIn);
+   if(fadeOut>0){gain.gain.setValueAtTime(volume,Math.max(outputStart,end-fadeOut));gain.gain.linearRampToValueAtTime(0,end);}
+   src.connect(gain).connect(compressor);
+   src.start(outputStart,sourceOffset,playable);
+  }
+ }
+ return await context.startRendering();
+}
+
 async function exportOne(file,clip,segments,tracks,index,total,settings={}){
-  const {Input,Output,Conversion,ALL_FORMATS,BlobSource,Mp4OutputFormat,BufferTarget,Quality}=await import('https://esm.sh/mediabunny@1.65.2');
+  const {Input,Output,Conversion,ALL_FORMATS,BlobSource,Mp4OutputFormat,BufferTarget,Quality,AudioBufferSource}=await import('https://esm.sh/mediabunny@1.65.2');
   const input=new Input({source:new BlobSource(file),formats:ALL_FORMATS});
   // MOV/MP4 files can be valid even when the container omits duration metadata.
   // Measure the primary video track before rejecting a usable source.
@@ -112,12 +185,12 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
     input.dispose();
     throw new Error('No se pudo verificar la duración del vídeo original mediante metadatos ni midiendo la pista de vídeo.');
   }
-  if(clip.start<0||clip.end<=clip.start||clip.start>=sourceDuration||clip.end>sourceDuration+.05){
+  const sourceStart=Math.max(0,Number(clip.sourceStart??clip.start)||0);
+  const clipDuration=Number(clip.end)-Number(clip.start);
+  if(clipDuration<=0||sourceStart>=sourceDuration||sourceStart+clipDuration>sourceDuration+.05){
     input.dispose();
-    throw new Error(`El corte ${index+1} (${clip.start.toFixed(2)}–${clip.end.toFixed(2)} s) queda fuera de la duración real del vídeo (${sourceDuration.toFixed(2)} s).`);
+    throw new Error(`El corte ${index+1} (${sourceStart.toFixed(2)}–${(sourceStart+clipDuration).toFixed(2)} s) queda fuera de la duración real del vídeo (${sourceDuration.toFixed(2)} s).`);
   }
-  // Keep the original compressed audio track whenever MP4 supports it.
-  // This avoids unnecessary lossy re-encoding and does not require an AAC encoder.
   const output=new Output({format:new Mp4OutputFormat(),target:new BufferTarget()});
   const cues=buildCaptionCues(segments);
   let canvas=null,ctx=null,sourceCanvas=null,sourceCtx=null,faceLandmarker=null,poseLandmarker=null;
@@ -147,8 +220,8 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
     }catch(error){console.warn('Face/mouth tracking unavailable; using safe blurred background:',error);faceLandmarker=null;}
   }
   const conversion=await Conversion.init({
-    input,output,tracks:'primary',
-    trim:{start:clip.start,end:clip.end},
+    input,output,tracks:'primary',audio:{discard:true},composable:true,
+    trim:{start:sourceStart,end:sourceStart+clipDuration},
     video:{
       width:1080,height:1920,fit:'cover',frameRate:30,codec:'avc',
       quality:new Quality('high'),hardwareAcceleration:'no-preference',
@@ -169,8 +242,11 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
         const filterParts=[filterPresets[fx.preset]||'',fx.brightness&&fx.brightness!==100?'brightness('+fx.brightness+'%)':'',fx.contrast&&fx.contrast!==100?'contrast('+fx.contrast+'%)':'',fx.saturation&&fx.saturation!==100?'saturate('+fx.saturation+'%)':''].filter(Boolean);
         const transition=clip.transitions||{},duration=Math.max(.1,Math.min(2,Number(transition.duration)||.5));
         const fadeIn=transition.in==='fade'?Math.min(1,Math.max(0,stamp/duration)):1;
-        const fadeOut=transition.out==='fade'?Math.min(1,Math.max(0,(clip.end-clip.start-stamp)/duration)):1;
+        const fadeOut=transition.out==='fade'?Math.min(1,Math.max(0,(clipDuration-stamp)/duration)):1;
+        const zoomIn=transition.in==='zoom'?1+Math.max(0,1-stamp/duration)*.12:1;
+        const zoomOut=transition.out==='zoom'?1+Math.max(0,1-(clipDuration-stamp)/duration)*.12:1;
         ctx.save();ctx.filter=filterParts.join(' ')||'none';ctx.globalAlpha=Math.min(fadeIn,fadeOut);
+        const zoom=Math.max(zoomIn,zoomOut);ctx.translate(540,960);ctx.scale(zoom,zoom);ctx.translate(-540,-960);
         if(sourceCanvas){
           sourceCtx.clearRect(0,0,sourceCanvas.width,sourceCanvas.height);
           sample.drawWithFit(sourceCtx,{fit:'contain'});
@@ -256,9 +332,10 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
         }
         ctx.restore();
         // Mediabunny normalizes timestamps to zero after trim; captions keep source-video times.
-        const local=clip.start+stamp;
-        drawTextLayers(ctx,tracks,local,canvas.width,canvas.height);
-        drawKaraokeCaption(ctx,cues,local,canvas.width,canvas.height,settings);
+        const sourceTime=sourceStart+stamp;
+        const timelineTime=clip.start+stamp;
+        drawTextLayers(ctx,tracks,timelineTime,canvas.width,canvas.height);
+        drawKaraokeCaption(ctx,cues,sourceTime,canvas.width,canvas.height,settings);
         return canvas;
       },
       processedWidth:1080,processedHeight:1920
@@ -268,25 +345,41 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
     const reasons=(conversion.discardedTracks||[]).map(x=>x.reason).join(', ');
     throw new Error(`El navegador no puede codificar todas las pistas MP4 de este vídeo (${reasons||'códec no compatible'}).`);
   }
-  conversion.onProgress=p=>sayExport(`Clip ${index+1}/${total}: renderizando ${Math.round(p*100)}%…`);
-  try{await conversion.execute();}finally{faceLandmarker?.close?.();poseLandmarker?.close?.();input.dispose();}
+  conversion.onProgress=p=>sayExport(`Clip ${index+1}/${total}: renderizando vídeo ${Math.round(p*100)}%…`);
+  const mixedAudio=await buildMixedAudioBuffer(file,clip,tracks);
+  const audioSource=new AudioBufferSource({codec:"aac",quality:new Quality("medium")});
+  output.addAudioTrack(audioSource,{name:"Mezcla ClipForge",languageCode:"spa"});
+  try{
+    await output.start();
+    const results=await Promise.allSettled([
+      conversion.execute(),
+      audioSource.add(mixedAudio).then(()=>audioSource.close())
+    ]);
+    const failure=results.find(x=>x.status==="rejected");
+    if(failure)throw failure.reason;
+    await output.finalize();
+  }catch(error){await output.cancel().catch(()=>{});throw error;}
+  finally{audioSource.close();faceLandmarker?.close?.();poseLandmarker?.close?.();input.dispose();}
   const buffer=output.target.buffer;
   if(!buffer||buffer.byteLength<1024)throw new Error('El render terminó sin generar un MP4 válido.');
   const blob=new Blob([buffer],{type:'video/mp4'});
   const verifiedTrackingMode=faceSamples>0?'seguimiento facial':poseSamples>0?'seguimiento corporal de respaldo':'encuadre vertical seguro sin detección de persona';
-  return {blob,bytes:blob.size,duration:clip.end-clip.start,trackingMode:verifiedTrackingMode,faceSamples,poseSamples,name:`clipforge-${String(index+1).padStart(2,'0')}.mp4`};
+  return {blob,bytes:blob.size,duration:clipDuration,trackingMode:verifiedTrackingMode,faceSamples,poseSamples,name:`clipforge-${String(index+1).padStart(2,'0')}.mp4`};
 }
 
 exportButton?.addEventListener('click',async()=>{
   const file=document.querySelector('#video')?.files?.[0];
-  const project=window.clipforgeEditorBridge?.getProject?.();
-  const clips=(project?.clips||[]).filter(c=>c.selected!==false&&Number.isFinite(Number(c.start))&&Number.isFinite(Number(c.end))&&Number(c.start)>=0&&Number(c.end)>Number(c.start));
-  const segments=project?.transcript?.segments||[];
+  const bridge=window.clipforgeEditorBridge?.getProject?.()||{};
+  const studio=window.ClipForgeStudio?.getProject?.();
+  const project=studio?.clips?.length?studio:bridge;
+  const clips=(project?.clips||[]).filter(c=>c.selected!==false&&Number.isFinite(Number(c.start))&&Number.isFinite(Number(c.end))&&Number(c.end)>Number(c.start));
   const tracks=project?.tracks||[];
+  const subtitleTrack=tracks.find(t=>t.type==='subtitles');
+  const segments=subtitleTrack?.items?.length?subtitleTrack.items:(project?.transcript?.segments||[]);
   if(!file){sayExport('Selecciona el MP4 original antes de exportar.');return;}
   if(!clips.length){sayExport('No hay clips seleccionados para exportar. Marca al menos uno en la lista de momentos.');return;}
-  const expected=String(project?.source||'').split(/[\\/]/).pop();
-  if(expected&&expected!==file.name){sayExport(`El proyecto corresponde a ${expected}; has seleccionado ${file.name}. Para evitar exportar el vídeo equivocado, selecciona el original.`);return;}
+  const expected=String(project?.source?.name||project?.source||'').split(/[\\/]/).pop();
+  if(expected&&expected!==file.name){sayExport('El proyecto corresponde a '+expected+'; selecciona el vídeo original para evitar exportar otro archivo.');return;}
   if(!('VideoEncoder'in window)||!('OffscreenCanvas'in window)){sayExport('Este navegador no ofrece WebCodecs/OffscreenCanvas. Usa Chrome o Edge actualizado.');return;}
   exportButton.disabled=true;
   const results=[];
@@ -299,29 +392,25 @@ exportButton?.addEventListener('click',async()=>{
   };
   try{
     for(let i=0;i<clips.length;i++){
-      const clip={...clips[i],start:Number(clips[i].start),end:Number(clips[i].end)};
-      if(clip.end>36000)throw new Error('Un corte supera el límite de seguridad de 10 horas.');
+      const clip={...clips[i],start:Number(clips[i].start),end:Number(clips[i].end),sourceStart:Number(clips[i].sourceStart??clips[i].start)};
+      if(clip.end-clip.start>36000)throw new Error('Un corte supera el límite de seguridad de 10 horas.');
       results.push(await exportOne(file,clip,segments,tracks,i,clips.length,{...settings,subtitleStyle:clips[i].subtitleStyle||null}));
     }
     if(results.length===1){
       const url=URL.createObjectURL(results[0].blob),a=document.createElement('a');
-      a.href=url;a.download=results[0].name;
-      document.body.append(a);a.click();a.remove();
+      a.href=url;a.download=results[0].name;document.body.append(a);a.click();a.remove();
       setTimeout(()=>URL.revokeObjectURL(url),60000);
-      sayExport(`Exportación terminada: 1 MP4 individual · 1080×1920 · 30 fps · H.264 + audio original · ${results[0].trackingMode}${results[0].faceSamples?' · rostro detectado':' · encuadre seguro sin rostro detectado'} · ${(results[0].bytes/1024/1024).toFixed(1)} MB.`);
+      sayExport('Exportación terminada: 1 MP4 · 1080×1920 · H.264 + AAC mezclado · vídeo, música, efectos, subtítulos y capas de texto renderizados.');
       return;
     }
     sayExport('Preparando paquete ZIP con los MP4…');
     const JSZip=(await import('https://esm.sh/jszip@3.10.1')).default;
-    const zip=new JSZip();
-    results.forEach(item=>zip.file(item.name,item.blob));
+    const zip=new JSZip();results.forEach(item=>zip.file(item.name,item.blob));
     const archive=await zip.generateAsync({type:'blob',compression:'STORE'});
     const url=URL.createObjectURL(archive),a=document.createElement('a');
-    a.href=url;a.download='clipforge-exportacion-mp4.zip';
-    document.body.append(a);a.click();a.remove();
+    a.href=url;a.download='clipforge-exportacion-mp4.zip';document.body.append(a);a.click();a.remove();
     setTimeout(()=>URL.revokeObjectURL(url),60000);
-    const totalBytes=results.reduce((n,x)=>n+x.bytes,0);
-    sayExport(`Exportación terminada: ${results.length} MP4 en un ZIP · 1080×1920 · 30 fps · H.264 + audio original · ${results.some(x=>x.faceSamples)?'seguimiento facial':results.some(x=>x.poseSamples)?'seguimiento corporal':'encuadre seguro'} · ${(totalBytes/1024/1024).toFixed(1)} MB de vídeo.`);
-  }catch(error){console.error(error);sayExport(`Exportación detenida: ${error.message}. No se ha enviado el vídeo a ningún servidor.`);}
+    sayExport('Exportación terminada: '+results.length+' MP4 en ZIP · H.264 + AAC mezclado · vídeo, música, efectos, subtítulos y capas de texto.');
+  }catch(error){console.error(error);sayExport('Exportación detenida: '+error.message+'. Comprueba el archivo de audio original y las pistas importadas; no se ha enviado el vídeo a ningún servidor.');}
   finally{exportButton.disabled=false;}
 });
