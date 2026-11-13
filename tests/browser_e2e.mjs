@@ -78,6 +78,7 @@ try {
   // The synthetic clips are sub-second long; zoom in so their minimum visual
   // widths do not overlap and intercept each other's pointer targets.
   await page.locator('#cfMultiTrackTimeline .cf-mt-zoom input').evaluate(el=>{el.value='24';el.dispatchEvent(new Event('input',{bubbles:true}));});
+  await page.locator('#cfMultiTrackTimeline .cf-mt-scroll').evaluate(el=>{el.scrollTop=0;el.scrollLeft=0;});
   const firstClipStart=await page.evaluate(()=>window.clipforgeProjectStore.project.tracks.find(t=>t.type==='video').items[0].start);
   await videoClips.first().click();
   const afterSelectStart=await page.evaluate(()=>window.clipforgeProjectStore.project.tracks.find(t=>t.type==='video').items[0].start);
