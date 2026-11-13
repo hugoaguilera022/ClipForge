@@ -42,7 +42,7 @@ export const studioCommands={
  addTrack(type,name){const id=uid();history("Añadir pista",s=>s.tracks.push({id,type,name:name||type,locked:false,muted:false,hidden:false,items:[]}));return id;},
  addItem(trackId,item){const id=item.id||uid();history("Añadir elemento",s=>{const t=s.tracks.find(x=>x.id===trackId);if(!t||t.locked)throw Error("La pista está bloqueada");const start=Math.max(0,Number(item.start)||0),end=Math.max(0,Number(item.end)||0);if(end<=start)throw Error("La duración del elemento debe ser positiva");t.items.push({...item,id,start,end});});return id;},
  patch(id,patch){history("Editar elemento",s=>{const f=locate(id);if(!f||f.track.locked)throw Error("Elemento bloqueado o inexistente");const next={...f.item,...patch};if(next.end<=next.start)throw Error("El final debe ser posterior al inicio");Object.assign(f.item,patch);syncClipFromVideoItem(f.item);});},
- remove(id){history("Eliminar elemento",s=>{for(const t of s.tracks)t.items=t.items.filter(x=>x.id!==id);const found=locate(id);if(found?.item?.clipIndex!==undefined&&found.item.clipIndex!==null)s.clips=s.clips.filter((x,i)=>i!==Number(found.item.clipIndex));if(s.selected===id)s.selected=null;});},
+ remove(id){history("Eliminar elemento",s=>{const found=locate(id);if(found?.track.type==="video"&&found.item.clipIndex!==undefined&&found.item.clipIndex!==null)s.clips=s.clips.filter((x,i)=>i!==Number(found.item.clipIndex));for(const t of s.tracks)t.items=t.items.filter(x=>x.id!==id);if(s.selected===id)s.selected=null;});},
  duplicate(id){let next;history("Duplicar elemento",()=>{const f=locate(id);if(!f||f.track.locked)throw Error("Elemento bloqueado");next={...f.item,id:uid(),start:f.item.start+.1,end:f.item.end+.1};if(f.track.type==="video")next.clipIndex=null;f.track.items.push(next);});return next.id;},
  move(id,toTrack,start){history("Mover elemento",s=>{const f=locate(id),to=s.tracks.find(x=>x.id===toTrack);if(!f||f.track.locked||!to||to.locked)throw Error("No se puede mover el elemento");if(f.track.type!==to.type)throw Error("Solo puedes mover elementos entre pistas del mismo tipo");const duration=f.item.end-f.item.start;const next={...f.item,start:Math.max(0,start),end:Math.max(0,start)+duration};f.track.items=f.track.items.filter(x=>x.id!==id);to.items.push(next);syncClipFromVideoItem(next);});},
  trim(id,edge,time){history("Recortar elemento",()=>{const f=locate(id);if(!f||f.track.locked)throw Error("Elemento bloqueado");const t=Math.max(0,Number(time)||0);if(edge==="start"){const next=Math.min(t,f.item.end-.05);const delta=next-f.item.start;f.item.start=next;f.item.sourceStart=(Number(f.item.sourceStart)||0)+delta;}else f.item.end=Math.max(f.item.start+.05,t);syncClipFromVideoItem(f.item);});},
@@ -115,8 +115,12 @@ async function getAssetBlob(id){
 async function getAssetUrl(id){if(assetUrls.has(id))return assetUrls.get(id);const blob=await getAssetBlob(id);const url=URL.createObjectURL(blob);assetUrls.set(id,url);return url;}
 function escapeHtml(value){return String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 function currentVideoItem(s=state){
- const items=s.tracks.find(t=>t.type==="video")?.items||[];
- return items.find(x=>Number(x.clipIndex)===Number(s.activeClipIndex))||items[s.activeClipIndex]||null;
+ const items=s.tracks.filter(t=>t.type==="video"&&!t.hidden).flatMap(t=>t.items||[]);
+ const atPlayhead=items.find(x=>s.playhead>=x.start&&s.playhead<=x.end);
+ if(atPlayhead)return atPlayhead;
+ const selected=items.find(x=>x.id===s.selected);
+ if(selected)return selected;
+ return items.find(x=>x.clipIndex!==null&&x.clipIndex!==undefined&&Number(x.clipIndex)===Number(s.activeClipIndex))||items[s.activeClipIndex]||null;
 }
 function previewLayerAt(sourceTime,timelineTime){
  const subTrack=state.tracks.find(t=>t.type==="subtitles"&&!t.hidden);
@@ -246,7 +250,7 @@ function mountTimeline(root){
      const edge=e.target===left?"start":e.target===right?"end":null;
      const x=e.clientX,initial=edge?(edge==="start"?item.start:item.end):item.start;block.setPointerCapture?.(e.pointerId);
      const move=ev=>{const t=Math.max(0,initial+(ev.clientX-x)/scale());if(edge==="start")block.style.left=t*scale()+"px";else if(edge==="end")block.style.width=Math.max(12,(t-item.start)*scale())+"px";else block.style.left=Math.max(0,t)*scale()+"px";};
-     const stop=ev=>{block.removeEventListener("pointermove",move);block.removeEventListener("pointerup",stop);block.removeEventListener("pointercancel",stop);const t=Math.max(0,initial+(ev.clientX-x)/scale());if(edge)studioCommands.trim(item.id,edge,t);else studioCommands.move(item.id,track.id,t);};
+     const stop=ev=>{block.removeEventListener("pointermove",move);block.removeEventListener("pointerup",stop);block.removeEventListener("pointercancel",stop);const t=Math.max(0,initial+(ev.clientX-x)/scale());if(Math.abs(t-initial)<.02)return;if(edge)studioCommands.trim(item.id,edge,t);else studioCommands.move(item.id,track.id,t);};
      block.addEventListener("pointermove",move);block.addEventListener("pointerup",stop,{once:true});block.addEventListener("pointercancel",stop,{once:true});
     });
     lane.append(block);
@@ -321,7 +325,11 @@ export async function openStudio({card,clip,transcript,index=0,allClips=null,onB
  const shell=makeEditorShell();root.replaceChildren(shell);
  const viewer=shell.querySelector(".cf-studio-preview"),overlay=shell.querySelector(".cf-studio-overlay");if(video.src)viewer.prepend(video);
  const initialVideoItem=currentVideoItem();
- if(video.src)try{video.currentTime=Number(initialVideoItem?.sourceStart??clip.start)||0;}catch{}
+ if(video.src){
+  const firstSourceTime=Number(initialVideoItem?.sourceStart??clip.start)||0;
+  video.addEventListener("loadedmetadata",()=>{try{video.currentTime=firstSourceTime;}catch{};window.__cfStudioSeek?.(state.playhead);},{once:true});
+  try{video.currentTime=firstSourceTime;}catch{}
+ }
  window.__cfStudioSeek=time=>{
   const item=currentVideoItem();if(!item||!video.src)return;
   const wanted=Number(item.sourceStart??item.start)+(Number(time)-Number(item.start));
@@ -377,7 +385,8 @@ export async function openStudio({card,clip,transcript,index=0,allClips=null,onB
   const replacement=sourceInput.files?.[0];if(!replacement)return;
   const url=URL.createObjectURL(replacement);video.pause();video.src=url;video.load();
   state.source={name:replacement.name,size:replacement.size,lastModified:replacement.lastModified};
-  window.__cfStudioSeek?.(state.playhead);setStatus("Vídeo original vinculado. Comprueba el encuadre antes de exportar.");
+  video.addEventListener("loadedmetadata",()=>window.__cfStudioSeek?.(state.playhead),{once:true});
+  setStatus("Vídeo original vinculado. Comprueba el encuadre antes de exportar.");
   saveProject(false).catch(e=>setStatus("No se pudo guardar el vínculo del vídeo: "+e.message));
  });
  // Keep the canonical project in the existing project bridge without rebuilding the result cards.
@@ -386,7 +395,6 @@ export async function openStudio({card,clip,transcript,index=0,allClips=null,onB
   if(Array.isArray(window.__cfEditableCandidates))s.clips.forEach((c,i)=>{if(window.__cfEditableCandidates[i])Object.assign(window.__cfEditableCandidates[i],c);});
  });
  window.__cfStudioActive={root:shell,cleanup:[timelineCleanup,inspectorCleanup,detachOverlay,detachAudio,()=>{video.pause();video.removeAttribute("src");video.load();},()=>off(),()=>bridgeSync(),()=>video.removeEventListener("timeupdate",clock),()=>{delete window.__cfStudioSeek;}]};
- if(file){getAssetBlob("source-"+projectId).catch(()=>{});}
  await saveProject(false).catch(e=>setStatus("El guardado automático local no está disponible: "+e.message));
  return shell;
 }
