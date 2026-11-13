@@ -10,14 +10,11 @@ const status=message=>window.dispatchEvent(new CustomEvent('clipforge:editor-sta
 function syncBridge(reason){
   if(!originalBridge||!store.ready)return;
   try{
-    const project=store.snapshot();
-    if(/clip|split|move|trim|delete|duplicate|paste/.test(reason)){
-      const video=project.tracks.find(t=>t.type==='video');
-      if(video&&originalBridge.setClips)originalBridge.setClips(video.items.map(item=>({...item,id:item.id,start:item.start,end:item.end,title:item.title||item.name||item.text||'Clip'})));
-    }
-    if(originalBridge.setTracks)originalBridge.setTracks(project.tracks);
-    if(project.transcript&&originalBridge.setTranscript)originalBridge.setTranscript(project.transcript);
-  }catch(error){status('No se pudo sincronizar el proyecto con el motor multimedia: '+error.message);}
+    // Keep the legacy engine informed about track layout, but do not rebuild
+    // its candidate cards while an edit is in progress. Export reads the
+    // canonical store directly, avoiding a second source of truth.
+    if(originalBridge.setTracks)originalBridge.setTracks(store.snapshot().tracks);
+  }catch(error){status('No se pudo sincronizar la estructura de pistas: '+error.message);}
 }
 function connectBridge(){
   bridge=window.clipforgeEditorBridge;
