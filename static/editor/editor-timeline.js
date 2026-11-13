@@ -172,6 +172,8 @@ import { uid } from './editor-store.js';
           const finish=event=>{
             if(!dragging||dragging.id!==item.id)return;
             const d=dragging,delta=(event.clientX-d.startX)/pps;dragging=null;block.classList.remove('dragging');
+            // A click selects/seeks; only a real pointer displacement is an edit.
+            if(Math.abs(delta)<.025)return;
             try{
               if(d.edge==='move')commands.moveItem(d.id,Math.max(0,d.originalStart+delta));
               else if(d.edge==='left')commands.trimItem(d.id,Math.max(0,Math.min(d.originalEnd-.1,d.originalStart+delta)),d.originalEnd);
