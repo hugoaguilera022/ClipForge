@@ -225,8 +225,8 @@
       card.style.setProperty('width','100%','important');
       card.style.setProperty('min-width','0','important');
       layout.style.setProperty('display','grid','important');
-      layout.style.setProperty('grid-template-columns',width>=1450?'minmax(210px,.8fr) minmax(270px,1.15fr) minmax(360px,1.9fr) minmax(360px,1.5fr)':width>=1100?'minmax(180px,.8fr) minmax(250px,1.1fr) minmax(320px,1.7fr) minmax(340px,1.4fr)':width>=760?'minmax(150px,.65fr) minmax(220px,1fr) minmax(300px,1.4fr)':'minmax(0,1fr)','important');
-      layout.style.setProperty('align-items','start','important');
+      layout.style.setProperty('grid-template-columns',width>=1380?'58px minmax(190px,220px) minmax(360px,1fr) minmax(300px,340px)':width>=1180?'54px minmax(170px,190px) minmax(320px,1fr) minmax(280px,310px)':width>=900?'48px minmax(145px,170px) minmax(300px,1fr) minmax(260px,290px)':'minmax(0,1fr)','important');
+      layout.style.setProperty('align-items','stretch','important');layout.style.setProperty('height','calc(100dvh - 126px)','important');layout.style.setProperty('max-height','calc(100dvh - 126px)','important');
       layout.style.setProperty('gap',width<=650?'12px':'16px','important');
       layout.style.setProperty('width','100%','important');
       layout.style.setProperty('min-width','0','important');
@@ -237,7 +237,7 @@
       clipPanel.style.setProperty('display','flex','important');
       clipPanel.style.setProperty('flex-direction','column','important');
       clipPanel.style.setProperty('min-width','0','important');
-      clipPanel.style.setProperty('max-height','680px','important');
+      clipPanel.style.setProperty('max-height','calc(100dvh - 150px)','important');
       clipPanel.style.setProperty('overflow','hidden','important');
       toolRail.style.setProperty('display','flex','important');
       toolRail.style.setProperty('flex-direction',width>=1200?'column':'row','important');
@@ -246,7 +246,7 @@
       preview.style.setProperty('align-items','center','important');
       preview.style.setProperty('justify-content','center','important');
       preview.style.setProperty('min-width','0','important');
-      preview.style.setProperty('min-height','560px','important');
+      preview.style.setProperty('min-height','0','important');preview.style.setProperty('height','100%','important');preview.style.setProperty('max-height','100%','important');
       preview.style.setProperty('height','auto','important');
       preview.style.setProperty('padding','18px','important');
       const playerEl=preview.querySelector('.cf-inline-player');
@@ -256,16 +256,16 @@
         playerEl.style.setProperty('align-items','center','important');
         playerEl.style.setProperty('justify-self','center','important');
         playerEl.style.setProperty('align-self','center','important');
-        playerEl.style.setProperty('width','min(100%,'+(width<=650?'360px':'420px')+')','important');
+        playerEl.style.setProperty('width','min(100%,'+(width<=650?'280px':width<1200?'300px':'340px')+')','important');
         playerEl.style.setProperty('min-width','0','important');
         playerEl.style.setProperty('margin','0','important');
         const video=playerEl.querySelector('video');
-        if(video){video.style.setProperty('display','block','important');video.style.setProperty('width','100%','important');video.style.setProperty('max-width','100%','important');video.style.setProperty('height','auto','important');video.style.setProperty('max-height','72vh','important');video.style.setProperty('aspect-ratio','9 / 16','important');video.style.setProperty('object-fit','contain','important');video.style.setProperty('box-sizing','border-box','important');}
+        if(video){video.style.setProperty('display','block','important');video.style.setProperty('width','100%','important');video.style.setProperty('max-width','100%','important');video.style.setProperty('height','auto','important');video.style.setProperty('max-height','min(44vh,430px)','important');video.style.setProperty('min-height','0','important');video.style.setProperty('aspect-ratio','9 / 16','important');video.style.setProperty('object-fit','contain','important');video.style.setProperty('box-sizing','border-box','important');}
       }
       inspector.style.setProperty('width','100%','important');
       inspector.style.setProperty('min-width','0','important');
-      inspector.style.setProperty('align-self','start','important');
-      if(timeline){timeline.style.setProperty('width','100%','important');timeline.style.setProperty('max-width','100%','important');timeline.style.setProperty('min-width','0','important');timeline.style.setProperty('box-sizing','border-box','important');}
+      inspector.style.setProperty('align-self','stretch','important');inspector.style.setProperty('max-height','100%','important');inspector.style.setProperty('overflow','hidden','important');
+      if(timeline){timeline.style.setProperty('width','100%','important');timeline.style.setProperty('max-height','190px','important');timeline.style.setProperty('overflow-y','auto','important');timeline.style.setProperty('max-width','100%','important');timeline.style.setProperty('min-width','0','important');timeline.style.setProperty('box-sizing','border-box','important');}
     };
     card.classList.add('cf-opus-editing-card');
     if(heading)card.append(heading);
