@@ -107,9 +107,18 @@ async function saveProject(downloadBackup=true){
 async function addAudioAsset(file){
  const id=uid(),blob=file;
  await put("assets",{id,name:file.name,type:file.type||"audio/*",blob,size:file.size});
- assetBlobs.set(id,blob);assetUrls.set(id,URL.createObjectURL(blob));
+ assetBlobs.set(id,blob);const url=URL.createObjectURL(blob);assetUrls.set(id,url);
  let duration=30;
- try{const C=window.AudioContext||window.webkitAudioContext;if(C){const c=new C();const buffer=await c.decodeAudioData(await file.arrayBuffer());duration=buffer.duration;audioBuffers.set(id,buffer);await c.close();}}catch(e){console.warn("No se pudo medir el audio; se usará una duración aproximada",e);}
+ try{
+  const probe=new Audio();probe.preload="metadata";probe.src=url;
+  duration=await new Promise((resolve,reject)=>{
+   const timeout=setTimeout(()=>reject(new Error("Timeout leyendo duración del audio")),12000);
+   probe.onloadedmetadata=()=>{clearTimeout(timeout);resolve(Number.isFinite(probe.duration)&&probe.duration>0?probe.duration:30);};
+   probe.onerror=()=>{clearTimeout(timeout);reject(new Error("Formato de audio no compatible con el navegador"));};
+   probe.load();
+  });
+  probe.removeAttribute("src");probe.load();
+ }catch(error){console.warn("No se pudo medir el audio; se usará una duración aproximada",error);}
  return {id,name:file.name,duration};
 }
 async function getAssetBlob(id){
@@ -193,8 +202,11 @@ function syncExternalAudio(video){
   const time=Number(state.playhead)||0;
   const sourceTrack=state.tracks.find(t=>t.id==="track-a1"||t.name?.startsWith("A1"));
   const sourceItem=sourceTrack?.items?.find(x=>time>=x.start&&time<x.end);
-  video.muted=!sourceItem||!!sourceTrack?.muted||Number(sourceItem?.volume??1)<=0;
-  if(sourceItem)video.volume=Math.max(0,Math.min(1,Number(sourceItem.volume??1)));
+  const sourceFadeIn=sourceItem&&Number(sourceItem.fadeIn)>0?Math.max(0,Math.min(1,(time-sourceItem.start)/Number(sourceItem.fadeIn)):1;
+  const sourceFadeOut=sourceItem&&Number(sourceItem.fadeOut)>0?Math.max(0,Math.min(1,(sourceItem.end-time)/Number(sourceItem.fadeOut)):1;
+  const sourceGain=sourceItem?Math.max(0,Math.min(1,Number(sourceItem.volume??1)*sourceFadeIn*sourceFadeOut)):0;
+  video.muted=!sourceItem||!!sourceTrack?.muted||sourceGain<=0;
+  video.volume=sourceGain;
   const wanted=audioItems().filter(x=>time>=x.item.start&&time<x.item.end);
   const keys=new Set(wanted.map(x=>x.item.id));
   for(const [id,entry] of previewAudio){if(!keys.has(id)){entry.el.pause();entry.el.removeAttribute("src");entry.el.load();previewAudio.delete(id);}}
@@ -204,7 +216,10 @@ function syncExternalAudio(video){
    current.track=entry.track;current.item=entry.item;
    const sourceTime=(Number(entry.item.sourceStart)||0)+(time-entry.item.start);
    if(Math.abs((current.el.currentTime||0)-sourceTime)>.35){try{current.el.currentTime=Math.max(0,sourceTime);}catch{}}
-   current.el.volume=Math.max(0,Math.min(1,Number(entry.item.volume??1)));
+   const fadeIn=Number(entry.item.fadeIn)||0,fadeOut=Number(entry.item.fadeOut)||0;
+   const fadeInGain=fadeIn>0?Math.max(0,Math.min(1,(time-entry.item.start)/fadeIn)):1;
+   const fadeOutGain=fadeOut>0?Math.max(0,Math.min(1,(entry.item.end-time)/fadeOut)):1;
+   current.el.volume=Math.max(0,Math.min(1,Number(entry.item.volume??1)*fadeInGain*fadeOutGain));
    if(video.paused)current.el.pause();else current.el.play().catch(()=>{});
   }
  }
