@@ -135,7 +135,9 @@ try {
   const moved=await page.evaluate(id=>window.clipforgeProjectStore.project.tracks.find(t=>t.type==='video').items.find(x=>x.id===id),beforeMove.id);
   if(moved.sourceStart!==beforeMove.sourceStart)throw new Error('Moving a clip changed its source media in-point.');
   const rightHandle=page.locator('#cfMultiTrackTimeline [data-item-id="'+beforeMove.id+'"] .cf-mt-handle.right');
+  await rightHandle.scrollIntoViewIfNeeded();
   const edgeBox=await rightHandle.boundingBox();
+  if(!edgeBox)throw new Error('The trim handle is not visible on the timeline.');
   await page.mouse.move(edgeBox.x+edgeBox.width/2,edgeBox.y+edgeBox.height/2);
   await page.mouse.down();
   await page.mouse.move(edgeBox.x+edgeBox.width/2+12,edgeBox.y+edgeBox.height/2,{steps:3});
