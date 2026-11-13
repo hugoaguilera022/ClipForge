@@ -253,15 +253,26 @@ import { uid } from './editor-store.js';
       event.target.value='';
     });
     zoomControl.addEventListener('input',()=>{zoom=Number(zoomControl.value)||4;zoomLabel.textContent=zoom+' px/s';requestRender();});
-    listen(store,'change',requestRender);
-    listen(store,'change',()=>{if(store.project.selection?.length)panel.classList.add('has-selection');else panel.classList.remove('has-selection');});
+    listen(store,'change',event=>{
+      const reason=event.detail?.reason;
+      // Selection/playhead changes must not rebuild the lane DOM: doing so
+      // destroys pointer capture in the middle of a drag and breaks seeking.
+      if(reason==='selection'){
+        lanes.querySelectorAll('.cf-mt-clip').forEach(block=>block.classList.toggle('selected',store.project.selection.includes(block.dataset.itemId)));
+        if(store.project.selection?.length)panel.classList.add('has-selection');else panel.classList.remove('has-selection');
+        updateHead();return;
+      }
+      if(reason==='playhead'){updateHead();return;}
+      requestRender();
+      if(store.project.selection?.length)panel.classList.add('has-selection');else panel.classList.remove('has-selection');
+      syncOriginalVideoAudio(card);setupAudioPreview(card);
+    });
     const v=videoFor(card);
     if(v){
       listen(v,'timeupdate',()=>{store.project.playhead=Number(v.currentTime)||0;updateHead();});
       listen(v,'pause',()=>{panel.querySelector('[data-act="play"]').textContent='▶ Reproducir';});
       listen(v,'play',()=>{panel.querySelector('[data-act="play"]').textContent='Ⅱ Pausar';});
     }
-    listen(store,'change',()=>{syncOriginalVideoAudio(card);setupAudioPreview(card);});
     listen(store,'storage-error',event=>setStatus('No se pudo guardar: '+(event.detail?.message||'error de almacenamiento')));
     zoom=4;zoomControl.value='4';
     const activeClip=window.__cfTimelineActiveClip;
