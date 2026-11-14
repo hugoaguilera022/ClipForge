@@ -140,10 +140,10 @@
       controls.append(makeButton(track.locked?'🔒':'🔓',()=>{remember();track.locked=!track.locked;persistLocal();render();},'track-control'));
       controls.append(makeButton(track.muted?'Activar':'Silenciar',()=>{remember();track.muted=!track.muted;persistLocal();render();},'track-control'));
       controls.append(makeButton(track.hidden?'Mostrar':'Ocultar',()=>{remember();track.hidden=!track.hidden;persistLocal();render();},'track-control'));
-      controls.append(makeButton('×',()=>{if(state.tracks.length===1){say('El proyecto debe conservar al menos una pista.');return;}remember();state.tracks=state.tracks.filter(t=>t.id!==track.id);if(selected?.trackId===track.id)selected=null;render();persistLocal();},'track-control'));
+      controls.append(makeButton('↑',()=>reorderTrack(track.id,-1),'track-control'));\n      controls.append(makeButton('↓',()=>reorderTrack(track.id,1),'track-control'));\n      controls.append(makeButton('×',()=>{if(state.tracks.length===1){say('El proyecto debe conservar al menos una pista.');return;}remember();state.tracks=state.tracks.filter(t=>t.id!==track.id);if(selected?.trackId===track.id)selected=null;render();persistLocal();},'track-control'));
       head.append(name,controls);
       const lane=document.createElement('div');lane.className='editor-track-items';lane.dataset.track=track.id;
-      lane.addEventListener('click',e=>{if(e.target===lane)seek(Number(e.offsetX/lane.clientWidth*duration));});
+      lane.addEventListener('click',e=>{if(e.target===lane)seek(Number(e.offsetX/lane.clientWidth*duration));});\n      lane.addEventListener('dragover',e=>{e.preventDefault();e.dataTransfer.dropEffect='move';});\n      lane.addEventListener('drop',e=>{e.preventDefault();const raw=e.dataTransfer.getData('application/x-clipforge-item');if(!raw)return;try{moveTimelineItem(JSON.parse(raw),track,Math.max(0,Math.min(duration,e.offsetX/Math.max(1,lane.clientWidth)*duration)));}catch{say('No se pudo mover el elemento.');}});
       track.items.forEach(item=>{
         const block=document.createElement('button');block.type='button';block.className='editor-clip'+(selected?.itemId===item.id?' selected':'');
         block.style.left=(Math.max(0,item.start)/duration*100)+'%';
@@ -188,6 +188,25 @@
     const items=videoTracks.flatMap(t=>t.items);
     state.clips=items.filter(i=>i.kind==='clip'||state.clips.some(c=>c.id===i.id)).map(i=>({...i}));
     window.clipforgeEditorBridge?.setClips(state.clips);
+  }
+
+  function reorderTrack(trackId,direction){
+    const index=state.tracks.findIndex(t=>t.id===trackId),next=index+direction;
+    if(index<0||next<0||next>=state.tracks.length)return;
+    remember();const [track]=state.tracks.splice(index,1);state.tracks.splice(next,0,track);
+    persistLocal();render();say('Orden de pistas actualizado.');
+  }
+  function moveTimelineItem(source,targetTrack,newStart){
+    const sourceTrack=state.tracks.find(t=>t.id===source.trackId);
+    const item=sourceTrack?.items.find(i=>i.id===source.itemId);
+    if(!sourceTrack||!item||sourceTrack.locked||targetTrack.locked)return;
+    if(sourceTrack!==targetTrack&&sourceTrack.type!==targetTrack.type){say('Solo puedes mover elementos entre pistas del mismo tipo.');return;}
+    const length=item.end-item.start;
+    remember();
+    if(sourceTrack!==targetTrack){sourceTrack.items=sourceTrack.items.filter(i=>i.id!==item.id);targetTrack.items.push(item);}
+    item.start=newStart;item.end=newStart+length;
+    syncClipsFromTracks();selected={trackId:targetTrack.id,itemId:item.id};
+    persistLocal();render();say('Elemento movido en la línea de tiempo.');
   }
   function splitSelected(){
     const found=getSelected();if(!found){say('Selecciona primero un clip.');return;}
@@ -262,7 +281,7 @@
     if(key==='z'){ev.preventDefault();ev.shiftKey?redo():undo();}
     else if(key==='c'&&!['INPUT','TEXTAREA'].includes(document.activeElement.tagName)){ev.preventDefault();copySelected();}
     else if(key==='v'&&!['INPUT','TEXTAREA'].includes(document.activeElement.tagName)){ev.preventDefault();pasteSelected();}
-    else if(key==='d'&&!['INPUT','TEXTAREA'].includes(document.activeElement.tagName)){ev.preventDefault();duplicateSelected();}
+    else if(key==='d'&&!['INPUT','TEXTAREA'].includes(document.activeElement.tagName)){ev.preventDefault();duplicateSelected();}\n    else if(key==='Delete'&&!['INPUT','TEXTAREA'].includes(document.activeElement.tagName)){ev.preventDefault();deleteSelected();}
   });
   $('#editorUndo')?.addEventListener('click',undo);
   $('#editorRedo')?.addEventListener('click',redo);
