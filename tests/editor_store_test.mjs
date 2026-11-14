@@ -1,0 +1,86 @@
+import assert from 'node:assert/strict';
+import { EditorStore } from '../static/editor/editor-store.js';
+import { EditorCommands } from '../static/editor/editor-commands.js';
+
+const store=new EditorStore();
+const commands=new EditorCommands(store);
+store.hydrate({
+  source:'la-resistencia-test.mp4',
+  clips:[{id:'clip-1',start:10,end:20,title:'Prueba'}],
+  transcript:{segments:[{start:10,end:12,text:'Hola mundo',words:[]}]}
+});
+assert.equal(store.project.tracks.filter(t=>t.type==='video').length,1);
+assert.equal(store.project.tracks.filter(t=>t.type==='subtitles').length,1);
+store.hydrate({source:'speaker-test.mp4',clips:[{id:'speaker-clip',start:0,end:5}],transcript:{segments:[{start:1,end:2,text:'Hola',speaker:0,speaker_label:'Hablante 1',words:[{text:'Hola',start:1,end:2}]}]}});
+commands.updateItem(store.project.tracks.find(t=>t.type==='subtitles').items[0].id,{text:'Hola corregido'});
+assert.equal(store.project.transcript.segments[0].speaker_label,'Hablante 1','editing subtitles must preserve diarization metadata');
+assert.equal(store.project.transcript.segments[0].text,'Hola corregido');
+store.hydrate({source:'la-resistencia-test.mp4',clips:[{id:'clip-1',start:10,end:20,title:'Prueba'}],transcript:{segments:[{start:10,end:12,text:'Hola mundo',words:[]}]}});
+
+const video=store.project.tracks.find(t=>t.type==='video');
+const right=commands.splitItem('clip-1',15);
+assert.equal(store.project.tracks.find(t=>t.type==='video').items[0].end,15);
+assert.equal(store.project.tracks.find(t=>t.type==='video').items.find(x=>x.id===right).start,15);
+const sourceAudio=store.project.tracks.find(t=>t.id==='track-a1');
+assert.equal(sourceAudio.items.find(x=>x.clipId==='clip-1').end,15);
+assert.equal(sourceAudio.items.find(x=>x.clipId===right).sourceStart,15);
+assert.equal(store.project.clips.length,2);
+assert.equal(store.undo(),true);
+assert.equal(store.project.clips.length,1);
+assert.equal(store.redo(),true);
+assert.equal(store.project.clips.length,2);
+assert.equal(store.project.clips.find(x=>x.id==='clip-1').sourceStart,10,'the exported clip carries its media source offset');
+
+const audioId=commands.addTrack('audio','Música');
+const audioItem=commands.addItem(audioId,{start:0,end:8,name:'Música'});
+commands.moveItem(audioItem,2);
+assert.equal(commands.item(audioItem).item.start,2);
+commands.trimItem(audioItem,3,7);
+assert.equal(commands.item(audioItem).item.end,7);
+assert.throws(()=>commands.moveItem('clip-1',22,audioId),/otro tipo/,'video clips must not be moved into audio lanes');
+
+const duplicateVideoId=commands.duplicate('clip-1');
+const duplicateVideo=commands.item(duplicateVideoId).item;
+assert.equal(duplicateVideo.start,commands.item('clip-1').item.end+0.05,'default duplicate is placed directly after the original');
+assert.equal(duplicateVideo.sourceStart,10,'duplicating preserves the same original media in-point');
+commands.remove(duplicateVideoId);
+
+const sourceVideo=commands.item('clip-1').item;
+assert.equal(sourceVideo.sourceStart,10,'source offset is captured before destination edits');
+commands.moveItem('clip-1',30);
+assert.equal(commands.item('clip-1').item.start,30);
+assert.equal(commands.item('clip-1').item.sourceStart,10,'moving a clip keeps its original source offset');
+const sourceAudioAfterMove=commands.item(sourceAudio.items.find(x=>x.clipId==='clip-1').id).item;
+assert.equal(sourceAudioAfterMove.start,30);
+assert.equal(sourceAudioAfterMove.sourceStart,10,'linked source audio stays aligned to the moved clip without changing source time');
+commands.copy(audioItem);
+const pasted=commands.paste(9);
+assert.equal(pasted.length,1);
+assert.equal(commands.item(pasted[0]).item.start,9);
+commands.remove(pasted[0]);
+assert.equal(commands.item(pasted[0]),null);
+const duplicateId=commands.duplicate(audioItem,1);
+assert.equal(commands.item(duplicateId).item.start,commands.item(audioItem).item.start+1);
+assert.equal(commands.item(duplicateId).item.sourceStart,commands.item(audioItem).item.sourceStart,'duplicating preserves the source in-point');
+commands.copy(duplicateId);
+const duplicatePaste=commands.paste(20);
+assert.equal(duplicatePaste.length,1);
+assert.equal(commands.item(duplicatePaste[0]).item.start,20);
+assert.equal(commands.item(duplicatePaste[0]).item.sourceStart,commands.item(duplicateId).item.sourceStart);
+
+const audioFile=new Blob(['mock-audio-data'],{type:'audio/wav'});
+const imported=commands.importAudioFile(audioFile,audioId,12,6);
+const importedItem=commands.item(imported).item;
+assert.equal(importedItem.end,18);
+const snapshot=store.snapshot();
+assert.equal(snapshot.media[0].blob.size,audioFile.size,'project snapshots must preserve imported audio blobs');
+assert.equal(commands.item(imported).item.mediaId,snapshot.media[0].id);
+
+const before=commands.item(audioItem).item.start;
+assert.throws(()=>commands.updateItem(audioItem,{start:10,end:9}),/Intervalo/);
+assert.equal(commands.item(audioItem).item.start,before,'invalid edits must not mutate the project');
+
+commands.setTrackState(audioId,{locked:true});
+assert.throws(()=>commands.addItem(audioId,{start:0,end:1}),/bloqueada/);
+clearTimeout(store.saveTimer);
+console.log('editor store and command tests passed');

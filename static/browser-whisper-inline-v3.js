@@ -2147,6 +2147,11 @@ window.clipforgeEditorBridge = {
       tracks: JSON.parse(JSON.stringify(editorTracks))
     };
   },
+  updateClipData(clips) {
+    editableCandidates = Array.isArray(clips) ? clips.map((clip, i) => ({...clip, id:String(clip.id || `clip-${i+1}`)})) : [];
+    const field = document.querySelector('[name="selected_clip_ranges"]');
+    if (field) field.value = JSON.stringify(editableCandidates);
+  },
   setClips(clips) {
     editableCandidates = Array.isArray(clips) ? clips.map((clip, i) => ({...clip, id:String(clip.id || `clip-${i+1}`)})) : [];
     const duration = Math.max(0, ...editableCandidates.map(clip => Number(clip.end) || 0));

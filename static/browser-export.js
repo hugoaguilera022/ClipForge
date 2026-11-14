@@ -98,7 +98,81 @@ function drawKaraokeCaption(ctx,cues,sourceTime,width,height,settings={}){
   ctx.restore();
 }
 
-async function exportOne(file,clip,segments,tracks,index,total,settings={}){
+let aacEncoderRegistration=null;
+async function ensureAacEncoderSupport(){
+  const media=await import('https://esm.sh/mediabunny@1.65.2');
+  if(typeof media.canEncodeAudio!=='function'||await media.canEncodeAudio('aac'))return media;
+  if(!aacEncoderRegistration){
+    aacEncoderRegistration=import('https://esm.sh/@mediabunny/aac-encoder@1.65.2?deps=mediabunny@1.65.2')
+      .then(extension=>extension.registerAacEncoder());
+  }
+  await aacEncoderRegistration;
+  return media;
+}
+
+async function buildTimelineAudioMix(file,clip,project,input,exportStatus){
+  const AudioContextClass=window.OfflineAudioContext||window.webkitOfflineAudioContext;
+  if(!AudioContextClass)throw new Error('Este navegador no permite mezclar audio multipista mediante Web Audio.');
+  const duration=clip.end-clip.start,sampleRate=48000,frameCount=Math.max(1,Math.ceil(duration*sampleRate));
+  const offline=new AudioContextClass(2,frameCount,sampleRate);
+  const assets=project?.media||[],tracks=(project?.tracks||[]).filter(t=>t.type==='audio'&&!t.muted);
+  const originalTrack=await input.getPrimaryAudioTrack();
+  const decodeInput=async blob=>{
+    const source=await import('https://esm.sh/mediabunny@1.65.2');
+    const mediaInput=new source.Input({source:new source.BlobSource(blob),formats:source.ALL_FORMATS});
+    const audioTrack=await mediaInput.getPrimaryAudioTrack();
+    return {mediaInput,audioTrack,sink:audioTrack?new source.AudioBufferSink(audioTrack):null};
+  };
+  const originalSink=originalTrack?new (await import('https://esm.sh/mediabunny@1.65.2')).AudioBufferSink(originalTrack):null;
+  let scheduled=0;
+  const addRange=async(sink,sourceStart,sourceEnd,destinationStart,gainValue)=>{
+    if(!sink||sourceEnd<=sourceStart||gainValue<=0)return;
+    for await(const wrapped of sink.buffers(sourceStart,sourceEnd)){
+      const buffer=wrapped.buffer,timestamp=Number(wrapped.timestamp)||0;
+      const from=Math.max(sourceStart,timestamp),to=Math.min(sourceEnd,timestamp+buffer.duration);
+      if(to<=from)continue;
+      const node=offline.createBufferSource(),gain=offline.createGain();
+      node.buffer=buffer;gain.gain.value=Math.max(0,Math.min(2,gainValue));
+      node.connect(gain);gain.connect(offline.destination);
+      const at=Math.max(0,destinationStart+(from-sourceStart));
+      node.start(at,Math.max(0,from-timestamp),to-from);scheduled++;
+    }
+  };
+  const opened=[];
+  try{
+    for(const track of tracks){
+      const trackGain=Math.max(0,Math.min(2,Number(track.volume??1)));
+      for(const item of track.items||[]){
+        if(item.disabled||Number(item.end)<=clip.start||Number(item.start)>=clip.end)continue;
+        const overlapStart=Math.max(clip.start,Number(item.start)),overlapEnd=Math.min(clip.end,Number(item.end));
+        if(overlapEnd<=overlapStart)continue;
+        const destinationStart=overlapStart-clip.start;
+        const sourceStart=Math.max(0,Number(item.sourceStart||0)+(overlapStart-Number(item.start)));
+        const sourceEnd=sourceStart+(overlapEnd-overlapStart);
+        const gain=trackGain*Math.max(0,Math.min(2,Number(item.gain??1)));
+        if(item.sourceType==='primary'){
+          await addRange(originalSink,sourceStart,sourceEnd,destinationStart,gain);
+          continue;
+        }
+        if(item.mediaId){
+          const asset=assets.find(x=>x.id===item.mediaId);
+          if(!asset?.blob)throw new Error('Falta el archivo de audio '+(asset?.name||item.name||'importado')+'. Vuelve a importarlo en el proyecto.');
+          const decoded=await decodeInput(asset.blob);opened.push(decoded);
+          if(!decoded.sink)throw new Error('No se pudo leer la pista de audio '+(asset.name||item.name)+'. Comprueba que el archivo sea compatible.');
+          await addRange(decoded.sink,sourceStart,sourceEnd,destinationStart,gain);
+        }
+      }
+    }
+    if(!scheduled)return null;
+    exportStatus?.('Mezclando '+scheduled+' segmentos de audio…');
+    return await offline.startRendering();
+  }finally{
+    for(const decoded of opened)decoded.mediaInput.dispose();
+    try{await offline.close?.();}catch{}
+  }
+}
+
+async function exportOne(file,clip,segments,tracks,index,total,settings={},project=null){
   const {Input,Output,Conversion,ALL_FORMATS,BlobSource,Mp4OutputFormat,BufferTarget,Quality}=await import('https://esm.sh/mediabunny@1.65.2');
   const input=new Input({source:new BlobSource(file),formats:ALL_FORMATS});
   // MOV/MP4 files can be valid even when the container omits duration metadata.
@@ -112,9 +186,12 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
     input.dispose();
     throw new Error('No se pudo verificar la duración del vídeo original mediante metadatos ni midiendo la pista de vídeo.');
   }
-  if(clip.start<0||clip.end<=clip.start||clip.start>=sourceDuration||clip.end>sourceDuration+.05){
+  const clipDuration=Number(clip.end)-Number(clip.start);
+  const sourceStart=Number.isFinite(Number(clip.sourceStart))?Number(clip.sourceStart):Number(clip.start);
+  const sourceEnd=sourceStart+clipDuration;
+  if(clip.start<0||clipDuration<=0||sourceStart<0||sourceStart>=sourceDuration||sourceEnd>sourceDuration+.05){
     input.dispose();
-    throw new Error(`El corte ${index+1} (${clip.start.toFixed(2)}–${clip.end.toFixed(2)} s) queda fuera de la duración real del vídeo (${sourceDuration.toFixed(2)} s).`);
+    throw new Error(`El corte ${index+1} (${clip.start.toFixed(2)}–${clip.end.toFixed(2)} s en timeline; fuente ${sourceStart.toFixed(2)}–${sourceEnd.toFixed(2)} s) queda fuera de la duración real del vídeo (${sourceDuration.toFixed(2)} s).`);
   }
   // Keep the original compressed audio track whenever MP4 supports it.
   // This avoids unnecessary lossy re-encoding and does not require an AAC encoder.
@@ -146,9 +223,12 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
       trackingMode='seguimiento facial con respaldo corporal';
     }catch(error){console.warn('Face/mouth tracking unavailable; using safe blurred background:',error);faceLandmarker=null;}
   }
+  const mixedAudio=await buildTimelineAudioMix(file,clip,project,input,sayExport);
+  const audioEnabled=!!mixedAudio;
   const conversion=await Conversion.init({
-    input,output,tracks:'primary',
-    trim:{start:clip.start,end:clip.end},
+    input,output,tracks:'primary',composable:true,
+    audio:{discard:true},
+    trim:{start:sourceStart,end:sourceEnd},
     video:{
       width:1080,height:1920,fit:'cover',frameRate:30,codec:'avc',
       quality:new Quality('high'),hardwareAcceleration:'no-preference',
@@ -170,7 +250,11 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
         const transition=clip.transitions||{},duration=Math.max(.1,Math.min(2,Number(transition.duration)||.5));
         const fadeIn=transition.in==='fade'?Math.min(1,Math.max(0,stamp/duration)):1;
         const fadeOut=transition.out==='fade'?Math.min(1,Math.max(0,(clip.end-clip.start-stamp)/duration)):1;
+        const zoomIn=transition.in==='zoom'?1.08-.08*Math.min(1,Math.max(0,stamp/duration)):1;
+        const zoomOut=transition.out==='zoom'?1+.08*(1-Math.min(1,Math.max(0,(clip.end-clip.start-stamp)/duration))):1;
         ctx.save();ctx.filter=filterParts.join(' ')||'none';ctx.globalAlpha=Math.min(fadeIn,fadeOut);
+        const zoomScale=Math.max(.92,Math.min(1.16,zoomIn*zoomOut));
+        if(Math.abs(zoomScale-1)>.001){ctx.translate(540,960);ctx.scale(zoomScale,zoomScale);ctx.translate(-540,-960);}
         if(sourceCanvas){
           sourceCtx.clearRect(0,0,sourceCanvas.width,sourceCanvas.height);
           sample.drawWithFit(sourceCtx,{fit:'contain'});
@@ -269,7 +353,23 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
     throw new Error(`El navegador no puede codificar todas las pistas MP4 de este vídeo (${reasons||'códec no compatible'}).`);
   }
   conversion.onProgress=p=>sayExport(`Clip ${index+1}/${total}: renderizando ${Math.round(p*100)}%…`);
-  try{await conversion.execute();}finally{faceLandmarker?.close?.();poseLandmarker?.close?.();input.dispose();}
+  try{
+    if(audioEnabled){
+      const media=await ensureAacEncoderSupport();
+      const audioSource=new media.AudioBufferSource({codec:'aac',quality:new Quality('high')});
+      output.addAudioTrack(audioSource,{name:'Mezcla multipista'});
+      await output.start();
+      await Promise.all([
+        conversion.execute(),
+        audioSource.add(mixedAudio).then(()=>audioSource.close())
+      ]);
+      await output.finalize();
+    }else{
+      await output.start();
+      await conversion.execute();
+      await output.finalize();
+    }
+  }finally{faceLandmarker?.close?.();poseLandmarker?.close?.();input.dispose();}
   const buffer=output.target.buffer;
   if(!buffer||buffer.byteLength<1024)throw new Error('El render terminó sin generar un MP4 válido.');
   const blob=new Blob([buffer],{type:'video/mp4'});
@@ -279,7 +379,7 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
 
 exportButton?.addEventListener('click',async()=>{
   const file=document.querySelector('#video')?.files?.[0];
-  const project=window.clipforgeEditorBridge?.getProject?.();
+  const project=window.clipforgeProjectStore?.snapshot?.()||window.clipforgeEditorBridge?.getProject?.();
   const clips=(project?.clips||[]).filter(c=>c.selected!==false&&Number.isFinite(Number(c.start))&&Number.isFinite(Number(c.end))&&Number(c.start)>=0&&Number(c.end)>Number(c.start));
   const segments=project?.transcript?.segments||[];
   const tracks=project?.tracks||[];
@@ -301,7 +401,7 @@ exportButton?.addEventListener('click',async()=>{
     for(let i=0;i<clips.length;i++){
       const clip={...clips[i],start:Number(clips[i].start),end:Number(clips[i].end)};
       if(clip.end>36000)throw new Error('Un corte supera el límite de seguridad de 10 horas.');
-      results.push(await exportOne(file,clip,segments,tracks,i,clips.length,{...settings,subtitleStyle:clips[i].subtitleStyle||null}));
+      results.push(await exportOne(file,clip,segments,tracks,i,clips.length,{...settings,subtitleStyle:clips[i].subtitleStyle||null},project));
     }
     if(results.length===1){
       const url=URL.createObjectURL(results[0].blob),a=document.createElement('a');

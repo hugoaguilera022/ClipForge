@@ -16,7 +16,7 @@
   const downloadTranscript=$('#downloadBrowserTranscript');
   const saveTranscript=$('#saveBrowserProject');
   const capacityPanel=$('#videoCapacity');
-  if(language)language.value='es';
+  // Respect the HTML language choice; Auto covers Spanish and English projects.
   // Respect the HTML default and any user choice; never silently downgrade a selected model.
   if(model && !model.value) model.value='whisper-large-v3-turbo';
   if(urlImport){urlImport.hidden=true;urlImport.setAttribute('aria-hidden','true');}
@@ -75,6 +75,7 @@
     app.querySelector('.cf-opus-editor-slot').append(editor);
   }
   if(exportPanel){const h=exportPanel.querySelector('h3');if(h)h.textContent='Exportar clips';exportPanel.querySelector(':scope > p.hint')?.remove();if($('#browserExportClips'))$('#browserExportClips').textContent='Exportar los 4 clips';app.querySelector('.cf-opus-export-slot').append(exportPanel);}
+  const visibleExportStatus=$('#browserExportStatus');if(visibleExportStatus){visibleExportStatus.classList.add('cf-opus-export-status');app.querySelector('.cf-opus-main').append(visibleExportStatus);}
   const fileInput=$('#video'),sourceVideo=$('#cfSourcePreview'),empty=app.querySelector('.cf-opus-demo-empty');
   fileInput?.addEventListener('change',()=>{
     const file=fileInput.files?.[0];if(!file)return;
@@ -116,7 +117,7 @@
   asrOptions.setAttribute('aria-label','Ajustes de transcripción');
   const uploadRow=app.querySelector('.cf-opus-upload-row');if(uploadRow)uploadRow.after(asrOptions);
   const auto=app.querySelector('.cf-opus-auto');auto?.addEventListener('click',()=>transcribe?.click());
-  let activeCard=null,activeIndex=-1;const originalCardNodes=new WeakMap();
+  let activeCard=null,activeIndex=-1,candidateCardsSnapshot=[];const originalCardNodes=new WeakMap();
   const results=$('#cfResults'),editorScreen=$('#cfEditor'),resultSlot=app.querySelector('.cf-opus-candidates-slot'),editorSlot=app.querySelector('.cf-opus-editor-slot');
   // Keep batch export reachable from the results screen; the legacy export panel
   // remains visually hidden inside the workspace shell, so expose its action here.
@@ -146,18 +147,25 @@
       results.hidden=false;editorScreen.hidden=true;exportSlot.hidden=true;
       app.querySelector('.cf-opus-hero').hidden=true;app.querySelector('.cf-opus-showcase').hidden=true;
       app.querySelector('.cf-opus-footer').hidden=true;
+      if(visibleExportStatus)visibleExportStatus.hidden=false;
     }else if(stage==='editor'){
       results.hidden=true;editorScreen.hidden=false;exportSlot.hidden=true;
       app.querySelector('.cf-opus-hero').hidden=true;app.querySelector('.cf-opus-showcase').hidden=true;
       app.querySelector('.cf-opus-footer').hidden=true;
+      if(visibleExportStatus)visibleExportStatus.hidden=false;
     }else{
       results.hidden=true;editorScreen.hidden=true;exportSlot.hidden=true;
+      if(visibleExportStatus)visibleExportStatus.hidden=true;
       app.querySelector('.cf-opus-hero').hidden=false;app.querySelector('.cf-opus-showcase').hidden=false;
       app.querySelector('.cf-opus-footer').hidden=false;
     }
     window.scrollTo({top:0,behavior:'instant'});
   }
   function restoreCard(card){
+    card.querySelectorAll?.('.cf-opus-pane[data-pane="audio"]').forEach(pane=>pane.__cfCleanup?.());
+    card.querySelector?.('.cf-opus-editor-layout')?.__cfCleanup?.();
+    const timeline=card.closest?.('#cfEditor')?.querySelector?.('#cfMultiTrackTimeline')||document.querySelector('#cfMultiTrackTimeline');
+    timeline?.__cfDestroy?.();timeline?.remove();
     const original=originalCardNodes.get(card);if(!original)return;
     card.replaceChildren(...original);card.classList.remove('cf-opus-editing-card');
     originalCardNodes.delete(card);
@@ -187,7 +195,43 @@
     const inspector=document.createElement('aside');inspector.className='cf-opus-inspector';
     const tabs=document.createElement('div');tabs.className='cf-opus-inspector-tabs';tabs.setAttribute('role','tablist');
     const panes=document.createElement('div');panes.className='cf-opus-inspector-panes';
-    const captionsPane=document.createElement('section');captionsPane.className='cf-opus-pane is-active';captionsPane.dataset.pane='captions';if(captions)captionsPane.append(captions);
+    const captionsPane=document.createElement('section');captionsPane.className='cf-opus-pane';captionsPane.dataset.pane='captions';if(captions)captionsPane.append(captions);
+    // Canonical subtitle editor: read and write the same S1 items used by the timeline and exporter.
+    const subtitleEditor=document.createElement('div');subtitleEditor.className='cf-canonical-subtitle-editor';
+    subtitleEditor.innerHTML='<div class="cf-opus-pane-title">Subtítulos del proyecto</div><p class="cf-subtitle-help">Edita el texto y los tiempos de cada bloque. Los cambios se reflejan en la pista S1.</p><div class="cf-subtitle-compact-list" aria-label="Bloques de subtítulos"></div><div class="cf-subtitle-single-editor" hidden><label>Texto del subtítulo<textarea rows="3" aria-label="Texto del subtítulo"></textarea></label><div class="cf-subtitle-times"><label>Inicio (s)<input class="cf-subtitle-start" type="number" min="0" step="0.01"></label><label>Final (s)<input class="cf-subtitle-end" type="number" min="0" step="0.01"></label></div><div class="cf-subtitle-live-preview"></div><div class="cf-subtitle-edit-actions"><button type="button" class="cf-subtitle-save">Guardar cambios</button><button type="button" class="cf-subtitle-duplicate">Duplicar</button><button type="button" class="cf-subtitle-delete">Eliminar</button></div></div><div class="cf-subtitle-empty" hidden>No hay subtítulos temporizados en este proyecto. Importa una transcripción con marcas de tiempo para empezar.</div>';
+    captionsPane.append(subtitleEditor);
+    const subtitleList=subtitleEditor.querySelector('.cf-subtitle-compact-list'),subtitleForm=subtitleEditor.querySelector('.cf-subtitle-single-editor'),subtitleText=subtitleForm.querySelector('textarea'),subtitleStart=subtitleForm.querySelector('.cf-subtitle-start'),subtitleEnd=subtitleForm.querySelector('.cf-subtitle-end'),subtitlePreview=subtitleForm.querySelector('.cf-subtitle-live-preview');
+    let activeSubtitleId=null;
+    const getSubtitleItems=()=>window.clipforgeProjectStore?.project?.tracks?.filter(t=>t.type==='subtitles').flatMap(t=>t.items)||[];
+    const renderSubtitleRows=()=>{
+      const items=getSubtitleItems();subtitleList.replaceChildren();
+      items.forEach(item=>{const row=document.createElement('button');row.type='button';row.className='cf-subtitle-row-button cf-canonical-subtitle-row'+(item.id===activeSubtitleId?' is-active':'');row.dataset.subtitleId=item.id;const time=document.createElement('span');time.textContent=Number(item.start).toFixed(2)+'s';const copy=document.createElement('span');copy.textContent=item.text||'(Subtítulo vacío)';row.append(time,copy);subtitleList.append(row);});
+      subtitleEditor.querySelector('.cf-subtitle-empty').hidden=items.length>0;
+      if(!items.some(item=>item.id===activeSubtitleId)){activeSubtitleId=items[0]?.id||null;}
+      subtitleForm.hidden=!activeSubtitleId;
+      if(activeSubtitleId){const item=items.find(x=>x.id===activeSubtitleId);if(item){subtitleText.value=item.text||'';subtitleStart.value=Number(item.start).toFixed(2);subtitleEnd.value=Number(item.end).toFixed(2);subtitlePreview.textContent=item.text||'Vista previa';}}
+      subtitleList.querySelectorAll('button').forEach(row=>row.classList.toggle('is-active',row.dataset.subtitleId===activeSubtitleId));
+    };
+    subtitleList.addEventListener('click',event=>{const row=event.target.closest('[data-subtitle-id]');if(!row)return;activeSubtitleId=row.dataset.subtitleId;renderSubtitleRows();});
+    subtitleText.addEventListener('input',()=>{subtitlePreview.textContent=subtitleText.value||'Vista previa';});
+    subtitleForm.querySelector('.cf-subtitle-save').addEventListener('click',()=>{
+      const store=window.clipforgeProjectStore,commands=window.clipforgeEditorCommands,start=Number(subtitleStart.value),end=Number(subtitleEnd.value);
+      if(!store||!commands||!activeSubtitleId||!Number.isFinite(start)||!Number.isFinite(end)||start<0||end<=start){subtitleStart.setCustomValidity('Revisa los tiempos del subtítulo');subtitleStart.reportValidity();return;}
+      subtitleStart.setCustomValidity('');
+      try{commands.updateItem(activeSubtitleId,{text:subtitleText.value.trim(),start,end});store.select([activeSubtitleId]);renderSubtitleRows();}catch(error){window.clipforgeEditorBridge?.setStatus?.(error.message);console.error(error);}
+    });
+    subtitleForm.querySelector('.cf-subtitle-duplicate').addEventListener('click',()=>{
+      const commands=window.clipforgeEditorCommands,found=commands?.item(activeSubtitleId);if(!found)return;
+      try{activeSubtitleId=commands.duplicate(activeSubtitleId);renderSubtitleRows();}catch(error){console.error(error);}
+    });
+    subtitleForm.querySelector('.cf-subtitle-delete').addEventListener('click',()=>{
+      const commands=window.clipforgeEditorCommands;if(!commands||!activeSubtitleId)return;
+      const items=getSubtitleItems(),index=items.findIndex(x=>x.id===activeSubtitleId);
+      try{commands.remove([activeSubtitleId]);activeSubtitleId=items[Math.max(0,index-1)]?.id||null;renderSubtitleRows();}catch(error){console.error(error);}
+    });
+    const subtitleStore=window.clipforgeProjectStore;
+    if(subtitleStore){subtitleStore.addEventListener('change',renderSubtitleRows);subtitleEditor.__cfCleanup=()=>subtitleStore.removeEventListener('change',renderSubtitleRows);}
+    renderSubtitleRows();
     const textPane=document.createElement('section');textPane.className='cf-opus-pane';textPane.dataset.pane='text';
     textPane.innerHTML='<div class="cf-opus-pane-title">Añadir texto al vídeo</div><label>Texto<textarea class="cf-overlay-copy" rows="3" placeholder="Escribe un título o llamada…"></textarea></label><div class="cf-opus-text-times"><label>Inicio (s)<input class="cf-overlay-start" type="number" step="0.01"></label><label>Final (s)<input class="cf-overlay-end" type="number" step="0.01"></label></div><button type="button" class="cf-opus-add-overlay">Añadir texto a la pista</button><div class="cf-opus-overlay-list"></div>';
     const textTemplates=document.createElement('div');textTemplates.className='cf-opus-text-templates';textTemplates.innerHTML='<div class="cf-opus-pane-title">Plantillas de texto</div><p>Elige un diseño para aplicarlo a todos los subtítulos del proyecto.</p>';
@@ -198,12 +242,16 @@
     addOverlay.addEventListener('click',()=>{
       const copy=textPane.querySelector('.cf-overlay-copy').value.trim(),start=Number(textPane.querySelector('.cf-overlay-start').value),end=Number(textPane.querySelector('.cf-overlay-end').value);
       if(!copy||!Number.isFinite(start)||!Number.isFinite(end)||start<Number(clip.start)||end>Number(clip.end)||end<=start){textPane.querySelector('.cf-overlay-copy').focus();return;}
-      const project=window.clipforgeEditorBridge?.getProject?.()||{tracks:[]},tracks=project.tracks||[];
-      let track=tracks.find(t=>t.type==='text');if(!track){track={id:'text-overlays',type:'text',name:'Texto',items:[]};tracks.push(track);}
-      track.items.push({id:'text-'+Date.now(),start,end,text:copy});
-      window.clipforgeEditorBridge?.setTracks?.(tracks);
-      const list=textPane.querySelector('.cf-opus-overlay-list'),item=document.createElement('div');item.className='cf-opus-overlay-item';item.textContent=copy+' · '+start.toFixed(2)+'–'+end.toFixed(2)+' s';list.append(item);
-      textPane.querySelector('.cf-overlay-copy').value='';
+      const store=window.clipforgeProjectStore,commands=window.clipforgeEditorCommands;
+      if(!store?.ready||!commands){window.dispatchEvent(new CustomEvent('clipforge:editor-status',{detail:{message:'El proyecto todavía no está listo para añadir texto.'}}));return;}
+      try{
+        let track=store.project.tracks.find(t=>t.type==='text'&&!t.locked);
+        if(!track)track=commands.track(commands.addTrack('text','Textos y títulos'));
+        const id=commands.addItem(track.id,{start,end,text:copy,name:copy});
+        store.select([id]);
+        const list=textPane.querySelector('.cf-opus-overlay-list'),item=document.createElement('div');item.className='cf-opus-overlay-item';item.textContent=copy+' · '+start.toFixed(2)+'–'+end.toFixed(2)+' s';list.append(item);
+        textPane.querySelector('.cf-overlay-copy').value='';
+      }catch(error){window.clipforgeEditorBridge?.setStatus?.(error.message);console.error(error);}
     });
     const mediaPane=document.createElement('section');mediaPane.className='cf-opus-pane';mediaPane.dataset.pane='media';
     mediaPane.innerHTML='<div class="cf-opus-pane-title">Medios del proyecto</div><p>El vídeo original está vinculado a este clip. Puedes añadir capas de texto desde la pestaña Texto y audio desde la pista de audio.</p><button type="button" class="cf-media-replace">Reemplazar vídeo fuente</button><input class="cf-media-file" type="file" accept="video/*" hidden><div class="cf-media-info"></div>';
@@ -216,10 +264,24 @@
     [filterSelect,brightness,contrast,saturation].forEach(el=>el.addEventListener('input',applyVideoFilter));effectsPane.querySelector('.cf-video-filter-reset').addEventListener('click',()=>{filterSelect.value='none';brightness.value=contrast.value=saturation.value='100';applyVideoFilter();});
     const transitionsPane=document.createElement('section');transitionsPane.className='cf-opus-pane';transitionsPane.dataset.pane='transitions';
     transitionsPane.innerHTML='<div class="cf-opus-pane-title">Transiciones del clip</div><label>Entrada<select class="cf-transition-in"><option value="none">Ninguna</option><option value="fade">Fundido</option><option value="zoom">Zoom suave</option></select></label><label>Salida<select class="cf-transition-out"><option value="none">Ninguna</option><option value="fade">Fundido</option><option value="zoom">Zoom suave</option></select></label><label>Duración (s)<input class="cf-transition-duration" type="number" min="0.1" max="2" step="0.1" value="0.5"></label><p>Las transiciones se guardan como ajustes del clip. La previsualización y exportación se sincronizarán en el siguiente paso del motor de render.</p>';
-    const applyTransitions=()=>{persistClipEdit({transitions:{in:transitionsPane.querySelector('.cf-transition-in').value,out:transitionsPane.querySelector('.cf-transition-out').value,duration:Math.max(.1,Math.min(2,Number(transitionsPane.querySelector('.cf-transition-duration').value)||.5))}});const t=Math.max(0,film.currentTime-Number(clip.start)),d=clip.transitions.duration;let opacity=1;if(clip.transitions.in==='fade')opacity=Math.min(opacity,t/d);if(clip.transitions.out==='fade')opacity=Math.min(opacity,Math.max(0,(Number(clip.end)-film.currentTime)/d));film.style.opacity=String(Math.max(0,Math.min(1,opacity)));film.style.transition='opacity 80ms linear';};
+    const applyTransitions=()=>{persistClipEdit({transitions:{in:transitionsPane.querySelector('.cf-transition-in').value,out:transitionsPane.querySelector('.cf-transition-out').value,duration:Math.max(.1,Math.min(2,Number(transitionsPane.querySelector('.cf-transition-duration').value)||.5))}});const t=Math.max(0,film.currentTime-Number(clip.start)),d=clip.transitions.duration;let opacity=1,scale=1;if(clip.transitions.in==='fade')opacity=Math.min(opacity,t/d);if(clip.transitions.out==='fade')opacity=Math.min(opacity,Math.max(0,(Number(clip.end)-film.currentTime)/d));if(clip.transitions.in==='zoom')scale*=1.08-.08*Math.min(1,t/d);if(clip.transitions.out==='zoom')scale*=1+.08*(1-Math.min(1,Math.max(0,(Number(clip.end)-film.currentTime)/d)));film.style.opacity=String(Math.max(0,Math.min(1,opacity)));film.style.transform='scale('+Math.max(.92,Math.min(1.16,scale))+')';film.style.transition='opacity 80ms linear, transform 80ms linear';};
     transitionsPane.querySelectorAll('select,input').forEach(el=>el.addEventListener('change',applyTransitions));film.addEventListener('timeupdate',applyTransitions);
-    const audioPane=document.createElement('section');audioPane.className='cf-opus-pane';audioPane.dataset.pane='audio';audioPane.innerHTML='<div class="cf-opus-pane-title">Audio</div><label>Volumen del vídeo<input class="cf-audio-volume" type="range" min="0" max="100" value="80"></label><label>Silenciar vídeo<input class="cf-audio-mute" type="checkbox"></label><p>La pista de forma de onda muestra el audio original. La mezcla multipista se prepara desde el audio del proyecto.</p>';
-    audioPane.querySelector('.cf-audio-volume').addEventListener('input',event=>{film.volume=Number(event.target.value)/100;film.muted=film.volume===0;});audioPane.querySelector('.cf-audio-mute').addEventListener('change',event=>{film.muted=event.target.checked;});
+    const audioPane=document.createElement('section');audioPane.className='cf-opus-pane';audioPane.dataset.pane='audio';audioPane.innerHTML='<div class="cf-opus-pane-title">Audio del vídeo</div><label>Volumen del clip<input class="cf-audio-volume" type="range" min="0" max="100" value="80"></label><label>Silenciar clip<input class="cf-audio-mute" type="checkbox"></label><p>Este control modifica la pista A1 del proyecto y también se aplica a la mezcla del MP4 exportado. Importa música o efectos desde la línea de tiempo multipista.</p>';
+    const sourceAudioControl=()=>{
+      const store=window.clipforgeProjectStore,commands=window.clipforgeEditorCommands;if(!store?.ready||!commands)return null;
+      const lane=store.project.tracks.find(t=>t.type==='audio'&&String(t.name||'').toLowerCase().includes('original'));
+      if(!lane)return null;
+      let item=lane.items.find(x=>String(x.clipId||'')===String(clip.id));
+      if(!item)item=lane.items.find(x=>Math.abs(Number(x.start)-Number(clip.start))<.05&&Math.abs(Number(x.end)-Number(clip.end))<.05);
+      return item?{store,commands,item}:null;
+    };
+    const volumeControl=audioPane.querySelector('.cf-audio-volume'),muteControl=audioPane.querySelector('.cf-audio-mute');
+    const syncAudioControls=()=>{const found=sourceAudioControl();if(!found)return;const value=Math.round(Math.max(0,Math.min(1,Number(found.item.gain??.8)))*100);volumeControl.value=String(value);muteControl.checked=value===0;film.volume=value/100;film.muted=value===0;};
+    volumeControl.addEventListener('input',event=>{const value=Math.max(0,Math.min(1,Number(event.target.value)/100));film.volume=value;film.muted=value===0;const found=sourceAudioControl();if(found)found.commands.updateItem(found.item.id,{gain:value});});
+    muteControl.addEventListener('change',event=>{const found=sourceAudioControl();const value=event.target.checked?0:Number(volumeControl.value)/100;film.volume=value;film.muted=value===0;if(found)found.commands.updateItem(found.item.id,{gain:value});});
+    const canonicalStore=window.clipforgeProjectStore;
+    if(canonicalStore){canonicalStore.addEventListener('change',syncAudioControls);audioPane.__cfCleanup=()=>canonicalStore.removeEventListener('change',syncAudioControls);}
+    syncAudioControls();
     const trackingPane=document.createElement('section');trackingPane.className='cf-opus-pane';trackingPane.dataset.pane='tracking';
     trackingPane.innerHTML='<div class="cf-opus-pane-title">Encuadre y seguimiento</div><p>Elige cómo adaptar el vídeo al formato vertical 9:16. El seguimiento facial utiliza el detector disponible en el navegador y puede recurrir a un encuadre seguro si no detecta una persona.</p>';
     const cropSelect=$('#browserCropMode');if(cropSelect){const label=cropSelect.closest('label');if(label)trackingPane.append(label);}
@@ -233,10 +295,15 @@
     const voiceSelect=ttsPane.querySelector('.cf-tts-voice');const voices=window.speechSynthesis?.getVoices?.()||[];voices.forEach(v=>{const o=document.createElement('option');o.value=v.name;o.textContent=v.name+' · '+v.lang;voiceSelect.append(o);});
     ttsPane.querySelector('.cf-tts-play').addEventListener('click',()=>{const text=ttsPane.querySelector('.cf-tts-copy').value.trim();if(!text||!window.speechSynthesis)return;window.speechSynthesis.cancel();const utterance=new SpeechSynthesisUtterance(text);const voice=window.speechSynthesis.getVoices().find(v=>v.name===voiceSelect.value);if(voice)utterance.voice=voice;window.speechSynthesis.speak(utterance);});
     const tabDefs=[['media','Medios'],['captions','Subtítulos'],['text','Texto'],['effects','Filtros'],['transitions','Transiciones'],['audio','Audio'],['animation','Animación'],['tracking','Tracking'],['tts','Texto a voz']];
-    tabDefs.forEach(([key,label],i)=>{const button=document.createElement('button');button.type='button';button.className='cf-opus-tab'+(i===0?' is-active':'');button.textContent=label;button.dataset.tab=key;button.setAttribute('role','tab');button.setAttribute('aria-selected',String(i===0));button.addEventListener('click',()=>{tabs.querySelectorAll('button').forEach(b=>{b.classList.toggle('is-active',b===button);b.setAttribute('aria-selected',String(b===button));});panes.querySelectorAll('.cf-opus-pane').forEach(p=>p.classList.toggle('is-active',p.dataset.pane===key));});tabs.append(button);});
+    tabDefs.forEach(([key,label],i)=>{const button=document.createElement('button');button.type='button';button.className='cf-opus-tab'+(i===0?' is-active':'');button.textContent=label;button.dataset.tab=key;button.setAttribute('role','tab');button.setAttribute('aria-selected',String(i===0));button.setAttribute('aria-controls','cf-opus-pane-'+key);button.addEventListener('click',()=>{tabs.querySelectorAll('button').forEach(b=>{const active=b===button;b.classList.toggle('is-active',active);b.setAttribute('aria-selected',String(active));});panes.querySelectorAll('.cf-opus-pane').forEach(p=>{const active=p.dataset.pane===key;p.classList.toggle('is-active',active);p.style.setProperty('display',active?'block':'none','important');p.style.setProperty('visibility',active?'visible':'hidden','important');p.style.setProperty('position','relative','important');p.style.setProperty('width','100%','important');p.style.setProperty('height','auto','important');});panes.dataset.activePane=key;panes.scrollTop=0;});tabs.append(button);});
     panes.append(mediaPane,captionsPane,textPane,effectsPane,transitionsPane,audioPane,animationPane,trackingPane,ttsPane);inspector.append(tabs,panes);
+    panes.dataset.activePane='media';panes.style.setProperty('display','block','important');panes.style.setProperty('height','auto','important');panes.style.setProperty('min-height','360px','important');panes.style.setProperty('max-height','none','important');panes.style.setProperty('overflow','visible','important');
+    inspector.style.setProperty('display','flex','important');inspector.style.setProperty('flex-direction','column','important');inspector.style.setProperty('height','auto','important');inspector.style.setProperty('min-height','420px','important');inspector.style.setProperty('max-height','none','important');inspector.style.setProperty('overflow','visible','important');
+    panes.querySelectorAll('.cf-opus-pane').forEach(p=>{const active=p.dataset.pane==='media';p.classList.toggle('is-active',active);p.style.setProperty('display',active?'block':'none','important');p.style.setProperty('visibility',active?'visible':'hidden','important');p.style.setProperty('position','relative','important');p.style.setProperty('width','100%','important');p.style.setProperty('height','auto','important');});
     sidebar.append(toolRail);
     if(player)preview.append(player);
+    // Keep the old per-clip mini timeline in the original card nodes only.
+    // The canonical multipista timeline is rendered once, below the workspace.
     layout.append(sidebar,clipPanel,preview,inspector);
     // Apply the core editor geometry inline: it must not depend on a stale
     // cached stylesheet or on the browser resolving a cascade of old rules.
@@ -250,8 +317,10 @@
       layout.style.setProperty('display','grid','important');
       layout.style.setProperty('grid-template-columns',width>=1400?'164px minmax(190px,220px) minmax(300px,1fr) minmax(330px,360px)':width>=1200?'150px minmax(165px,195px) minmax(270px,1fr) minmax(300px,330px)':width>=900?'132px minmax(245px,1fr) minmax(270px,310px)':'minmax(0,1fr)','important');
       const timelineHeight=Math.max(190,Math.min(230,Math.round(height*.24)));
-      card.style.setProperty('flex','1 1 auto','important');card.style.setProperty('height','100%','important');card.style.setProperty('max-height','100%','important');card.style.setProperty('min-height','0','important');
-      layout.style.setProperty('align-items','stretch','important');layout.style.setProperty('flex','1 1 auto','important');layout.style.setProperty('height','0','important');layout.style.setProperty('min-height','0','important');layout.style.setProperty('max-height','none','important');layout.style.setProperty('overflow','hidden','important');
+      // Use natural document flow for the workspace. A zero-height flex child
+      // lets the following timeline overlap the inspector and intercept clicks.
+      card.style.setProperty('flex','0 0 auto','important');card.style.setProperty('height','auto','important');card.style.setProperty('max-height','none','important');card.style.setProperty('min-height','0','important');
+      layout.style.setProperty('align-items','stretch','important');layout.style.setProperty('flex','0 0 auto','important');layout.style.setProperty('height','auto','important');layout.style.setProperty('min-height','0','important');layout.style.setProperty('max-height','none','important');layout.style.setProperty('overflow','visible','important');
       layout.style.setProperty('gap',width<=650?'12px':'16px','important');
       layout.style.setProperty('width','100%','important');
       layout.style.setProperty('min-width','0','important');
@@ -288,15 +357,14 @@
       }
       inspector.style.setProperty('width','100%','important');
       inspector.style.setProperty('min-width','0','important');
-      inspector.style.setProperty('align-self','stretch','important');inspector.style.setProperty('max-height','100%','important');inspector.style.setProperty('overflow','hidden','important');
+      inspector.style.setProperty('align-self','stretch','important');inspector.style.setProperty('height','auto','important');inspector.style.setProperty('min-height','420px','important');inspector.style.setProperty('max-height','none','important');inspector.style.setProperty('overflow','visible','important');panes.style.setProperty('height','auto','important');panes.style.setProperty('min-height','360px','important');panes.style.setProperty('max-height','none','important');panes.style.setProperty('overflow','visible','important');
       if(timeline){timeline.style.setProperty('width','100%','important');timeline.style.setProperty('height',timelineHeight+'px','important');timeline.style.setProperty('flex','0 0 '+timelineHeight+'px','important');timeline.style.setProperty('min-height','0','important');timeline.style.setProperty('max-height',timelineHeight+'px','important');timeline.style.setProperty('overflow','hidden','important');timeline.style.setProperty('max-width','100%','important');timeline.style.setProperty('min-width','0','important');timeline.style.setProperty('box-sizing','border-box','important');}
     };
     card.classList.add('cf-opus-editing-card');
     if(heading)card.append(heading);
     card.append(layout);
-    if(timeline)card.append(timeline);
     syncEditorGeometry();
-    window.addEventListener('resize',syncEditorGeometry,{passive:true});window.visualViewport?.addEventListener('resize',syncEditorGeometry,{passive:true});requestAnimationFrame(syncEditorGeometry);
+    window.addEventListener('resize',syncEditorGeometry,{passive:true});window.visualViewport?.addEventListener('resize',syncEditorGeometry,{passive:true});layout.__cfCleanup=()=>{window.removeEventListener('resize',syncEditorGeometry);window.visualViewport?.removeEventListener('resize',syncEditorGeometry);subtitleEditor.__cfCleanup?.();audioPane.__cfCleanup?.();};requestAnimationFrame(syncEditorGeometry);
     const actions=document.createElement('div');actions.className='cf-opus-editor-actions';
     if(exportOne){exportOne.textContent='Exportar este clip MP4';actions.append(exportOne);}
     if(select)actions.append(select);
@@ -304,6 +372,7 @@
   }
   function reveal(){
     if(!candidates||!resultSlot||!candidates.querySelector('.candidate-card'))return;
+    candidateCardsSnapshot=[...candidates.querySelectorAll('.candidate-card')];
     if(!resultSlot.contains(candidates))resultSlot.append(candidates);
     const count=candidates.querySelectorAll('.candidate-card').length;
     const pill=results.querySelector('.cf-opus-result-pill');if(pill)pill.textContent=count+' clips · 9:16';
@@ -330,12 +399,56 @@
     const title=editorScreen.querySelector('.cf-opus-section-head h2');if(title)title.textContent=card.querySelector(':scope > strong')?.textContent||'Editar clip';
     const backHolder=editorScreen.querySelector('.cf-opus-section-head');
     const oldBack=backHolder.querySelector('.cf-opus-back');oldBack?.remove();
-    const topBack=document.createElement('button');topBack.type='button';topBack.className='cf-opus-back';topBack.textContent='← Todos los clips';topBack.addEventListener('click',()=>{const list=$('#browserCandidateList');restoreCard(card);const nodes=[...list.children];const next=nodes[Math.min(activeIndex,nodes.length)]||null;list.insertBefore(card,next);activeCard=null;setStage('results');});
+    const candidateListSnapshot=candidateCardsSnapshot.length?candidateCardsSnapshot.slice():[...($('#browserCandidateList')?.querySelectorAll('.candidate-card')||[])];
+    const topBack=document.createElement('button');topBack.type='button';topBack.className='cf-opus-back';topBack.textContent='← Todos los clips';topBack.addEventListener('click',()=>{const list=$('#browserCandidateList');restoreCard(card);if(list){const restored=candidateListSnapshot.filter(node=>node!==card);restored.splice(Math.min(activeIndex,restored.length),0,card);list.replaceChildren(...restored);}activeCard=null;setStage('results');syncBatchExportButton();});
     editorSlot.replaceChildren();
     const appNav=document.createElement('div');appNav.className='cf-editor-appnav';appNav.innerHTML='<a class="cf-editor-logo" href="#cfCreate"><span>▶</span> ClipForge <b>PRO</b></a><nav><a href="#cfCreate">Inicio</a><a href="#cfCreate">Nuevo proyecto</a><a class="active" href="#cfEditor">Editor</a><a href="#cfResults">Proyectos</a></nav><div class="cf-editor-account"><span>PROYECTO EN CURSO</span><b>9:16</b></div>';
     const editorBar=document.createElement('div');editorBar.className='cf-editor-topbar';editorBar.innerHTML='<div class="cf-editor-project"><strong>ClipForge</strong><span>Proyecto editable</span><i>Cambios en esta sesión</i></div><div class="cf-editor-format"><span>Formato</span><b>9:16</b></div><button type="button" class="cf-editor-export-top">Exportar MP4 ↗</button>';editorBar.querySelector('.cf-editor-export-top').addEventListener('click',()=>card.querySelector('.candidate-export-one')?.click());const saveProjectAction=document.createElement('button');saveProjectAction.type='button';saveProjectAction.className='secondary cf-editor-save-project';saveProjectAction.textContent='Guardar proyecto';saveProjectAction.addEventListener('click',()=>saveTranscript?.click());saveProjectAction.style.setProperty('width',window.innerWidth<=650?'100%':'auto','important');saveProjectAction.style.setProperty('flex','0 0 auto','important');saveProjectAction.style.setProperty('white-space','nowrap','important');saveProjectAction.style.setProperty('max-width','100%','important');editorBar.insertBefore(saveProjectAction,editorBar.querySelector('.cf-editor-export-top'));
     editorBar.prepend(topBack);
-    editorSlot.append(editorBar,card);
+    const commandBar=document.createElement('div');
+    commandBar.className='cf-editor-commandbar';
+    commandBar.setAttribute('aria-label','Acciones del proyecto');
+    commandBar.innerHTML='<button type="button" data-command="undo" title="Deshacer (⌘Z)">↶ Deshacer</button><button type="button" data-command="redo" title="Rehacer (⇧⌘Z)">↷ Rehacer</button><span></span><button type="button" data-command="split" title="Dividir en el cabezal">✂ Dividir</button><button type="button" data-command="duplicate" title="Duplicar elemento">▣ Duplicar</button><button type="button" data-command="copy" title="Copiar">Copiar</button><button type="button" data-command="paste" title="Pegar">Pegar</button><button type="button" data-command="delete" title="Eliminar">Eliminar</button><span></span><button type="button" data-command="audio">+ Pista audio</button><button type="button" data-command="text">+ Texto</button><small class="cf-editor-command-status" aria-live="polite">Guardado automático local</small>';
+    const commandStatus=commandBar.querySelector('.cf-editor-command-status');
+    const commandApi=()=>({store:window.clipforgeProjectStore,commands:window.clipforgeEditorCommands});
+    const activeItem=()=>{
+      const {store}=commandApi();if(!store?.ready)return null;
+      const selected=store.project.selection[0];
+      if(selected){for(const track of store.project.tracks){const item=track.items.find(x=>x.id===selected);if(item)return {track,item};}}
+      const videoTrack=store.project.tracks.find(t=>t.type==='video');
+      const match=videoTrack?.items.find(x=>Math.abs(Number(x.start)-Number(clip.start))<0.05&&Math.abs(Number(x.end)-Number(clip.end))<0.05);
+      return match?{track:videoTrack,item:match}:null;
+    };
+    const reportCommandError=error=>{if(commandStatus)commandStatus.textContent=error.message||'No se pudo ejecutar la acción';};
+    commandBar.addEventListener('click',event=>{
+      const button=event.target.closest('button[data-command]');if(!button)return;
+      const {store,commands}=commandApi();if(!store||!commands){reportCommandError(new Error('El motor central todavía no está disponible.'));return;}
+      try{
+        const found=activeItem();if(found)store.select([found.item.id]);
+        const selected=store.project.selection;
+        switch(button.dataset.command){
+          case 'undo':store.undo();break;
+          case 'redo':store.redo();break;
+          case 'split':{
+            const item=activeItem()?.item;if(!item)throw new Error('Selecciona un clip para dividirlo.');
+            const head=store.project.playhead>item.start&&store.project.playhead<item.end?store.project.playhead:(item.start+item.end)/2;
+            store.setPlayhead(head);commands.splitItem(item.id,head);break;
+          }
+          case 'duplicate':if(!selected.length)throw new Error('No hay ningún elemento seleccionado.');commands.duplicate(selected[0]);break;
+          case 'copy':if(!commands.copy(selected))throw new Error('No hay elementos para copiar.');break;
+          case 'paste':if(!commands.paste(store.project.playhead).length)throw new Error('No hay elementos copiados o una pista compatible.');break;
+          case 'delete':if(!selected.length)throw new Error('No hay ningún elemento seleccionado.');commands.remove(selected);store.select([]);break;
+          case 'audio':commands.addTrack('audio','Nueva pista de audio');break;
+          case 'text':{
+            const video=activeItem()?.item;const track=store.project.tracks.find(t=>t.type==='text'&&!t.locked)||store.project.tracks.find(t=>t.type==='text');
+            if(!track)throw new Error('No existe una pista de texto.');
+            const start=video?.start??store.project.playhead;commands.addItem(track.id,{start,end:start+3,text:'Nuevo texto',fontSize:48});break;
+          }
+        }
+        if(commandStatus)commandStatus.textContent='Cambio aplicado · guardado automático';
+      }catch(error){reportCommandError(error);}
+    });
+    editorSlot.append(editorBar,commandBar,card);
     setStage('editor');
     addInspector(card,e.detail?.clip||{start:0,end:1});
   });
