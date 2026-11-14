@@ -1186,3 +1186,14 @@ def test_chromium_preview_renders_secondary_video_track_as_overlay():
         assert layer.evaluate("(node) => node.style.opacity") == "0.5"
         assert page.locator(".cf-nle-visual-layers").count() == 1
         browser.close()
+
+
+
+def test_preview_video_track_audio_respects_item_mute_volume_and_fades():
+    source = (STATIC / "capcut-editor-enhancements.js").read_text()
+    assert "node.muted=!!track.muted||!!item.muted" in source
+    assert "node.volume=gain" in source
+    assert "vv.muted=!!vt?.muted||!!activeVideoItem?.muted" in source
+    assert "vv.volume=gain" in source
+    assert "if(Number(activeVideoItem?.fadeIn)>0)" in source
+    assert "if(Number(activeVideoItem?.fadeOut)>0)" in source
