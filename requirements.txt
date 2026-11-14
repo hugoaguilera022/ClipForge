@@ -1,3 +1,4 @@
 # ClipForge core web server uses Python standard library.
 # Portable, local speech recognition (CPU INT8; downloads the selected model on first use).
 faster-whisper>=1.1,<2
+yt-dlp>=2025.1.0
