@@ -165,6 +165,8 @@ async function buildTimelineAudioMix(file,clip,tracks,sourceAudioTrack,onProgres
   }
 }
 
+window.clipforgeBuildTimelineAudioMix=buildTimelineAudioMix;
+
 async function exportOne(file,clip,segments,tracks,index,total,settings={}){
   const {Input,Output,Conversion,ALL_FORMATS,BlobSource,Mp4OutputFormat,BufferTarget,Quality,AudioBufferSource}=await import('https://esm.sh/mediabunny@1.65.2');
   const input=new Input({source:new BlobSource(file),formats:ALL_FORMATS});
@@ -184,7 +186,9 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
     throw new Error(`El corte ${index+1} (${clip.start.toFixed(2)}–${clip.end.toFixed(2)} s) queda fuera de la duración real del vídeo (${sourceDuration.toFixed(2)} s).`);
   }
   const sourceAudioTrack=await input.getPrimaryAudioTrack();
-  const mixedAudio=await buildTimelineAudioMix(file,clip,tracks,sourceAudioTrack,message=>sayExport(`Clip ${index+1}/${total}: ${message}`));
+  let mixedAudio=null;
+  try{mixedAudio=await buildTimelineAudioMix(file,clip,tracks,sourceAudioTrack,message=>sayExport(`Clip ${index+1}/${total}: ${message}`));}
+  catch(error){input.dispose();throw error;}
   const output=new Output({format:new Mp4OutputFormat(),target:new BufferTarget()});
   const audioSource=mixedAudio?new AudioBufferSource({codec:'aac',quality:new Quality('high')}):null;
   if(audioSource)output.addAudioTrack(audioSource);
