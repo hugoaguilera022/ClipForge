@@ -14,7 +14,7 @@ function install(){
  if(tools&&!$('#cfNleAddAudio')){const b=document.createElement('button');b.id='cfNleAddAudio';b.textContent='＋ Importar audio';b.onclick=()=>{const i=document.createElement('input');i.type='file';i.accept='audio/*';i.onchange=()=>{const f=i.files?.[0];if(!f)return;const url=URL.createObjectURL(f),assetId=uid(),a=new Audio();a.onloadedmetadata=()=>{const d=a.duration||5;window.clipforgeMediaStore?.save(assetId,f).catch(()=>{});update(ts=>{let t=ts.find(x=>x.type==='audio');if(!t){t={id:uid(),type:'audio',name:'A2 · Música',items:[]};ts.push(t);}t.items.push({id:uid(),kind:'audio',assetId, title:f.name,url,assetName:f.name,start:Number($('#cfNleSeek')?.value)||0,end:(Number($('#cfNleSeek')?.value)||0)+d,sourceStart:0,volume:1});});status('Audio añadido a la línea de tiempo.');};a.src=url;};i.click();};tools.insertBefore(b,tools.querySelector('span'));}
  if(tools&&!$('#cfNleAddVideo')){const b=document.createElement('button');b.id='cfNleAddVideo';b.textContent='＋ Importar vídeo/imagen';b.onclick=()=>$('#cfNleImport')?.click();tools.insertBefore(b,tools.querySelector('span'));}
  if(!observer){observer=new MutationObserver(()=>{decorateTracks(root);decorateBlocks(root);decorateInspector(root);wireAudio();});observer.observe(root,{childList:true,subtree:true});}
- decorateTracks(root);decorateBlocks(root);
+ decorateTracks(root);decorateBlocks(root);decorateInspector(root);wireAudio();
 }
 function decorateTracks(root){
  root.querySelectorAll('.cf-nle-track').forEach((row,index)=>{
