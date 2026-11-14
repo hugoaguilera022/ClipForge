@@ -214,7 +214,7 @@ try {
   await page.locator('#cfResults').waitFor({state:'visible'});
   const candidateChecks=page.locator('#browserCandidateList .candidate-select input');
   const candidateCheckCount=await candidateChecks.count();
-  if(candidateCheckCount!==4)throw new Error(`Expected four selectable clips, found ${candidateCheckCount}.`);
+  if(candidateCheckCount!==4){const state=await page.evaluate(()=>({candidateList:document.querySelector('#browserCandidateList')?.outerHTML?.slice(0,1800),results:document.querySelector('#cfResults')?.outerHTML?.slice(0,1800),cards:[...document.querySelectorAll('.candidate-card')].map(c=>({parent:c.parentElement?.id,children:[...c.children].map(x=>x.className)}))}));throw new Error(`Expected four selectable clips, found ${candidateCheckCount}: ${JSON.stringify(state)}`);}
   for(let i=0;i<candidateCheckCount;i++){if(!await candidateChecks.nth(i).isChecked())await candidateChecks.nth(i).check();}
 
   // Attach rejection handling immediately: an unhandled Playwright timeout can terminate Node while the render is still running.
