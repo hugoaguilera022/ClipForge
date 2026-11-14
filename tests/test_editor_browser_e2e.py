@@ -261,3 +261,42 @@ def test_editor_keyboard_shortcuts_copy_paste_undo_duplicate_and_delete():
         page.keyboard.press("Control+x")
         assert blocks.count() == 1
         browser.close()
+
+
+def test_modifier_multi_select_duplicates_and_deletes_as_a_group():
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        page.set_content("""
+          <input id="video" type="file">
+          <section id="cfEditor"><div class="cf-opus-editor-slot"></div></section>
+          <script>
+            window.clipforgeEditorBridge = {
+              getProject: () => ({tracks:[{id:"v1",type:"video",name:"V1",items:[
+                {id:"c1",kind:"clip",title:"Uno",start:0,end:2},
+                {id:"c2",kind:"clip",title:"Dos",start:3,end:5},
+                {id:"c3",kind:"clip",title:"Tres",start:6,end:8}
+              ]}]}),
+              setTracks: () => {}, setProjectName: () => {}
+            };
+          </script>
+        """)
+        page.add_script_tag(path=str(STATIC / "capcut-editor.js"))
+        page.add_script_tag(path=str(STATIC / "capcut-editor-enhancements.js"))
+        page.evaluate("""() => window.dispatchEvent(new CustomEvent(
+          'clipforge:open-editor', {detail:{clip:{id:'c1',title:'Uno'},index:0}}
+        ))""")
+        page.wait_for_function(
+            "() => document.querySelectorAll('.cf-nle-block[data-type=video]').length === 3",
+            timeout=10000,
+        )
+        blocks = page.locator(".cf-nle-block[data-type='video']")
+        blocks.nth(0).click()
+        blocks.nth(1).click(modifiers=["Control"])
+        assert page.locator(".cf-nle-block.selected").count() == 2
+        page.locator('[data-act="duplicate"]').click()
+        assert blocks.count() == 5
+        assert page.locator(".cf-nle-block.selected").count() == 2
+        page.locator('[data-act="delete"]').click()
+        assert blocks.count() == 3
+        browser.close()
