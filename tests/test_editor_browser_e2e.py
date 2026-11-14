@@ -1281,11 +1281,9 @@ def test_timeline_export_button_dispatches_to_browser_mp4_exporter():
         export.wait_for(state="visible", timeout=10000)
         assert export.evaluate("(el) => typeof el.onclick") == "function"
         page.evaluate("""() => {
-          const target = document.querySelector("#browserExportClips");
-          window.__exportDispatchCalls = 0;
-          const original = target.click.bind(target);
-          target.click = () => { window.__exportDispatchCalls++; original(); };
+          window.__timelineExportCalls = 0;
+          window.clipforgeExportTimeline = () => { window.__timelineExportCalls++; };
         }""")
         export.click()
-        assert page.evaluate("window.__exportDispatchCalls") == 1
+        assert page.evaluate("window.__timelineExportCalls") == 1
         browser.close()
