@@ -316,8 +316,11 @@
   });
   window.addEventListener('clipforge:clips-updated',reveal);
   window.addEventListener('clipforge:open-editor',e=>{
-    const card=e.detail?.card;if(!card)return;
+    let card=e.detail?.card;
     const candidateList=$('#browserCandidateList');
+    // Saved-project and recovery actions may open the NLE without a rendered
+    // candidate card. Provide a lightweight host so the editor can still open.
+    if(!card){card=document.createElement('article');card.className='candidate-card cf-nle-placeholder-card';const heading=document.createElement('strong');heading.textContent=e.detail?.clip?.title||'Proyecto editable';card.append(heading);candidateList?.append(card);}
     if(activeCard===card)return;
     if(activeCard){
       const previous=activeCard,previousIndex=activeIndex;
