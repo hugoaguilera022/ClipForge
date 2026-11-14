@@ -13,7 +13,7 @@ function install(){
  const tools=root.querySelector('.cf-nle-tools');
  if(tools&&!$('#cfNleAddAudio')){const b=document.createElement('button');b.id='cfNleAddAudio';b.textContent='＋ Importar audio';b.onclick=()=>{const i=document.createElement('input');i.type='file';i.accept='audio/*';i.onchange=()=>{const f=i.files?.[0];if(!f)return;const url=URL.createObjectURL(f),a=new Audio();a.onloadedmetadata=()=>{const d=a.duration||5;update(ts=>{let t=ts.find(x=>x.type==='audio');if(!t){t={id:uid(),type:'audio',name:'A2 · Música',items:[]};ts.push(t);}t.items.push({id:uid(),kind:'audio',title:f.name,url,assetName:f.name,start:Number($('#cfNleSeek')?.value)||0,end:(Number($('#cfNleSeek')?.value)||0)+d,sourceStart:0,volume:1});});status('Audio añadido a la línea de tiempo.');};a.src=url;};i.click();};tools.insertBefore(b,tools.querySelector('span'));}
  if(tools&&!$('#cfNleAddVideo')){const b=document.createElement('button');b.id='cfNleAddVideo';b.textContent='＋ Importar vídeo/imagen';b.onclick=()=>$('#cfNleImport')?.click();tools.insertBefore(b,tools.querySelector('span'));}
- if(!observer){observer=new MutationObserver(()=>{decorateTracks(root);decorateBlocks(root);wireAudio();});observer.observe(root,{childList:true,subtree:true});}
+ if(!observer){observer=new MutationObserver(()=>{decorateTracks(root);decorateBlocks(root);decorateInspector(root);wireAudio();});observer.observe(root,{childList:true,subtree:true});}
  decorateTracks(root);decorateBlocks(root);
 }
 function decorateTracks(root){
@@ -37,6 +37,20 @@ function decorateBlocks(root){
   block.dataset.itemId=item.id;
   ['left','right'].forEach(edge=>{const h=document.createElement('i');h.className='cf-nle-trim '+edge;h.title=edge==='left'?'Recortar inicio':'Recortar final';block.append(h);h.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();if(t.locked)return;const start=item.start,end=item.end,x=e.clientX;h.setPointerCapture?.(e.pointerId);let delta=0;const move=ev=>{delta=(ev.clientX-x)/20;};const stop=()=>{window.removeEventListener('pointermove',move);update(ts=>{const target=ts.find(z=>z.id===t.id)?.items.find(z=>z.id===item.id);if(!target)return;if(edge==='left'){const next=Math.max(0,Math.min(end-.15,start+delta));const diff=next-start;target.start=next;target.sourceStart=Math.max(0,Number(target.sourceStart||0)+diff);}else target.end=Math.max(start+.15,end+delta);});window.removeEventListener('pointerup',stop);};window.addEventListener('pointermove',move);window.addEventListener('pointerup',stop,{once:true});});});
  });
+}
+function decorateInspector(root){
+ const el=root.querySelector('#cfNleInspector');if(!el||el.dataset.fxEnhanced)return;
+ const chosen=root.querySelector('.cf-nle-block.selected');if(!chosen)return;
+ const id=chosen.dataset.itemId;if(!id)return;
+ const p=project(),track=(p.tracks||[]).find(t=>t.items?.some(i=>i.id===id)),item=track?.items.find(i=>i.id===id);if(!item)return;
+ el.dataset.fxEnhanced='1';
+ const group=document.createElement('div');group.className='cf-nle-extra-inspector';
+ const add=(label,key,type='number',min='0',max='1',step='.05')=>{const l=document.createElement('label');l.textContent=label;const x=document.createElement('input');x.type=type;x.dataset.extra=key;if(type==='number'||type==='range'){x.min=min;x.max=max;x.step=step;}x.value=item[key]??(key==='opacity'||key==='volume'?1:0);l.append(x);group.append(l);};
+ const select=(label,key,opts)=>{const l=document.createElement('label');l.textContent=label;const x=document.createElement('select');x.dataset.extra=key;opts.forEach(([v,n])=>{const o=document.createElement('option');o.value=v;o.textContent=n;x.append(o)});x.value=item[key]||opts[0][0];l.append(x);group.append(l);};
+ if(track.type==='video'){add('Opacidad','opacity','range','0','1','.05');add('Velocidad','speed','number','.25','4','.05');select('Entrada','transitionIn',[['none','Sin transición'],['fade','Fundido'],['wipe','Barrido']]);select('Salida','transitionOut',[['none','Sin transición'],['fade','Fundido'],['wipe','Barrido']]);add('Duración de transición (s)','transitionDuration','number','0','3','.1');}
+ if(track.type==='audio'){add('Volumen','volume','range','0','1','.05');add('Fundido entrada (s)','fadeIn','number','0','10','.1');add('Fundido salida (s)','fadeOut','number','0','10','.1');}
+ if(track.type==='text'||track.type==='subtitles'){add('Opacidad','opacity','range','0','1','.05');add('Contorno (px)','outlineWidth','number','0','12','1');}
+ if(group.children.length){const title=document.createElement('b');title.textContent='TRANSFORMACIÓN Y EFECTOS';title.style.cssText='display:block;color:#8ddfc1;font-size:10px;letter-spacing:1px;margin:16px 0 8px';el.append(title,group);group.querySelectorAll('[data-extra]').forEach(x=>x.addEventListener('change',()=>{update(ts=>{const target=ts.find(t=>t.id===track.id)?.items.find(i=>i.id===id);if(!target)return;target[x.dataset.extra]=x.tagName==='SELECT'?x.value:Number(x.value);});}));}
 }
 function syncAudio(){
  const p=project(),time=Number($('#cfNleSeek')?.value)||0,tracks=p.tracks||[],active=new Set();
