@@ -642,15 +642,17 @@ def test_audio_playback_respects_volume_fades_and_track_mute():
               play() { this.paused=false; return Promise.resolve(); }
               pause() { this.paused=true; }
             };
+            const project = {tracks:[
+              {id:"v1",type:"video",name:"V1",items:[]},
+              {id:"a1",type:"audio",name:"A1",items:[
+                {id:"music",kind:"audio",title:"Música",url:"blob:audio-fixture",
+                 start:0,end:10,sourceStart:0,volume:0.5,fadeIn:4,fadeOut:4}
+              ]}
+            ]};
             window.clipforgeEditorBridge = {
-              getProject: () => ({tracks:[
-                {id:"v1",type:"video",name:"V1",items:[]},
-                {id:"a1",type:"audio",name:"A1",items:[
-                  {id:"music",kind:"audio",title:"Música",url:"blob:audio-fixture",
-                   start:0,end:10,sourceStart:0,volume:0.5,fadeIn:4,fadeOut:4}
-                ]}
-              ]}),
-              setTracks: () => {}, setProjectName: () => {}
+              getProject: () => project,
+              setTracks: (tracks) => { project.tracks = tracks; },
+              setProjectName: () => {}
             };
           </script>
         """)
@@ -672,11 +674,45 @@ def test_audio_playback_respects_volume_fades_and_track_mute():
         seek(8)
         volume_out = page.evaluate("() => window.__audio.volume")
         assert abs(volume_out - 0.25) < 0.02, f"Fundido de salida incorrecto: {volume_out}"
-        page.evaluate("""() => {
-          const tracks = window.clipforgeEditorBridge.getProject().tracks;
-          tracks.find(t => t.id === "a1").muted = true;
-          window.clipforgeEditorBridge.setTracks(tracks);
-        }""")
-        seek(5)
-        assert page.evaluate("() => window.__audio.paused") is True
+        page.wait_for_function("() => document.querySelectorAll('button[title=\"Silenciar pista\"]').length >= 2")
+        page.locator(".cf-nle-track").nth(1).locator('button[title="Silenciar pista"]').click()
+        assert page.evaluate("() => window.__audio.paused") is True, (
+            "Silenciar la pista debe detener el audio inmediatamente, sin esperar a mover el cabezal."
+        )
+        browser.close()
+
+
+def test_video_inspector_controls_apply_transform_and_filter_to_preview():
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        page.set_content("""
+          <input id="video" type="file">
+          <section id="cfEditor"><div class="cf-opus-editor-slot"></div></section>
+          <script>
+            window.clipforgeEditorBridge = {
+              getProject: () => ({tracks:[{id:"v1",type:"video",name:"V1",items:[
+                {id:"c1",kind:"clip",title:"Clip",start:0,end:5,sourceStart:0}
+              ]}]}),
+              setTracks: () => {}, setProjectName: () => {}
+            };
+          </script>
+        """)
+        page.add_script_tag(path=str(STATIC / "capcut-editor.js"))
+        page.add_script_tag(path=str(STATIC / "capcut-editor-enhancements.js"))
+        page.evaluate("""() => window.dispatchEvent(new CustomEvent(
+          'clipforge:open-editor', {detail:{clip:{id:'c1',title:'Clip'},index:0}}
+        ))""")
+        page.locator(".cf-nle-block[data-type='video']").click()
+        scale = page.locator("#cfNleInspector input[data-extra='scale']")
+        scale.fill("1.5")
+        scale.dispatch_event("change")
+        video = page.locator("#cfNleVideo")
+        assert "scale(1.5)" in video.evaluate("(el) => el.style.transform")
+        rotation = page.locator("#cfNleInspector input[data-extra='rotation']")
+        rotation.fill("12")
+        rotation.dispatch_event("change")
+        assert "rotate(12deg)" in video.evaluate("(el) => el.style.transform")
+        page.locator("#cfNleInspector select[data-extra='filterPreset']").select_option("bw")
+        assert video.evaluate("(el) => el.style.filter") == "grayscale(1)"
         browser.close()
