@@ -117,7 +117,7 @@
   asrOptions.setAttribute('aria-label','Ajustes de transcripción');
   const uploadRow=app.querySelector('.cf-opus-upload-row');if(uploadRow)uploadRow.after(asrOptions);
   const auto=app.querySelector('.cf-opus-auto');auto?.addEventListener('click',()=>transcribe?.click());
-  let activeCard=null,activeIndex=-1;const originalCardNodes=new WeakMap();
+  let activeCard=null,activeIndex=-1,candidateCardsSnapshot=[];const originalCardNodes=new WeakMap();
   const results=$('#cfResults'),editorScreen=$('#cfEditor'),resultSlot=app.querySelector('.cf-opus-candidates-slot'),editorSlot=app.querySelector('.cf-opus-editor-slot');
   // Keep batch export reachable from the results screen; the legacy export panel
   // remains visually hidden inside the workspace shell, so expose its action here.
@@ -372,6 +372,7 @@
   }
   function reveal(){
     if(!candidates||!resultSlot||!candidates.querySelector('.candidate-card'))return;
+    candidateCardsSnapshot=[...candidates.querySelectorAll('.candidate-card')];
     if(!resultSlot.contains(candidates))resultSlot.append(candidates);
     const count=candidates.querySelectorAll('.candidate-card').length;
     const pill=results.querySelector('.cf-opus-result-pill');if(pill)pill.textContent=count+' clips · 9:16';
@@ -398,7 +399,7 @@
     const title=editorScreen.querySelector('.cf-opus-section-head h2');if(title)title.textContent=card.querySelector(':scope > strong')?.textContent||'Editar clip';
     const backHolder=editorScreen.querySelector('.cf-opus-section-head');
     const oldBack=backHolder.querySelector('.cf-opus-back');oldBack?.remove();
-    const candidateListSnapshot=[...($('#browserCandidateList')?.querySelectorAll('.candidate-card')||[])];
+    const candidateListSnapshot=candidateCardsSnapshot.length?candidateCardsSnapshot.slice():[...($('#browserCandidateList')?.querySelectorAll('.candidate-card')||[])];
     const topBack=document.createElement('button');topBack.type='button';topBack.className='cf-opus-back';topBack.textContent='← Todos los clips';topBack.addEventListener('click',()=>{const list=$('#browserCandidateList');restoreCard(card);if(list){const restored=candidateListSnapshot.filter(node=>node!==card);restored.splice(Math.min(activeIndex,restored.length),0,card);list.replaceChildren(...restored);}activeCard=null;setStage('results');syncBatchExportButton();});
     editorSlot.replaceChildren();
     const appNav=document.createElement('div');appNav.className='cf-editor-appnav';appNav.innerHTML='<a class="cf-editor-logo" href="#cfCreate"><span>▶</span> ClipForge <b>PRO</b></a><nav><a href="#cfCreate">Inicio</a><a href="#cfCreate">Nuevo proyecto</a><a class="active" href="#cfEditor">Editor</a><a href="#cfResults">Proyectos</a></nav><div class="cf-editor-account"><span>PROYECTO EN CURSO</span><b>9:16</b></div>';
