@@ -164,7 +164,7 @@ try {
   // The split operation is intentionally still present here, so two pasted clips mean +3 versus the original count.
   if(pasteDebug.videoCount!==initialVideoClipCount+3)throw new Error('Paste button did not create both copied video items alongside the split: '+JSON.stringify(pasteDebug));
   await page.locator('.cf-opus-tab[data-tab="captions"]').click();
-  const subtitleRows=page.locator('.cf-subtitle-row-button');
+  const subtitleRows=page.locator('.cf-canonical-subtitle-row');
   if(await subtitleRows.count()<1)throw new Error('The subtitle editor did not load the imported timestamped transcript.');
   await subtitleRows.first().click();
   await page.locator('.cf-subtitle-single-editor textarea').fill('Prueba uno corregida');
