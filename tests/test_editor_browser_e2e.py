@@ -491,3 +491,47 @@ def test_timeline_trim_snaps_edge_to_previous_clip_boundary():
         assert item["start"] == 2
         assert item["end"] == 5
         browser.close()
+
+def test_modifier_multi_select_moves_clips_as_a_group():
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        page.set_content("""
+          <input id="video" type="file">
+          <section id="cfEditor"><div class="cf-opus-editor-slot"></div></section>
+          <script>
+            window.clipforgeEditorBridge = {
+              getProject: () => ({tracks:[{id:"v1",type:"video",name:"V1",items:[
+                {id:"c1",kind:"clip",title:"Uno",start:0,end:2},
+                {id:"c2",kind:"clip",title:"Dos",start:3,end:5},
+                {id:"c3",kind:"clip",title:"Tres",start:7,end:9}
+              ]}]}),
+              setTracks: () => {}, setProjectName: () => {}
+            };
+          </script>
+        """)
+        page.add_script_tag(path=str(STATIC / "capcut-editor.js"))
+        page.add_script_tag(path=str(STATIC / "capcut-editor-enhancements.js"))
+        page.evaluate("""() => window.dispatchEvent(new CustomEvent(
+          'clipforge:open-editor', {detail:{clip:{id:'c1',title:'Uno'},index:0}}
+        ))""")
+        blocks = page.locator(".cf-nle-block[data-type='video']")
+        page.wait_for_function("() => document.querySelectorAll('.cf-nle-block[data-type=video]').length === 3")
+        blocks.nth(0).click()
+        blocks.nth(1).click(modifiers=["Control"])
+        box = blocks.nth(0).bounding_box()
+        x, y = box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+        page.mouse.move(x, y)
+        page.mouse.down()
+        page.mouse.move(x + 40, y, steps=4)
+        page.mouse.up()
+        page.wait_for_function("""() => {
+          const items = window.clipforgeEditorBridge.getProject().tracks[0].items;
+          return Math.abs(items.find(x => x.id === 'c1').start - 2) < .001 &&
+                 Math.abs(items.find(x => x.id === 'c2').start - 5) < .001;
+        }""")
+        items = page.evaluate("() => window.clipforgeEditorBridge.getProject().tracks[0].items")
+        assert abs(next(x for x in items if x["id"] == "c1")["start"] - 2) < .001
+        assert abs(next(x for x in items if x["id"] == "c2")["start"] - 5) < .001
+        assert next(x for x in items if x["id"] == "c3")["start"] == 7
+        browser.close()
