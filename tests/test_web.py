@@ -601,3 +601,24 @@ class ProjectRestoreRegressionTests(unittest.TestCase):
   import_section=module[module.index('// Importación explícita'):]
   self.assertNotIn("document.createElement('p')",import_section)
   self.assertIn('addEventListener(\'change\',update)',module)
+
+class EditorWorkspaceAndExportTests(unittest.TestCase):
+ def test_editor_exposes_draggable_timeline_and_real_mp4_export(self):
+  editor=(ROOT/"static/editor.js").read_text()
+  self.assertIn("block.draggable=!track.locked",editor)
+  self.assertIn("new MediaRecorder(mediaStream",editor)
+  self.assertIn("fetch('/api/editor/export'",editor)
+  self.assertIn("filterPreset",editor)
+  self.assertIn("fadeIn",editor)
+  self.assertIn("transitionOpacity",editor)
+ def test_export_endpoint_converts_browser_recordings_to_h264_mp4(self):
+  server=(ROOT/"server.py").read_text()
+  self.assertIn("path=='/api/editor/export'",server)
+  self.assertIn("libx264",server)
+  self.assertIn("'video/mp4'",server)
+  self.assertIn("export_timeout",server)
+ def test_editor_projects_have_browser_persistence_fallback(self):
+  editor=(ROOT/"static/editor.js").read_text()
+  self.assertIn("clipforge.editor.projects",editor)
+  self.assertIn("writeLocalProjects",editor)
+  self.assertIn("readLocalProjects",editor)
