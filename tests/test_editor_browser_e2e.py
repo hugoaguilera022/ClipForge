@@ -91,13 +91,24 @@ def test_copy_paste_preserves_clip_track_type_and_is_undoable():
         ))""")
         # open-editor is async (IndexedDB media restoration); wait for the rendered
         # timeline, not merely for the editor shell mounted before its first render.
-        page.wait_for_function(
-            "() => document.querySelectorAll(\".cf-nle-block[data-type='video']\").length === 4",
-            timeout=10000,
-        )
-        assert page.locator(".cf-nle-block[data-type='video']").count() == 4, (
-            f"Los cuatro clips no se renderizaron. Errores JS: {page_errors}"
-        )
+        try:
+            page.wait_for_function(
+                "() => document.querySelectorAll(\".cf-nle-block[data-type='video']\").length === 4",
+                timeout=10000,
+            )
+        except Exception as exc:
+            diagnostics = page.evaluate("""() => ({
+              editor: Boolean(document.querySelector('#cfNle')),
+              status: document.querySelector('#cfNleStatus')?.textContent || null,
+              tracks: document.querySelectorAll('.cf-nle-track').length,
+              blocks: document.querySelectorAll('.cf-nle-block').length,
+              timeline: document.querySelector('#cfNleTimeline')?.innerHTML || null
+            })""")
+            raise AssertionError(
+                f"No se renderizaron los cuatro clips. Estado: {diagnostics}; "
+                f"errores JS: {page_errors}"
+            ) from exc
+        assert page.locator(".cf-nle-block[data-type='video']").count() == 4
         page.locator(".cf-nle-block[data-type='video']").first.click()
         page.locator('[data-act="copy"]').click()
         page.locator("#cfNleSeek").evaluate("""el => {
