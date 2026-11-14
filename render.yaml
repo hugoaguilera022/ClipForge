@@ -1,0 +1,28 @@
+services:
+  - type: web
+    runtime: static
+    name: clipforge-final
+    repo: https://github.com/hugoaguilera022/ClipForge
+    branch: codex/clipforge-editor-stabilization
+    buildCommand: echo "ClipForge static frontend ready"
+    staticPublishPath: static
+    autoDeploy: false
+    routes:
+      - type: rewrite
+        source: /api/*
+        destination: https://clipforge-api-hugo.onrender.com/api/*
+
+  - type: web
+    runtime: python
+    name: clipforge-api-hugo
+    repo: https://github.com/hugoaguilera022/ClipForge
+    branch: codex/clipforge-editor-stabilization
+    plan: free
+    region: frankfurt
+    buildCommand: apt-get update && apt-get install -y --no-install-recommends ffmpeg && pip install --no-cache-dir -r requirements.txt
+    startCommand: python server.py
+    autoDeploy: false
+    healthCheckPath: /api/health
+    envVars:
+      - key: CLIPFORGE_HOST
+        value: 0.0.0.0
