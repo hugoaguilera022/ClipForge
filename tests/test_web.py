@@ -664,3 +664,8 @@ class EditorExportHttpIntegrationTests(unittest.TestCase):
    with urllib.request.urlopen(request,timeout=10) as response:self.assertEqual(response.status,200)
   finally:
    httpd.shutdown();httpd.server_close();thread.join(timeout=3)
+
+class FourClipDefaultTests(unittest.TestCase):
+ def test_production_form_defaults_to_four_clips(self):
+  html=(ROOT/"static/index.html").read_text()
+  self.assertIn('<option value="4" selected>4 clips</option>',html)
