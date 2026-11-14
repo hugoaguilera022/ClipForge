@@ -180,7 +180,7 @@ try {
 
   await page.locator('.cf-opus-tab[data-tab="text"]').click();
   await page.locator('.cf-overlay-copy').fill('Texto de prueba editable');
-  await page.locator('.cf-opus-add-overlay').click();
+  await page.getByRole('button',{name:'Añadir texto a la pista',exact:true}).click();
   await page.waitForFunction(()=>document.querySelectorAll('#cfMultiTrackTimeline .cf-mt-clip.type-text').length>=1);
   if(!await page.locator('#cfMultiTrackTimeline .cf-mt-clip.type-text').first().innerText().then(t=>t.includes('Texto de prueba editable'))) {
     throw new Error('The text inspector did not create a visible editable text item.');
