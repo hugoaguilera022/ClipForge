@@ -1279,6 +1279,12 @@ def test_timeline_export_button_dispatches_to_browser_mp4_exporter():
         ))""")
         export = page.locator("#cfNleExport")
         export.wait_for(state="visible", timeout=10000)
+        page.evaluate("""() => {
+          const target = document.querySelector("#browserExportClips");
+          window.__exportDispatchCalls = 0;
+          const original = target.click.bind(target);
+          target.click = () => { window.__exportDispatchCalls++; original(); };
+        }""")
         export.click()
-        assert page.evaluate("window.__exportButtonClicks") == 1
+        assert page.evaluate("window.__exportDispatchCalls") == 1
         browser.close()
