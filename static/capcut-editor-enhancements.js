@@ -131,7 +131,7 @@ async function exportTimeline(){
  const ctx=canvas.getContext('2d',{alpha:false});const drawCover=(el,x,y,w,h)=>{const sw=el.videoWidth||el.naturalWidth||w,sh=el.videoHeight||el.naturalHeight||h,sr=sw/sh,tr=w/h;let sx=0,sy=0,sw2=sw,sh2=sh;if(sr>tr){sw2=sh*tr;sx=(sw-sw2)/2}else{sh2=sw/tr;sy=(sh-sh2)/2}ctx.drawImage(el,sx,sy,sw2,sh2,x,y,w,h)};if(!ctx){status('No se pudo iniciar el compositor.');return;}
  const AudioCtx=window.AudioContext||window.webkitAudioContext,ac=AudioCtx?new AudioCtx():null,dest=ac?ac.createMediaStreamDestination():null;
  const media=new Map(),audio=new Map(),nodes=[];
- let faceLandmarker=null,faceTrackingReady=false,trackingFrame=0;
+ let faceLandmarker=null;
  const faceCenters=new Map();
  const loadMedia=(x)=>new Promise((resolve,reject)=>{
   const url=x.item.url||(x.item.assetId==='source'?source:source);
