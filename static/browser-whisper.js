@@ -500,6 +500,7 @@ window.clipforgeEditorBridge = {
     };
   },
   async loadJob(job) {
+    generatedTranscriptData = null;
     externalSourceLabel = String(job?.youtube_metadata?.title || job?.source || 'Vídeo procesado');
     editableCandidates = (Array.isArray(job?.clips) ? job.clips : []).map((clip, i) => ({...clip, id:String(clip.id || `clip-${i+1}`), title:clip.title || clip.file || `Clip ${i+1}`, start:Number(clip.start)||0, end:Number(clip.end)||0, duration:Number(clip.duration)||Math.max(0,(Number(clip.end)||0)-(Number(clip.start)||0))})).filter(clip=>clip.end>clip.start);
     const duration = Math.max(0, ...editableCandidates.map(clip => Number(clip.end) || 0));
