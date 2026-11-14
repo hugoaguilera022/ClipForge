@@ -279,8 +279,8 @@
         const scale=Math.max(canvas.width/vw,canvas.height/vh),dw=vw*scale,dh=vh*scale;
         const activeVideo=videoTracks.flatMap(t=>t.items).find(x=>previewVideo.currentTime>=x.start&&previewVideo.currentTime<=x.end);
         const alpha=transitionOpacity({...item,...activeVideo},previewVideo.currentTime);
-        ctx.save();ctx.clearRect(0,0,canvas.width,canvas.height);ctx.globalAlpha=alpha;ctx.filter=filterCss(item.filterPreset);
-        ctx.drawImage(previewVideo,(canvas.width-dw)/2,(canvas.height-dh)/2,dw,dh);ctx.restore();
+        ctx.save();ctx.clearRect(0,0,canvas.width,canvas.height);ctx.globalAlpha=alpha*Math.max(0,Math.min(1,Number(item.opacity??1)));ctx.filter=filterCss(item.filterPreset);ctx.translate(canvas.width/2+(Number(item.x)||0),canvas.height/2+(Number(item.y)||0));ctx.rotate((Number(item.rotation)||0)*Math.PI/180);const itemScale=Math.max(.1,Math.min(4,Number(item.scale)||1));ctx.scale(itemScale,itemScale);
+        ctx.drawImage(previewVideo,-dw/2,-dh/2,dw,dh);ctx.restore();
         const active=textItems.filter(x=>previewVideo.currentTime>=x.start&&previewVideo.currentTime<=x.end);
         active.forEach((x,index)=>{const font=Math.max(24,Math.min(110,Number(x.fontSize)||64));ctx.save();ctx.globalAlpha=alpha;ctx.font='700 '+font+'px Arial,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineWidth=Math.max(4,font*.09);ctx.strokeStyle='rgba(0,0,0,.82)';ctx.fillStyle=x.color||'#ffffff';const words=String(x.text||'').split(/\s+/);let lines=[],line='';for(const word of words){const test=line?line+' '+word:word;if(ctx.measureText(test).width>canvas.width*.88&&line){lines.push(line);line=word;}else line=test;}if(line)lines.push(line);const y=canvas.height*(Number(x.y)||.82);lines.slice(0,3).forEach((ln,i)=>{const yy=y+(i-(Math.min(lines.length,3)-1)/2)*font*1.15;ctx.strokeText(ln,canvas.width/2,yy);ctx.fillText(ln,canvas.width/2,yy);});ctx.restore();});
       };
@@ -295,7 +295,7 @@
       const stopped=new Promise((resolve,reject)=>{recorder.addEventListener('stop',resolve,{once:true});recorder.addEventListener('error',()=>reject(new Error('Falló la grabación del clip.')),{once:true});});
       recorder.addEventListener('dataavailable',e=>{if(e.data?.size)chunks.push(e.data);});
       previewVideo.muted=state.tracks.filter(t=>t.type==='video').every(t=>t.muted);
-      previewVideo.volume=Math.max(0,Math.min(1,Number(item.volume??1)));
+      previewVideo.volume=Math.max(0,Math.min(1,Number(item.volume??1)));previewVideo.playbackRate=Math.max(.25,Math.min(4,Number(item.speed)||1));
       recorder.start(500);await previewVideo.play();drawLoop();await stopped;
       const blob=new Blob(chunks,{type:mime});if(blob.size<1024)throw new Error('La grabación quedó vacía.');
       const form=new FormData();form.append('video',blob,'clip.webm');
@@ -305,7 +305,7 @@
       const link=document.createElement('a');link.href=result.download_url;link.download='clipforge_'+result.id+'.mp4';document.body.append(link);link.click();link.remove();
       say('Exportación MP4 terminada. Se ha iniciado la descarga.');
     }catch(error){say('No se pudo exportar: '+error.message);}
-    finally{if(recorder&&recorder.state!=='inactive')recorder.stop();if(canvasStream)canvasStream.getTracks().forEach(t=>t.stop());if(mediaStream)mediaStream.getTracks().forEach(t=>t.stop());if(button){button.disabled=false;button.textContent='Exportar clip MP4';}}
+    finally{if(recorder&&recorder.state!=='inactive')recorder.stop();if(canvasStream)canvasStream.getTracks().forEach(t=>t.stop());if(mediaStream)mediaStream.getTracks().forEach(t=>t.stop());if(previewVideo)previewVideo.playbackRate=1;if(button){button.disabled=false;button.textContent='Exportar clip MP4';}}
   }
   function addTrack(type){
     remember();const n=state.tracks.filter(t=>t.type===type).length+1;
