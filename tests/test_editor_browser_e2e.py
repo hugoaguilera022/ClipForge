@@ -412,3 +412,82 @@ def test_modifier_multi_select_duplicates_and_deletes_as_a_group():
         page.locator('[data-act="delete"]').click()
         assert blocks.count() == 3
         browser.close()
+
+def test_timeline_drag_snaps_clip_edge_to_previous_clip_boundary():
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        page.set_content("""
+          <input id="video" type="file">
+          <section id="cfEditor"><div class="cf-opus-editor-slot"></div></section>
+          <script>
+            window.clipforgeEditorBridge = {
+              getProject: () => ({tracks:[{id:"v1",type:"video",name:"V1",items:[
+                {id:"c1",kind:"clip",title:"Primero",start:0,end:2},
+                {id:"c2",kind:"clip",title:"Segundo",start:3,end:5}
+              ]}]}),
+              setTracks: () => {}, setProjectName: () => {}
+            };
+          </script>
+        """)
+        page.add_script_tag(path=str(STATIC / "capcut-editor.js"))
+        page.add_script_tag(path=str(STATIC / "capcut-editor-enhancements.js"))
+        page.evaluate("""() => window.dispatchEvent(new CustomEvent(
+          'clipforge:open-editor', {detail:{clip:{id:'c1',title:'Primero'},index:0}}
+        ))""")
+        blocks = page.locator(".cf-nle-block[data-type='video']")
+        page.wait_for_function("() => document.querySelectorAll('.cf-nle-block[data-type=video]').length === 2")
+        box = blocks.nth(1).bounding_box()
+        x, y = box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+        page.mouse.move(x, y)
+        page.mouse.down()
+        page.mouse.move(x - 16, y, steps=4)
+        page.mouse.up()
+        page.wait_for_function("""() => {
+          const item = window.clipforgeEditorBridge.getProject().tracks[0].items.find(x => x.id === 'c2');
+          return item && Math.abs(item.start - 2) < .001;
+        }""")
+        item = page.evaluate("() => window.clipforgeEditorBridge.getProject().tracks[0].items.find(x => x.id === 'c2')")
+        assert abs(item["start"] - 2) < .001
+        assert item["end"] == 4
+        browser.close()
+
+
+def test_timeline_trim_snaps_edge_to_previous_clip_boundary():
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        page.set_content("""
+          <input id="video" type="file">
+          <section id="cfEditor"><div class="cf-opus-editor-slot"></div></section>
+          <script>
+            window.clipforgeEditorBridge = {
+              getProject: () => ({tracks:[{id:"v1",type:"video",name:"V1",items:[
+                {id:"c1",kind:"clip",title:"Primero",start:0,end:2},
+                {id:"c2",kind:"clip",title:"Segundo",start:3,end:5,sourceStart:0}
+              ]}]}),
+              setTracks: () => {}, setProjectName: () => {}
+            };
+          </script>
+        """)
+        page.add_script_tag(path=str(STATIC / "capcut-editor.js"))
+        page.add_script_tag(path=str(STATIC / "capcut-editor-enhancements.js"))
+        page.evaluate("""() => window.dispatchEvent(new CustomEvent(
+          'clipforge:open-editor', {detail:{clip:{id:'c1',title:'Primero'},index:0}}
+        ))""")
+        handle = page.locator(".cf-nle-block[data-item-id='c2'] .cf-nle-trim.left")
+        handle.wait_for()
+        box = handle.bounding_box()
+        x, y = box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+        page.mouse.move(x, y)
+        page.mouse.down()
+        page.mouse.move(x - 16, y, steps=4)
+        page.mouse.up()
+        page.wait_for_function("""() => {
+          const item = window.clipforgeEditorBridge.getProject().tracks[0].items.find(x => x.id === 'c2');
+          return item && Math.abs(item.start - 2) < .001;
+        }""")
+        item = page.evaluate("() => window.clipforgeEditorBridge.getProject().tracks[0].items.find(x => x.id === 'c2')")
+        assert item["start"] == 2
+        assert item["end"] == 5
+        browser.close()
