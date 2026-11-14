@@ -242,6 +242,7 @@ function disposeVisualOverlays(layers){
 }
 
 window.clipforgeBuildTimelineAudioMix=buildTimelineAudioMix;
+window.clipforgeVisualOverlayTools={prepare:prepareVisualOverlays,draw:drawVisualOverlays,dispose:disposeVisualOverlays};
 
 async function exportOne(file,clip,segments,tracks,index,total,settings={}){
   const {Input,Output,Conversion,ALL_FORMATS,BlobSource,Mp4OutputFormat,BufferTarget,Quality,AudioBufferSource}=await import('https://esm.sh/mediabunny@1.65.2');
@@ -265,7 +266,7 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
   const sourceAudioTrack=await input.getPrimaryAudioTrack();
   let mixedAudio=null;
   try{mixedAudio=await buildTimelineAudioMix(file,clip,tracks,sourceAudioTrack,message=>sayExport(`Clip ${index+1}/${total}: ${message}`));}
-  catch(error){input.dispose();throw error;}
+  catch(error){disposeVisualOverlays(visualOverlays);input.dispose();throw error;}
   const output=new Output({format:new Mp4OutputFormat(),target:new BufferTarget()});
   const audioSource=mixedAudio?new AudioBufferSource({codec:'aac',quality:new Quality('high')}):null;
   const cues=buildCaptionCues(segments);
