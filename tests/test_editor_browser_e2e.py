@@ -261,3 +261,47 @@ def test_editor_keyboard_shortcuts_copy_paste_undo_duplicate_and_delete():
         page.keyboard.press("Control+x")
         assert blocks.count() == 1
         browser.close()
+
+
+def test_audio_track_renders_waveform_from_decoded_media_samples():
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        page.set_content("""
+          <input id="video" type="file">
+          <section id="cfEditor"><div class="cf-opus-editor-slot"></div></section>
+          <script>
+            window.clipforgeEditorBridge = {
+              getProject: () => ({tracks:[
+                {id:"v1",type:"video",name:"V1",items:[]},
+                {id:"a1",type:"audio",name:"A1",items:[
+                  {id:"a1i",kind:"audio",assetId:"audio-fixture",title:"Música",url:"blob:fixture",start:0,end:3}
+                ]}
+              ]}),
+              setTracks: () => {}, setProjectName: () => {}
+            };
+            window.clipforgeMediaStore = {load: async () => new Blob(["fixture"],{type:"audio/wav"})};
+            window.AudioContext = class {
+              async decodeAudioData() {
+                return {
+                  numberOfChannels:1,length:1000,
+                  getChannelData:() => Float32Array.from({length:1000},(_,i)=>Math.sin(i/9)*.7)
+                };
+              }
+              async close() {}
+            };
+          </script>
+        """)
+        page.add_script_tag(path=str(STATIC / "capcut-editor.js"))
+        page.add_script_tag(path=str(STATIC / "capcut-editor-enhancements.js"))
+        page.evaluate("""() => window.dispatchEvent(new CustomEvent(
+          'clipforge:open-editor', {detail:{clip:{title:'Audio waveform'},index:0}}
+        ))""")
+        page.wait_for_function(
+            "() => document.querySelector('.cf-nle-waveform') !== null",
+            timeout=10000,
+        )
+        canvas = page.locator(".cf-nle-waveform")
+        assert canvas.count() == 1
+        assert canvas.evaluate("(el) => el.width > 24 && el.height === 48")
+        browser.close()
