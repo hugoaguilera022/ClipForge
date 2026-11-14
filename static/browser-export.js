@@ -165,6 +165,82 @@ async function buildTimelineAudioMix(file,clip,tracks,sourceAudioTrack,onProgres
   }
 }
 
+async function prepareVisualOverlays(tracks,clip,onProgress=()=>{}){
+  const active=(tracks||[]).filter(track=>track?.type==='video'&&!track.hidden)
+    .flatMap(track=>(track.items||[]).filter(item=>
+      item&&['image','video'].includes(item.kind)&&Number(item.end)>clip.start&&Number(item.start)<clip.end
+    ).map(item=>({track,item})));
+  const layers=[];
+  for(let index=0;index<active.length;index++){
+    const {track,item}=active[index];
+    onProgress('Preparando capa '+(index+1)+'/'+active.length+'…');
+    let blob=item.assetId?await window.clipforgeMediaStore?.load?.(item.assetId):null;
+    if(!blob&&item.url){
+      const response=await fetch(item.url);
+      if(response.ok)blob=await response.blob();
+    }
+    if(!blob)throw new Error('No se encuentra el medio «'+(item.title||item.assetName||'sin nombre')+'» de la pista de vídeo.');
+    if(item.kind==='image'){
+      if(!('createImageBitmap'in window))throw new Error('Este navegador no permite cargar capas de imagen para exportar.');
+      layers.push({track,item,bitmap:await createImageBitmap(blob)});
+    }else{
+      const video=document.createElement('video');
+      video.muted=true;video.playsInline=true;video.preload='auto';
+      const url=URL.createObjectURL(blob);
+      await new Promise((resolve,reject)=>{
+        video.addEventListener('loadeddata',resolve,{once:true});
+        video.addEventListener('error',()=>reject(new Error('No se pudo decodificar el vídeo superpuesto «'+(item.title||item.assetName||'vídeo')+'».')),{once:true});
+        video.src=url;video.load();
+      });
+      layers.push({track,item,video,url});
+    }
+  }
+  return layers;
+}
+async function drawVisualOverlays(ctx,layers,sourceTime,width,height){
+  for(const layer of layers||[]){
+    const {track,item}=layer;
+    if(track.hidden||sourceTime<Number(item.start)||sourceTime>Number(item.end))continue;
+    const duration=Math.max(.001,Number(item.end)-Number(item.start));
+    const local=sourceTime-Number(item.start);
+    const media=layer.bitmap||layer.video;
+    if(!media)continue;
+    if(layer.video){
+      const speed=Math.max(.25,Math.min(4,Number(item.speed)||1));
+      const target=Math.max(0,Math.min(layer.video.duration||0,(Number(item.sourceStart)||0)+local*speed));
+      if(Math.abs(layer.video.currentTime-target)>.035){
+        await new Promise((resolve,reject)=>{
+          layer.video.addEventListener('seeked',resolve,{once:true});
+          layer.video.addEventListener('error',()=>reject(new Error('No se pudo sincronizar una capa de vídeo.')),{once:true});
+          layer.video.currentTime=target;
+        });
+      }
+    }
+    const mediaWidth=Number(media.videoWidth||media.width)||1,mediaHeight=Number(media.videoHeight||media.height)||1;
+    const scale=Math.max(.1,Math.min(3,Number(item.scale)||1));
+    const fit=Math.min(width*.9/mediaWidth,height*.9/mediaHeight);
+    const drawWidth=mediaWidth*fit*scale,drawHeight=mediaHeight*fit*scale;
+    const x=width/2+(Number(item.positionX)||0)*width/100;
+    const y=height/2+(Number(item.positionY)||0)*height/100;
+    const transitionDuration=Math.max(.05,Math.min(3,Number(item.transitionDuration)||.5));
+    const fadeIn=item.transitionIn==='fade'?Math.min(1,local/transitionDuration):1;
+    const fadeOut=item.transitionOut==='fade'?Math.min(1,(duration-local)/transitionDuration):1;
+    const opacity=Math.max(0,Math.min(1,Number(item.opacity??1)))*Math.min(fadeIn,fadeOut);
+    const presets={cinematic:'contrast(1.14) saturate(.82)',warm:'sepia(.16) saturate(1.2)',cool:'hue-rotate(12deg) saturate(.9)',bw:'grayscale(1) contrast(1.08)'};
+    const filters=[presets[item.filterPreset]||'',item.brightness&&item.brightness!==100?'brightness('+item.brightness+'%)':'',item.contrast&&item.contrast!==100?'contrast('+item.contrast+'%)':'',item.saturation&&item.saturation!==100?'saturate('+item.saturation+'%)':''].filter(Boolean);
+    ctx.save();ctx.globalAlpha*=opacity;ctx.filter=filters.join(' ')||'none';
+    ctx.translate(x,y);ctx.rotate((Number(item.rotation)||0)*Math.PI/180);
+    ctx.drawImage(media,-drawWidth/2,-drawHeight/2,drawWidth,drawHeight);
+    ctx.restore();
+  }
+}
+function disposeVisualOverlays(layers){
+  for(const layer of layers||[]){
+    layer.bitmap?.close?.();
+    if(layer.video){layer.video.pause();layer.video.removeAttribute('src');layer.video.load();URL.revokeObjectURL(layer.url);}
+  }
+}
+
 window.clipforgeBuildTimelineAudioMix=buildTimelineAudioMix;
 
 async function exportOne(file,clip,segments,tracks,index,total,settings={}){
@@ -185,6 +261,7 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
     input.dispose();
     throw new Error(`El corte ${index+1} (${clip.start.toFixed(2)}–${clip.end.toFixed(2)} s) queda fuera de la duración real del vídeo (${sourceDuration.toFixed(2)} s).`);
   }
+  const visualOverlays=await prepareVisualOverlays(tracks,clip,message=>sayExport(`Clip ${index+1}/${total}: ${message}`)).catch(error=>{input.dispose();throw error;});
   const sourceAudioTrack=await input.getPrimaryAudioTrack();
   let mixedAudio=null;
   try{mixedAudio=await buildTimelineAudioMix(file,clip,tracks,sourceAudioTrack,message=>sayExport(`Clip ${index+1}/${total}: ${message}`));}
@@ -225,7 +302,7 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
     video:{
       width:1080,height:1920,fit:'cover',frameRate:30,codec:'avc',
       quality:new Quality('high'),hardwareAcceleration:'no-preference',
-      process:sample=>{
+      process:async sample=>{
         // The returned canvas MUST have the same 9:16 dimensions advertised
         // by processedWidth/processedHeight. Drawing at source dimensions here
         // caused a landscape canvas to be passed to a portrait encoder.
@@ -331,6 +408,7 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
         ctx.restore();
         // Mediabunny normalizes timestamps to zero after trim; captions keep source-video times.
         const local=clip.start+stamp;
+        await drawVisualOverlays(ctx,visualOverlays,local,canvas.width,canvas.height);
         drawTextLayers(ctx,tracks,local,canvas.width,canvas.height);
         drawKaraokeCaption(ctx,cues,local,canvas.width,canvas.height,settings);
         return canvas;
@@ -350,7 +428,7 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
       await Promise.all([conversion.execute(),audioSource.add(mixedAudio).then(()=>audioSource.close())]);
       await output.finalize();
     }else await conversion.execute();
-  }finally{faceLandmarker?.close?.();poseLandmarker?.close?.();input.dispose();}
+  }finally{faceLandmarker?.close?.();poseLandmarker?.close?.();disposeVisualOverlays(visualOverlays);input.dispose();}
   const buffer=output.target.buffer;
   if(!buffer||buffer.byteLength<1024)throw new Error('El render terminó sin generar un MP4 válido.');
   const blob=new Blob([buffer],{type:'video/mp4'});
