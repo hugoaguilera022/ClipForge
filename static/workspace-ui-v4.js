@@ -357,7 +357,7 @@
       }
       inspector.style.setProperty('width','100%','important');
       inspector.style.setProperty('min-width','0','important');
-      inspector.style.setProperty('align-self','stretch','important');inspector.style.setProperty('max-height','100%','important');inspector.style.setProperty('overflow','hidden','important');
+      inspector.style.setProperty('align-self','stretch','important');inspector.style.setProperty('height','auto','important');inspector.style.setProperty('min-height','420px','important');inspector.style.setProperty('max-height','none','important');inspector.style.setProperty('overflow','visible','important');panes.style.setProperty('height','auto','important');panes.style.setProperty('min-height','360px','important');panes.style.setProperty('max-height','none','important');panes.style.setProperty('overflow','visible','important');
       if(timeline){timeline.style.setProperty('width','100%','important');timeline.style.setProperty('height',timelineHeight+'px','important');timeline.style.setProperty('flex','0 0 '+timelineHeight+'px','important');timeline.style.setProperty('min-height','0','important');timeline.style.setProperty('max-height',timelineHeight+'px','important');timeline.style.setProperty('overflow','hidden','important');timeline.style.setProperty('max-width','100%','important');timeline.style.setProperty('min-width','0','important');timeline.style.setProperty('box-sizing','border-box','important');}
     };
     card.classList.add('cf-opus-editing-card');
