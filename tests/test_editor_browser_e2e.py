@@ -65,6 +65,8 @@ def test_copy_paste_preserves_clip_track_type_and_is_undoable():
     with sync_playwright() as p:
         browser = p.chromium.launch()
         page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        page_errors = []
+        page.on("pageerror", lambda error: page_errors.append(str(error)))
         page.set_content("""
           <input id="video" type="file">
           <section id="cfEditor"><div class="cf-opus-editor-slot"></div></section>
@@ -85,8 +87,15 @@ def test_copy_paste_preserves_clip_track_type_and_is_undoable():
         page.evaluate("""() => window.dispatchEvent(new CustomEvent(
           'clipforge:open-editor', {detail:{clip:{id:'c1',title:'Clip uno'},index:0}}
         ))""")
-        page.wait_for_selector("#cfNle")
-        assert page.locator(".cf-nle-block[data-type='video']").count() == 4
+        # open-editor is async (IndexedDB media restoration); wait for the rendered
+        # timeline, not merely for the editor shell mounted before its first render.
+        page.wait_for_function(
+            "() => document.querySelectorAll(\".cf-nle-block[data-type='video']\").length === 4",
+            timeout=10000,
+        )
+        assert page.locator(".cf-nle-block[data-type='video']").count() == 4, (
+            f"Los cuatro clips no se renderizaron. Errores JS: {page_errors}"
+        )
         page.locator(".cf-nle-block[data-type='video']").first.click()
         page.locator('[data-act="copy"]').click()
         page.locator("#cfNleSeek").evaluate("""el => {
