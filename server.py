@@ -440,7 +440,7 @@ class Handler(BaseHTTPRequestHandler):
    length=int(self.headers.get('Content-Length','0'))
    if length<=0 or length>512*1024*1024: return self.json(413,{'error':'invalid_or_too_large_export','max_bytes':512*1024*1024})
    raw=self.rfile.read(length)
-   msg=BytesParser(policy=default).parsebytes((f'Content-Type: {ctype}\\r\\nMIME-Version: 1.0\\r\\n\\r\\n'.encode()+raw))
+   msg=BytesParser(policy=default).parsebytes((f'Content-Type: {ctype}\r\nMIME-Version: 1.0\r\n\r\n'.encode()+raw))
    part=next((x for x in msg.iter_parts() if x.get_param('name',header='content-disposition')=='video'),None)
    if not part: return self.json(400,{'error':'video_required'})
    payload=part.get_payload(decode=True) or b''
@@ -597,7 +597,7 @@ class Handler(BaseHTTPRequestHandler):
      meta_path=OUTPUTS/jid/Path(args[3]).stem/'youtube_source_stats.json'
      if meta_path.parent.exists():
       meta_path.write_text(json.dumps(source_meta,ensure_ascii=False,indent=2),encoding='utf-8')
-      log='Metadatos públicos de YouTube guardados en youtube_source_stats.json.\\n'+log
+      log='Metadatos públicos de YouTube guardados en youtube_source_stats.json.\n'+log
    except LeaseLostError as exc:
     success=False; lease_lost=True; log=str(exc)
    except Exception as exc:
@@ -621,7 +621,7 @@ class Handler(BaseHTTPRequestHandler):
     JOBS[jid]['output']=str(actual_output) if success and actual_output.is_dir() else None
     if success and JOBS[jid]['output'] is None:
      JOBS[jid]['status']='failed'
-     JOBS[jid]['log'] += "\\nERROR: el motor terminó sin crear la carpeta de salida esperada."
+     JOBS[jid]['log'] += "\nERROR: el motor terminó sin crear la carpeta de salida esperada."
     if JOBS[jid]['status']=='failed' and not lease_lost:
      shutil.rmtree(OUTPUTS/jid,ignore_errors=True)
     if worker_id:
