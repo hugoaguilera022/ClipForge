@@ -196,6 +196,42 @@
     const tabs=document.createElement('div');tabs.className='cf-opus-inspector-tabs';tabs.setAttribute('role','tablist');
     const panes=document.createElement('div');panes.className='cf-opus-inspector-panes';
     const captionsPane=document.createElement('section');captionsPane.className='cf-opus-pane is-active';captionsPane.dataset.pane='captions';if(captions)captionsPane.append(captions);
+    // Canonical subtitle editor: read and write the same S1 items used by the timeline and exporter.
+    const subtitleEditor=document.createElement('div');subtitleEditor.className='cf-canonical-subtitle-editor';
+    subtitleEditor.innerHTML='<div class="cf-opus-pane-title">Subtítulos del proyecto</div><p class="cf-subtitle-help">Edita el texto y los tiempos de cada bloque. Los cambios se reflejan en la pista S1.</p><div class="cf-subtitle-compact-list" aria-label="Bloques de subtítulos"></div><div class="cf-subtitle-single-editor" hidden><label>Texto del subtítulo<textarea rows="3" aria-label="Texto del subtítulo"></textarea></label><div class="cf-subtitle-times"><label>Inicio (s)<input class="cf-subtitle-start" type="number" min="0" step="0.01"></label><label>Final (s)<input class="cf-subtitle-end" type="number" min="0" step="0.01"></label></div><div class="cf-subtitle-live-preview"></div><div class="cf-subtitle-edit-actions"><button type="button" class="cf-subtitle-save">Guardar cambios</button><button type="button" class="cf-subtitle-duplicate">Duplicar</button><button type="button" class="cf-subtitle-delete">Eliminar</button></div></div><div class="cf-subtitle-empty" hidden>No hay subtítulos temporizados en este proyecto. Importa una transcripción con marcas de tiempo para empezar.</div>';
+    captionsPane.append(subtitleEditor);
+    const subtitleList=subtitleEditor.querySelector('.cf-subtitle-compact-list'),subtitleForm=subtitleEditor.querySelector('.cf-subtitle-single-editor'),subtitleText=subtitleForm.querySelector('textarea'),subtitleStart=subtitleForm.querySelector('.cf-subtitle-start'),subtitleEnd=subtitleForm.querySelector('.cf-subtitle-end'),subtitlePreview=subtitleForm.querySelector('.cf-subtitle-live-preview');
+    let activeSubtitleId=null;
+    const getSubtitleItems=()=>window.clipforgeProjectStore?.project?.tracks?.filter(t=>t.type==='subtitles').flatMap(t=>t.items)||[];
+    const renderSubtitleRows=()=>{
+      const items=getSubtitleItems();subtitleList.replaceChildren();
+      items.forEach(item=>{const row=document.createElement('button');row.type='button';row.className='cf-subtitle-row-button'+(item.id===activeSubtitleId?' is-active':'');row.dataset.subtitleId=item.id;const time=document.createElement('span');time.textContent=Number(item.start).toFixed(2)+'s';const copy=document.createElement('span');copy.textContent=item.text||'(Subtítulo vacío)';row.append(time,copy);subtitleList.append(row);});
+      subtitleEditor.querySelector('.cf-subtitle-empty').hidden=items.length>0;
+      if(!items.some(item=>item.id===activeSubtitleId)){activeSubtitleId=items[0]?.id||null;}
+      subtitleForm.hidden=!activeSubtitleId;
+      if(activeSubtitleId){const item=items.find(x=>x.id===activeSubtitleId);if(item){subtitleText.value=item.text||'';subtitleStart.value=Number(item.start).toFixed(2);subtitleEnd.value=Number(item.end).toFixed(2);subtitlePreview.textContent=item.text||'Vista previa';}}
+      subtitleList.querySelectorAll('button').forEach(row=>row.classList.toggle('is-active',row.dataset.subtitleId===activeSubtitleId));
+    };
+    subtitleList.addEventListener('click',event=>{const row=event.target.closest('[data-subtitle-id]');if(!row)return;activeSubtitleId=row.dataset.subtitleId;renderSubtitleRows();});
+    subtitleText.addEventListener('input',()=>{subtitlePreview.textContent=subtitleText.value||'Vista previa';});
+    subtitleForm.querySelector('.cf-subtitle-save').addEventListener('click',()=>{
+      const store=window.clipforgeProjectStore,commands=window.clipforgeEditorCommands,start=Number(subtitleStart.value),end=Number(subtitleEnd.value);
+      if(!store||!commands||!activeSubtitleId||!Number.isFinite(start)||!Number.isFinite(end)||start<0||end<=start){subtitleStart.setCustomValidity('Revisa los tiempos del subtítulo');subtitleStart.reportValidity();return;}
+      subtitleStart.setCustomValidity('');
+      try{commands.updateItem(activeSubtitleId,{text:subtitleText.value.trim(),start,end});store.select([activeSubtitleId]);renderSubtitleRows();}catch(error){window.clipforgeEditorBridge?.setStatus?.(error.message);console.error(error);}
+    });
+    subtitleForm.querySelector('.cf-subtitle-duplicate').addEventListener('click',()=>{
+      const commands=window.clipforgeEditorCommands,found=commands?.item(activeSubtitleId);if(!found)return;
+      try{activeSubtitleId=commands.duplicate(activeSubtitleId);renderSubtitleRows();}catch(error){console.error(error);}
+    });
+    subtitleForm.querySelector('.cf-subtitle-delete').addEventListener('click',()=>{
+      const commands=window.clipforgeEditorCommands;if(!commands||!activeSubtitleId)return;
+      const items=getSubtitleItems(),index=items.findIndex(x=>x.id===activeSubtitleId);
+      try{commands.remove([activeSubtitleId]);activeSubtitleId=items[Math.max(0,index-1)]?.id||null;renderSubtitleRows();}catch(error){console.error(error);}
+    });
+    const subtitleStore=window.clipforgeProjectStore;
+    if(subtitleStore){subtitleStore.addEventListener('change',renderSubtitleRows);subtitleEditor.__cfCleanup=()=>subtitleStore.removeEventListener('change',renderSubtitleRows);}
+    renderSubtitleRows();
     const textPane=document.createElement('section');textPane.className='cf-opus-pane';textPane.dataset.pane='text';
     textPane.innerHTML='<div class="cf-opus-pane-title">Añadir texto al vídeo</div><label>Texto<textarea class="cf-overlay-copy" rows="3" placeholder="Escribe un título o llamada…"></textarea></label><div class="cf-opus-text-times"><label>Inicio (s)<input class="cf-overlay-start" type="number" step="0.01"></label><label>Final (s)<input class="cf-overlay-end" type="number" step="0.01"></label></div><button type="button" class="cf-opus-add-overlay">Añadir texto a la pista</button><div class="cf-opus-overlay-list"></div>';
     const textTemplates=document.createElement('div');textTemplates.className='cf-opus-text-templates';textTemplates.innerHTML='<div class="cf-opus-pane-title">Plantillas de texto</div><p>Elige un diseño para aplicarlo a todos los subtítulos del proyecto.</p>';
