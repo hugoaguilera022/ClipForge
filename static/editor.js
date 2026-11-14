@@ -277,13 +277,32 @@
       const textItems=state.tracks.filter(t=>(t.type==='text'||t.type==='subtitles')&&!t.hidden).flatMap(t=>t.items);
       const draw=()=>{
         const vw=previewVideo.videoWidth||1920,vh=previewVideo.videoHeight||1080;
-        const scale=Math.max(canvas.width/vw,canvas.height/vh),dw=vw*scale,dh=vh*scale;
-        const activeVideo=videoTracks.flatMap(t=>t.items).find(x=>previewVideo.currentTime>=x.start&&previewVideo.currentTime<=x.end);
-        const alpha=transitionOpacity({...item,...activeVideo},previewVideo.currentTime);
-        ctx.save();ctx.clearRect(0,0,canvas.width,canvas.height);ctx.globalAlpha=alpha*Math.max(0,Math.min(1,Number(item.opacity??1)));ctx.filter=filterCss(item.filterPreset);ctx.translate(canvas.width/2+(Number(item.x)||0),canvas.height/2+(Number(item.y)||0));ctx.rotate((Number(item.rotation)||0)*Math.PI/180);const itemScale=Math.max(.1,Math.min(4,Number(item.scale)||1));ctx.scale(itemScale,itemScale);
-        ctx.drawImage(previewVideo,-dw/2,-dh/2,dw,dh);ctx.restore();
-        const active=textItems.filter(x=>previewVideo.currentTime>=x.start&&previewVideo.currentTime<=x.end);
-        active.forEach((x,index)=>{const font=Math.max(24,Math.min(110,Number(x.fontSize)||64));ctx.save();ctx.globalAlpha=alpha;ctx.font='700 '+font+'px Arial,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineWidth=Math.max(4,font*.09);ctx.strokeStyle='rgba(0,0,0,.82)';ctx.fillStyle=x.color||'#ffffff';const words=String(x.text||'').split(/\s+/);let lines=[],line='';for(const word of words){const test=line?line+' '+word:word;if(ctx.measureText(test).width>canvas.width*.88&&line){lines.push(line);line=word;}else line=test;}if(line)lines.push(line);const y=canvas.height*(Number(x.y)||.82);lines.slice(0,3).forEach((ln,i)=>{const yy=y+(i-(Math.min(lines.length,3)-1)/2)*font*1.15;ctx.strokeText(ln,canvas.width/2,yy);ctx.fillText(ln,canvas.width/2,yy);});ctx.restore();});
+        const fit=Math.max(canvas.width/vw,canvas.height/vh),dw=vw*fit,dh=vh*fit;
+        const time=previewVideo.currentTime;
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        // Composite every visible video lane in track order; all layers currently
+        // reference the imported source, with independent transforms and filters.
+        const layers=videoTracks.map(track=>({track,item:track.items.find(x=>time>=Number(x.start)&&time<Number(x.end))})).filter(x=>x.item&&!x.track.muted);
+        if(!layers.length&&time>=start&&time<end)layers.push({track:null,item});
+        layers.forEach(({item:layer})=>{
+          ctx.save();ctx.globalAlpha=transitionOpacity(layer,time);ctx.filter=filterCss(layer.filterPreset);
+          ctx.translate(canvas.width/2+(Number(layer.x)||0),canvas.height/2+(Number(layer.y)||0));
+          ctx.rotate((Number(layer.rotation)||0)*Math.PI/180);
+          const layerScale=Math.max(.1,Math.min(4,Number(layer.scale)||1));ctx.scale(layerScale,layerScale);
+          ctx.drawImage(previewVideo,-dw/2,-dh/2,dw,dh);ctx.restore();
+        });
+        const active=textItems.filter(x=>time>=Number(x.start)&&time<Number(x.end));
+        active.forEach(x=>{
+          const font=Math.max(24,Math.min(110,Number(x.fontSize)||64));ctx.save();
+          ctx.globalAlpha=Math.max(0,Math.min(1,Number(x.opacity??1)));
+          ctx.font='700 '+font+'px Arial,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+          ctx.lineWidth=Math.max(4,font*.09);ctx.strokeStyle=x.outlineColor||'rgba(0,0,0,.82)';ctx.fillStyle=x.color||'#ffffff';
+          const words=String(x.text||'').split(/\\s+/);let lines=[],line='';
+          for(const word of words){const test=line?line+' '+word:word;if(ctx.measureText(test).width>canvas.width*.88&&line){lines.push(line);line=word;}else line=test;}
+          if(line)lines.push(line);const y=canvas.height*(Number(x.y)||.82);
+          lines.slice(0,3).forEach((ln,i)=>{const yy=y+(i-(Math.min(lines.length,3)-1)/2)*font*1.15;ctx.strokeText(ln,canvas.width/2,yy);ctx.fillText(ln,canvas.width/2,yy);});
+          ctx.restore();
+        });
       };
       const drawLoop=()=>{if(previewVideo.readyState>=2)draw();if(!recorder||recorder.state!=='recording')return;if(previewVideo.currentTime>=end){previewVideo.pause();recorder.stop();return;}requestAnimationFrame(drawLoop);};
       canvasStream=canvas.captureStream(30);
