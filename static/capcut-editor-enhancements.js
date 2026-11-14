@@ -87,8 +87,39 @@ function decorateInspector(root){
  if(track.type==='text'||track.type==='subtitles'){add('Opacidad','opacity','range','0','1','.05');add('Contorno (px)','outlineWidth','number','0','12','1');}
  if(group.children.length){const title=document.createElement('b');title.textContent='TRANSFORMACIÓN Y EFECTOS';title.style.cssText='display:block;color:#8ddfc1;font-size:10px;letter-spacing:1px;margin:16px 0 8px';el.append(title,group);group.querySelectorAll('[data-extra]').forEach(x=>{x.addEventListener('focus',()=>{if(x.dataset.historyStarted!=='1'){window.clipforgeEditorCheckpoint?.();x.dataset.historyStarted='1'}});x.addEventListener('blur',()=>{delete x.dataset.historyStarted});x.addEventListener('input',()=>{const value=x.tagName==='SELECT'?x.value:Number(x.value);window.clipforgeSetItemProperty?.(track.id,id,x.dataset.extra,value);});});}
 }
+const visualLayerNodes=new Map();
+function syncVisualLayers(){
+ const p=project(),tracks=p.tracks||[],time=Number($('#cfNleSeek')?.value)||0,monitor=$('.cf-nle-monitor'),base=$('#cfNleVideo'),caption=$('#cfNleOverlay');
+ if(!monitor||!base)return;
+ let host=monitor.querySelector('.cf-nle-visual-layers');
+ if(!host){host=document.createElement('div');host.className='cf-nle-visual-layers';host.style.cssText='position:absolute;inset:0;z-index:2;pointer-events:none;overflow:hidden';monitor.insertBefore(host,caption||null);}
+ const wanted=new Set(),baseTrack=tracks.find(t=>t.type==='video'&&!t.hidden);
+ tracks.forEach(track=>{
+  if(track===baseTrack||track.type!=='video'||track.hidden)return;
+  const item=(track.items||[]).find(x=>time>=Number(x.start)&&time<Number(x.end));
+  if(!item)return;
+  wanted.add(item.id);
+  const image=item.kind==='image';let node=visualLayerNodes.get(item.id);
+  if(!node||((image&&node.tagName!=='IMG')||(!image&&node.tagName!=='VIDEO'))){
+   node?.remove();node=image?document.createElement('img'):document.createElement('video');
+   node.dataset.clipforgeLayer=item.id;node.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none';
+   if(!image){node.playsInline=true;node.muted=!!track.muted||!!item.muted;node.preload='auto';}
+   visualLayerNodes.set(item.id,node);host.append(node);
+  }
+  const src=item.url||(item.assetId==='source'?base.currentSrc||base.src:'');
+  if(src&&node.src!==src){node.src=src;if(!image)node.load();}
+  const sourceTime=Number(item.sourceStart||0)+Math.max(0,time-Number(item.start));
+  if(!image&&src&&Math.abs(node.currentTime-sourceTime)>.3)try{node.currentTime=sourceTime}catch{}
+  const scale=Math.max(.1,Math.min(3,Number(item.scale)||1)),style=node.style;
+  style.opacity=String(Math.max(0,Math.min(1,Number(item.opacity??1))));
+  style.transform='translate('+Number(item.positionX||0)+'%, '+Number(item.positionY||0)+'%) scale('+scale+') rotate('+Number(item.rotation||0)+'deg)';
+  style.filter=({cinematic:'contrast(1.15) saturate(.85)',warm:'sepia(.2) saturate(1.2)',cool:'hue-rotate(12deg)',bw:'grayscale(1)'}[item.filterPreset]||'')+' brightness('+Number(item.brightness??100)+'%) contrast('+Number(item.contrast??100)+'%) saturate('+Number(item.saturation??100)+'%)';
+  if(!image){node.playbackRate=Math.max(.25,Math.min(4,Number(item.speed)||1));node.muted=!!track.muted||!!item.muted;const local=Math.max(0,time-Number(item.start)),remain=Math.max(0,Number(item.end)-time);let gain=Math.max(0,Math.min(1,Number(item.volume??1)));if(Number(item.fadeIn)>0)gain*=Math.min(1,local/Number(item.fadeIn));if(Number(item.fadeOut)>0)gain*=Math.min(1,remain/Number(item.fadeOut));node.volume=gain;if(!base.paused&&node.paused)node.play().catch(()=>{});if(base.paused&&!node.paused)node.pause();}
+ });
+ for(const [id,node] of visualLayerNodes){if(!wanted.has(id)){node.pause?.();node.remove();visualLayerNodes.delete(id);}}
+}
 function syncAudio(){
- const p=project(),time=Number($('#cfNleSeek')?.value)||0,tracks=p.tracks||[],active=new Set();const vt=tracks.find(t=>t.type==='video'&&!t.hidden);const vv=$('#cfNleVideo');const activeVideoItem=vt?.items.find(i=>time>=Number(i.start)&&time<Number(i.end));if(vv)vv.muted=!!vt?.muted||!!activeVideoItem?.muted;applyVisualEffects(tracks,time);
+ syncVisualLayers();const p=project(),time=Number($('#cfNleSeek')?.value)||0,tracks=p.tracks||[],active=new Set();const vt=tracks.find(t=>t.type==='video'&&!t.hidden);const vv=$('#cfNleVideo');const activeVideoItem=vt?.items.find(i=>time>=Number(i.start)&&time<Number(i.end));if(vv){vv.muted=!!vt?.muted||!!activeVideoItem?.muted;let gain=Math.max(0,Math.min(1,Number(activeVideoItem?.volume??1)));const local=time-Number(activeVideoItem?.start||0),remain=Number(activeVideoItem?.end||time)-time;if(Number(activeVideoItem?.fadeIn)>0)gain*=Math.min(1,local/Number(activeVideoItem.fadeIn));if(Number(activeVideoItem?.fadeOut)>0)gain*=Math.min(1,remain/Number(activeVideoItem.fadeOut));vv.volume=gain;}applyVisualEffects(tracks,time);
  tracks.filter(t=>t.type==='audio'&&!t.hidden&&!t.muted).forEach(t=>t.items.forEach(i=>{
   if(i.muted||!i.url||time<Number(i.start)||time>=Number(i.end))return;
   active.add(i.id);let a=audioNodes.get(i.id);if(!a){a=new Audio(i.url);a.preload='auto';audioNodes.set(i.id,a);}

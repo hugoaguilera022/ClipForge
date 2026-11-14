@@ -1145,3 +1145,55 @@ def test_per_item_mute_checkbox_updates_saved_audio_item_state_in_chromium():
         assert page.evaluate("""() => window.clipforgeEditorBridge.getProject()
           .tracks.find(t => t.type === 'audio').items[0].muted""")
         browser.close()
+
+
+
+def test_chromium_preview_renders_secondary_video_track_as_overlay():
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        page.set_content("""
+          <input id="video" type="file">
+          <section><div class="cf-opus-editor-slot"></div></section>
+          <script>
+            const project = {tracks:[
+              {id:"v1",type:"video",name:"V1",items:[
+                {id:"base",kind:"clip",title:"Base",start:0,end:5,sourceStart:0,assetId:"source"}
+              ]},
+              {id:"v2",type:"video",name:"V2",items:[
+                {id:"overlay",kind:"image",title:"Overlay",start:0,end:5,
+                 url:"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='red'/%3E%3C/svg%3E",
+                 opacity:.5,scale:1}
+              ]},
+              {id:"a1",type:"audio",name:"A1",items:[]}
+            ]};
+            window.clipforgeEditorBridge = {
+              getProject: () => project,
+              setTracks: tracks => { project.tracks = tracks; },
+              setProjectName: () => {}
+            };
+          </script>
+        """)
+        page.add_script_tag(path=str(STATIC / "capcut-editor.js"))
+        page.add_script_tag(path=str(STATIC / "capcut-editor-enhancements.js"))
+        page.evaluate("""() => window.dispatchEvent(new CustomEvent(
+          'clipforge:open-editor', {detail:{clip:{id:'base',title:'Base'},index:0}}
+        ))""")
+        page.wait_for_selector("#cfNle")
+        page.evaluate("() => window.dispatchEvent(new CustomEvent('clipforge:nle-changed'))")
+        layer = page.locator(".cf-nle-visual-layers img[data-clipforge-layer='overlay']")
+        layer.wait_for()
+        assert layer.evaluate("(node) => node.style.opacity") == "0.5"
+        assert page.locator(".cf-nle-visual-layers").count() == 1
+        browser.close()
+
+
+
+def test_preview_video_track_audio_respects_item_mute_volume_and_fades():
+    source = (STATIC / "capcut-editor-enhancements.js").read_text()
+    assert "node.muted=!!track.muted||!!item.muted" in source
+    assert "node.volume=gain" in source
+    assert "vv.muted=!!vt?.muted||!!activeVideoItem?.muted" in source
+    assert "vv.volume=gain" in source
+    assert "if(Number(activeVideoItem?.fadeIn)>0)" in source
+    assert "if(Number(activeVideoItem?.fadeOut)>0)" in source
