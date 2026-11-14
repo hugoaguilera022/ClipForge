@@ -98,8 +98,75 @@ function drawKaraokeCaption(ctx,cues,sourceTime,width,height,settings={}){
   ctx.restore();
 }
 
+async function buildTimelineAudioMix(file,clip,tracks,sourceAudioTrack,onProgress=()=>{}){
+  const audioTracks=(tracks||[]).filter(track=>track?.type==='audio'&&!track.muted&&!track.hidden);
+  const items=audioTracks.flatMap(track=>(track.items||[])
+    .filter(item=>item&&item.kind==='audio'&&!item.muted&&Number.isFinite(Number(item.start))&&Number.isFinite(Number(item.end))&&Number(item.end)>Number(item.start))
+    .map(item=>({track,item})))
+    .filter(({item})=>Number(item.end)>clip.start&&Number(item.start)<clip.end&&Number(item.volume??1)>0);
+  if(!items.length)return null;
+  const AudioContextClass=window.AudioContext||window.webkitAudioContext;
+  const OfflineContextClass=window.OfflineAudioContext||window.webkitOfflineAudioContext;
+  if(!AudioContextClass||!OfflineContextClass)throw new Error('Este navegador no permite mezclar las pistas de audio del editor.');
+  const duration=clip.end-clip.start,sampleRate=48000;
+  const offline=new OfflineContextClass(2,Math.max(1,Math.ceil(duration*sampleRate)),sampleRate);
+  const decoder=new AudioContextClass();
+  const decode=async blob=>decoder.decodeAudioData(await blob.arrayBuffer());
+  const schedule=(buffer,start,offset,length,volume,fadeIn,fadeOut)=>{
+    if(!buffer||length<=0||offset>=buffer.duration)return;
+    const playable=Math.min(length,buffer.duration-offset);
+    if(playable<=0)return;
+    const source=offline.createBufferSource(),gain=offline.createGain();
+    source.buffer=buffer;
+    const level=Math.max(0,Math.min(2,Number(volume)||0));
+    const fadeInTime=Math.min(playable,Math.max(0,Number(fadeIn)||0));
+    const fadeOutTime=Math.min(playable,Math.max(0,Number(fadeOut)||0));
+    const end=start+playable;
+    gain.gain.setValueAtTime(fadeInTime>0?0:level,start);
+    if(fadeInTime>0)gain.gain.linearRampToValueAtTime(level,start+fadeInTime);
+    if(fadeOutTime>0){
+      const fadeAt=Math.max(start+fadeInTime,end-fadeOutTime);
+      gain.gain.setValueAtTime(level,fadeAt);
+      gain.gain.linearRampToValueAtTime(0,end);
+    }else gain.gain.setValueAtTime(level,end);
+    source.connect(gain);gain.connect(offline.destination);
+    source.start(start,Math.max(0,offset),playable);
+  };
+  try{
+    if(sourceAudioTrack){
+      onProgress('Mezclando el audio original con las pistas del editor…');
+      let original;
+      try{original=await decode(file);}catch(error){throw new Error('No se pudo decodificar el audio original para mezclarlo con la música: '+error.message);}
+      schedule(original,0,clip.start,Math.min(duration,original.duration-clip.start),1,0,0);
+    }
+    for(let index=0;index<items.length;index++){
+      const {track,item}=items[index];
+      onProgress('Preparando pista de audio '+(index+1)+'/'+items.length+'…');
+      let blob=null;
+      if(item.assetId)blob=await window.clipforgeMediaStore?.load?.(item.assetId);
+      if(!blob&&item.url){
+        const response=await fetch(item.url);
+        if(response.ok)blob=await response.blob();
+      }
+      if(!blob)throw new Error('No se encuentra el archivo de audio «'+(item.title||item.assetName||'sin nombre')+'». Vuelve a importarlo en la pista.');
+      let buffer;
+      try{buffer=await decode(blob);}catch(error){throw new Error('No se pudo decodificar «'+(item.title||item.assetName||'audio')+'»: '+error.message);}
+      const overlapStart=Math.max(clip.start,Number(item.start));
+      const overlapEnd=Math.min(clip.end,Number(item.end));
+      const start=overlapStart-clip.start;
+      const offset=Math.max(0,Number(item.sourceStart)||0)+(overlapStart-Number(item.start));
+      const length=overlapEnd-overlapStart;
+      const volume=Math.max(0,Math.min(2,Number(item.volume??1)*Number(track.volume??1)));
+      schedule(buffer,start,offset,length,volume,item.fadeIn,item.fadeOut);
+    }
+    return await offline.startRendering();
+  }finally{
+    await decoder.close().catch(()=>{});
+  }
+}
+
 async function exportOne(file,clip,segments,tracks,index,total,settings={}){
-  const {Input,Output,Conversion,ALL_FORMATS,BlobSource,Mp4OutputFormat,BufferTarget,Quality}=await import('https://esm.sh/mediabunny@1.65.2');
+  const {Input,Output,Conversion,ALL_FORMATS,BlobSource,Mp4OutputFormat,BufferTarget,Quality,AudioBufferSource}=await import('https://esm.sh/mediabunny@1.65.2');
   const input=new Input({source:new BlobSource(file),formats:ALL_FORMATS});
   // MOV/MP4 files can be valid even when the container omits duration metadata.
   // Measure the primary video track before rejecting a usable source.
@@ -116,9 +183,11 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
     input.dispose();
     throw new Error(`El corte ${index+1} (${clip.start.toFixed(2)}–${clip.end.toFixed(2)} s) queda fuera de la duración real del vídeo (${sourceDuration.toFixed(2)} s).`);
   }
-  // Keep the original compressed audio track whenever MP4 supports it.
-  // This avoids unnecessary lossy re-encoding and does not require an AAC encoder.
+  const sourceAudioTrack=await input.getPrimaryAudioTrack();
+  const mixedAudio=await buildTimelineAudioMix(file,clip,tracks,sourceAudioTrack,message=>sayExport(`Clip ${index+1}/${total}: ${message}`));
   const output=new Output({format:new Mp4OutputFormat(),target:new BufferTarget()});
+  const audioSource=mixedAudio?new AudioBufferSource({codec:'aac',quality:new Quality('high')}):null;
+  if(audioSource)output.addAudioTrack(audioSource);
   const cues=buildCaptionCues(segments);
   let canvas=null,ctx=null,sourceCanvas=null,sourceCtx=null,faceLandmarker=null,poseLandmarker=null;
   let lastFaceCenter=null,frameNumber=0,faceSamples=0,poseSamples=0,trackingMode='sin seguimiento';
@@ -148,6 +217,7 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
   }
   const conversion=await Conversion.init({
     input,output,tracks:'primary',
+    ...(mixedAudio?{audio:{discard:true},composable:true}:{}),
     trim:{start:clip.start,end:clip.end},
     video:{
       width:1080,height:1920,fit:'cover',frameRate:30,codec:'avc',
@@ -205,11 +275,12 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
             }
             if(seen.length)faceSamples++;
             for(let i=speakerTracks.length-1;i>=0;i--)if(frameNumber-speakerTracks[i].lastSeen>45)speakerTracks.splice(i,1);
-            if(seen.length){
-              // In group shots, keep the largest visible face centered rather
-              // than disabling tracking altogether. This is visual subject
-              // tracking, not speaker diarization.
-              const primary=[...seen].sort((a,b)=>(b.faceArea||0)-(a.faceArea||0))[0];
+            if(seen.length>1){
+              // Do not guess which person is speaking in a group shot.
+              // Preserve the complete frame until a single face is unambiguous.
+              lastFaceCenter=null;activeSpeakerTrack=null;
+            }else if(seen.length===1){
+              const primary=seen[0];
               activeSpeakerTrack=primary;
               const desired=primary.center*sourceWidth;
               lastFaceCenter=lastFaceCenter===null?desired:lastFaceCenter*.78+desired*.22;
@@ -269,12 +340,18 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
     throw new Error(`El navegador no puede codificar todas las pistas MP4 de este vídeo (${reasons||'códec no compatible'}).`);
   }
   conversion.onProgress=p=>sayExport(`Clip ${index+1}/${total}: renderizando ${Math.round(p*100)}%…`);
-  try{await conversion.execute();}finally{faceLandmarker?.close?.();poseLandmarker?.close?.();input.dispose();}
+  try{
+    if(audioSource){
+      await output.start();
+      await Promise.all([conversion.execute(),audioSource.add(mixedAudio).then(()=>audioSource.close())]);
+      await output.finalize();
+    }else await conversion.execute();
+  }finally{faceLandmarker?.close?.();poseLandmarker?.close?.();input.dispose();}
   const buffer=output.target.buffer;
   if(!buffer||buffer.byteLength<1024)throw new Error('El render terminó sin generar un MP4 válido.');
   const blob=new Blob([buffer],{type:'video/mp4'});
   const verifiedTrackingMode=faceSamples>0?'seguimiento facial':poseSamples>0?'seguimiento corporal de respaldo':'encuadre vertical seguro sin detección de persona';
-  return {blob,bytes:blob.size,duration:clip.end-clip.start,trackingMode:verifiedTrackingMode,faceSamples,poseSamples,name:`clipforge-${String(index+1).padStart(2,'0')}.mp4`};
+  return {blob,bytes:blob.size,duration:clip.end-clip.start,trackingMode:verifiedTrackingMode,faceSamples,poseSamples,audioMixed:Boolean(mixedAudio),name:`clipforge-${String(index+1).padStart(2,'0')}.mp4`};
 }
 
 exportButton?.addEventListener('click',async()=>{
@@ -308,7 +385,7 @@ exportButton?.addEventListener('click',async()=>{
       a.href=url;a.download=results[0].name;
       document.body.append(a);a.click();a.remove();
       setTimeout(()=>URL.revokeObjectURL(url),60000);
-      sayExport(`Exportación terminada: 1 MP4 individual · 1080×1920 · 30 fps · H.264 + audio original · ${results[0].trackingMode}${results[0].faceSamples?' · rostro detectado':' · encuadre seguro sin rostro detectado'} · ${(results[0].bytes/1024/1024).toFixed(1)} MB.`);
+      sayExport(`Exportación terminada: 1 MP4 individual · 1080×1920 · 30 fps · H.264 + ${results[0].audioMixed?'mezcla de pistas de audio':'audio original'} · ${results[0].trackingMode}${results[0].faceSamples?' · rostro detectado':' · encuadre seguro sin rostro detectado'} · ${(results[0].bytes/1024/1024).toFixed(1)} MB.`);
       return;
     }
     sayExport('Preparando paquete ZIP con los MP4…');
@@ -321,7 +398,7 @@ exportButton?.addEventListener('click',async()=>{
     document.body.append(a);a.click();a.remove();
     setTimeout(()=>URL.revokeObjectURL(url),60000);
     const totalBytes=results.reduce((n,x)=>n+x.bytes,0);
-    sayExport(`Exportación terminada: ${results.length} MP4 en un ZIP · 1080×1920 · 30 fps · H.264 + audio original · ${results.some(x=>x.faceSamples)?'seguimiento facial':results.some(x=>x.poseSamples)?'seguimiento corporal':'encuadre seguro'} · ${(totalBytes/1024/1024).toFixed(1)} MB de vídeo.`);
+    sayExport(`Exportación terminada: ${results.length} MP4 en un ZIP · 1080×1920 · 30 fps · H.264 + ${results.some(x=>x.audioMixed)?'mezcla de pistas de audio':'audio original'} · ${results.some(x=>x.faceSamples)?'seguimiento facial':results.some(x=>x.poseSamples)?'seguimiento corporal':'encuadre seguro'} · ${(totalBytes/1024/1024).toFixed(1)} MB de vídeo.`);
   }catch(error){console.error(error);sayExport(`Exportación detenida: ${error.message}. No se ha enviado el vídeo a ningún servidor.`);}
   finally{exportButton.disabled=false;}
 });
