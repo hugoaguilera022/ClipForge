@@ -120,7 +120,7 @@
     const play=$('#editorPlay');if(play&&previewVideo)play.textContent=previewVideo.paused?'▶ Reproducir':'Ⅱ Pausar';
     const active=getSelected()?.item;
     const overlay=$('#editorSubtitleOverlay');
-    if(overlay){const sub=state.tracks.filter(t=>t.type==='subtitles'&&!t.hidden).flatMap(t=>t.items).find(i=>playhead>=i.start&&playhead<=i.end);overlay.textContent=sub?.text||'';}
+    if(overlay){const active=state.tracks.filter(t=>(t.type==='subtitles'||t.type==='text')&&!t.hidden).flatMap(t=>t.items).find(i=>playhead>=i.start&&playhead<=i.end);overlay.textContent=active?.text||'';}
   }
   function renderPlayhead(){const el=$('#editorPlayhead');if(el)el.style.left=(playhead/Math.max(1,duration)*100)+'%';}
   function formatTime(t){const n=Math.max(0,Number(t)||0);return String(Math.floor(n/60)).padStart(2,'0')+':'+String(Math.floor(n%60)).padStart(2,'0')+'.'+String(Math.floor((n%1)*100)).padStart(2,'0');}
@@ -128,6 +128,7 @@
     if(!timelineEl)return;
     ensureWorkspace();deriveDuration();
     timelineEl.replaceChildren();
+    timelineEl.style.minWidth=Math.round(600*zoom)+'px';
     const ruler=document.createElement('div');ruler.className='editor-ruler';
     for(let t=0;t<=duration;t+=Math.max(1,Math.ceil(duration/10))){const mark=document.createElement('span');mark.textContent=formatTime(t);mark.style.left=(t/duration*100)+'%';ruler.append(mark);}
     timelineEl.append(ruler);
@@ -136,9 +137,9 @@
       const head=document.createElement('div');head.className='editor-track-head';
       const name=document.createElement('strong');name.textContent=track.name||((TYPES[track.type]||track.type)+' '+(index+1));
       const controls=document.createElement('div');controls.className='editor-track-controls';
-      controls.append(makeButton(track.locked?'🔒':'🔓',()=>{track.locked=!track.locked;persistLocal();render();},'track-control'));
-      controls.append(makeButton(track.muted?'Activar':'Silenciar',()=>{track.muted=!track.muted;persistLocal();render();},'track-control'));
-      controls.append(makeButton(track.hidden?'Mostrar':'Ocultar',()=>{track.hidden=!track.hidden;persistLocal();render();},'track-control'));
+      controls.append(makeButton(track.locked?'🔒':'🔓',()=>{remember();track.locked=!track.locked;persistLocal();render();},'track-control'));
+      controls.append(makeButton(track.muted?'Activar':'Silenciar',()=>{remember();track.muted=!track.muted;persistLocal();render();},'track-control'));
+      controls.append(makeButton(track.hidden?'Mostrar':'Ocultar',()=>{remember();track.hidden=!track.hidden;persistLocal();render();},'track-control'));
       controls.append(makeButton('×',()=>{if(state.tracks.length===1){say('El proyecto debe conservar al menos una pista.');return;}remember();state.tracks=state.tracks.filter(t=>t.id!==track.id);if(selected?.trackId===track.id)selected=null;render();persistLocal();},'track-control'));
       head.append(name,controls);
       const lane=document.createElement('div');lane.className='editor-track-items';lane.dataset.track=track.id;
@@ -175,7 +176,6 @@
         body.append(makeField(({scale:'Escala',rotation:'Rotación',opacity:'Opacidad',volume:'Volumen',speed:'Velocidad',x:'Posición X',y:'Posición Y'})[key],item[key]??defaults[key],'number',v=>mutateItem(item,{[key]:Number(v)})));
       });
     }
-    body.append(makeButton('Aplicar cambios',()=>{const a=Number(body.querySelectorAll('input')[0]?.value);void a;say('Propiedades aplicadas al proyecto.');persistLocal();},'primary'));
   }
   function mutateItem(item,patch){
     const a=patch.start??item.start,b=patch.end??item.end;
