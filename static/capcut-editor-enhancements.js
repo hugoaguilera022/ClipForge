@@ -79,6 +79,7 @@ function wireAudio(){
  if(v&&!v.dataset.audioWired){v.dataset.audioWired='1';v.addEventListener('timeupdate',syncAudio);v.addEventListener('pause',()=>audioNodes.forEach(a=>a.pause()));}
 }
 async function exportTimeline(){
+ const format=n=>{n=Math.max(0,Number(n)||0);return String(Math.floor(n/60)).padStart(2,'0')+':'+String(Math.floor(n%60)).padStart(2,'0')+'.'+String(Math.floor(n%1*100)).padStart(2,'0')};
  const p=project(),tracks=p.tracks||[],items=tracks.flatMap(t=>t.items.map(i=>({track:t,item:i}))),end=Math.max(0,...items.map(x=>Number(x.item.end)||0));
  if(!end){status('La línea de tiempo está vacía.');return;}
  const videos=items.filter(x=>x.track.type==='video'&&x.item.kind!=='image'&&!x.track.hidden);
@@ -141,7 +142,7 @@ async function exportTimeline(){
    });
    nodes.forEach(n=>{const i=n.item,local=time-Number(i.start),remain=Number(i.end)-time;let g=Math.max(0,Math.min(1,Number(i.volume??1)));if(i.fadeIn>0)g*=Math.min(1,local/Number(i.fadeIn));if(i.fadeOut>0)g*=Math.min(1,remain/Number(i.fadeOut));n.gain.gain.value=g});
    audios.forEach(x=>{const i=x.item,el=audio.get(i.id),on=time>=Number(i.start)&&time<Number(i.end);if(!el)return;if(on){const wanted=Math.max(0,Number(i.sourceStart||0)+time-Number(i.start));if(Math.abs(el.currentTime-wanted)>.5)try{el.currentTime=wanted}catch(e){}if(el.paused)el.play().catch(()=>{});}else if(!el.paused)el.pause();});
-   if(performance.now()-lastStatus>500){status('Exportando '+Math.floor(time/end*100)+'% · '+fmt(time)+' / '+fmt(end));lastStatus=performance.now();}
+   if(performance.now()-lastStatus>500){status('Exportando '+Math.floor(time/end*100)+'% · '+format(time)+' / '+format(end));lastStatus=performance.now();}
    if(time>=end){stop();return;}raf=requestAnimationFrame(draw);
   };
   draw();
@@ -151,7 +152,7 @@ async function exportTimeline(){
   const response=await fetch('/api/editor/export',{method:'POST',body:form});const result=await response.json();if(!response.ok||!result.download_url)throw Error(result.message||result.error||'No se pudo convertir el MP4.');
   const a=document.createElement('a');a.href=result.download_url;a.download=(String(p.projectName||'ClipForge').replace(/[^a-z0-9_-]/gi,'_')||'ClipForge')+'.mp4';document.body.append(a);a.click();a.remove();status('MP4 exportado correctamente.');
  }catch(e){stop();status('Error de exportación: '+e.message);console.error(e);}
- finally{if(button)button.disabled=false;media.forEach?.(()=>{});if(ac)ac.close().catch(()=>{});}
+ finally{if(button)button.disabled=false;if(ac)ac.close().catch(()=>{});}
 }
 function patchBridge(){
  const b=bridge();if(!b||b.__nleEnhanced)return;
@@ -162,6 +163,6 @@ function patchBridge(){
  b.__nleEnhanced=true;
 }
 function style(){if($('#cfNleEnhancementStyle'))return;const s=document.createElement('style');s.id='cfNleEnhancementStyle';s.textContent='.cf-nle-track-controls{display:flex;gap:3px;flex-wrap:wrap;margin-top:6px}.cf-nle-track-controls button{padding:3px 5px;font-size:10px}.cf-nle-track-controls button.is-on{background:#365d54;border-color:#7adbb9}.cf-nle-block{padding-left:10px;padding-right:10px}.cf-nle-trim{position:absolute;top:0;bottom:0;width:7px;background:#d7f6e9aa;cursor:ew-resize;z-index:5}.cf-nle-trim.left{left:0;border-radius:5px 0 0 5px}.cf-nle-trim.right{right:0;border-radius:0 5px 5px 0}.cf-nle button:focus-visible,.cf-nle input:focus-visible{outline:2px solid #8de3c4;outline-offset:2px}.cf-nle-track-head{min-width:132px}.cf-nle-track:has(.cf-nle-track-head .cf-nle-track-controls button.is-on[title="Ocultar pista"]){opacity:.65}';document.head.append(s);}
-function init(){patchBridge();style();install();}
+function init(){patchBridge();style();install();const exportButton=$('#cfNleExport');if(exportButton&&!exportButton.dataset.timelineExport){exportButton.dataset.timelineExport='1';exportButton.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();exportTimeline();},true);}}
 document.addEventListener('DOMContentLoaded',init);window.addEventListener('clipforge:editor-ready',init);window.addEventListener('clipforge:open-editor',()=>setTimeout(init,0));window.addEventListener('clipforge:clips-updated',()=>setTimeout(init,0));new MutationObserver(init).observe(document.body,{childList:true,subtree:true});
 })();
