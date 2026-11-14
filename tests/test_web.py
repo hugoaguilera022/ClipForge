@@ -638,7 +638,7 @@ class EditorExportHttpIntegrationTests(unittest.TestCase):
    export_id=None
    try:
     boundary="clipforge-test-boundary"
-    body=(f"--{boundary}\\r\\nContent-Disposition: form-data; name=\"video\"; filename=\"test.webm\"\\r\\nContent-Type: video/webm\\r\\n\\r\\n".encode()+source.read_bytes()+f"\\r\\n--{boundary}--\\r\\n".encode())
+    body=(f"--{boundary}\r\nContent-Disposition: form-data; name=\"video\"; filename=\"test.webm\"\r\nContent-Type: video/webm\r\n\r\n".encode()+source.read_bytes()+f"\r\n--{boundary}--\r\n".encode())
     request=urllib.request.Request(f"http://127.0.0.1:{httpd.server_port}/api/editor/export",data=body,headers={"Content-Type":f"multipart/form-data; boundary={boundary}"},method="POST")
     with urllib.request.urlopen(request,timeout=30) as response:
      self.assertEqual(response.status,201);result=json.loads(response.read())
