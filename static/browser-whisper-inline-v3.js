@@ -1511,10 +1511,10 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
     if(key!==candidatePreviewKey){if(candidatePreviewUrl)URL.revokeObjectURL(candidatePreviewUrl);candidatePreviewUrl=URL.createObjectURL(sourceFile);candidatePreviewKey=key;}
   }
   const player=document.createElement('div');player.className='cf-inline-player';
-  const film=document.createElement('video');film.className='candidate-filmstrip';film.muted=false;film.volume=.8;film.playsInline=true;film.preload='metadata';film.controls=false;film.setAttribute('aria-label','Vista previa integrada del clip');
+  const film=document.createElement('video');film.className='candidate-filmstrip';film.muted=true;film.volume=.8;film.playsInline=true;film.preload='metadata';film.controls=true;film.setAttribute('aria-label','Vista previa del clip; controles de reproducción disponibles');
   if(candidatePreviewUrl){
     film.src=candidatePreviewUrl;film.muted=true;
-    film.addEventListener('loadedmetadata',()=>{const t=Math.max(0,Math.min(Math.max(0,film.duration-.2),Number(c.start)||0));try{film.currentTime=t;}catch(error){console.warn('No se pudo posicionar la vista previa:',error);}},{once:true});
+    film.addEventListener('loadedmetadata',()=>{const t=Math.max(0,Math.min(Math.max(0,film.duration-.2),Number(c.start)||0));try{film.currentTime=t;}catch(error){console.warn('No se pudo posicionar la vista previa:',error);}},{once:true});film.addEventListener('seeked',()=>{if(film.paused)film.play().catch(()=>{});},{once:true});
     film.addEventListener('error',()=>{film.dataset.previewError='1';},{once:true});film.load();
     // Decode the cover in an independent, muted video element so thumbnail
     // generation never competes with the editor player's seek/playhead.
