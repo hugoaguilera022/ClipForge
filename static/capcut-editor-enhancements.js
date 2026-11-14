@@ -39,11 +39,11 @@ function decorateBlocks(root){
  });
 }
 function decorateInspector(root){
- const el=root.querySelector('#cfNleInspector');if(!el||el.dataset.fxEnhanced)return;
+ const el=root.querySelector('#cfNleInspector');if(!el)return;
  const chosen=root.querySelector('.cf-nle-block.selected');if(!chosen)return;
- const id=chosen.dataset.itemId;if(!id)return;
+ const id=chosen.dataset.itemId;if(!id||el.dataset.fxEnhanced===id)return;
  const p=project(),track=(p.tracks||[]).find(t=>t.items?.some(i=>i.id===id)),item=track?.items.find(i=>i.id===id);if(!item)return;
- el.dataset.fxEnhanced='1';
+ el.dataset.fxEnhanced=id;
  const group=document.createElement('div');group.className='cf-nle-extra-inspector';
  const add=(label,key,type='number',min='0',max='1',step='.05')=>{const l=document.createElement('label');l.textContent=label;const x=document.createElement('input');x.type=type;x.dataset.extra=key;if(type==='number'||type==='range'){x.min=min;x.max=max;x.step=step;}x.value=item[key]??(key==='opacity'||key==='volume'?1:0);l.append(x);group.append(l);};
  const select=(label,key,opts)=>{const l=document.createElement('label');l.textContent=label;const x=document.createElement('select');x.dataset.extra=key;opts.forEach(([v,n])=>{const o=document.createElement('option');o.value=v;o.textContent=n;x.append(o)});x.value=item[key]||opts[0][0];l.append(x);group.append(l);};
