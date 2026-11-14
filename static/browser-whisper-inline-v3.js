@@ -2085,19 +2085,10 @@ saveProjectButton?.addEventListener('click', () => {
     say('Primero transcribe el vídeo y genera la selección de momentos.');
     return;
   }
-  const project = {
-    schema: 'clipforge-browser-project-v1',
-    saved_at: new Date().toISOString(),
-    source: transcriptData.source || document.querySelector('#video')?.files?.[0]?.name || '',
-    transcript: transcriptData,
-    clips: editableCandidates.map((clip, i) => ({ ...clip, id: String(clip.id || `clip-${i+1}`) }))
-  };
-  const blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'clipforge-proyecto.json'; a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-  say('Proyecto editable guardado. Incluye transcripción y cortes; conserva también el vídeo original.');
+  const first = document.querySelector('.cf-open-clip-editor');
+  if (first) first.click();
+  else window.dispatchEvent(new CustomEvent('clipforge:open-editor', {detail:{clip:editableCandidates[0],index:0}}));
+  say('Proyecto abierto en el editor multipista. Ponle nombre y utiliza Guardar en Drive.');
 });
 
 // Importación explícita de proyectos JSON guardados anteriormente.
