@@ -63,7 +63,7 @@ root.querySelector('#cfNleSeek').oninput=e=>{playhead=Number(e.target.value);con
 root.querySelector('#cfNleImport').onchange=e=>importFiles([...e.target.files||[]]);root.querySelector('#cfNleProjectImport').onchange=async e=>{const f=e.target.files?.[0];if(!f)return;try{const raw=JSON.parse(await f.text()),p=raw.project||raw;if(!Array.isArray(p.clips)&&!Array.isArray(p.tracks))throw Error('El archivo no contiene un proyecto ClipForge válido.');const b=window.clipforgeEditorBridge;b?.setClips?.(p.clips||[]);b?.setTranscript?.(p.transcript||null);tracks=[];storageRemove('clipforge.nle.project');projectName=p.projectName||raw.projectName||f.name.replace(/\\.json$/i,'');b?.setTracks?.(p.tracks||[]);seed();$('#cfNleName').value=projectName;render();persist();say('Proyecto importado. Vuelve a importar el vídeo original para reproducirlo y exportarlo.')}catch(err){say('No se pudo importar: '+err.message)}finally{e.target.value=''}};
 root.querySelectorAll('[data-track]').forEach(b=>b.onclick=()=>addTrack(b.dataset.track));
 root.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>act(b.dataset.act));
-video=$('#cfNleVideo');video.ontimeupdate=onTime;
+video=$('#cfNleVideo');video.ontimeupdate=onTime;document.addEventListener('keydown',editorKeydown);
 }
 async function open(e){const slot=$('.cf-opus-editor-slot');if(!slot)return;try{const old=slot.querySelector('.cf-opus-editing-card');if(old)old.hidden=true;if(!root)mount();else if(!slot.contains(root))slot.append(root);if(!root)throw Error('No se pudo crear el espacio de edición.');root.hidden=false;seed();await restoreMedia();bridge();const name=$('#cfNleName');if(name)name.value=projectName;const f=$('#video')?.files?.[0];if(f){if(sourceUrl)URL.revokeObjectURL(sourceUrl);sourceUrl=URL.createObjectURL(f);saveMedia('source',f).catch(()=>{});if(video){video.src=sourceUrl;video.load()}}const c=e.detail?.clip;if(c){const t=tracks.find(x=>x.type==='video'),i=t?.items.find(x=>x.id===c.id)||t?.items[0];if(i)selected={trackId:t.id,itemId:i.id}}render();syncPreview();persist();window.dispatchEvent(new CustomEvent('clipforge:editor-ready'));}catch(error){console.error('ClipForge editor open failed:',error);const host=$('.cf-opus-editor-slot');if(root&&host&&!host.contains(root))host.append(root);if(root){root.hidden=false;const statusNode=root.querySelector('#cfNleStatus');if(statusNode)statusNode.textContent='Error al iniciar: '+(error?.message||error);const work=root.querySelector('.cf-nle-work');if(work&&!work.children.length){const alert=document.createElement('p');alert.className='cf-nle-open-error';alert.setAttribute('role','alert');alert.textContent='No se pudo iniciar el espacio de edición: '+(error?.message||error);work.append(alert)}}else if(host){const notice=document.createElement('p');notice.className='cf-nle-open-error';notice.setAttribute('role','alert');notice.textContent='No se pudo iniciar el editor: '+(error?.message||error);host.append(notice)}window.dispatchEvent(new CustomEvent('clipforge:editor-error',{detail:{message:String(error?.message||error)}}))}}
 function render(){if(!root||!root.isConnected)return;const d=total(),px=20*zoom;$('#cfNleTotal').textContent=fmt(d);$('#cfNleSeek').max=d;$('#cfNleSeek').value=Math.min(d,playhead);$('#cfNleTime').textContent=fmt(playhead);const ruler=$('#cfNleRuler'),tl=$('#cfNleTimeline');ruler.replaceChildren();tl.replaceChildren();const width=Math.max(500,d*px);ruler.style.width=width+'px';tl.style.minWidth=width+'px';for(let t=0;t<=d;t+=Math.max(5,Math.round(10/zoom))){const x=document.createElement('i');x.textContent=fmt(t);x.style.left=t*px+'px';ruler.append(x)}
@@ -96,6 +96,25 @@ function play(){
   playingItemId=i.id;
   video.play().then(()=>$('#cfNlePlay').textContent='Ⅱ').catch(err=>{const detail=video.error?.message||err?.message||'formato o archivo no disponible';say('No se pudo reproducir el vídeo: '+detail);say('Comprueba que el MP4 original está importado y vuelve a enlazarlo.');playingItemId=null;$('#cfNlePlay').textContent='▶';});
  }else{video.pause();playingItemId=null;$('#cfNlePlay').textContent='▶'}
+}
+function editorKeydown(e){
+ if(!root||root.hidden)return;
+ const target=e.target;
+ if(target?.closest?.('input,textarea,select,[contenteditable="true"]'))return;
+ const mod=e.ctrlKey||e.metaKey,key=String(e.key||'').toLowerCase();
+ if(mod){
+  if(key==='c'){e.preventDefault();act('copy');return}
+  if(key==='x'){e.preventDefault();act('copy');act('delete');return}
+  if(key==='v'){e.preventDefault();act('paste');return}
+  if(key==='z'){e.preventDefault();act(e.shiftKey?'redo':'undo');return}
+  if(key==='y'){e.preventDefault();act('redo');return}
+ }
+ if(e.code==='Space'){e.preventDefault();play();return}
+ if(!mod&&!e.altKey){
+  if(key==='s'){e.preventDefault();act('split');return}
+  if(key==='d'){e.preventDefault();act('duplicate');return}
+  if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();act('delete');return}
+ }
 }
 function addTrack(type){checkpoint();tracks.push({id:uid(),type,name:(type==='video'?'V':type==='audio'?'A':type==='subtitles'?'S':'T')+(tracks.filter(t=>t.type===type).length+1)+' · '+type,items:[],locked:false,muted:false,hidden:false});persist();render()}
 function addText(){checkpoint();let t=tracks.find(x=>x.type==='text');if(!t){addTrack('text');t=tracks.find(x=>x.type==='text')}const i={id:uid(),kind:'text',start:playhead,end:playhead+3,text:'Nuevo texto',x:.5,y:.8,fontSize:48,color:'#ffffff'};t.items.push(i);selected={trackId:t.id,itemId:i.id};persist();render()}
