@@ -65,17 +65,21 @@ def test_copy_paste_preserves_clip_track_type_and_is_undoable():
     with sync_playwright() as p:
         browser = p.chromium.launch()
         page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        page_errors = []
+        page.on("pageerror", lambda error: page_errors.append(str(error)))
         page.set_content("""
           <input id="video" type="file">
           <section id="cfEditor"><div class="cf-opus-editor-slot"></div></section>
           <script>
             window.clipforgeEditorBridge = {
-              getProject: () => ({clips:[
-                {id:"c1",title:"Clip uno",start:0,end:2},
-                {id:"c2",title:"Clip dos",start:2,end:4},
-                {id:"c3",title:"Clip tres",start:4,end:6},
-                {id:"c4",title:"Clip cuatro",start:6,end:8}
-              ]}),
+              getProject: () => ({tracks:[{
+                id:"v1",type:"video",name:"V1 · Vídeo",items:[
+                  {id:"c1",kind:"clip",title:"Clip uno",start:0,end:2},
+                  {id:"c2",kind:"clip",title:"Clip dos",start:2,end:4},
+                  {id:"c3",kind:"clip",title:"Clip tres",start:4,end:6},
+                  {id:"c4",kind:"clip",title:"Clip cuatro",start:6,end:8}
+                ]
+              }]}),
               setTracks: () => {}, setProjectName: () => {}
             };
           </script>
@@ -85,7 +89,25 @@ def test_copy_paste_preserves_clip_track_type_and_is_undoable():
         page.evaluate("""() => window.dispatchEvent(new CustomEvent(
           'clipforge:open-editor', {detail:{clip:{id:'c1',title:'Clip uno'},index:0}}
         ))""")
-        page.wait_for_selector("#cfNle")
+        # open-editor is async (IndexedDB media restoration); wait for the rendered
+        # timeline, not merely for the editor shell mounted before its first render.
+        try:
+            page.wait_for_function(
+                "() => document.querySelectorAll(\".cf-nle-block[data-type='video']\").length === 4",
+                timeout=10000,
+            )
+        except Exception as exc:
+            diagnostics = page.evaluate("""() => ({
+              editor: Boolean(document.querySelector('#cfNle')),
+              status: document.querySelector('#cfNleStatus')?.textContent || null,
+              tracks: document.querySelectorAll('.cf-nle-track').length,
+              blocks: document.querySelectorAll('.cf-nle-block').length,
+              timeline: document.querySelector('#cfNleTimeline')?.innerHTML || null
+            })""")
+            raise AssertionError(
+                f"No se renderizaron los cuatro clips. Estado: {diagnostics}; "
+                f"errores JS: {page_errors}"
+            ) from exc
         assert page.locator(".cf-nle-block[data-type='video']").count() == 4
         page.locator(".cf-nle-block[data-type='video']").first.click()
         page.locator('[data-act="copy"]').click()
@@ -97,4 +119,50 @@ def test_copy_paste_preserves_clip_track_type_and_is_undoable():
         assert page.locator(".cf-nle-block[data-type='video']").count() == 5
         page.locator('[data-act="undo"]').click()
         assert page.locator(".cf-nle-block[data-type='video']").count() == 4
+        browser.close()
+
+
+def test_paste_into_locked_track_creates_compatible_track_and_undo_removes_it():
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        page_errors = []
+        page.on("pageerror", lambda error: page_errors.append(str(error)))
+        page.set_content("""
+          <input id="video" type="file">
+          <section id="cfEditor"><div class="cf-opus-editor-slot"></div></section>
+          <script>
+            window.clipforgeEditorBridge = {
+              getProject: () => ({tracks:[{
+                id:"v1",type:"video",name:"V1 · Vídeo",locked:true,items:[
+                  {id:"c1",kind:"clip",title:"Clip uno",start:0,end:2}
+                ]
+              }]}),
+              setTracks: () => {}, setProjectName: () => {}
+            };
+          </script>
+        """)
+        page.add_script_tag(path=str(STATIC / "capcut-editor.js"))
+        page.add_script_tag(path=str(STATIC / "capcut-editor-enhancements.js"))
+        page.evaluate("""() => window.dispatchEvent(new CustomEvent(
+          'clipforge:open-editor', {detail:{clip:{id:'c1',title:'Clip uno'},index:0}}
+        ))""")
+        page.wait_for_function(
+            "() => document.querySelectorAll(\".cf-nle-block[data-type='video']\").length === 1",
+            timeout=10000,
+        )
+        page.locator(".cf-nle-block[data-type='video']").first.click()
+        page.locator('[data-act="copy"]').click()
+        page.locator("#cfNleSeek").evaluate("""el => {
+          el.value = '5';
+          el.dispatchEvent(new Event('input', {bubbles:true}));
+        }""")
+        page.locator('[data-act="paste"]').click()
+        assert page.locator(".cf-nle-track").count() == 2, (
+            f"No se creó una pista compatible. Errores JS: {page_errors}"
+        )
+        assert page.locator(".cf-nle-block[data-type='video']").count() == 2
+        page.locator('[data-act="undo"]').click()
+        assert page.locator(".cf-nle-track").count() == 1
+        assert page.locator(".cf-nle-block[data-type='video']").count() == 1
         browser.close()
