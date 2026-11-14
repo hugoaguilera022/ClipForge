@@ -1258,7 +1258,7 @@ def test_timeline_export_button_dispatches_to_browser_mp4_exporter():
         page.set_content("""
           <input id="video" type="file">
           <section id="cfEditor"><div class="cf-opus-editor-slot"></div></section>
-          <button id="browserExportClips" hidden></button>
+          <button id="browserExportClips"></button>
           <script>
             window.__exportButtonClicks = 0;
             document.querySelector("#browserExportClips").addEventListener(
