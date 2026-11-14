@@ -1052,3 +1052,34 @@ def test_browser_export_mixes_original_audio_with_timeline_music_and_fades():
         assert result["middle"] > result["early"] * 1.35
         assert result["middle"] > result["late"] * 1.35
         browser.close()
+
+
+def test_browser_export_composites_image_overlays_from_the_editor_timeline():
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page()
+        page.set_content('<button id="browserExportClips"></button><div id="browserExportStatus"></div>')
+        page.add_script_tag(path=str(STATIC / "browser-export.js"))
+        result = page.evaluate("""async () => {
+          const source = new OffscreenCanvas(4,4);
+          const sourceContext = source.getContext('2d');
+          sourceContext.fillStyle = '#ff0000';
+          sourceContext.fillRect(0,0,4,4);
+          const imageBlob = await source.convertToBlob({type:'image/png'});
+          window.clipforgeMediaStore = {load: async id => id === 'image-1' ? imageBlob : null};
+          const layers = await window.clipforgeVisualOverlayTools.prepare(
+            [{id:'v1',type:'video',items:[{
+              id:'image-item',kind:'image',assetId:'image-1',start:0,end:1,
+              positionX:0,positionY:0,scale:1,opacity:1
+            }]}],
+            {start:0,end:1}
+          );
+          const target = new OffscreenCanvas(100,100);
+          const context = target.getContext('2d');
+          await window.clipforgeVisualOverlayTools.draw(context,layers,.5,100,100);
+          const pixel = [...context.getImageData(50,50,1,1).data];
+          window.clipforgeVisualOverlayTools.dispose(layers);
+          return pixel;
+        }""")
+        assert result[0] > 240 and result[1] < 10 and result[2] < 10 and result[3] > 240
+        browser.close()
