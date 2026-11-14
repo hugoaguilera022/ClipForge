@@ -20,7 +20,7 @@ async function restoreMedia(){
  renderAssets();
 }
 
-const say=m=>{const e=$('#cfNleStatus');if(e)e.textContent=m},fmt=n=>{n=Math.max(0,Number(n)||0);return String(Math.floor(n/60)).padStart(2,'0')+':'+String(Math.floor(n%60)).padStart(2,'0')+'.'+String(Math.floor(n%1*100)).padStart(2,'0')};
+const say=m=>{const e=$('#cfNleStatus');if(e)e.textContent=m},fmt=n=>{const centiseconds=Math.max(0,Math.round((Number(n)||0)*100)),seconds=Math.floor(centiseconds/100);return String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0')+'.'+String(centiseconds%100).padStart(2,'0')};
 const total=()=>Math.max(30,...tracks.flatMap(t=>t.items.map(i=>Number(i.end)||0)));
 const sel=()=>{const t=tracks.find(x=>x.id===selected?.trackId),i=t?.items.find(x=>x.id===selected?.itemId);return t&&i?{t,i}:null};
 function checkpoint(){undoStack.push(JSON.stringify({tracks,selected,playhead}));if(undoStack.length>80)undoStack.shift();redoStack=[];}
