@@ -541,6 +541,11 @@ def test_editor_restores_source_and_imported_audio_from_indexeddb():
         browser = p.chromium.launch()
         context = browser.new_context()
         page = context.new_page()
+        # IndexedDB is denied on opaque about:blank origins; use a real origin.
+        page.route("http://clipforge.test/**", lambda route: route.fulfill(
+            status=200, content_type="text/html", body="<html></html>"
+        ))
+        page.goto("http://clipforge.test")
         page.set_content("""
           <input id="video" type="file">
           <section id="cfEditor"><div class="cf-opus-editor-slot"></div></section>
