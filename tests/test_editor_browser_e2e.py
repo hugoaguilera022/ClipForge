@@ -1003,3 +1003,52 @@ def test_text_overlay_can_be_dragged_in_preview():
         assert before != after
         browser.close()
 
+
+
+def test_browser_export_mixes_original_audio_with_timeline_music_and_fades():
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page()
+        page.set_content('<button id="browserExportClips"></button><div id="browserExportStatus"></div>')
+        page.add_script_tag(path=str(STATIC / "browser-export.js"))
+        result = page.evaluate("""async () => {
+          const makeTone = (name, amplitude) => {
+            const rate = 48000, samples = rate, bytes = new ArrayBuffer(44 + samples * 2);
+            const view = new DataView(bytes);
+            const write = (offset, value) => [...value].forEach((c, i) => view.setUint8(offset + i, c.charCodeAt(0)));
+            write(0, 'RIFF'); view.setUint32(4, 36 + samples * 2, true); write(8, 'WAVE');
+            write(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true);
+            view.setUint16(22, 1, true); view.setUint32(24, rate, true); view.setUint32(28, rate * 2, true);
+            view.setUint16(32, 2, true); view.setUint16(34, 16, true); write(36, 'data');
+            view.setUint32(40, samples * 2, true);
+            for (let i = 0; i < samples; i++) view.setInt16(44 + i * 2, Math.sin(2 * Math.PI * 440 * i / rate) * amplitude * 32767, true);
+            return new File([bytes], name, {type:'audio/wav'});
+          };
+          const source = makeTone('source.wav', .2);
+          const music = makeTone('music.wav', .4);
+          window.clipforgeMediaStore = {load: async id => id === 'music-1' ? music : null};
+          const mixed = await window.clipforgeBuildTimelineAudioMix(
+            source,
+            {start:0,end:1},
+            [{id:'a1',type:'audio',muted:false,items:[{
+              id:'m1',kind:'audio',assetId:'music-1',start:0,end:1,sourceStart:0,
+              volume:.5,fadeIn:.25,fadeOut:.25
+            }]}],
+            {id:'source-audio'},
+            () => {}
+          );
+          const data = mixed.getChannelData(0);
+          const rms = (from, to) => {
+            let sum = 0, count = 0;
+            for (let i = Math.floor(from * mixed.sampleRate); i < Math.floor(to * mixed.sampleRate); i++) {
+              sum += data[i] * data[i]; count++;
+            }
+            return Math.sqrt(sum / count);
+          };
+          return {duration:mixed.duration, rate:mixed.sampleRate, early:rms(0,.05), middle:rms(.4,.6), late:rms(.95,1)};
+        }""")
+        assert result["duration"] == 1
+        assert result["rate"] == 48000
+        assert result["middle"] > result["early"] * 1.35
+        assert result["middle"] > result["late"] * 1.35
+        browser.close()
