@@ -899,3 +899,39 @@ def test_video_position_and_color_adjustments_match_preview_and_project_state():
         assert state["contrast"] == 110
         assert state["saturation"] == 140
         browser.close()
+
+
+
+def test_inspector_keeps_focus_while_editing_and_exposes_timeline_item_identity():
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        page.set_content("""
+          <input id="video" type="file">
+          <section id="cfEditor"><div class="cf-opus-editor-slot"></div></section>
+          <script>
+            window.clipforgeEditorBridge = {
+              getProject: () => ({tracks:[{id:"v1",type:"video",name:"V1",items:[
+                {id:"c1",kind:"clip",title:"Clip uno",start:0,end:5,sourceStart:0}
+              ]}]}),
+              setTracks: (tracks) => { window.projectTracks = tracks; },
+              setProjectName: () => {}
+            };
+          </script>
+        """)
+        page.add_script_tag(path=str(STATIC / "capcut-editor.js"))
+        page.add_script_tag(path=str(STATIC / "capcut-editor-enhancements.js"))
+        page.evaluate("""() => window.dispatchEvent(new CustomEvent(
+          'clipforge:open-editor', {detail:{clip:{id:'c1',title:'Clip uno'},index:0}}
+        ))""")
+        block = page.locator(".cf-nle-block[data-type='video']").first
+        assert block.get_attribute("data-item-id") == "c1"
+        scale = page.locator("#cfNleInspector input[data-k='start']")
+        scale.fill("1")
+        assert scale.evaluate("(el) => el === document.activeElement")
+        scale.press("End")
+        scale.type(".5")
+        assert scale.evaluate("(el) => el === document.activeElement")
+        assert page.locator("#cfNleInspector input[data-k='start']").input_value() == "1.5"
+        browser.close()
+
