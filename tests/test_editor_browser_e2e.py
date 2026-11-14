@@ -1217,3 +1217,34 @@ def test_editor_workspace_has_capcut_style_three_panel_responsive_layout():
     assert "cf-nle-transport" in source
     assert "@media(max-width:650px)" in source
     assert "#cfNle .cf-nle-track-head{position:sticky" in source
+
+
+def test_timeline_mp4_export_control_remains_visible_and_clickable():
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        page.set_content("""
+          <input id="video" type="file">
+          <section id="cfEditor"><div class="cf-opus-editor-slot"></div></section>
+          <button id="browserExportClips" hidden></button>
+          <script>
+            window.clipforgeEditorBridge = {
+              getProject: () => ({tracks:[{id:"v1",type:"video",name:"V1",items:[
+                {id:"c1",kind:"clip",title:"Clip uno",start:0,end:2}
+              ]}]}),
+              setTracks: () => {}, setProjectName: () => {}
+            };
+            window.__exportButtonClicks = 0;
+          </script>
+        """)
+        page.add_script_tag(path=str(STATIC / "capcut-editor.js"))
+        page.add_script_tag(path=str(STATIC / "capcut-editor-enhancements.js"))
+        page.evaluate("""() => window.dispatchEvent(new CustomEvent(
+          'clipforge:open-editor', {detail:{clip:{id:'c1',title:'Clip uno'},index:0}}
+        ))""")
+        export = page.locator("#cfNleExport")
+        export.wait_for(state="visible", timeout=10000)
+        assert export.is_visible()
+        assert export.is_enabled()
+        assert export.evaluate("(el) => getComputedStyle(el).display") != "none"
+        browser.close()
