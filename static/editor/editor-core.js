@@ -100,10 +100,20 @@ window.addEventListener('keydown',event=>{
     if(video){event.preventDefault();if(video.paused)video.play().catch(()=>{});else video.pause();}
   }
 });
+function ensureTranscriptTrack(tracks,transcript){
+  const next=Array.isArray(tracks)&&tracks.length?clone(tracks):makeTracks([],transcript);
+  if(!transcript?.segments?.length)return next;
+  let lane=next.find(track=>track.type==='subtitles');
+  if(!lane){lane={id:'track-s1',type:'subtitles',name:'S1 · Subtítulos',items:[]};next.push(lane);}
+  if(!Array.isArray(lane.items)||!lane.items.length){
+    lane.items=transcript.segments.filter(segment=>Number(segment.end)>Number(segment.start)&&String(segment.text||'').trim()).map((segment,index)=>({...clone(segment),id:String(segment.id||'subtitle-'+(index+1)),start:Number(segment.start),end:Number(segment.end),text:String(segment.text||''),words:Array.isArray(segment.words)?segment.words:[]}));
+  }
+  return next;
+}
 window.addEventListener('clipforge:clips-updated',()=>{
   const current=window.clipforgeEditorBridge?.getProject?.();
   if(!current)return;
-  store.hydrate({...store.snapshot(),...current,tracks:current.tracks?.length?current.tracks:makeTracks(current.clips,current.transcript)});
+  store.hydrate({...store.snapshot(),...current,tracks:ensureTranscriptTrack(current.tracks,current.transcript)});
 });
 window.addEventListener('clipforge:candidate-edited',()=>{
   const current=window.clipforgeEditorBridge?.getProject?.();
