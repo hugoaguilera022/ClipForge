@@ -886,6 +886,12 @@ def test_video_position_and_color_adjustments_match_preview_and_project_state():
             video.style.filter.includes('contrast(110%)') &&
             video.style.filter.includes('saturate(140%)');
         }""")
+        page.locator("#cfNleSeek").fill("1")
+        page.wait_for_function("""() => {
+          const video = document.querySelector('#cfNleVideo');
+          return video && video.style.transform.includes('translate(12%, -8%)') &&
+            video.style.filter.includes('brightness(125%)');
+        }""")
         state = page.evaluate("""() => window.__project.tracks[0].items[0]""")
         assert state["positionX"] == 12
         assert state["positionY"] == -8
