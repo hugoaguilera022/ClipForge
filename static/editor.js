@@ -347,6 +347,111 @@
       if(!state.tracks.length)state.tracks=defaultTracks();selected=null;undoStack=[];redoStack=[];deriveDuration();window.clipforgeEditorBridge?.setClips(state.clips);persistLocal();render();say('Proyecto recuperado: '+state.clips.length+' clips y '+state.tracks.length+' pistas. Vuelve a importar el vídeo original para previsualizar y exportar.');
     }catch(e){say('No se pudo abrir el proyecto: '+e.message);}
   }
+
+  // Google Drive App Data: each user owns their private cloud projects.
+  const GOOGLE_SCOPE='https://www.googleapis.com/auth/drive.appdata';
+  let googleAccessToken='',googleTokenClient=null,googleTokenExpiry=0;
+  function googleStatus(message){const el=$('#googleProjectStatus');if(el)el.textContent=message;}
+  function googleClientId(){return ($('#googleClientId')?.value||localStorage.getItem('clipforge.google.clientId')||'').trim();}
+  function loadGoogleIdentity(){
+    return new Promise((resolve,reject)=>{
+      if(window.google?.accounts?.oauth2){resolve();return;}
+      let script=document.querySelector('script[data-clipforge-google]');
+      if(!script){script=document.createElement('script');script.src='https://accounts.google.com/gsi/client';script.async=true;script.defer=true;script.dataset.clipforgeGoogle='1';document.head.append(script);}
+      const timer=setInterval(()=>{if(window.google?.accounts?.oauth2){clearInterval(timer);resolve();}},100);
+      script.onerror=()=>{clearInterval(timer);reject(new Error('No se pudo cargar el inicio de sesión de Google.'))};
+      setTimeout(()=>{clearInterval(timer);if(!window.google?.accounts?.oauth2)reject(new Error('Google Identity Services no respondió.'))},12000);
+    });
+  }
+  async function googleToken(prompt=''){
+    const clientId=googleClientId();
+    if(!clientId||!clientId.endsWith('.apps.googleusercontent.com'))throw new Error('Introduce un ID de cliente OAuth válido de Google.');
+    localStorage.setItem('clipforge.google.clientId',clientId);
+    await loadGoogleIdentity();
+    return new Promise((resolve,reject)=>{
+      googleTokenClient=window.google.accounts.oauth2.initTokenClient({
+        client_id:clientId,scope:GOOGLE_SCOPE,include_granted_scopes:true,
+        callback:response=>{
+          if(response.error){googleAccessToken='';reject(new Error(response.error_description||response.error));return;}
+          googleAccessToken=response.access_token||'';googleTokenExpiry=Date.now()+Math.max(60,Number(response.expires_in)||3600)*1000;
+          resolve(googleAccessToken);
+        },
+        error_callback:error=>reject(new Error(error?.message||'No se pudo abrir la ventana de Google.'))
+      });
+      googleTokenClient.requestAccessToken({prompt});
+    });
+  }
+  async function googleAuth(interactive=true){
+    if(googleAccessToken&&Date.now()<googleTokenExpiry-60000)return googleAccessToken;
+    if(!interactive)throw new Error('Tu sesión de Google ha caducado. Vuelve a conectar tu cuenta.');
+    return googleToken('select_account');
+  }
+  async function googleApi(url,options={}){
+    const token=await googleAuth(true);
+    const response=await fetch(url,{...options,headers:{...(options.headers||{}),Authorization:'Bearer '+token}});
+    if(!response.ok){let message='Google Drive respondió HTTP '+response.status;try{const data=await response.json();message=data.error?.message||message;}catch{}throw new Error(message);}
+    return response;
+  }
+  function googleProjectFilename(id){return 'clipforge-project-'+id+'.json';}
+  async function listGoogleProjects(){
+    const query="'appDataFolder' in parents and trashed=false and name contains 'clipforge-project-'";
+    const url='https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&pageSize=100&orderBy=modifiedTime%20desc&fields=files(id,name,modifiedTime)&q='+encodeURIComponent(query);
+    const response=await googleApi(url);const data=await response.json();
+    const select=$('#googleProjectList');if(!select)return;
+    select.replaceChildren(new Option('Selecciona un proyecto de Google Drive',''));
+    (data.files||[]).forEach(file=>select.add(new Option(file.name.replace(/^clipforge-project-/,'').replace(/\.json$/,'')+' · '+new Date(file.modifiedTime).toLocaleString('es-ES'),file.id)));
+    googleStatus('Google conectado · '+(data.files||[]).length+' proyectos privados en Drive.');
+  }
+  async function connectGoogle(){
+    try{
+      const input=$('#googleClientId');if(input&&input.value.trim())localStorage.setItem('clipforge.google.clientId',input.value.trim());
+      await googleToken('select_account');await listGoogleProjects();
+      const button=$('#connectGoogle');if(button)button.textContent='Cuenta Google conectada';
+    }catch(error){googleStatus('No se pudo conectar: '+error.message);}
+  }
+  async function saveGoogleProject(){
+    const button=$('#saveGoogleProject');if(button)button.disabled=true;
+    try{
+      const id=activeProjectId||(crypto.randomUUID?crypto.randomUUID().replaceAll('-','').slice(0,16):uid('project').replace(/[^a-z0-9]/gi,'').slice(0,16));
+      activeProjectId=id;
+      const project={schema:'clipforge-project-v2',id,source:state.source,transcript:state.transcript,clips:state.clips,tracks:state.tracks,settings:state.settings,savedAt:Date.now(),app:'ClipForge'};
+      const filename=googleProjectFilename(id);
+      const query="'appDataFolder' in parents and trashed=false and name='"+filename+"'";
+      const listResponse=await googleApi('https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&pageSize=10&fields=files(id,name)&q='+encodeURIComponent(query));
+      const files=(await listResponse.json()).files||[];
+      const boundary='clipforge_'+(crypto.randomUUID?crypto.randomUUID():Date.now());
+      const metadata={name:filename,mimeType:'application/json',...(files[0]?{}:{parents:['appDataFolder']})};
+      const body='--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify(metadata)+'\r\n--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify(project)+'\r\n--'+boundary+'--';
+      const endpoint=files[0]?'https://www.googleapis.com/upload/drive/v3/files/'+encodeURIComponent(files[0].id)+'?uploadType=multipart&fields=id,name,modifiedTime':'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,modifiedTime';
+      const response=await googleApi(endpoint,{method:files[0]?'PATCH':'POST',headers:{'Content-Type':'multipart/related; boundary='+boundary},body});
+      const saved=await response.json();
+      await refreshProjects();if(projectSelect)projectSelect.value=id;
+      await listGoogleProjects();const remote=$('#googleProjectList');if(remote)remote.value=saved.id;
+      persistLocal();googleStatus('Guardado en tu Google Drive privado · '+new Date(saved.modifiedTime||Date.now()).toLocaleString('es-ES'));
+      say('Proyecto guardado en tu cuenta de Google Drive.');
+    }catch(error){googleStatus('Error al guardar en Google Drive: '+error.message);say('El proyecto no se ha sincronizado con Google Drive.');}
+    finally{if(button)button.disabled=false;}
+  }
+  async function loadGoogleProject(){
+    const fileId=$('#googleProjectList')?.value;if(!fileId){googleStatus('Selecciona primero un proyecto de Google Drive.');return;}
+    try{
+      const response=await googleApi('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(fileId)+'?alt=media');
+      const p=await response.json();
+      if(p.schema!=='clipforge-project-v2')throw new Error('El archivo no es un proyecto ClipForge válido.');
+      activeProjectId=p.id||null;
+      Object.assign(state,{schema:'clipforge-project-v2',source:p.source||'',transcript:p.transcript||null,clips:p.clips||[],tracks:(p.tracks||[]).map(normalizeTrack),settings:p.settings||state.settings});
+      if(!state.tracks.length)state.tracks=defaultTracks();
+      selected=null;undoStack=[];redoStack=[];deriveDuration();window.clipforgeEditorBridge?.setClips(state.clips);
+      persistLocal();render();await refreshProjects();
+      if(projectSelect)projectSelect.value=activeProjectId||'';
+      googleStatus('Proyecto abierto desde Google Drive. Vuelve a importar el vídeo original si el medio no está disponible.');
+      say('Proyecto recuperado desde Google Drive: '+state.clips.length+' clips y '+state.tracks.length+' pistas.');
+    }catch(error){googleStatus('No se pudo abrir el proyecto: '+error.message);}
+  }
+  function restoreGoogleClientId(){
+    const input=$('#googleClientId');if(input)input.value=localStorage.getItem('clipforge.google.clientId')||'';
+  }
+
   function syncPreview(){
     const found=getSelected();if(!found)return;
     const item=found.item;if(previewVideo&&previewVideo.readyState>=1)seek(Math.min(item.start,previewVideo.duration||item.start));
@@ -371,6 +476,11 @@
   $('#editorRedo')?.addEventListener('click',redo);
   $('#addEditorTrack')?.addEventListener('click',()=>addTrack($('#editorTrackType')?.value||'video'));
   $('#saveSavedProject')?.addEventListener('click',saveProject);
+  $('#connectGoogle')?.addEventListener('click',connectGoogle);
+  $('#saveGoogleProject')?.addEventListener('click',saveGoogleProject);
+  $('#loadGoogleProject')?.addEventListener('click',loadGoogleProject);
+  $('#refreshGoogleProjects')?.addEventListener('click',()=>listGoogleProjects().catch(e=>googleStatus('Error al listar Drive: '+e.message)));
+  restoreGoogleClientId();
   $('#loadSavedProject')?.addEventListener('click',loadProject);
   $('#video')?.addEventListener('change',e=>attachSource(e.target.files?.[0]));
   window.addEventListener('clipforge:editor-ready',()=>{
@@ -394,7 +504,7 @@
     const saved=(()=>{try{return JSON.parse(localStorage.getItem('clipforge.editor.autosave')||'null');}catch{return null;}})();
     if(saved?.state?.tracks?.length){Object.assign(state,saved.state);state.tracks=state.tracks.map(normalizeTrack);selected=saved.selected||null;playhead=Number(saved.playhead)||0;}
     else {const p=window.clipforgeEditorBridge?.getProject?.();if(p){state.source=p.source||'';state.transcript=p.transcript||null;state.clips=p.clips||[];}state.tracks=defaultTracks();}
-    ensureWorkspace();deriveDuration();render();refreshProjects();updateHistoryButtons();
+    ensureWorkspace();deriveDuration();render();refreshProjects();updateHistoryButtons();restoreGoogleClientId();
     if(state.clips.length)say(state.clips.length+' clips listos. Selecciona un clip para editar.');
   }
   window.clipforgeEditor = {getProject:()=>clone(state),addTrack,undo,redo,saveProject,loadSource:(url,label='Vídeo original')=>{if(!previewVideo||!url)return false;if(sourceUrl?.startsWith('blob:'))URL.revokeObjectURL(sourceUrl);sourceUrl=null;state.source=String(label);previewVideo.src=String(url);previewVideo.load();persistLocal();say('Vídeo original del trabajo cargado en el editor.');return true;},select:(trackId,itemId)=>{const t=state.tracks.find(x=>x.id===trackId),i=t?.items.find(x=>x.id===itemId);if(t&&i)selectItem(t,i);}};
