@@ -93,9 +93,9 @@ function syncVisualLayers(){
  if(!monitor||!base)return;
  let host=monitor.querySelector('.cf-nle-visual-layers');
  if(!host){host=document.createElement('div');host.className='cf-nle-visual-layers';host.style.cssText='position:absolute;inset:0;z-index:2;pointer-events:none;overflow:hidden';monitor.insertBefore(host,caption||null);}
- const wanted=new Set();
- tracks.forEach((track,index)=>{
-  if(index===0||track.type!=='video'||track.hidden)return;
+ const wanted=new Set(),baseTrack=tracks.find(t=>t.type==='video'&&!t.hidden);
+ tracks.forEach(track=>{
+  if(track===baseTrack||track.type!=='video'||track.hidden)return;
   const item=(track.items||[]).find(x=>time>=Number(x.start)&&time<Number(x.end));
   if(!item)return;
   wanted.add(item.id);
