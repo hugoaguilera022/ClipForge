@@ -716,3 +716,55 @@ def test_video_inspector_controls_apply_transform_and_filter_to_preview():
         page.locator("#cfNleInspector select[data-extra='filterPreset']").select_option("bw")
         assert video.evaluate("(el) => el.style.filter") == "grayscale(1)"
         browser.close()
+
+
+
+def test_subtitle_typography_controls_update_preview_and_project():
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        page.set_content("""
+          <input id="video" type="file">
+          <section id="cfEditor"><div class="cf-opus-editor-slot"></div></section>
+          <script>
+            const project = {tracks:[
+              {id:"v1",type:"video",name:"V1",items:[]},
+              {id:"s1",type:"subtitles",name:"Subtítulos",items:[
+                {id:"sub1",kind:"subtitle",title:"Subtítulo",text:"Texto real",start:0,end:4,x:.5,y:.8,fontSize:32,color:"#ffffff"}
+              ]}
+            ]};
+            window.clipforgeEditorBridge = {
+              getProject: () => project,
+              setTracks: (tracks) => { project.tracks = tracks; },
+              setProjectName: () => {}
+            };
+          </script>
+        """)
+        page.add_script_tag(path=str(STATIC / "capcut-editor.js"))
+        page.add_script_tag(path=str(STATIC / "capcut-editor-enhancements.js"))
+        page.evaluate("""() => window.dispatchEvent(new CustomEvent(
+          'clipforge:open-editor', {detail:{clip:{title:'Subtítulos'},index:0}}
+        ))""")
+        caption = page.locator(".cf-nle-block[data-type='subtitles']")
+        caption.wait_for()
+        caption.click()
+        inspector = page.locator("#cfNleInspector")
+        inspector.locator('[data-k="fontFamily"]').select_option("Impact")
+        inspector.locator('[data-k="fontWeight"]').select_option("900")
+        inspector.locator('[data-k="textAlign"]').select_option("left")
+        inspector.locator('[data-k="backgroundColor"]').fill("#123456")
+        inspector.locator('[data-k="outlineColor"]').fill("#ff0000")
+        inspector.locator('[data-k="outlineWidth"]').fill("3")
+        overlay = page.locator("#cfNleOverlay .cf-nle-caption")
+        assert overlay.inner_text() == "Texto real"
+        assert overlay.evaluate("(el) => el.style.fontFamily") == "Impact"
+        assert overlay.evaluate("(el) => el.style.textAlign") == "left"
+        assert overlay.evaluate("(el) => el.style.backgroundColor") == "rgb(18, 52, 86)"
+        assert overlay.evaluate("(el) => el.style.webkitTextStroke") == "3px rgb(255, 0, 0)"
+        item = page.evaluate("""() => window.clipforgeEditorBridge.getProject()
+          .tracks.find(t => t.type === "subtitles").items[0]""")
+        assert item["fontFamily"] == "Impact"
+        assert item["textAlign"] == "left"
+        assert item["backgroundColor"] == "#123456"
+        assert item["outlineWidth"] == 3
+        browser.close()
