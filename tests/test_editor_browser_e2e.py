@@ -886,7 +886,7 @@ def test_video_position_and_color_adjustments_match_preview_and_project_state():
             video.style.filter.includes('contrast(110%)') &&
             video.style.filter.includes('saturate(140%)');
         }""")
-        page.locator("#cfNleSeek").fill("1")
+        page.locator("#cfNleSeek").evaluate("(el) => { el.value = '1'; el.dispatchEvent(new Event('input', {bubbles:true})); }")
         page.wait_for_function("""() => {
           const video = document.querySelector('#cfNleVideo');
           return video && video.style.transform.includes('translate(12%, -8%)') &&
