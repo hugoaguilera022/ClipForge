@@ -315,20 +315,36 @@
   function persistLocal(){
     try{localStorage.setItem('clipforge.editor.autosave',JSON.stringify({state,selected,playhead,savedAt:Date.now()}));}catch(e){say('No se pudo guardar automáticamente en este navegador: '+e.message);}
   }
+  function readLocalProjects(){try{const value=JSON.parse(localStorage.getItem('clipforge.editor.projects')||'{}');return value&&typeof value==='object'?value:{};}catch{return {};}}
+  function writeLocalProjects(projects){localStorage.setItem('clipforge.editor.projects',JSON.stringify(projects));}
   async function refreshProjects(){
     if(!projectSelect)return;
-    try{const r=await fetch('/api/projects');if(!r.ok)throw new Error('HTTP '+r.status);const data=await r.json();projectSelect.replaceChildren(new Option('Nuevo proyecto',''));(data.projects||[]).forEach(p=>projectSelect.add(new Option((p.source||'Proyecto')+' · '+p.clip_count+' clips',p.id)));}
-    catch(e){say('No se pudo cargar la lista de proyectos: '+e.message);}
+    const local=readLocalProjects();let remote=[];
+    try{const r=await fetch('/api/projects');if(r.ok){const data=await r.json();remote=data.projects||[];}}catch{}
+    projectSelect.replaceChildren(new Option('Nuevo proyecto',''));
+    const merged=new Map();
+    remote.forEach(p=>merged.set(p.id,{id:p.id,source:p.source,clip_count:p.clip_count}));
+    Object.entries(local).forEach(([id,p])=>merged.set(id,{id,source:p.source,clip_count:(p.clips||[]).length}));
+    [...merged.values()].forEach(p=>projectSelect.add(new Option((p.source||'Proyecto')+' · '+p.clip_count+' clips',p.id)));
   }
   async function saveProject(){
     const project={schema:'clipforge-project-v2',source:state.source,transcript:state.transcript,clips:state.clips,tracks:state.tracks,settings:state.settings};
-    try{const r=await fetch('/api/projects',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:activeProjectId||undefined,...project})});const data=await r.json();if(!r.ok)throw new Error(data.message||data.error||'HTTP '+r.status);activeProjectId=data.id;await refreshProjects();if(projectSelect)projectSelect.value=activeProjectId;say('Proyecto guardado en el servidor local: '+data.clip_count+' clips y '+data.track_count+' pistas.');}
-    catch(e){say('Error al guardar el proyecto: '+e.message);}
+    try{
+      activeProjectId=activeProjectId||crypto.randomUUID().replaceAll('-','').slice(0,16);
+      const local=readLocalProjects();local[activeProjectId]={...clone(project),savedAt:Date.now()};writeLocalProjects(local);
+      try{await fetch('/api/projects',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:activeProjectId,...project})});}catch{}
+      await refreshProjects();if(projectSelect)projectSelect.value=activeProjectId;
+      say('Proyecto guardado en este navegador. Para recuperar los medios, vuelve a seleccionar el vídeo original.');
+    }catch(e){say('No se pudo guardar el proyecto local: '+e.message);}
   }
   async function loadProject(){
     const id=projectSelect?.value;if(!id){say('Selecciona un proyecto guardado.');return;}
-    try{const r=await fetch('/api/projects/'+encodeURIComponent(id));const p=await r.json();if(!r.ok)throw new Error(p.message||p.error||'HTTP '+r.status);activeProjectId=id;Object.assign(state,{schema:'clipforge-project-v2',source:p.source||'',transcript:p.transcript||null,clips:p.clips||[],tracks:(p.tracks||[]).map(normalizeTrack),settings:p.settings||state.settings});if(!state.tracks.length)state.tracks=defaultTracks();selected=null;undoStack=[];redoStack=[];deriveDuration();window.clipforgeEditorBridge?.setClips(state.clips);persistLocal();render();say('Proyecto recuperado: '+state.clips.length+' clips y '+state.tracks.length+' pistas.');}
-    catch(e){say('No se pudo abrir el proyecto: '+e.message);}
+    try{
+      const local=readLocalProjects();let p=local[id];
+      if(!p){const r=await fetch('/api/projects/'+encodeURIComponent(id));p=await r.json();if(!r.ok)throw new Error(p.message||p.error||'HTTP '+r.status);}
+      activeProjectId=id;Object.assign(state,{schema:'clipforge-project-v2',source:p.source||'',transcript:p.transcript||null,clips:p.clips||[],tracks:(p.tracks||[]).map(normalizeTrack),settings:p.settings||state.settings});
+      if(!state.tracks.length)state.tracks=defaultTracks();selected=null;undoStack=[];redoStack=[];deriveDuration();window.clipforgeEditorBridge?.setClips(state.clips);persistLocal();render();say('Proyecto recuperado: '+state.clips.length+' clips y '+state.tracks.length+' pistas. Vuelve a importar el vídeo original para previsualizar y exportar.');
+    }catch(e){say('No se pudo abrir el proyecto: '+e.message);}
   }
   function syncPreview(){
     const found=getSelected();if(!found)return;
