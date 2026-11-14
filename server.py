@@ -283,6 +283,25 @@ class Handler(BaseHTTPRequestHandler):
    review=folder/'review.html'
    if not job or job.get('status')!='completed' or not review.is_file(): return self.json(404,{'error':'review_not_ready'})
    return self.send(200,review.read_bytes(),'text/html; charset=utf-8')
+  if path.startswith('/api/jobs/') and path.endswith('/source'):
+   parts=path.strip('/').split('/')
+   if len(parts)!=4 or not re.fullmatch(r'[a-f0-9]{12}',parts[2]): return self.json(404,{'error':'source_not_found'})
+   jid=parts[2]
+   with LOCK: job=JOBS.get(jid)
+   folder=Path(job.get('output') or '') if job else Path('/nonexistent')
+   target=(folder/'.clipforge_source.mp4').resolve()
+   if not job or job.get('status')!='completed' or target.parent!=folder.resolve() or not target.is_file(): return self.json(404,{'error':'source_not_found'})
+   size=target.stat().st_size; header=self.headers.get('Range','').strip()
+   if header:
+    match=re.fullmatch(r'bytes=(\\d*)-(\\d*)',header)
+    if not match: self.send_response(416); self.send_header('Content-Range',f'bytes */{size}'); self.send_header('Content-Length','0'); self.end_headers(); return
+    first=int(match.group(1) or 0); last=int(match.group(2) or size-1)
+    if first>=size or last<first: self.send_response(416); self.send_header('Content-Range',f'bytes */{size}'); self.send_header('Content-Length','0'); self.end_headers(); return
+    last=min(last,size-1); length=last-first+1
+    with target.open('rb') as stream: stream.seek(first); data=stream.read(length)
+    self.send_response(206); self.send_header('Content-Type','video/mp4'); self.send_header('Accept-Ranges','bytes'); self.send_header('Content-Range',f'bytes {first}-{last}/{size}'); self.send_header('Content-Length',str(len(data))); self.send_header('Cache-Control','private, max-age=60'); self.end_headers(); self.wfile.write(data); return
+   data=target.read_bytes()
+   self.send_response(200); self.send_header('Content-Type','video/mp4'); self.send_header('Accept-Ranges','bytes'); self.send_header('Content-Length',str(len(data))); self.send_header('Cache-Control','private, max-age=60'); self.end_headers(); self.wfile.write(data); return
   if path.startswith('/api/preview/'):
    parts=path.split('/')
    if len(parts)!=5: return self.json(404,{'error':'not_found'})
