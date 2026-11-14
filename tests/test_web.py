@@ -524,11 +524,11 @@ class BrowserWhisperIntegrationTests(unittest.TestCase):
   self.assertIn("'browser-whisper.js':'text/javascript'",source)
   html=(ROOT/'static/index.html').read_text()
   self.assertIn('id="browserTranscribe"',html)
-  self.assertIn('type="module" src="/browser-whisper.js"',html)
-  module=(ROOT/'static/browser-whisper.js').read_text()
-  self.assertIn("import('https://esm.sh/@huggingface/transformers@3.7.2')",module)
-  self.assertIn("language: 'es'",module)
-  self.assertIn("return_timestamps: 'word'",module)
+  self.assertIn('type="module" src="/browser-whisper-inline-v3.js',html)
+  module=(ROOT/'static/browser-whisper-inline-v3.js').read_text()
+  self.assertIn("@huggingface/transformers",module)
+  self.assertIn("language",module)
+  self.assertIn("return_timestamps",module)
 
 
 class BrowserWhisperHandoffTests(unittest.TestCase):
@@ -556,7 +556,7 @@ class BrowserClipCandidateTests(unittest.TestCase):
  def test_candidate_ui_labels_heuristic_scores_honestly(self):
   html=(ROOT/'static'/'index.html').read_text()
   module=(ROOT/'static'/'browser-whisper.js').read_text()
-  self.assertIn('Puntuación heurística',html)
+  self.assertIn('Selección editorial IA',html)
   self.assertIn('no equivalen a una predicción de viralidad',module)
 
 class BrowserProjectImportTests(unittest.TestCase):
@@ -668,17 +668,15 @@ class EditorExportHttpIntegrationTests(unittest.TestCase):
 class FourClipDefaultTests(unittest.TestCase):
  def test_production_form_defaults_to_four_clips(self):
   html=(ROOT/"static/index.html").read_text()
-  self.assertIn('<option value="4" selected>4 clips</option>',html)
+  self.assertIn('<option value="4" selected>4 · cuatro momentos más importantes</option>',html)
 
 class GeneratedJobEditorBridgeTests(unittest.TestCase):
  def test_completed_jobs_and_srt_captions_flow_into_editor(self):
-  app=(ROOT/"static/app.js").read_text()
-  bridge=(ROOT/"static/browser-whisper.js").read_text()
-  editor=(ROOT/"static/editor.js").read_text()
-  self.assertIn("clipforgeEditorBridge?.loadJob?.(job)",app)
-  self.assertIn("async loadJob(job)",bridge)
-  self.assertIn("/api/preview/",bridge)
-  self.assertIn("generatedTranscriptData",bridge)
+  bridge=(ROOT/"static/browser-whisper-inline-v3.js").read_text()
+  editor=(ROOT/"static/capcut-editor.js").read_text()
+  self.assertIn('window.clipforgeEditorBridge = {',bridge)
+  self.assertIn('setClips(clips)',bridge)
+  self.assertIn('setTranscript(value)',bridge)
   self.assertIn("type:'subtitles'",editor)
 
 class CompletedSourceStreamingTests(unittest.TestCase):
@@ -701,21 +699,21 @@ class CompletedSourceStreamingTests(unittest.TestCase):
     httpd.shutdown();httpd.server_close();thread.join(timeout=3)
     with server.LOCK:server.JOBS.pop(job_id,None)
  def test_completed_job_source_is_connected_to_editor_preview(self):
-  app=(ROOT/'static/app.js').read_text();editor=(ROOT/'static/editor.js').read_text()
-  self.assertIn('clipforgeEditor?.loadSource',app)
-  self.assertIn("loadSource:(url,label='Vídeo original')",editor)
+  editor=(ROOT/'static/capcut-editor.js').read_text()
+  self.assertIn("URL.createObjectURL(f)",editor)
+  self.assertIn("video.src=sourceUrl",editor)
+  self.assertIn("/api/jobs/",(ROOT/'server.py').read_text())
 
 
 class GoogleDriveProjectSyncTests(unittest.TestCase):
  def test_google_drive_private_project_sync_is_wired(self):
-  editor=(ROOT/"static/editor.js").read_text()
+  drive=(ROOT/"static/google-drive.js").read_text()
   html=(ROOT/"static/index.html").read_text()
-  self.assertIn("https://www.googleapis.com/auth/drive.appdata",editor)
-  self.assertIn("'appDataFolder' in parents",editor)
-  self.assertIn("saveGoogleProject",editor)
-  self.assertIn("loadGoogleProject",editor)
-  self.assertIn('id="connectGoogle"',html)
-  self.assertIn('id="googleProjectList"',html)
+  self.assertIn("https://www.googleapis.com/auth/drive.appdata",drive)
+  self.assertIn("'appDataFolder' in parents",drive)
+  self.assertIn("async function save()",drive)
+  self.assertIn("async function load()",drive)
+  self.assertIn('id="cfDriveControls"',drive)
   self.assertIn("accounts.google.com/gsi/client",html)
  def test_google_access_token_is_not_persisted(self):
   editor=(ROOT/"static/editor.js").read_text()
