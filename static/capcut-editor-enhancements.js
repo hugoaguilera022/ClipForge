@@ -4,7 +4,7 @@ const safeStorageGet=key=>{try{return window.localStorage?.getItem(key)??null}ca
 let installed=false,observer=null,audioNodes=new Map();
 const bridge=()=>window.clipforgeEditorBridge;
 function project(){return bridge()?.getProject?.()||{}}
-function update(mutator){const b=bridge(),p=project(),tracks=clone(p.tracks||[]);mutator(tracks);b?.setTracks?.(tracks);window.dispatchEvent(new CustomEvent('clipforge:nle-changed'));}
+function update(mutator){const b=bridge(),p=project(),tracks=clone(p.tracks||[]);window.clipforgeEditorCheckpoint?.();mutator(tracks);b?.setTracks?.(tracks);applyVisualEffects(tracks,Number($('#cfNleSeek')?.value)||0);window.dispatchEvent(new CustomEvent('clipforge:nle-changed'));}
 function status(m){const e=$('#cfNleStatus');if(e)e.textContent=m;}
  function animatedValues(item,time){
   const base={scale:Number(item.scale)||1,rotation:Number(item.rotation)||0,opacity:Number(item.opacity??1)};
@@ -32,6 +32,7 @@ function status(m){const e=$('#cfNleStatus');if(e)e.textContent=m;}
    key,left[key]+(right[key]-left[key])*progress
   ]));
  }
+window.clipforgeApplyVisualEffects=applyVisualEffects;
 function install(){
  const root=$('#cfNle');if(!root)return;
  const name=$('#cfNleName');if(name&&!name.dataset.enhanced){name.dataset.enhanced='1';name.placeholder='Nombre del proyecto';name.addEventListener('change',()=>{const b=bridge();b?.setProjectName?.(name.value.trim()||'Proyecto sin título');status('Nombre actualizado · guarda en Drive para sincronizarlo');});}
