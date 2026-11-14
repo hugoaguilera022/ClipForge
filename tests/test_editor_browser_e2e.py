@@ -1197,3 +1197,13 @@ def test_preview_video_track_audio_respects_item_mute_volume_and_fades():
     assert "vv.volume=gain" in source
     assert "if(Number(activeVideoItem?.fadeIn)>0)" in source
     assert "if(Number(activeVideoItem?.fadeOut)>0)" in source
+
+
+
+def test_editor_reports_missing_media_and_indexeddb_persistence_failures():
+    source = (STATIC / "capcut-editor.js").read_text()
+    assert "Recuperación de proyecto:" in source
+    assert "medio(s) no encontrados" in source
+    assert "no se pudo guardar para futuras sesiones" in source
+    assert "storageFailures" in source
+    assert "Seguirán disponibles solo hasta cerrar/recargar esta sesión" in source
