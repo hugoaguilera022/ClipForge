@@ -28,6 +28,7 @@ function snapCandidates(excludeId){const excluded=new Set(Array.isArray(excludeI
 function snapTime(value,excludeId,threshold=.2){let nearest=value,best=Math.max(0,Number(threshold)||0);for(const point of snapCandidates(excludeId)){const distance=Math.abs(point-value);if(distance<=best){nearest=point;best=distance}}return nearest}
 function snapMoveDelta(start,end,excludeId,threshold=.2){let delta=0,best=Math.max(0,Number(threshold)||0);for(const point of snapCandidates(excludeId)){for(const edge of [start,end]){const candidate=point-edge,distance=Math.abs(candidate);if(distance<=best){delta=candidate;best=distance}}}return delta}
 window.clipforgeEditorCheckpoint=checkpoint;
+window.clipforgeSetItemProperty=(trackId,itemId,key,value)=>{const track=tracks.find(t=>t.id===trackId),item=track?.items.find(i=>i.id===itemId);if(!item)return false;item[key]=value;persist();syncPreview();window.dispatchEvent(new CustomEvent('clipforge:nle-changed'));return true};
 window.clipforgeTimelineSnapTime=snapTime;
 window.clipforgeTimelineSnapMove=snapMoveDelta;
 function persist(){const ok=storageSet('clipforge.nle.project',JSON.stringify({name:projectName,tracks,savedAt:Date.now()}))&&storageSet('clipforge.nle.name',projectName);if(!ok)say('Almacenamiento local no disponible en este contexto; los cambios siguen activos en esta sesión.')}
