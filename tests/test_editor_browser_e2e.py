@@ -642,15 +642,17 @@ def test_audio_playback_respects_volume_fades_and_track_mute():
               play() { this.paused=false; return Promise.resolve(); }
               pause() { this.paused=true; }
             };
+            const project = {tracks:[
+              {id:"v1",type:"video",name:"V1",items:[]},
+              {id:"a1",type:"audio",name:"A1",items:[
+                {id:"music",kind:"audio",title:"Música",url:"blob:audio-fixture",
+                 start:0,end:10,sourceStart:0,volume:0.5,fadeIn:4,fadeOut:4}
+              ]}
+            ]};
             window.clipforgeEditorBridge = {
-              getProject: () => ({tracks:[
-                {id:"v1",type:"video",name:"V1",items:[]},
-                {id:"a1",type:"audio",name:"A1",items:[
-                  {id:"music",kind:"audio",title:"Música",url:"blob:audio-fixture",
-                   start:0,end:10,sourceStart:0,volume:0.5,fadeIn:4,fadeOut:4}
-                ]}
-              ]}),
-              setTracks: () => {}, setProjectName: () => {}
+              getProject: () => project,
+              setTracks: (tracks) => { project.tracks = tracks; },
+              setProjectName: () => {}
             };
           </script>
         """)
@@ -672,6 +674,7 @@ def test_audio_playback_respects_volume_fades_and_track_mute():
         seek(8)
         volume_out = page.evaluate("() => window.__audio.volume")
         assert abs(volume_out - 0.25) < 0.02, f"Fundido de salida incorrecto: {volume_out}"
+        page.wait_for_function("() => document.querySelectorAll('button[title=\"Silenciar pista\"]').length >= 2")
         page.locator(".cf-nle-track").nth(1).locator('button[title="Silenciar pista"]').click()
         assert page.evaluate("() => window.__audio.paused") is True, (
             "Silenciar la pista debe detener el audio inmediatamente, sin esperar a mover el cabezal."
