@@ -1104,3 +1104,44 @@ def test_editor_inspector_exposes_per_item_mute_toggle():
     assert "window.clipforgeSetItemProperty?.(track.id,id,'muted',mute.checked)" in source
     assert "vv.muted=!!vt?.muted||!!activeVideoItem?.muted;" in source
     assert "if(i.muted||!i.url||time<Number(i.start)||time>=Number(i.end))return;" in source
+
+
+
+def test_per_item_mute_checkbox_updates_saved_audio_item_state_in_chromium():
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        page.set_content("""
+          <input id="video" type="file">
+          <section id="cfEditor"><div class="cf-opus-editor-slot"></div></section>
+          <script>
+            const project = {tracks:[
+              {id:"v1",type:"video",name:"V1",items:[
+                {id:"v1i",kind:"clip",title:"Vídeo",start:0,end:5,sourceStart:0,assetId:"source"}
+              ]},
+              {id:"a1",type:"audio",name:"A1",items:[
+                {id:"a1i",kind:"audio",title:"Música",start:0,end:5,sourceStart:0,url:"blob:audio-fixture"}
+              ]}
+            ]};
+            window.clipforgeEditorBridge = {
+              getProject: () => project,
+              setTracks: (tracks) => { project.tracks = tracks; },
+              setProjectName: () => {}
+            };
+          </script>
+        """)
+        page.add_script_tag(path=str(STATIC / "capcut-editor.js"))
+        page.add_script_tag(path=str(STATIC / "capcut-editor-enhancements.js"))
+        page.evaluate("""() => window.dispatchEvent(new CustomEvent(
+          'clipforge:open-editor', {detail:{clip:{id:'v1i',title:'Vídeo'},index:0}}
+        ))""")
+        audio_block = page.locator(".cf-nle-block[data-type='audio']")
+        audio_block.wait_for()
+        audio_block.click()
+        mute = page.locator("#cfNleInspector input[data-item-mute='1']")
+        mute.wait_for()
+        assert not mute.is_checked()
+        mute.check()
+        assert page.evaluate("""() => window.clipforgeEditorBridge.getProject()
+          .tracks.find(t => t.type === 'audio').items[0].muted""")
+        browser.close()
