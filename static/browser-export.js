@@ -191,7 +191,6 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
   catch(error){input.dispose();throw error;}
   const output=new Output({format:new Mp4OutputFormat(),target:new BufferTarget()});
   const audioSource=mixedAudio?new AudioBufferSource({codec:'aac',quality:new Quality('high')}):null;
-  if(audioSource)output.addAudioTrack(audioSource);
   const cues=buildCaptionCues(segments);
   let canvas=null,ctx=null,sourceCanvas=null,sourceCtx=null,faceLandmarker=null,poseLandmarker=null;
   let lastFaceCenter=null,frameNumber=0,faceSamples=0,poseSamples=0,trackingMode='sin seguimiento';
@@ -343,6 +342,7 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
     const reasons=(conversion.discardedTracks||[]).map(x=>x.reason).join(', ');
     throw new Error(`El navegador no puede codificar todas las pistas MP4 de este vídeo (${reasons||'códec no compatible'}).`);
   }
+  if(audioSource)output.addAudioTrack(audioSource);
   conversion.onProgress=p=>sayExport(`Clip ${index+1}/${total}: renderizando ${Math.round(p*100)}%…`);
   try{
     if(audioSource){
