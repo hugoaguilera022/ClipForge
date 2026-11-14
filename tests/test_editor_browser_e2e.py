@@ -60,3 +60,41 @@ def test_real_browser_can_mount_and_operate_the_multitrack_editor():
         page.locator('[data-act="undo"]').click()
         assert page.locator(".cf-nle").is_visible()
         browser.close()
+
+def test_copy_paste_preserves_clip_track_type_and_is_undoable():
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        page.set_content("""
+          <input id="video" type="file">
+          <section id="cfEditor"><div class="cf-opus-editor-slot"></div></section>
+          <script>
+            window.clipforgeEditorBridge = {
+              getProject: () => ({clips:[
+                {id:"c1",title:"Clip uno",start:0,end:2},
+                {id:"c2",title:"Clip dos",start:2,end:4},
+                {id:"c3",title:"Clip tres",start:4,end:6},
+                {id:"c4",title:"Clip cuatro",start:6,end:8}
+              ]}),
+              setTracks: () => {}, setProjectName: () => {}
+            };
+          </script>
+        """)
+        page.add_script_tag(path=str(STATIC / "capcut-editor.js"))
+        page.add_script_tag(path=str(STATIC / "capcut-editor-enhancements.js"))
+        page.evaluate("""() => window.dispatchEvent(new CustomEvent(
+          'clipforge:open-editor', {detail:{clip:{id:'c1',title:'Clip uno'},index:0}}
+        ))""")
+        page.wait_for_selector("#cfNle")
+        assert page.locator(".cf-nle-block[data-type='video']").count() == 4
+        page.locator(".cf-nle-block[data-type='video']").first.click()
+        page.locator('[data-act="copy"]').click()
+        page.locator("#cfNleSeek").evaluate("""el => {
+          el.value = '10';
+          el.dispatchEvent(new Event('input', {bubbles:true}));
+        }""")
+        page.locator('[data-act="paste"]').click()
+        assert page.locator(".cf-nle-block[data-type='video']").count() == 5
+        page.locator('[data-act="undo"]').click()
+        assert page.locator(".cf-nle-block[data-type='video']").count() == 4
+        browser.close()
