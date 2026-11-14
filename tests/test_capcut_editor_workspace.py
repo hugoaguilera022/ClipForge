@@ -28,3 +28,21 @@ def test_drive_saves_named_projects_without_forcing_json_download():
     assert "uploadType=multipart" in drive
     assert "window.addEventListener('clipforge:new-project'" in drive
     assert "dl.hidden=true" in drive
+
+
+def test_final_mp4_export_uses_full_timeline_composition():
+    enhanced = (STATIC / "capcut-editor-enhancements.js").read_text(encoding="utf-8")
+    assert "async function exportTimeline()" in enhanced
+    assert "canvas.captureStream(30)" in enhanced
+    assert "new MediaRecorder" in enhanced
+    assert "fetch('/api/editor/export'" in enhanced
+    assert "drawImage(el" in enhanced
+    assert "TRANSFORMACIÓN Y EFECTOS" not in enhanced or "outlineWidth" in enhanced
+
+
+def test_timeline_export_includes_audio_mix_and_captions():
+    enhanced = (STATIC / "capcut-editor-enhancements.js").read_text(encoding="utf-8")
+    assert "createMediaElementSource" in enhanced
+    assert "createMediaStreamDestination" in enhanced
+    assert "tracks.filter(t=>(t.type==='text'||t.type==='subtitles')" in enhanced
+    assert "fadeIn" in enhanced and "fadeOut" in enhanced
