@@ -382,6 +382,8 @@
   window.addEventListener('clipforge:clips-updated',()=>{
     const p=window.clipforgeEditorBridge?.getProject?.();if(!p)return;
     state.source=p.source||state.source;state.transcript=p.transcript||state.transcript;state.clips=p.clips||[];
+    const transcriptSegments=Array.isArray(state.transcript?.segments)?state.transcript.segments:[];
+    if(transcriptSegments.length){let subtitles=state.tracks.find(t=>t.type==='subtitles');if(!subtitles){subtitles=normalizeTrack({type:'subtitles',name:'S1 · Subtítulos',items:[]});state.tracks.push(subtitles);}subtitles.items=transcriptSegments.map((s,i)=>({id:String(s.id||'subtitle-'+(i+1)),kind:'subtitle',start:Number(s.start),end:Number(s.end),text:String(s.text||'')})).filter(s=>Number.isFinite(s.start)&&Number.isFinite(s.end)&&s.end>s.start&&s.text);}
     const video=state.tracks.find(t=>t.type==='video');
     if(video)video.items=state.clips.map(c=>({...c,kind:'clip',text:c.title||c.text||'Clip'}));
     else state.tracks.unshift(normalizeTrack({type:'video',name:'V1 · Vídeo',items:state.clips.map(c=>({...c,kind:'clip'}))}));
