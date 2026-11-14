@@ -170,7 +170,7 @@ try {
   await page.locator('.cf-canonical-subtitle-editor .cf-subtitle-single-editor textarea').fill('Prueba uno corregida');
   await page.locator('.cf-canonical-subtitle-editor .cf-subtitle-single-editor button').first().click();
   if(!(await subtitleRows.first().innerText()).includes('Prueba uno corregida')) {
-    throw new Error('Editing a subtitle did not update its visible transcript row.');
+    throw new Error('Editing a subtitle did not update its visible transcript row: '+JSON.stringify(await page.evaluate(()=>({editor:document.querySelector('.cf-canonical-subtitle-editor .cf-subtitle-single-editor textarea')?.value,row:document.querySelector('.cf-canonical-subtitle-row')?.innerText,items:window.clipforgeProjectStore?.project?.tracks?.filter(t=>t.type==='subtitles').flatMap(t=>t.items).map(x=>({id:x.id,text:x.text})),status:document.querySelector('#browserWhisperStatus')?.textContent}))));
   }
   const subtitleCount=await subtitleRows.count();
   await page.locator('.cf-canonical-subtitle-editor .cf-subtitle-edit-actions button').filter({hasText:'Duplicar'}).click();
