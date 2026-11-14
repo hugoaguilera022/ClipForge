@@ -72,12 +72,14 @@ def test_copy_paste_preserves_clip_track_type_and_is_undoable():
           <section id="cfEditor"><div class="cf-opus-editor-slot"></div></section>
           <script>
             window.clipforgeEditorBridge = {
-              getProject: () => ({clips:[
-                {id:"c1",title:"Clip uno",start:0,end:2},
-                {id:"c2",title:"Clip dos",start:2,end:4},
-                {id:"c3",title:"Clip tres",start:4,end:6},
-                {id:"c4",title:"Clip cuatro",start:6,end:8}
-              ]}),
+              getProject: () => ({tracks:[{
+                id:"v1",type:"video",name:"V1 · Vídeo",items:[
+                  {id:"c1",kind:"clip",title:"Clip uno",start:0,end:2},
+                  {id:"c2",kind:"clip",title:"Clip dos",start:2,end:4},
+                  {id:"c3",kind:"clip",title:"Clip tres",start:4,end:6},
+                  {id:"c4",kind:"clip",title:"Clip cuatro",start:6,end:8}
+                ]
+              }]}),
               setTracks: () => {}, setProjectName: () => {}
             };
           </script>
