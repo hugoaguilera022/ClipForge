@@ -268,6 +268,7 @@
     const button=$('#editorExport');if(button){button.disabled=true;button.textContent='Exportando…';}
     let recorder=null, canvasStream=null, mediaStream=null;
     try{
+      if(previewVideo.readyState<1)await new Promise((resolve,reject)=>{previewVideo.addEventListener('loadedmetadata',resolve,{once:true});previewVideo.addEventListener('error',()=>reject(new Error('No se pudieron leer los metadatos del vídeo.')),{once:true});});
       const canvas=document.createElement('canvas');canvas.width=1080;canvas.height=1920;
       const ctx=canvas.getContext('2d');if(!ctx)throw new Error('No se pudo crear el lienzo de exportación.');
       const seekTo=()=>new Promise((resolve,reject)=>{const done=()=>{cleanup();resolve();};const fail=()=>{cleanup();reject(new Error('No se pudo posicionar el vídeo.'));};const cleanup=()=>{previewVideo.removeEventListener('seeked',done);previewVideo.removeEventListener('error',fail);};previewVideo.addEventListener('seeked',done,{once:true});previewVideo.addEventListener('error',fail,{once:true});previewVideo.currentTime=start;if(Math.abs(previewVideo.currentTime-start)<.02)done();});
