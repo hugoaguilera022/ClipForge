@@ -627,3 +627,56 @@ def test_editor_restores_source_and_imported_audio_from_indexeddb():
         assert reopened["audio"]["url"].startswith("blob:")
         assert reopened["audio"]["missingAsset"] is False
         browser.close()
+
+
+def test_audio_playback_respects_volume_fades_and_track_mute():
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        page.set_content("""
+          <input id="video" type="file">
+          <section id="cfEditor"><div class="cf-opus-editor-slot"></div></section>
+          <script>
+            window.Audio = class {
+              constructor(url) { this.src=url; this.currentTime=0; this.volume=1; this.paused=true; window.__audio=this; }
+              play() { this.paused=false; return Promise.resolve(); }
+              pause() { this.paused=true; }
+            };
+            window.clipforgeEditorBridge = {
+              getProject: () => ({tracks:[
+                {id:"v1",type:"video",name:"V1",items:[]},
+                {id:"a1",type:"audio",name:"A1",items:[
+                  {id:"music",kind:"audio",title:"Música",url:"blob:audio-fixture",
+                   start:0,end:10,sourceStart:0,volume:0.5,fadeIn:4,fadeOut:4}
+                ]}
+              ]}),
+              setTracks: () => {}, setProjectName: () => {}
+            };
+          </script>
+        """)
+        page.add_script_tag(path=str(STATIC / "capcut-editor.js"))
+        page.add_script_tag(path=str(STATIC / "capcut-editor-enhancements.js"))
+        page.evaluate("""() => window.dispatchEvent(new CustomEvent(
+          'clipforge:open-editor', {detail:{clip:{title:'Audio mix'},index:0}}
+        ))""")
+        page.wait_for_function("() => document.querySelector('#cfNleSeek') !== null")
+        def seek(time):
+            page.locator("#cfNleSeek").evaluate("""(el, value) => {
+              el.value = String(value);
+              el.dispatchEvent(new Event('input', {bubbles:true}));
+            }""", time)
+        seek(2)
+        page.wait_for_function("() => window.__audio !== undefined")
+        volume_in = page.evaluate("() => window.__audio.volume")
+        assert abs(volume_in - 0.25) < 0.02, f"Fundido de entrada incorrecto: {volume_in}"
+        seek(8)
+        volume_out = page.evaluate("() => window.__audio.volume")
+        assert abs(volume_out - 0.25) < 0.02, f"Fundido de salida incorrecto: {volume_out}"
+        page.evaluate("""() => {
+          const tracks = window.clipforgeEditorBridge.getProject().tracks;
+          tracks.find(t => t.id === "a1").muted = true;
+          window.clipforgeEditorBridge.setTracks(tracks);
+        }""")
+        seek(5)
+        assert page.evaluate("() => window.__audio.paused") is True
+        browser.close()
