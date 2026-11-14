@@ -669,3 +669,14 @@ class FourClipDefaultTests(unittest.TestCase):
  def test_production_form_defaults_to_four_clips(self):
   html=(ROOT/"static/index.html").read_text()
   self.assertIn('<option value="4" selected>4 clips</option>',html)
+
+class GeneratedJobEditorBridgeTests(unittest.TestCase):
+ def test_completed_jobs_and_srt_captions_flow_into_editor(self):
+  app=(ROOT/"static/app.js").read_text()
+  bridge=(ROOT/"static/browser-whisper.js").read_text()
+  editor=(ROOT/"static/editor.js").read_text()
+  self.assertIn("clipforgeEditorBridge?.loadJob?.(job)",app)
+  self.assertIn("async loadJob(job)",bridge)
+  self.assertIn("/api/preview/",bridge)
+  self.assertIn("generatedTranscriptData",bridge)
+  self.assertIn("type:'subtitles'",editor)
