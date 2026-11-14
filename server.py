@@ -211,6 +211,15 @@ class Handler(BaseHTTPRequestHandler):
   data=body if isinstance(body,bytes) else body.encode()
   self.send_response(code); self.send_header('Content-Type',ctype); self.send_header('Content-Length',str(len(data))); self.send_header('X-Content-Type-Options','nosniff'); self.end_headers(); self.wfile.write(data)
  def json(self, code, obj): self.send(code,json.dumps(obj,ensure_ascii=False), 'application/json; charset=utf-8')
+ def do_HEAD(self):
+  path=urlparse(self.path).path
+  if path in {'/','/index.html'}:
+   code=200; ctype='text/html; charset=utf-8'
+  elif path=='/api/health':
+   code=200; ctype='application/json; charset=utf-8'
+  else:
+   code=404; ctype='application/json; charset=utf-8'
+  self.send_response(code); self.send_header('Content-Type',ctype); self.send_header('Content-Length','0'); self.send_header('X-Content-Type-Options','nosniff'); self.end_headers()
  def do_GET(self):
   path=urlparse(self.path).path
   if path=='/api/health':
