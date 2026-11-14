@@ -1045,12 +1045,14 @@ def test_browser_export_mixes_original_audio_with_timeline_music_and_fades():
             }
             return Math.sqrt(sum / count);
           };
-          return {duration:mixed.duration, rate:mixed.sampleRate, early:rms(0,.05), middle:rms(.4,.6), late:rms(.95,1)};
+          const muted = await window.clipforgeBuildTimelineAudioMix(source,{start:0,end:1},[{id:'v1',type:'video',muted:true,items:[{id:'source-clip',kind:'clip',assetId:'source',start:0,end:1}]}],{id:'source-audio'},()=>{});
+          return {duration:mixed.duration, rate:mixed.sampleRate, early:rms(0,.05), middle:rms(.4,.6), late:rms(.95,1), mutedRms:Math.sqrt(muted.getChannelData(0).reduce((sum,value)=>sum+value*value,0)/muted.length)};
         }""")
         assert result["duration"] == 1
         assert result["rate"] == 48000
         assert result["middle"] > result["early"] * 1.35
         assert result["middle"] > result["late"] * 1.35
+        assert result["mutedRms"] < 0.001
         browser.close()
 
 
