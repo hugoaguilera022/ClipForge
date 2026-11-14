@@ -704,3 +704,24 @@ class CompletedSourceStreamingTests(unittest.TestCase):
   app=(ROOT/'static/app.js').read_text();editor=(ROOT/'static/editor.js').read_text()
   self.assertIn('clipforgeEditor?.loadSource',app)
   self.assertIn("loadSource:(url,label='Vídeo original')",editor)
+
+
+class GoogleDriveProjectSyncTests(unittest.TestCase):
+ def test_google_drive_private_project_sync_is_wired(self):
+  editor=(ROOT/"static/editor.js").read_text()
+  html=(ROOT/"static/index.html").read_text()
+  self.assertIn("https://www.googleapis.com/auth/drive.appdata",editor)
+  self.assertIn("'appDataFolder' in parents",editor)
+  self.assertIn("saveGoogleProject",editor)
+  self.assertIn("loadGoogleProject",editor)
+  self.assertIn('id="connectGoogle"',html)
+  self.assertIn('id="googleProjectList"',html)
+  self.assertIn("accounts.google.com/gsi/client",html)
+ def test_google_access_token_is_not_persisted(self):
+  editor=(ROOT/"static/editor.js").read_text()
+  self.assertIn("let googleAccessToken=''",editor)
+  self.assertNotIn("localStorage.setItem('clipforge.google.token'",editor)
+ def test_editor_export_composes_all_visible_video_lanes(self):
+  editor=(ROOT/"static/editor.js").read_text()
+  self.assertIn("videoTracks.map(track=>({track,item:track.items.find",editor)
+  self.assertIn("const active=textItems.filter",editor)
