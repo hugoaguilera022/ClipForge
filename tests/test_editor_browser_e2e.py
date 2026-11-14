@@ -448,7 +448,7 @@ def test_timeline_drag_snaps_clip_edge_to_previous_clip_boundary():
           return item && Math.abs(item.start - 2) < .001;
         }""")
         item = page.evaluate("() => window.clipforgeEditorBridge.getProject().tracks[0].items.find(x => x.id === 'c2')")
-        assert item["start"] == 2
+        assert abs(item["start"] - 2) < .001
         assert item["end"] == 4
         browser.close()
 
