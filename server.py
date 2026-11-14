@@ -293,7 +293,7 @@ class Handler(BaseHTTPRequestHandler):
    if not job or job.get('status')!='completed' or target.parent!=folder.resolve() or not target.is_file(): return self.json(404,{'error':'source_not_found'})
    size=target.stat().st_size; header=self.headers.get('Range','').strip()
    if header:
-    match=re.fullmatch(r'bytes=(\\d*)-(\\d*)',header)
+    match=re.fullmatch(r'bytes=(\d*)-(\d*)',header)
     if not match: self.send_response(416); self.send_header('Content-Range',f'bytes */{size}'); self.send_header('Content-Length','0'); self.end_headers(); return
     first=int(match.group(1) or 0); last=int(match.group(2) or size-1)
     if first>=size or last<first: self.send_response(416); self.send_header('Content-Range',f'bytes */{size}'); self.send_header('Content-Length','0'); self.end_headers(); return
