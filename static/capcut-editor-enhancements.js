@@ -131,6 +131,8 @@ async function exportTimeline(){
  const ctx=canvas.getContext('2d',{alpha:false});const drawCover=(el,x,y,w,h)=>{const sw=el.videoWidth||el.naturalWidth||w,sh=el.videoHeight||el.naturalHeight||h,sr=sw/sh,tr=w/h;let sx=0,sy=0,sw2=sw,sh2=sh;if(sr>tr){sw2=sh*tr;sx=(sw-sw2)/2}else{sh2=sw/tr;sy=(sh-sh2)/2}ctx.drawImage(el,sx,sy,sw2,sh2,x,y,w,h)};if(!ctx){status('No se pudo iniciar el compositor.');return;}
  const AudioCtx=window.AudioContext||window.webkitAudioContext,ac=AudioCtx?new AudioCtx():null,dest=ac?ac.createMediaStreamDestination():null;
  const media=new Map(),audio=new Map(),nodes=[];
+ let faceLandmarker=null;
+ const faceCenters=new Map();
  const loadMedia=(x)=>new Promise((resolve,reject)=>{
   const url=x.item.url||(x.item.assetId==='source'?source:source);
   if(!url){reject(Error('Falta el archivo de vídeo de '+(x.item.title||'un clip')+'. Reimpórtalo.'));return;}
@@ -146,6 +148,19 @@ async function exportTimeline(){
   status('Preparando medios y pistas…');
   await Promise.all(videos.map(loadMedia));
   for(const x of images)await loadMedia(x);
+  // Optional, free on-device face tracking for the multipista compositor.
+  // If the CDN/model is unavailable, export continues with the normal centered crop.
+  if(videos.some(x=>{const el=media.get(x.item.id);return el&&el.videoWidth>el.videoHeight*1.15;})){
+   try{
+    status('Cargando seguimiento facial gratuito…');
+    const vision=await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.2/vision_bundle.mjs');
+    const fileset=await vision.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.2/wasm');
+    faceLandmarker=await vision.FaceLandmarker.createFromOptions(fileset,{
+     baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task'},
+     runningMode:'VIDEO',numFaces:5,outputFaceBlendshapes:false,outputFacialTransformationMatrixes:false
+    });
+   }catch(error){console.warn('Seguimiento facial no disponible; se usará recorte centrado.',error);faceLandmarker=null;}
+  }
   for(const x of audios){
    if(!x.item.url)throw Error('Falta el archivo de audio '+(x.item.title||'importado')+'.');
    const el=new Audio(x.item.url);el.preload='auto';await new Promise((res,rej)=>{el.oncanplaythrough=res;el.onerror=()=>rej(Error('No se pudo cargar el audio '+x.item.title));el.load()});
@@ -173,7 +188,38 @@ async function exportTimeline(){
      const d=Math.max(.01,Number(i.transitionDuration)||.5),local=time-Number(i.start),remain=Number(i.end)-time;let alpha=Number(i.opacity??1);const animated=animatedValues(i,time);alpha=animated.opacity;
      if(i.transitionIn==='fade')alpha*=Math.min(1,local/d);if(i.transitionOut==='fade')alpha*=Math.min(1,remain/d);
      ctx.globalAlpha=Math.max(0,Math.min(1,alpha));ctx.filter=({cinematic:'contrast(1.15) saturate(.85)',warm:'sepia(.2) saturate(1.2)',cool:'hue-rotate(12deg)',bw:'grayscale(1)'}[i.filterPreset]||'none');
-     const scale=Math.max(.1,animated.scale),w=1080*scale,h=1920*scale;ctx.save();if(i.transitionIn==='wipe'&&local<d){ctx.beginPath();ctx.rect(0,0,1080,1920*Math.min(1,local/d));ctx.clip();}if(i.transitionOut==='wipe'&&remain<d){ctx.beginPath();ctx.rect(0,0,1080,1920*Math.min(1,remain/d));ctx.clip();}ctx.translate(540,960);ctx.rotate(animated.rotation*Math.PI/180);drawCover(el,-w/2,-h/2,w,h);ctx.restore();ctx.filter='none';ctx.globalAlpha=1;
+     let faceCenter=null;
+     if(faceLandmarker&&el.videoWidth>el.videoHeight*1.15){
+      const state=faceCenters.get(i.id)||{center:null,lastTime:-1,frames:0};state.frames++;
+      if(state.frames%6===1&&el.currentTime>state.lastTime+.015){
+       try{
+        const stamp=Math.max(0,Math.round(el.currentTime*1000));
+        const result=faceLandmarker.detectForVideo(el,stamp),faces=result?.faceLandmarks||[];
+        const candidates=faces.map(points=>{
+         if(!points?.length)return null;
+         const xs=points.map(point=>Number(point.x)).filter(Number.isFinite);
+         const ys=points.map(point=>Number(point.y)).filter(Number.isFinite);
+         if(!xs.length||!ys.length)return null;
+         const width=Math.max(...xs)-Math.min(...xs),height=Math.max(...ys)-Math.min(...ys);
+         if(width<.035||height<.07)return null;
+         return {center:(Math.min(...xs)+Math.max(...xs))/2,area:width*height};
+        }).filter(Boolean).sort((a,b)=>b.area-a.area);
+        if(candidates.length){
+         const target=candidates[0].center;
+         state.center=state.center===null?target:state.center*.78+target*.22;
+        }
+        state.lastTime=el.currentTime;
+       }catch(error){console.warn('No se pudo analizar un fotograma para seguimiento facial.',error);}
+      }
+      faceCenters.set(i.id,state);faceCenter=state.center;
+     }
+     const scale=Math.max(.1,animated.scale),w=1080*scale,h=1920*scale;ctx.save();if(i.transitionIn==='wipe'&&local<d){ctx.beginPath();ctx.rect(0,0,1080,1920*Math.min(1,local/d));ctx.clip();}if(i.transitionOut==='wipe'&&remain<d){ctx.beginPath();ctx.rect(0,0,1080,1920*Math.min(1,remain/d));ctx.clip();}ctx.translate(540,960);ctx.rotate(animated.rotation*Math.PI/180);
+     if(faceCenter!==null&&el.videoWidth>el.videoHeight*1.15){
+      const sw=el.videoWidth,sh=el.videoHeight,cropWidth=Math.min(sw,sh*9/16);
+      const center=faceCenter*sw,left=Math.max(0,Math.min(sw-cropWidth,center-cropWidth/2));
+      ctx.drawImage(el,left,0,cropWidth,sh,-w/2,-h/2,w,h);
+     }else drawCover(el,-w/2,-h/2,w,h);
+     ctx.restore();ctx.filter='none';ctx.globalAlpha=1;
     }
    });
    images.filter(x=>time>=Number(x.item.start)&&time<Number(x.item.end)).forEach(x=>{const el=media.get(x.item.id);if(el)drawCover(el,0,0,1080,1920)});
@@ -192,7 +238,7 @@ async function exportTimeline(){
   const response=await fetch('/api/editor/export',{method:'POST',body:form});const result=await response.json();if(!response.ok||!result.download_url)throw Error(result.message||result.error||'No se pudo convertir el MP4.');
   const a=document.createElement('a');a.href=result.download_url;a.download=(String(p.projectName||'ClipForge').replace(/[^a-z0-9_-]/gi,'_')||'ClipForge')+'.mp4';document.body.append(a);a.click();a.remove();status('MP4 exportado correctamente.');
  }catch(e){stop();status('Error de exportación: '+e.message);console.error(e);}
- finally{if(button)button.disabled=false;if(ac)ac.close().catch(()=>{});}
+ finally{if(button)button.disabled=false;if(ac)ac.close().catch(()=>{});if(faceLandmarker){try{faceLandmarker.close()}catch(e){}}}
 }
 function patchBridge(){
  const b=bridge();if(!b||b.__nleEnhanced)return;
