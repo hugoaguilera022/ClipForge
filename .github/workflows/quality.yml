@@ -51,12 +51,6 @@ jobs:
       - name: Check critical Python errors
         run: ruff check --select E9,F63,F7,F82 --output-format=github .
 
-      - name: Run automated tests with coverage
-        env:
-          PYTHONPATH: .
-        run: |
-          pytest -q tests/ --cov=clipforge --cov=server --cov-report=term-missing --cov-report=xml
-
       - name: Validate JavaScript syntax
         run: |
           node --check static/app.js
@@ -69,6 +63,13 @@ jobs:
           node --check static/browser-export.js
           node --check static/browser-url.js
           node --check static/google-drive.js
+
+
+      - name: Run automated tests with coverage
+        env:
+          PYTHONPATH: .
+        run: |
+          pytest -q tests/ --cov=clipforge --cov=server --cov-report=term-missing --cov-report=xml
 
       - name: Run real Chromium editor regression test
         env:
