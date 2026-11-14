@@ -159,7 +159,6 @@ async function exportTimeline(){
      baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task'},
      runningMode:'VIDEO',numFaces:5,outputFaceBlendshapes:false,outputFacialTransformationMatrixes:false
     });
-    faceTrackingReady=true;
    }catch(error){console.warn('Seguimiento facial no disponible; se usará recorte centrado.',error);faceLandmarker=null;}
   }
   for(const x of audios){
