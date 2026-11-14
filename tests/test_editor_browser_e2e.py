@@ -1207,3 +1207,13 @@ def test_editor_reports_missing_media_and_indexeddb_persistence_failures():
     assert "no se pudo guardar para futuras sesiones" in source
     assert "storageFailures" in source
     assert "Seguirán disponibles solo hasta cerrar/recargar esta sesión" in source
+
+
+
+def test_editor_workspace_has_capcut_style_three_panel_responsive_layout():
+    source = (STATIC / "capcut-editor.js").read_text()
+    assert "grid-template-columns:minmax(185px,225px) minmax(320px,1fr) minmax(260px,320px)" in source
+    assert "height:clamp(520px,66vh,760px)" in source
+    assert "cf-nle-transport" in source
+    assert "@media(max-width:650px)" in source
+    assert "#cfNle .cf-nle-track-head{position:sticky" in source
