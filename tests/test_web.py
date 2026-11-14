@@ -622,3 +622,45 @@ class EditorWorkspaceAndExportTests(unittest.TestCase):
   self.assertIn("clipforge.editor.projects",editor)
   self.assertIn("writeLocalProjects",editor)
   self.assertIn("readLocalProjects",editor)
+
+class EditorExportHttpIntegrationTests(unittest.TestCase):
+ def test_editor_export_endpoint_returns_a_real_h264_mp4(self):
+  import json, shutil, subprocess, tempfile, threading, urllib.request
+  from http.server import ThreadingHTTPServer
+  import server
+  ffmpeg=shutil.which("ffmpeg"); ffprobe=shutil.which("ffprobe")
+  if not ffmpeg or not ffprobe:self.skipTest("FFmpeg/FFprobe no están instalados")
+  with tempfile.TemporaryDirectory() as temp:
+   source=Path(temp)/"source.mp4"
+   subprocess.run([ffmpeg,"-hide_banner","-loglevel","error","-f","lavfi","-i","color=c=black:s=320x240:d=1","-f","lavfi","-i","sine=frequency=440:duration=1","-shortest","-c:v","libx264","-pix_fmt","yuv420p","-c:a","aac","-y",str(source)],check=True)
+   httpd=ThreadingHTTPServer(("127.0.0.1",0),server.Handler)
+   thread=threading.Thread(target=httpd.serve_forever,daemon=True);thread.start()
+   export_id=None
+   try:
+    boundary="clipforge-test-boundary"
+    body=(f"--{boundary}\\r\\nContent-Disposition: form-data; name=\"video\"; filename=\"test.webm\"\\r\\nContent-Type: video/webm\\r\\n\\r\\n".encode()+source.read_bytes()+f"\\r\\n--{boundary}--\\r\\n".encode())
+    request=urllib.request.Request(f"http://127.0.0.1:{httpd.server_port}/api/editor/export",data=body,headers={"Content-Type":f"multipart/form-data; boundary={boundary}"},method="POST")
+    with urllib.request.urlopen(request,timeout=30) as response:
+     self.assertEqual(response.status,201);result=json.loads(response.read())
+    self.assertTrue(result.get("ok"));export_id=result["id"]
+    with urllib.request.urlopen(f"http://127.0.0.1:{httpd.server_port}"+result["download_url"],timeout=30) as response:
+     mp4=response.read();self.assertEqual(response.headers.get_content_type(),"video/mp4")
+    target=Path(temp)/"result.mp4";target.write_bytes(mp4)
+    probe=subprocess.run([ffprobe,"-v","error","-show_entries","stream=codec_name,codec_type","-of","json",str(target)],capture_output=True,text=True,check=True)
+    streams=json.loads(probe.stdout)["streams"]
+    self.assertTrue(any(x.get("codec_type")=="video" and x.get("codec_name")=="h264" for x in streams))
+    self.assertTrue(any(x.get("codec_type")=="audio" and x.get("codec_name")=="aac" for x in streams))
+   finally:
+    httpd.shutdown();httpd.server_close();thread.join(timeout=3)
+    if export_id:(server.OUTPUTS/"editor_exports"/f"{export_id}.mp4").unlink(missing_ok=True)
+ def test_health_and_root_support_head_requests(self):
+  import threading, urllib.request
+  from http.server import ThreadingHTTPServer
+  import server
+  httpd=ThreadingHTTPServer(("127.0.0.1",0),server.Handler)
+  thread=threading.Thread(target=httpd.serve_forever,daemon=True);thread.start()
+  try:
+   request=urllib.request.Request(f"http://127.0.0.1:{httpd.server_port}/api/health",method="HEAD")
+   with urllib.request.urlopen(request,timeout=10) as response:self.assertEqual(response.status,200)
+  finally:
+   httpd.shutdown();httpd.server_close();thread.join(timeout=3)
