@@ -320,22 +320,17 @@
   function writeLocalProjects(projects){localStorage.setItem('clipforge.editor.projects',JSON.stringify(projects));}
   async function refreshProjects(){
     if(!projectSelect)return;
-    const local=readLocalProjects();let remote=[];
-    try{const r=await fetch('/api/projects');if(r.ok){const data=await r.json();remote=data.projects||[];}}catch{}
+    const local=readLocalProjects();
     projectSelect.replaceChildren(new Option('Nuevo proyecto',''));
-    const merged=new Map();
-    remote.forEach(p=>merged.set(p.id,{id:p.id,source:p.source,clip_count:p.clip_count}));
-    Object.entries(local).forEach(([id,p])=>merged.set(id,{id,source:p.source,clip_count:(p.clips||[]).length}));
-    [...merged.values()].forEach(p=>projectSelect.add(new Option((p.source||'Proyecto')+' · '+p.clip_count+' clips',p.id)));
+    Object.entries(local).forEach(([id,p])=>projectSelect.add(new Option((p.source||'Proyecto')+' · '+(p.clips||[]).length+' clips',id)));
   }
   async function saveProject(){
     const project={schema:'clipforge-project-v2',source:state.source,transcript:state.transcript,clips:state.clips,tracks:state.tracks,settings:state.settings};
     try{
-      activeProjectId=activeProjectId||crypto.randomUUID().replaceAll('-','').slice(0,16);
+      activeProjectId=activeProjectId||(crypto.randomUUID?crypto.randomUUID().replaceAll('-','').slice(0,16):uid('project').replace(/[^a-z0-9]/gi,'').slice(0,16));
       const local=readLocalProjects();local[activeProjectId]={...clone(project),savedAt:Date.now()};writeLocalProjects(local);
-      try{await fetch('/api/projects',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:activeProjectId,...project})});}catch{}
       await refreshProjects();if(projectSelect)projectSelect.value=activeProjectId;
-      say('Proyecto guardado en este navegador. Para recuperar los medios, vuelve a seleccionar el vídeo original.');
+      persistLocal();say('Proyecto guardado en este navegador. Para tenerlo en otros dispositivos, pulsa «Guardar en Google Drive».');
     }catch(e){say('No se pudo guardar el proyecto local: '+e.message);}
   }
   async function loadProject(){
