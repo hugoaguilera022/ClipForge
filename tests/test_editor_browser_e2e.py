@@ -672,7 +672,7 @@ def test_audio_playback_respects_volume_fades_and_track_mute():
         seek(8)
         volume_out = page.evaluate("() => window.__audio.volume")
         assert abs(volume_out - 0.25) < 0.02, f"Fundido de salida incorrecto: {volume_out}"
-        page.locator(".cf-nle-track").nth(1).get_by_role("button", name="Silenciar pista").click()
+        page.locator(".cf-nle-track").nth(1).locator('button[title="Silenciar pista"]').click()
         assert page.evaluate("() => window.__audio.paused") is True, (
             "Silenciar la pista debe detener el audio inmediatamente, sin esperar a mover el cabezal."
         )
