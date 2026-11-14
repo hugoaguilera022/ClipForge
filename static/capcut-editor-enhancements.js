@@ -87,9 +87,9 @@ function decorateInspector(root){
  if(group.children.length){const title=document.createElement('b');title.textContent='TRANSFORMACIÓN Y EFECTOS';title.style.cssText='display:block;color:#8ddfc1;font-size:10px;letter-spacing:1px;margin:16px 0 8px';el.append(title,group);group.querySelectorAll('[data-extra]').forEach(x=>{x.addEventListener('focus',()=>{if(x.dataset.historyStarted!=='1'){window.clipforgeEditorCheckpoint?.();x.dataset.historyStarted='1'}});x.addEventListener('blur',()=>{delete x.dataset.historyStarted});x.addEventListener('input',()=>{const value=x.tagName==='SELECT'?x.value:Number(x.value);window.clipforgeSetItemProperty?.(track.id,id,x.dataset.extra,value);});});}
 }
 function syncAudio(){
- const p=project(),time=Number($('#cfNleSeek')?.value)||0,tracks=p.tracks||[],active=new Set();const vt=tracks.find(t=>t.type==='video'&&!t.hidden);const vv=$('#cfNleVideo');if(vv)vv.muted=!!vt?.muted;applyVisualEffects(tracks,time);
+ const p=project(),time=Number($('#cfNleSeek')?.value)||0,tracks=p.tracks||[],active=new Set();const vt=tracks.find(t=>t.type==='video'&&!t.hidden);const vv=$('#cfNleVideo');const activeVideoItem=vt?.items.find(i=>time>=Number(i.start)&&time<Number(i.end));if(vv)vv.muted=!!vt?.muted||!!activeVideoItem?.muted;applyVisualEffects(tracks,time);
  tracks.filter(t=>t.type==='audio'&&!t.hidden&&!t.muted).forEach(t=>t.items.forEach(i=>{
-  if(!i.url||time<Number(i.start)||time>=Number(i.end))return;
+  if(i.muted||!i.url||time<Number(i.start)||time>=Number(i.end))return;
   active.add(i.id);let a=audioNodes.get(i.id);if(!a){a=new Audio(i.url);a.preload='auto';audioNodes.set(i.id,a);}
   const wanted=Math.max(0,Number(i.sourceStart||0)+time-Number(i.start));if(Math.abs(a.currentTime-wanted)>.35)try{a.currentTime=wanted}catch{}
   const local=time-Number(i.start),remain=Number(i.end)-time,fi=Math.max(.01,Number(i.fadeIn)||0),fo=Math.max(.01,Number(i.fadeOut)||0);let gain=Math.max(0,Math.min(1,Number(i.volume??1)));if(Number(i.fadeIn)>0)gain*=Math.min(1,local/fi);if(Number(i.fadeOut)>0)gain*=Math.min(1,remain/fo);a.volume=gain;if($('#cfNlePlay')?.textContent.includes('Ⅱ')&&a.paused)a.play().catch(()=>{});
@@ -125,7 +125,7 @@ async function exportTimeline(){
  if(!end){status('La línea de tiempo está vacía.');return;}
  const videos=items.filter(x=>x.track.type==='video'&&x.item.kind!=='image'&&!x.track.hidden);
  const images=items.filter(x=>x.track.type==='video'&&x.item.kind==='image'&&!x.track.hidden);
- const audios=items.filter(x=>x.track.type==='audio'&&!x.track.hidden&&!x.track.muted);
+ const audios=items.filter(x=>x.track.type==='audio'&&!x.track.hidden&&!x.track.muted&&!x.item.muted);
  const texts=items.filter(x=>(x.track.type==='text'||x.track.type==='subtitles')&&!x.track.hidden);
  const source=$('#cfNleVideo')?.currentSrc||$('#cfNleVideo')?.src;
  const canvas=document.createElement('canvas');canvas.width=1080;canvas.height=1920;
@@ -181,7 +181,7 @@ async function exportTimeline(){
    texts.filter(x=>time>=Number(x.item.start)&&time<Number(x.item.end)).forEach(x=>{
     const i=x.item,txt=String(i.text||'');if(!txt)return;ctx.save();ctx.globalAlpha=Number(i.opacity??1);const weight=i.fontWeight||'900',family=i.fontFamily||'Arial',size=Math.max(12,Number(i.fontSize)||42);ctx.font=weight+' '+size+'px "'+String(family).replace(/["\\\\]/g,'')+'"';ctx.textAlign=i.textAlign||'center';ctx.textBaseline='middle';if('letterSpacing' in ctx)ctx.letterSpacing=(Number(i.letterSpacing)||0)+'px';const xx=Number(i.x??.5)*1080,yy=Number(i.y??.82)*1920;const metrics=ctx.measureText(txt),pad=10,bg=i.backgroundColor;if(bg){const left=ctx.textAlign==='left'?xx:ctx.textAlign==='right'?xx-metrics.width:xx-metrics.width/2;ctx.fillStyle=bg;ctx.fillRect(left-pad,yy-size*.6-pad,metrics.width+pad*2,size*1.2+pad*2);}ctx.lineWidth=Number(i.outlineWidth??5);ctx.strokeStyle=i.outlineColor||'#000';ctx.fillStyle=i.color||'#fff';ctx.strokeText(txt,xx,yy,980);ctx.fillText(txt,xx,yy,980);ctx.restore();
    });
-   nodes.forEach(n=>{const i=n.item,local=time-Number(i.start),remain=Number(i.end)-time;let g=n.track?.muted?0:Math.max(0,Math.min(1,Number(i.volume??1)));if(i.fadeIn>0)g*=Math.min(1,local/Number(i.fadeIn));if(i.fadeOut>0)g*=Math.min(1,remain/Number(i.fadeOut));n.gain.gain.value=g});
+   nodes.forEach(n=>{const i=n.item,local=time-Number(i.start),remain=Number(i.end)-time;let g=(n.track?.muted||i.muted)?0:Math.max(0,Math.min(1,Number(i.volume??1)));if(i.fadeIn>0)g*=Math.min(1,local/Number(i.fadeIn));if(i.fadeOut>0)g*=Math.min(1,remain/Number(i.fadeOut));n.gain.gain.value=g});
    audios.forEach(x=>{const i=x.item,el=audio.get(i.id),on=time>=Number(i.start)&&time<Number(i.end);if(!el)return;if(on){const wanted=Math.max(0,Number(i.sourceStart||0)+time-Number(i.start));if(Math.abs(el.currentTime-wanted)>.5)try{el.currentTime=wanted}catch(e){}if(el.paused)el.play().catch(()=>{});}else if(!el.paused)el.pause();});
    if(performance.now()-lastStatus>500){status('Exportando '+Math.floor(time/end*100)+'% · '+format(time)+' / '+format(end));lastStatus=performance.now();}
    if(time>=end){stop();return;}raf=requestAnimationFrame(draw);

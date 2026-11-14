@@ -1085,3 +1085,12 @@ def test_browser_export_composites_image_overlays_from_the_editor_timeline():
         }""")
         assert result[0] > 240 and result[1] < 10 and result[2] < 10 and result[3] > 240
         browser.close()
+
+
+
+def test_muted_timeline_items_stay_silent_in_preview_and_export():
+    source = (STATIC / "capcut-editor-enhancements.js").read_text()
+    assert "if(i.muted||!i.url||time<Number(i.start)||time>=Number(i.end))return;" in source
+    assert "const audios=items.filter(x=>x.track.type==='audio'&&!x.track.hidden&&!x.track.muted&&!x.item.muted);" in source
+    assert "let g=(n.track?.muted||i.muted)?0:" in source
+    assert "vv.muted=!!vt?.muted||!!activeVideoItem?.muted;" in source
