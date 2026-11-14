@@ -364,9 +364,10 @@
 
   // Google Drive App Data: each user owns their private cloud projects.
   const GOOGLE_SCOPE='https://www.googleapis.com/auth/drive.appdata';
+  const DEFAULT_GOOGLE_CLIENT_ID='722967122444-4d8mc4dmiq5rm77n74j2j5aicnfehas5.apps.googleusercontent.com';
   let googleAccessToken='',googleTokenClient=null,googleTokenExpiry=0;
   function googleStatus(message){const el=$('#googleProjectStatus');if(el)el.textContent=message;}
-  function googleClientId(){return ($('#googleClientId')?.value||localStorage.getItem('clipforge.google.clientId')||'').trim();}
+  function googleClientId(){return ($('#googleClientId')?.value||localStorage.getItem('clipforge.google.clientId')||DEFAULT_GOOGLE_CLIENT_ID).trim();}
   function loadGoogleIdentity(){
     return new Promise((resolve,reject)=>{
       if(window.google?.accounts?.oauth2){resolve();return;}
@@ -463,7 +464,7 @@
     }catch(error){googleStatus('No se pudo abrir el proyecto: '+error.message);}
   }
   function restoreGoogleClientId(){
-    const input=$('#googleClientId');if(input)input.value=localStorage.getItem('clipforge.google.clientId')||'';
+    const input=$('#googleClientId');if(input)input.value=localStorage.getItem('clipforge.google.clientId')||DEFAULT_GOOGLE_CLIENT_ID;
   }
 
   function syncPreview(){
