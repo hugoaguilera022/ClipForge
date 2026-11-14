@@ -212,7 +212,7 @@ try {
   if(audioGain!=='60')throw new Error('The imported audio volume control did not apply.');
   await page.locator('.cf-opus-back').click();
   await page.locator('#cfResults').waitFor({state:'visible'});
-  const candidateChecks=page.locator('#cfResults .candidate-select input');
+  const candidateChecks=page.locator('#browserCandidateList .candidate-select input');
   const candidateCheckCount=await candidateChecks.count();
   if(candidateCheckCount!==4)throw new Error(`Expected four selectable clips, found ${candidateCheckCount}.`);
   for(let i=0;i<candidateCheckCount;i++){if(!await candidateChecks.nth(i).isChecked())await candidateChecks.nth(i).check();}
