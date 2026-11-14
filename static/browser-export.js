@@ -98,13 +98,14 @@ function drawKaraokeCaption(ctx,cues,sourceTime,width,height,settings={}){
   ctx.restore();
 }
 
-async function buildTimelineAudioMix(file,clip,tracks,sourceAudioTrack,onProgress=()=>{}){
+async function buildTimelineAudioMix(file,clip,tracks,sourceAudioTrack,onProgress=()=>{},AudioBufferSink=null){
+  const sourceMuted=(tracks||[]).some(track=>track?.type==='video'&&track.muted&&(track.items||[]).some(item=>item.kind==='clip'||item.assetId==='source'));
   const audioTracks=(tracks||[]).filter(track=>track?.type==='audio'&&!track.muted&&!track.hidden);
   const items=audioTracks.flatMap(track=>(track.items||[])
     .filter(item=>item&&item.kind==='audio'&&!item.muted&&Number.isFinite(Number(item.start))&&Number.isFinite(Number(item.end))&&Number(item.end)>Number(item.start))
     .map(item=>({track,item})))
     .filter(({item})=>Number(item.end)>clip.start&&Number(item.start)<clip.end&&Number(item.volume??1)>0);
-  if(!items.length)return null;
+  if(!items.length&&!sourceMuted)return null;
   const AudioContextClass=window.AudioContext||window.webkitAudioContext;
   const OfflineContextClass=window.OfflineAudioContext||window.webkitOfflineAudioContext;
   if(!AudioContextClass||!OfflineContextClass)throw new Error('Este navegador no permite mezclar las pistas de audio del editor.');
@@ -133,11 +134,25 @@ async function buildTimelineAudioMix(file,clip,tracks,sourceAudioTrack,onProgres
     source.start(start,Math.max(0,offset),playable);
   };
   try{
-    if(sourceAudioTrack){
+    if(sourceAudioTrack&&!sourceMuted){
       onProgress('Mezclando el audio original con las pistas del editor…');
-      let original;
-      try{original=await decode(file);}catch(error){throw new Error('No se pudo decodificar el audio original para mezclarlo con la música: '+error.message);}
-      schedule(original,0,clip.start,Math.min(duration,original.duration-clip.start),1,0,0);
+      if(AudioBufferSink){
+        const sink=new AudioBufferSink(sourceAudioTrack);
+        let decodedAny=false;
+        try{
+          for await(const part of sink.buffers(clip.start,clip.end)){
+            const start=Math.max(0,Number(part.timestamp)-clip.start);
+            const offset=Math.max(0,clip.start-Number(part.timestamp));
+            const length=Math.min(Number(part.buffer?.duration)||0,duration-start);
+            if(length>0){schedule(part.buffer,start,offset,length,1,0,0);decodedAny=true;}
+          }
+        }catch(error){throw new Error('No se pudo decodificar el tramo de audio original: '+error.message);}
+        if(!decodedAny)onProgress('El tramo original no contiene audio; se conservarán las pistas añadidas…');
+      }else{
+        let original;
+        try{original=await decode(file);}catch(error){throw new Error('No se pudo decodificar el audio original para mezclarlo con la música: '+error.message);}
+        schedule(original,0,clip.start,Math.min(duration,original.duration-clip.start),1,0,0);
+      }
     }
     for(let index=0;index<items.length;index++){
       const {track,item}=items[index];
@@ -245,7 +260,7 @@ window.clipforgeBuildTimelineAudioMix=buildTimelineAudioMix;
 window.clipforgeVisualOverlayTools={prepare:prepareVisualOverlays,draw:drawVisualOverlays,dispose:disposeVisualOverlays};
 
 async function exportOne(file,clip,segments,tracks,index,total,settings={}){
-  const {Input,Output,Conversion,ALL_FORMATS,BlobSource,Mp4OutputFormat,BufferTarget,Quality,AudioBufferSource}=await import('https://esm.sh/mediabunny@1.65.2');
+  const {Input,Output,Conversion,ALL_FORMATS,BlobSource,Mp4OutputFormat,BufferTarget,Quality,AudioBufferSource,AudioBufferSink}=await import('https://esm.sh/mediabunny@1.65.2');
   const input=new Input({source:new BlobSource(file),formats:ALL_FORMATS});
   // MOV/MP4 files can be valid even when the container omits duration metadata.
   // Measure the primary video track before rejecting a usable source.
@@ -265,7 +280,7 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
   const visualOverlays=await prepareVisualOverlays(tracks,clip,message=>sayExport(`Clip ${index+1}/${total}: ${message}`)).catch(error=>{input.dispose();throw error;});
   const sourceAudioTrack=await input.getPrimaryAudioTrack();
   let mixedAudio=null;
-  try{mixedAudio=await buildTimelineAudioMix(file,clip,tracks,sourceAudioTrack,message=>sayExport(`Clip ${index+1}/${total}: ${message}`));}
+  try{mixedAudio=await buildTimelineAudioMix(file,clip,tracks,sourceAudioTrack,message=>sayExport(`Clip ${index+1}/${total}: ${message}`),AudioBufferSink);}
   catch(error){disposeVisualOverlays(visualOverlays);input.dispose();throw error;}
   const output=new Output({format:new Mp4OutputFormat(),target:new BufferTarget()});
   const audioSource=mixedAudio?new AudioBufferSource({codec:'aac',quality:new Quality('high')}):null;
