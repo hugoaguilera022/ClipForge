@@ -755,16 +755,19 @@ def test_subtitle_typography_controls_update_preview_and_project():
         inspector.locator('[data-k="backgroundColor"]').fill("#123456")
         inspector.locator('[data-k="outlineColor"]').fill("#ff0000")
         inspector.locator('[data-k="outlineWidth"]').fill("3")
+        inspector.locator('[data-k="letterSpacing"]').fill("2")
         overlay = page.locator("#cfNleOverlay .cf-nle-caption")
         assert overlay.inner_text() == "Texto real"
         assert overlay.evaluate("(el) => el.style.fontFamily") == "Impact"
         assert overlay.evaluate("(el) => el.style.textAlign") == "left"
         assert overlay.evaluate("(el) => el.style.backgroundColor") == "rgb(18, 52, 86)"
         assert overlay.evaluate("(el) => el.style.webkitTextStroke") == "3px rgb(255, 0, 0)"
+        assert overlay.evaluate("(el) => el.style.letterSpacing") == "2px"
         item = page.evaluate("""() => window.clipforgeEditorBridge.getProject()
           .tracks.find(t => t.type === "subtitles").items[0]""")
         assert item["fontFamily"] == "Impact"
         assert item["textAlign"] == "left"
         assert item["backgroundColor"] == "#123456"
         assert item["outlineWidth"] == 3
+        assert item["letterSpacing"] == 2
         browser.close()
