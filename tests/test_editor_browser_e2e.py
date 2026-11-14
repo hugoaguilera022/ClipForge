@@ -535,3 +535,52 @@ def test_modifier_multi_select_moves_clips_as_a_group():
         assert abs(next(x for x in items if x["id"] == "c2")["start"] - 5) < .001
         assert next(x for x in items if x["id"] == "c3")["start"] == 7
         browser.close()
+
+def test_editor_restores_source_and_imported_audio_from_indexeddb():
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        context = browser.new_context()
+        page = context.new_page()
+        page.set_content("""
+          <input id="video" type="file">
+          <section id="cfEditor"><div class="cf-opus-editor-slot"></div></section>
+          <script>
+            window.clipforgeEditorBridge = {
+              getProject: () => ({projectName:"Restauración",tracks:[
+                {id:"v1",type:"video",name:"V1",items:[
+                  {id:"c1",kind:"clip",title:"Fuente",start:0,end:2,sourceStart:0,assetId:"source"}
+                ]},
+                {id:"a1",type:"audio",name:"A1",items:[
+                  {id:"a1c1",kind:"audio",title:"Música",start:0,end:2,assetId:"audio-1",assetName:"musica.wav",url:"",missingAsset:true}
+                ]}
+              ]}),
+              setTracks: () => {}, setProjectName: () => {}
+            };
+          </script>
+        """)
+        page.add_script_tag(path=str(STATIC / "capcut-editor.js"))
+        page.add_script_tag(path=str(STATIC / "capcut-editor-enhancements.js"))
+        page.evaluate("""async () => {
+          await window.clipforgeMediaStore.save("source", new Blob(["video-fixture"], {type:"video/mp4"}));
+          await window.clipforgeMediaStore.save("audio-1", new Blob(["audio-fixture"], {type:"audio/wav"}));
+          window.dispatchEvent(new CustomEvent(
+            "clipforge:open-editor", {detail:{clip:{id:"c1",title:"Fuente"},index:0}}
+          ));
+        }""")
+        page.wait_for_function("""() => {
+          const p = window.clipforgeEditorBridge.getProject();
+          const audio = p.tracks.find(t => t.type === "audio").items[0];
+          return document.querySelector("#cfNleVideo")?.src?.startsWith("blob:") &&
+                 audio?.url?.startsWith("blob:") && audio.missingAsset === false;
+        }""", timeout=10000)
+        state = page.evaluate("""() => {
+          const p = window.clipforgeEditorBridge.getProject();
+          return {
+            source: document.querySelector("#cfNleVideo").src,
+            audio: p.tracks.find(t => t.type === "audio").items[0]
+          };
+        }""")
+        assert state["source"].startswith("blob:")
+        assert state["audio"]["url"].startswith("blob:")
+        assert state["audio"]["missingAsset"] is False
+        browser.close()
