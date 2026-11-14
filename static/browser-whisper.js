@@ -505,17 +505,17 @@ window.clipforgeEditorBridge = {
     const duration = Math.max(0, ...editableCandidates.map(clip => Number(clip.end) || 0));
     showClipCandidates([], duration, editableCandidates);
     window.dispatchEvent(new CustomEvent('clipforge:clips-updated'));
-    const toSeconds = value => {const m=String(value||'').match(/(\\d{2}):(\\d{2}):(\\d{2})[,.](\\d{3})/);return m?Number(m[1])*3600+Number(m[2])*60+Number(m[3])+Number(m[4])/1000:NaN;};
+    const toSeconds = value => {const m=String(value||'').match(/(\d{2}):(\d{2}):(\d{2})[,.](\d{3})/);return m?Number(m[1])*3600+Number(m[2])*60+Number(m[3])+Number(m[4])/1000:NaN;};
     const segments=[];
     await Promise.all((Array.isArray(job?.clips)?job.clips:[]).map(async clip=>{
       if(!clip.file||!Number.isFinite(Number(clip.start)))return;
-      const srtName=String(clip.file).replace(/\\.mp4$/i,'.srt');
+      const srtName=String(clip.file).replace(/\.mp4$/i,'.srt');
       try{
         const response=await fetch(`/api/preview/${encodeURIComponent(job.id)}/${encodeURIComponent(srtName)}`);
         if(!response.ok)return;
         const source=await response.text();
-        source.replace(/\\r/g,'').split(/\\n\\s*\\n/).forEach(block=>{
-          const lines=block.split('\\n');const index=lines.findIndex(line=>line.includes('-->'));if(index<0)return;
+        source.replace(/\r/g,'').split(/\n\s*\n/).forEach(block=>{
+          const lines=block.split('\n');const index=lines.findIndex(line=>line.includes('-->'));if(index<0)return;
           const times=lines[index].split('-->');const start=toSeconds(times[0]),end=toSeconds(times[1]);
           const text=lines.slice(index+1).join(' ').replace(/<[^>]*>/g,'').trim();
           if(Number.isFinite(start)&&Number.isFinite(end)&&end>start&&text)segments.push({start:Number(clip.start)+start,end:Number(clip.start)+end,text});
