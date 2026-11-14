@@ -9,7 +9,7 @@
   const TYPES = {video:'Vídeo',audio:'Audio',subtitles:'Subtítulos',text:'Texto',image:'Imagen'};
   const uid = prefix => prefix + '-' + (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2));
   const clone = value => JSON.parse(JSON.stringify(value));
-  const state = {schema:'clipforge-project-v3',source:'',transcript:null,clips:[],tracks:[],settings:{fps:30,width:1080,height:1920}};
+  const state = {schema:'clipforge-project-v2',source:'',transcript:null,clips:[],tracks:[],settings:{fps:30,width:1080,height:1920}};
   let activeProjectId = null, selected = null, playhead = 0, duration = 0, clipboard = null;
   let undoStack = [], redoStack = [], sourceUrl = null, previewVideo = null, previewAudio = null;
   const HISTORY_LIMIT = 100;
@@ -219,7 +219,7 @@
   function addText(){
     let track=state.tracks.find(t=>t.type==='text'&&!t.locked);
     if(!track){track=normalizeTrack({type:'text',name:'T1 · Textos',items:[]});state.tracks.push(track);}
-    remember();const item={id:uid('text'),kind:'text',start:playhead,end:Math.min(duration,playhead+3)||playhead+3,text:'Nuevo título',fontSize:56,color:'#ffffff',x:0.5,y:0.8};
+    remember();const item={id:uid('text'),kind:'text',start:playhead,end:playhead+3,text:'Nuevo título',fontSize:56,color:'#ffffff',x:0.5,y:0.8};
     track.items.push(item);selected={trackId:track.id,itemId:item.id};persistLocal();render();say('Texto añadido a la pista. Puedes editarlo en el inspector.');
   }
   function addTrack(type){
@@ -236,13 +236,13 @@
     catch(e){say('No se pudo cargar la lista de proyectos: '+e.message);}
   }
   async function saveProject(){
-    const project={schema:'clipforge-project-v3',source:state.source,transcript:state.transcript,clips:state.clips,tracks:state.tracks,settings:state.settings};
+    const project={schema:'clipforge-project-v2',source:state.source,transcript:state.transcript,clips:state.clips,tracks:state.tracks,settings:state.settings};
     try{const r=await fetch('/api/projects',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:activeProjectId||undefined,...project})});const data=await r.json();if(!r.ok)throw new Error(data.message||data.error||'HTTP '+r.status);activeProjectId=data.id;await refreshProjects();if(projectSelect)projectSelect.value=activeProjectId;say('Proyecto guardado en el servidor local: '+data.clip_count+' clips y '+data.track_count+' pistas.');}
     catch(e){say('Error al guardar el proyecto: '+e.message);}
   }
   async function loadProject(){
     const id=projectSelect?.value;if(!id){say('Selecciona un proyecto guardado.');return;}
-    try{const r=await fetch('/api/projects/'+encodeURIComponent(id));const p=await r.json();if(!r.ok)throw new Error(p.message||p.error||'HTTP '+r.status);activeProjectId=id;Object.assign(state,{schema:'clipforge-project-v3',source:p.source||'',transcript:p.transcript||null,clips:p.clips||[],tracks:(p.tracks||[]).map(normalizeTrack),settings:p.settings||state.settings});if(!state.tracks.length)state.tracks=defaultTracks();selected=null;undoStack=[];redoStack=[];deriveDuration();window.clipforgeEditorBridge?.setClips(state.clips);persistLocal();render();say('Proyecto recuperado: '+state.clips.length+' clips y '+state.tracks.length+' pistas.');}
+    try{const r=await fetch('/api/projects/'+encodeURIComponent(id));const p=await r.json();if(!r.ok)throw new Error(p.message||p.error||'HTTP '+r.status);activeProjectId=id;Object.assign(state,{schema:'clipforge-project-v2',source:p.source||'',transcript:p.transcript||null,clips:p.clips||[],tracks:(p.tracks||[]).map(normalizeTrack),settings:p.settings||state.settings});if(!state.tracks.length)state.tracks=defaultTracks();selected=null;undoStack=[];redoStack=[];deriveDuration();window.clipforgeEditorBridge?.setClips(state.clips);persistLocal();render();say('Proyecto recuperado: '+state.clips.length+' clips y '+state.tracks.length+' pistas.');}
     catch(e){say('No se pudo abrir el proyecto: '+e.message);}
   }
   function syncPreview(){
