@@ -718,6 +718,42 @@ def test_video_inspector_controls_apply_transform_and_filter_to_preview():
         browser.close()
 
 
+def test_video_keyframes_interpolate_transform_in_preview():
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        page.set_content("""
+          <input id="video" type="file">
+          <section id="cfEditor"><div class="cf-opus-editor-slot"></div></section>
+          <script>
+            const project = {tracks:[{id:"v1",type:"video",name:"V1",items:[
+              {id:"c1",kind:"clip",title:"Clip",start:0,end:5,sourceStart:0}
+            ]}]};
+            window.clipforgeEditorBridge = {
+              getProject: () => project,
+              setTracks: (tracks) => { project.tracks = tracks; },
+              setProjectName: () => {}
+            };
+          </script>
+        """)
+        page.add_script_tag(path=str(STATIC / "capcut-editor.js"))
+        page.add_script_tag(path=str(STATIC / "capcut-editor-enhancements.js"))
+        page.evaluate("""() => window.dispatchEvent(new CustomEvent(
+          'clipforge:open-editor', {detail:{clip:{id:'c1',title:'Clip'},index:0}}
+        ))""")
+        page.locator(".cf-nle-block[data-type='video']").click()
+        page.locator("#cfNleInspector input[data-extra='scale']").fill("2")
+        page.locator("#cfNleInspector input[data-extra='rotation']").fill("20")
+        page.locator("#cfNleInspector input[data-extra='opacity']").fill("0.4")
+        page.locator("#cfNleInspector button").filter(has_text="Añadir fotograma clave").click()
+        saved = page.evaluate("() => window.clipforgeEditorBridge.getProject().tracks[0].items[0].keyframes")
+        assert len(saved) == 1
+        assert saved[0]["scale"] == 2
+        assert saved[0]["rotation"] == 20
+        assert saved[0]["opacity"] == 0.4
+        browser.close()
+
+
 
 def test_subtitle_typography_controls_update_preview_and_project():
     with sync_playwright() as p:
