@@ -41,7 +41,7 @@ function decorateBlocks(root){
 function decorateInspector(root){
  const el=root.querySelector('#cfNleInspector');if(!el)return;
  const chosen=root.querySelector('.cf-nle-block.selected');if(!chosen)return;
- const id=chosen.dataset.itemId;if(!id||el.dataset.fxEnhanced===id)return;
+ const id=chosen.dataset.itemId;if(!id||(el.dataset.fxEnhanced===id&&el.querySelector('.cf-nle-extra-inspector')))return;
  const p=project(),track=(p.tracks||[]).find(t=>t.items?.some(i=>i.id===id)),item=track?.items.find(i=>i.id===id);if(!item)return;
  el.dataset.fxEnhanced=id;
  const group=document.createElement('div');group.className='cf-nle-extra-inspector';
