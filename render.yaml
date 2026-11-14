@@ -13,14 +13,14 @@ services:
         destination: https://clipforge-api-hugo.onrender.com/api/*
 
   - type: web
-    runtime: python
+    runtime: docker
     name: clipforge-api-hugo
     repo: https://github.com/hugoaguilera022/ClipForge
     branch: codex/clipforge-editor-stabilization
     plan: free
     region: frankfurt
-    buildCommand: apt-get update && apt-get install -y --no-install-recommends ffmpeg && pip install --no-cache-dir -r requirements.txt
-    startCommand: python server.py
+    dockerfilePath: ./Dockerfile.clipforge-api
+    dockerContext: .
     autoDeploy: false
     healthCheckPath: /api/health
     envVars:
