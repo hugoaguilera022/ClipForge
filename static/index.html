@@ -22,14 +22,28 @@
 </div>
 </section>
 <section class="panel editor-panel" id="projectEditor">
-<div class="section-head"><div><span class="step">MOTOR 03 / EDICIÓN</span><h2>Editor de proyecto y pistas</h2></div><span class="tag">Guardado local</span></div>
-<p class="muted">Edita los cortes detectados, organiza pistas de vídeo, audio, subtítulos y texto, y guarda el proyecto en ClipForge para continuar más tarde.</p>
+<div class="section-head"><div><span class="step">MOTOR 03 / EDICIÓN</span><h2>Editor de proyecto y pistas</h2></div><span class="tag">Editor multipista</span></div>
+<p class="muted">Edita los cortes detectados, organiza pistas de vídeo, audio, subtítulos y texto, y guarda una copia local o sincronízalo con tu cuenta de Google Drive para continuar desde otros dispositivos.</p>
 <div class="editor-toolbar">
 <label>Proyecto<select id="savedProjectList"><option value="">Nuevo proyecto</option></select></label>
 <button type="button" class="secondary" id="loadSavedProject">Abrir</button>
 <button type="button" class="secondary" id="saveSavedProject">Guardar proyecto</button>
 <button type="button" class="secondary" id="editorUndo">Deshacer</button><button type="button" class="secondary" id="editorRedo">Rehacer</button><button type="button" class="secondary" id="addEditorTrack">Añadir pista</button>
 </div>
+<section class="google-projects" aria-label="Proyectos en Google Drive">
+<div class="section-head"><div><span class="step">PROYECTOS EN LA NUBE</span><h3>Tu espacio de proyectos</h3></div><span class="tag">Google Drive privado</span></div>
+<p class="muted">Conecta tu cuenta de Google para guardar y recuperar proyectos desde cualquier navegador. Los archivos se guardan en el espacio privado de datos de ClipForge en tu Drive; no son visibles para otros usuarios.</p>
+<div class="editor-toolbar">
+<label>ID de cliente OAuth de Google<input id="googleClientId" type="text" autocomplete="off" placeholder="123456789-….apps.googleusercontent.com"></label>
+<button type="button" class="secondary" id="connectGoogle">Conectar Google</button>
+<label>Proyectos en la nube<select id="googleProjectList"><option value="">Conecta Google para cargar tus proyectos</option></select></label>
+<button type="button" class="secondary" id="refreshGoogleProjects">Actualizar lista</button>
+<button type="button" class="secondary" id="loadGoogleProject">Abrir desde Drive</button>
+<button type="button" id="saveGoogleProject">Guardar en Google Drive</button>
+</div>
+<div id="googleProjectStatus" class="engine-progress" role="status">Sin conectar. Introduce el ID OAuth de la aplicación y conecta tu cuenta.</div>
+<p class="hint">Configuración inicial: en Google Cloud Console activa Google Drive API y crea un ID de cliente OAuth para aplicación web. Añade https://clipforge-final.onrender.com como origen JavaScript autorizado. No introduzcas contraseñas ni secretos aquí; solo el ID público de cliente.</p>
+</section>
 <div id="editorStatus" class="engine-progress" role="status">Transcribe un vídeo para cargar sus clips en el editor.</div>
 <div id="editorTimeline" class="editor-timeline" aria-live="polite"><p class="muted">Todavía no hay clips cargados.</p></div>
 <div class="editor-add-track">
