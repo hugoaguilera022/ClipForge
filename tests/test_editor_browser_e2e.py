@@ -714,7 +714,7 @@ def test_video_inspector_controls_apply_transform_and_filter_to_preview():
         rotation.dispatch_event("change")
         assert "rotate(12deg)" in video.evaluate("(el) => el.style.transform")
         page.locator("#cfNleInspector select[data-extra='filterPreset']").select_option("bw")
-        assert video.evaluate("(el) => el.style.filter") == "grayscale(1)"
+        assert video.evaluate("(el) => el.style.filter") == "grayscale(1) brightness(100%) contrast(100%) saturate(100%)"
         browser.close()
 
 
