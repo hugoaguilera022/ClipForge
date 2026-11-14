@@ -935,3 +935,71 @@ def test_inspector_keeps_focus_while_editing_and_exposes_timeline_item_identity(
         assert page.locator("#cfNleInspector input[data-k='start']").input_value() == "1.5"
         browser.close()
 
+
+
+
+def test_inspector_edit_keeps_focus_and_undoes_as_one_operation():
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        page.set_content("""
+          <input id="video" type="file">
+          <section id="cfEditor"><div class="cf-opus-editor-slot"></div></section>
+          <script>
+            window.clipforgeEditorBridge = {
+              getProject: () => ({tracks:[{id:"v1",type:"video",name:"V1",items:[
+                {id:"c1",kind:"clip",title:"Clip uno",start:0,end:5,sourceStart:0}
+              ]}]}),
+              setTracks: () => {}, setProjectName: () => {}
+            };
+          </script>
+        """)
+        page.add_script_tag(path=str(STATIC / "capcut-editor.js"))
+        page.add_script_tag(path=str(STATIC / "capcut-editor-enhancements.js"))
+        page.evaluate("""() => window.dispatchEvent(new CustomEvent(
+          'clipforge:open-editor', {detail:{clip:{id:'c1',title:'Clip uno'},index:0}}
+        ))""")
+        field = page.locator("#cfNleInspector input[data-k='start']")
+        field.wait_for()
+        field.fill("1.5")
+        assert field.evaluate("(el) => el === document.activeElement")
+        field.press("Tab")
+        page.locator('[data-act="undo"]').click()
+        assert page.locator("#cfNleInspector input[data-k='start']").input_value() == "0"
+        browser.close()
+
+
+def test_text_overlay_can_be_dragged_in_preview():
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        page.set_content("""
+          <input id="video" type="file">
+          <section id="cfEditor"><div class="cf-opus-editor-slot"></div></section>
+          <script>
+            window.clipforgeEditorBridge = {
+              getProject: () => ({tracks:[
+                {id:"v1",type:"video",name:"V1",items:[{id:"c1",kind:"clip",title:"Clip",start:0,end:5,sourceStart:0}]},
+                {id:"t1",type:"text",name:"T1",items:[{id:"tx1",kind:"text",text:"Mover texto",start:0,end:5,x:.5,y:.8,fontSize:32}]}
+              ]}),
+              setTracks: () => {}, setProjectName: () => {}
+            };
+          </script>
+        """)
+        page.add_script_tag(path=str(STATIC / "capcut-editor.js"))
+        page.add_script_tag(path=str(STATIC / "capcut-editor-enhancements.js"))
+        page.evaluate("""() => window.dispatchEvent(new CustomEvent(
+          'clipforge:open-editor', {detail:{clip:{id:'c1',title:'Clip'},index:0}}
+        ))""")
+        caption = page.locator(".cf-nle-caption")
+        caption.wait_for()
+        before = caption.evaluate("(el) => el.style.left")
+        box = caption.bounding_box()
+        page.mouse.move(box["x"]+box["width"]/2, box["y"]+box["height"]/2)
+        page.mouse.down()
+        page.mouse.move(box["x"]+box["width"]/2+60, box["y"]+box["height"]/2+30)
+        page.mouse.up()
+        after = caption.evaluate("(el) => el.style.left")
+        assert before != after
+        browser.close()
+
