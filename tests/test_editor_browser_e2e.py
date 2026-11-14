@@ -1094,3 +1094,13 @@ def test_muted_timeline_items_stay_silent_in_preview_and_export():
     assert "const audios=items.filter(x=>x.track.type==='audio'&&!x.track.hidden&&!x.track.muted&&!x.item.muted);" in source
     assert "let g=(n.track?.muted||i.muted)?0:" in source
     assert "vv.muted=!!vt?.muted||!!activeVideoItem?.muted;" in source
+
+
+
+def test_editor_inspector_exposes_per_item_mute_toggle():
+    source = (STATIC / "capcut-editor-enhancements.js").read_text()
+    assert "className='cf-nle-item-mute'" in source
+    assert "mute.checked=!!item.muted" in source
+    assert "window.clipforgeSetItemProperty?.(track.id,id,'muted',mute.checked)" in source
+    assert "vv.muted=!!vt?.muted||!!activeVideoItem?.muted;" in source
+    assert "if(i.muted||!i.url||time<Number(i.start)||time>=Number(i.end))return;" in source
