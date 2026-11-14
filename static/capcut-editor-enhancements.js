@@ -1,6 +1,6 @@
 (()=>{'use strict';
 const $=s=>document.querySelector(s),clone=x=>JSON.parse(JSON.stringify(x)),uid=()=>('nle-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7));
-let installed=false,observer=null;
+let installed=false,observer=null,audioNodes=new Map();
 const bridge=()=>window.clipforgeEditorBridge;
 function project(){return bridge()?.getProject?.()||{}}
 function update(mutator){const b=bridge(),p=project(),tracks=clone(p.tracks||[]);mutator(tracks);b?.setTracks?.(tracks);window.dispatchEvent(new CustomEvent('clipforge:nle-changed'));}
@@ -9,11 +9,11 @@ function install(){
  const root=$('#cfNle');if(!root)return;
  const name=$('#cfNleName');if(name&&!name.dataset.enhanced){name.dataset.enhanced='1';name.placeholder='Nombre del proyecto';name.addEventListener('change',()=>{const b=bridge();b?.setProjectName?.(name.value.trim()||'Proyecto sin título');status('Nombre actualizado · guarda en Drive para sincronizarlo');});}
  const head=root.querySelector('.cf-nle-head');
- if(head&&!$('#cfNleNewProject')){const b=document.createElement('button');b.id='cfNleNewProject';b.textContent='＋ Nuevo proyecto';b.title='Crear un proyecto vacío';b.onclick=()=>{if(!confirm('¿Crear un proyecto nuevo? Guarda antes los cambios actuales.'))return;update(t=>t.forEach(x=>x.items=[]));if(name)name.value='Mi proyecto';bridge()?.setProjectName?.('Mi proyecto');status('Proyecto nuevo listo');};head.insertBefore(b,$('#cfNleSave'));}
+ if(head&&!$('#cfNleNewProject')){const b=document.createElement('button');b.id='cfNleNewProject';b.textContent='＋ Nuevo proyecto';b.title='Crear un proyecto vacío';b.onclick=()=>{if(!confirm('¿Crear un proyecto nuevo? Guarda antes los cambios actuales.'))return;update(t=>t.forEach(x=>x.items=[]));if(name)name.value='Mi proyecto';bridge()?.setProjectName?.('Mi proyecto');window.dispatchEvent(new CustomEvent('clipforge:new-project'));status('Proyecto nuevo listo');};head.insertBefore(b,$('#cfNleSave'));}
  const tools=root.querySelector('.cf-nle-tools');
  if(tools&&!$('#cfNleAddAudio')){const b=document.createElement('button');b.id='cfNleAddAudio';b.textContent='＋ Importar audio';b.onclick=()=>{const i=document.createElement('input');i.type='file';i.accept='audio/*';i.onchange=()=>{const f=i.files?.[0];if(!f)return;const url=URL.createObjectURL(f),a=new Audio();a.onloadedmetadata=()=>{const d=a.duration||5;update(ts=>{let t=ts.find(x=>x.type==='audio');if(!t){t={id:uid(),type:'audio',name:'A2 · Música',items:[]};ts.push(t);}t.items.push({id:uid(),kind:'audio',title:f.name,url,assetName:f.name,start:Number($('#cfNleSeek')?.value)||0,end:(Number($('#cfNleSeek')?.value)||0)+d,sourceStart:0,volume:1});});status('Audio añadido a la línea de tiempo.');};a.src=url;};i.click();};tools.insertBefore(b,tools.querySelector('span'));}
  if(tools&&!$('#cfNleAddVideo')){const b=document.createElement('button');b.id='cfNleAddVideo';b.textContent='＋ Importar vídeo/imagen';b.onclick=()=>$('#cfNleImport')?.click();tools.insertBefore(b,tools.querySelector('span'));}
- if(!observer){observer=new MutationObserver(()=>{decorateTracks(root);decorateBlocks(root);});observer.observe(root,{childList:true,subtree:true});}
+ if(!observer){observer=new MutationObserver(()=>{decorateTracks(root);decorateBlocks(root);wireAudio();});observer.observe(root,{childList:true,subtree:true});}
  decorateTracks(root);decorateBlocks(root);
 }
 function decorateTracks(root){
@@ -37,6 +37,21 @@ function decorateBlocks(root){
   block.dataset.itemId=item.id;
   ['left','right'].forEach(edge=>{const h=document.createElement('i');h.className='cf-nle-trim '+edge;h.title=edge==='left'?'Recortar inicio':'Recortar final';block.append(h);h.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();if(t.locked)return;const start=item.start,end=item.end,x=e.clientX;h.setPointerCapture?.(e.pointerId);let delta=0;const move=ev=>{delta=(ev.clientX-x)/20;};const stop=()=>{window.removeEventListener('pointermove',move);update(ts=>{const target=ts.find(z=>z.id===t.id)?.items.find(z=>z.id===item.id);if(!target)return;if(edge==='left'){const next=Math.max(0,Math.min(end-.15,start+delta));const diff=next-start;target.start=next;target.sourceStart=Math.max(0,Number(target.sourceStart||0)+diff);}else target.end=Math.max(start+.15,end+delta);});window.removeEventListener('pointerup',stop);};window.addEventListener('pointermove',move);window.addEventListener('pointerup',stop,{once:true});});});
  });
+}
+function syncAudio(){
+ const p=project(),time=Number($('#cfNleSeek')?.value)||0,tracks=p.tracks||[],active=new Set();
+ tracks.filter(t=>t.type==='audio'&&!t.hidden&&!t.muted).forEach(t=>t.items.forEach(i=>{
+  if(!i.url||time<Number(i.start)||time>=Number(i.end))return;
+  active.add(i.id);let a=audioNodes.get(i.id);if(!a){a=new Audio(i.url);a.preload='auto';audioNodes.set(i.id,a);}
+  const wanted=Math.max(0,Number(i.sourceStart||0)+time-Number(i.start));if(Math.abs(a.currentTime-wanted)>.35)try{a.currentTime=wanted}catch{}
+  a.volume=Math.max(0,Math.min(1,Number(i.volume??1)));if($('#cfNlePlay')?.textContent.includes('Ⅱ')&&a.paused)a.play().catch(()=>{});
+ }));
+ for(const [id,a] of audioNodes){if(!active.has(id)){a.pause();}}
+}
+function wireAudio(){
+ const play=$('#cfNlePlay'),seek=$('#cfNleSeek'),v=$('#cfNleVideo');if(play&&!play.dataset.audioWired){play.dataset.audioWired='1';play.addEventListener('click',()=>{setTimeout(()=>{if(play.textContent.includes('Ⅱ'))syncAudio();else audioNodes.forEach(a=>a.pause());},30);});}
+ if(seek&&!seek.dataset.audioWired){seek.dataset.audioWired='1';seek.addEventListener('input',()=>{audioNodes.forEach(a=>a.pause());syncAudio();});}
+ if(v&&!v.dataset.audioWired){v.dataset.audioWired='1';v.addEventListener('timeupdate',syncAudio);v.addEventListener('pause',()=>audioNodes.forEach(a=>a.pause()));}
 }
 function patchBridge(){
  const b=bridge();if(!b||b.__nleEnhanced)return;
