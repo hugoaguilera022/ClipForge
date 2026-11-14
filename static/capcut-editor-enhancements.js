@@ -1,5 +1,6 @@
 (()=>{'use strict';
 const $=s=>document.querySelector(s),clone=x=>JSON.parse(JSON.stringify(x)),uid=()=>('nle-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7));
+const safeStorageGet=key=>{try{return window.localStorage?.getItem(key)??null}catch{return null}};
 let installed=false,observer=null,audioNodes=new Map();
 const bridge=()=>window.clipforgeEditorBridge;
 function project(){return bridge()?.getProject?.()||{}}
@@ -158,7 +159,7 @@ async function exportTimeline(){
 function patchBridge(){
  const b=bridge();if(!b||b.__nleEnhanced)return;
  const get=b.getProject.bind(b),set=b.setTracks.bind(b),name=b.setProjectName?.bind(b);
- b.getProject=()=>({...get(),projectName:$('#cfNleName')?.value||localStorage.getItem('clipforge.nle.name')||'Mi proyecto'});
+ b.getProject=()=>({...get(),projectName:$('#cfNleName')?.value||safeStorageGet('clipforge.nle.name')||'Mi proyecto'});
  b.setTracks=v=>{set(v);queueMicrotask(()=>install());};
  b.setProjectName=n=>{name?.(n);if($('#cfNleName'))$('#cfNleName').value=n;};
  b.__nleEnhanced=true;
