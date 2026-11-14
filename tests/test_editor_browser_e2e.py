@@ -1226,7 +1226,7 @@ def test_timeline_mp4_export_control_remains_visible_and_clickable():
         page.set_content("""
           <input id="video" type="file">
           <section id="cfEditor"><div class="cf-opus-editor-slot"></div></section>
-          <button id="browserExportClips" hidden></button>
+          <button id="browserExportClips"></button>
           <script>
             window.clipforgeEditorBridge = {
               getProject: () => ({tracks:[{id:"v1",type:"video",name:"V1",items:[
