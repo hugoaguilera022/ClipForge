@@ -680,3 +680,27 @@ class GeneratedJobEditorBridgeTests(unittest.TestCase):
   self.assertIn("/api/preview/",bridge)
   self.assertIn("generatedTranscriptData",bridge)
   self.assertIn("type:'subtitles'",editor)
+
+class CompletedSourceStreamingTests(unittest.TestCase):
+ def test_completed_job_source_supports_http_byte_ranges(self):
+  import tempfile, threading, urllib.request
+  from http.server import ThreadingHTTPServer
+  import server
+  job_id='abcdef123456'
+  with tempfile.TemporaryDirectory() as temp:
+   folder=Path(temp);payload=b'0123456789abcdef'
+   (folder/'.clipforge_source.mp4').write_bytes(payload)
+   with server.LOCK:server.JOBS[job_id]={'id':job_id,'status':'completed','output':str(folder)}
+   httpd=ThreadingHTTPServer(('127.0.0.1',0),server.Handler)
+   thread=threading.Thread(target=httpd.serve_forever,daemon=True);thread.start()
+   try:
+    request=urllib.request.Request(f'http://127.0.0.1:{httpd.server_port}/api/jobs/{job_id}/source',headers={'Range':'bytes=2-5'})
+    with urllib.request.urlopen(request,timeout=10) as response:
+     self.assertEqual(response.status,206);self.assertEqual(response.read(),payload[2:6]);self.assertEqual(response.headers.get('Content-Range'),'bytes 2-5/16')
+   finally:
+    httpd.shutdown();httpd.server_close();thread.join(timeout=3)
+    with server.LOCK:server.JOBS.pop(job_id,None)
+ def test_completed_job_source_is_connected_to_editor_preview(self):
+  app=(ROOT/'static/app.js').read_text();editor=(ROOT/'static/editor.js').read_text()
+  self.assertIn('clipforgeEditor?.loadSource',app)
+  self.assertIn("loadSource:(url,label='Vídeo original')",editor)
