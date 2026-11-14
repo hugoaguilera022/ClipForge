@@ -1,0 +1,28 @@
+services:
+  - type: web
+    runtime: static
+    name: clipforge-final
+    repo: https://github.com/hugoaguilera022/ClipForge
+    branch: codex/clipforge-editor-stabilization
+    buildCommand: echo "ClipForge static frontend ready"
+    staticPublishPath: static
+    autoDeploy: false
+    routes:
+      - type: rewrite
+        source: /api/*
+        destination: https://clipforge-api-hugo.onrender.com/api/*
+
+  - type: web
+    runtime: docker
+    name: clipforge-api-hugo
+    repo: https://github.com/hugoaguilera022/ClipForge
+    branch: codex/clipforge-editor-stabilization
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./Dockerfile.clipforge-api
+    dockerContext: .
+    autoDeploy: false
+    healthCheckPath: /api/health
+    envVars:
+      - key: CLIPFORGE_HOST
+        value: 0.0.0.0

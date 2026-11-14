@@ -211,6 +211,15 @@ class Handler(BaseHTTPRequestHandler):
   data=body if isinstance(body,bytes) else body.encode()
   self.send_response(code); self.send_header('Content-Type',ctype); self.send_header('Content-Length',str(len(data))); self.send_header('X-Content-Type-Options','nosniff'); self.end_headers(); self.wfile.write(data)
  def json(self, code, obj): self.send(code,json.dumps(obj,ensure_ascii=False), 'application/json; charset=utf-8')
+ def do_HEAD(self):
+  path=urlparse(self.path).path
+  if path in {'/','/index.html'}:
+   code=200; ctype='text/html; charset=utf-8'
+  elif path=='/api/health':
+   code=200; ctype='application/json; charset=utf-8'
+  else:
+   code=404; ctype='application/json; charset=utf-8'
+  self.send_response(code); self.send_header('Content-Type',ctype); self.send_header('Content-Length','0'); self.send_header('X-Content-Type-Options','nosniff'); self.end_headers()
  def do_GET(self):
   path=urlparse(self.path).path
   if path=='/api/health':
@@ -274,6 +283,25 @@ class Handler(BaseHTTPRequestHandler):
    review=folder/'review.html'
    if not job or job.get('status')!='completed' or not review.is_file(): return self.json(404,{'error':'review_not_ready'})
    return self.send(200,review.read_bytes(),'text/html; charset=utf-8')
+  if path.startswith('/api/jobs/') and path.endswith('/source'):
+   parts=path.strip('/').split('/')
+   if len(parts)!=4 or not re.fullmatch(r'[a-f0-9]{12}',parts[2]): return self.json(404,{'error':'source_not_found'})
+   jid=parts[2]
+   with LOCK: job=JOBS.get(jid)
+   folder=Path(job.get('output') or '') if job else Path('/nonexistent')
+   target=(folder/'.clipforge_source.mp4').resolve()
+   if not job or job.get('status')!='completed' or target.parent!=folder.resolve() or not target.is_file(): return self.json(404,{'error':'source_not_found'})
+   size=target.stat().st_size; header=self.headers.get('Range','').strip()
+   if header:
+    match=re.fullmatch(r'bytes=(\d*)-(\d*)',header)
+    if not match: self.send_response(416); self.send_header('Content-Range',f'bytes */{size}'); self.send_header('Content-Length','0'); self.end_headers(); return
+    first=int(match.group(1) or 0); last=int(match.group(2) or size-1)
+    if first>=size or last<first: self.send_response(416); self.send_header('Content-Range',f'bytes */{size}'); self.send_header('Content-Length','0'); self.end_headers(); return
+    last=min(last,size-1); length=last-first+1
+    with target.open('rb') as stream: stream.seek(first); data=stream.read(length)
+    self.send_response(206); self.send_header('Content-Type','video/mp4'); self.send_header('Accept-Ranges','bytes'); self.send_header('Content-Range',f'bytes {first}-{last}/{size}'); self.send_header('Content-Length',str(len(data))); self.send_header('Cache-Control','private, max-age=60'); self.end_headers(); self.wfile.write(data); return
+   data=target.read_bytes()
+   self.send_response(200); self.send_header('Content-Type','video/mp4'); self.send_header('Accept-Ranges','bytes'); self.send_header('Content-Length',str(len(data))); self.send_header('Cache-Control','private, max-age=60'); self.end_headers(); self.wfile.write(data); return
   if path.startswith('/api/preview/'):
    parts=path.split('/')
    if len(parts)!=5: return self.json(404,{'error':'not_found'})
@@ -285,6 +313,13 @@ class Handler(BaseHTTPRequestHandler):
     return self.json(404,{'error':'preview_not_found'})
    ctype='video/mp4' if target.suffix.lower()=='.mp4' else 'application/x-subrip; charset=utf-8'
    return self.send(200,target.read_bytes(),ctype)
+  if path.startswith('/api/editor/export/'):
+   export_id=path.rsplit('/',1)[-1]
+   if not re.fullmatch(r'[a-f0-9]{16}',export_id): return self.json(404,{'error':'export_not_found'})
+   target=OUTPUTS/'editor_exports'/f'{export_id}.mp4'
+   if not target.is_file(): return self.json(404,{'error':'export_not_found'})
+   data=target.read_bytes()
+   self.send_response(200); self.send_header('Content-Type','video/mp4'); self.send_header('Content-Disposition',f'attachment; filename=clipforge_{export_id}.mp4'); self.send_header('Content-Length',str(len(data))); self.send_header('X-Content-Type-Options','nosniff'); self.end_headers(); self.wfile.write(data); return
   if path.startswith('/api/download/'):
    jid=path.rsplit('/',1)[-1]
    with LOCK: job=JOBS.get(jid)
@@ -427,6 +462,33 @@ class Handler(BaseHTTPRequestHandler):
     return self.json(200,{'ok':True,'clip':clipname,'audit':audit})
    except Exception as exc:
     return self.json(500,{'error':'rerender_failed','message':str(exc)[-1800:]})
+  if path=='/api/editor/export':
+   ctype=self.headers.get('Content-Type','')
+   if not ctype.lower().startswith('multipart/form-data;'): return self.json(400,{'error':'multipart_form_required'})
+   length=int(self.headers.get('Content-Length','0'))
+   if length<=0 or length>512*1024*1024: return self.json(413,{'error':'invalid_or_too_large_export','max_bytes':512*1024*1024})
+   raw=self.rfile.read(length)
+   msg=BytesParser(policy=default).parsebytes((f'Content-Type: {ctype}\r\nMIME-Version: 1.0\r\n\r\n'.encode()+raw))
+   part=next((x for x in msg.iter_parts() if x.get_param('name',header='content-disposition')=='video'),None)
+   if not part: return self.json(400,{'error':'video_required'})
+   payload=part.get_payload(decode=True) or b''
+   if not payload: return self.json(400,{'error':'empty_video'})
+   export_id=uuid.uuid4().hex[:16]; folder=OUTPUTS/'editor_exports'; folder.mkdir(parents=True,exist_ok=True)
+   source=folder/f'{export_id}.webm'; target=folder/f'{export_id}.mp4'
+   try:
+    source.write_bytes(payload)
+    result=subprocess.run([shutil.which('ffmpeg') or 'ffmpeg','-hide_banner','-loglevel','error','-y','-i',str(source),'-map','0:v:0','-map','0:a:0?','-c:v','libx264','-preset','veryfast','-crf','20','-pix_fmt','yuv420p','-c:a','aac','-b:a','192k','-movflags','+faststart',str(target)],capture_output=True,text=True,timeout=3600)
+    if result.returncode or not target.is_file() or target.stat().st_size<1024:
+     target.unlink(missing_ok=True)
+     raise RuntimeError((result.stderr or 'FFmpeg no pudo convertir la exportación.')[-1200:])
+    source.unlink(missing_ok=True)
+    return self.json(201,{'ok':True,'id':export_id,'download_url':f'/api/editor/export/{export_id}'})
+   except subprocess.TimeoutExpired:
+    source.unlink(missing_ok=True); target.unlink(missing_ok=True)
+    return self.json(504,{'error':'export_timeout','message':'La conversión ha superado el límite de una hora.'})
+   except Exception as exc:
+    source.unlink(missing_ok=True); target.unlink(missing_ok=True)
+    return self.json(500,{'error':'export_failed','message':str(exc)[-1200:]})
   if path!='/api/jobs': return self.json(404,{'error':'not_found'})
   ctype=self.headers.get('Content-Type','')
   if not ctype.lower().startswith('multipart/form-data;'): return self.json(400,{'error':'multipart_form_required'})

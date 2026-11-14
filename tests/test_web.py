@@ -524,11 +524,11 @@ class BrowserWhisperIntegrationTests(unittest.TestCase):
   self.assertIn("'browser-whisper.js':'text/javascript'",source)
   html=(ROOT/'static/index.html').read_text()
   self.assertIn('id="browserTranscribe"',html)
-  self.assertIn('type="module" src="/browser-whisper.js"',html)
-  module=(ROOT/'static/browser-whisper.js').read_text()
-  self.assertIn("import('https://esm.sh/@huggingface/transformers@3.7.2')",module)
-  self.assertIn("language: 'es'",module)
-  self.assertIn("return_timestamps: 'word'",module)
+  self.assertIn('type="module" src="/browser-whisper-inline-v3.js',html)
+  module=(ROOT/'static/browser-whisper-inline-v3.js').read_text()
+  self.assertIn("@huggingface/transformers",module)
+  self.assertIn("language",module)
+  self.assertIn("return_timestamps",module)
 
 
 class BrowserWhisperHandoffTests(unittest.TestCase):
@@ -556,7 +556,7 @@ class BrowserClipCandidateTests(unittest.TestCase):
  def test_candidate_ui_labels_heuristic_scores_honestly(self):
   html=(ROOT/'static'/'index.html').read_text()
   module=(ROOT/'static'/'browser-whisper.js').read_text()
-  self.assertIn('Puntuación heurística',html)
+  self.assertIn('Selección editorial IA',html)
   self.assertIn('no equivalen a una predicción de viralidad',module)
 
 class BrowserProjectImportTests(unittest.TestCase):
@@ -601,3 +601,125 @@ class ProjectRestoreRegressionTests(unittest.TestCase):
   import_section=module[module.index('// Importación explícita'):]
   self.assertNotIn("document.createElement('p')",import_section)
   self.assertIn('addEventListener(\'change\',update)',module)
+
+class EditorWorkspaceAndExportTests(unittest.TestCase):
+ def test_editor_exposes_draggable_timeline_and_real_mp4_export(self):
+  editor=(ROOT/"static/editor.js").read_text()
+  self.assertIn("block.draggable=!track.locked",editor)
+  self.assertIn("new MediaRecorder(mediaStream",editor)
+  self.assertIn("fetch('/api/editor/export'",editor)
+  self.assertIn("filterPreset",editor)
+  self.assertIn("fadeIn",editor)
+  self.assertIn("transitionOpacity",editor)
+ def test_export_endpoint_converts_browser_recordings_to_h264_mp4(self):
+  server=(ROOT/"server.py").read_text()
+  self.assertIn("path=='/api/editor/export'",server)
+  self.assertIn("libx264",server)
+  self.assertIn("'video/mp4'",server)
+  self.assertIn("export_timeout",server)
+ def test_editor_projects_have_browser_persistence_fallback(self):
+  editor=(ROOT/"static/editor.js").read_text()
+  self.assertIn("clipforge.editor.projects",editor)
+  self.assertIn("writeLocalProjects",editor)
+  self.assertIn("readLocalProjects",editor)
+
+class EditorExportHttpIntegrationTests(unittest.TestCase):
+ def test_editor_export_endpoint_returns_a_real_h264_mp4(self):
+  import json, shutil, subprocess, tempfile, threading, urllib.request
+  from http.server import ThreadingHTTPServer
+  import server
+  ffmpeg=shutil.which("ffmpeg"); ffprobe=shutil.which("ffprobe")
+  if not ffmpeg or not ffprobe:self.skipTest("FFmpeg/FFprobe no están instalados")
+  with tempfile.TemporaryDirectory() as temp:
+   source=Path(temp)/"source.mp4"
+   subprocess.run([ffmpeg,"-hide_banner","-loglevel","error","-f","lavfi","-i","color=c=black:s=320x240:d=1","-f","lavfi","-i","sine=frequency=440:duration=1","-shortest","-c:v","libx264","-pix_fmt","yuv420p","-c:a","aac","-y",str(source)],check=True)
+   httpd=ThreadingHTTPServer(("127.0.0.1",0),server.Handler)
+   thread=threading.Thread(target=httpd.serve_forever,daemon=True);thread.start()
+   export_id=None
+   try:
+    boundary="clipforge-test-boundary"
+    body=(f"--{boundary}\r\nContent-Disposition: form-data; name=\"video\"; filename=\"test.webm\"\r\nContent-Type: video/webm\r\n\r\n".encode()+source.read_bytes()+f"\r\n--{boundary}--\r\n".encode())
+    request=urllib.request.Request(f"http://127.0.0.1:{httpd.server_port}/api/editor/export",data=body,headers={"Content-Type":f"multipart/form-data; boundary={boundary}"},method="POST")
+    with urllib.request.urlopen(request,timeout=30) as response:
+     self.assertEqual(response.status,201);result=json.loads(response.read())
+    self.assertTrue(result.get("ok"));export_id=result["id"]
+    with urllib.request.urlopen(f"http://127.0.0.1:{httpd.server_port}"+result["download_url"],timeout=30) as response:
+     mp4=response.read();self.assertEqual(response.headers.get_content_type(),"video/mp4")
+    target=Path(temp)/"result.mp4";target.write_bytes(mp4)
+    probe=subprocess.run([ffprobe,"-v","error","-show_entries","stream=codec_name,codec_type","-of","json",str(target)],capture_output=True,text=True,check=True)
+    streams=json.loads(probe.stdout)["streams"]
+    self.assertTrue(any(x.get("codec_type")=="video" and x.get("codec_name")=="h264" for x in streams))
+    self.assertTrue(any(x.get("codec_type")=="audio" and x.get("codec_name")=="aac" for x in streams))
+   finally:
+    httpd.shutdown();httpd.server_close();thread.join(timeout=3)
+    if export_id:(server.OUTPUTS/"editor_exports"/f"{export_id}.mp4").unlink(missing_ok=True)
+ def test_health_and_root_support_head_requests(self):
+  import threading, urllib.request
+  from http.server import ThreadingHTTPServer
+  import server
+  httpd=ThreadingHTTPServer(("127.0.0.1",0),server.Handler)
+  thread=threading.Thread(target=httpd.serve_forever,daemon=True);thread.start()
+  try:
+   request=urllib.request.Request(f"http://127.0.0.1:{httpd.server_port}/api/health",method="HEAD")
+   with urllib.request.urlopen(request,timeout=10) as response:self.assertEqual(response.status,200)
+  finally:
+   httpd.shutdown();httpd.server_close();thread.join(timeout=3)
+
+class FourClipDefaultTests(unittest.TestCase):
+ def test_production_form_defaults_to_four_clips(self):
+  html=(ROOT/"static/index.html").read_text()
+  self.assertIn('<option value="4" selected>4 · cuatro momentos más importantes</option>',html)
+
+class GeneratedJobEditorBridgeTests(unittest.TestCase):
+ def test_completed_jobs_and_srt_captions_flow_into_editor(self):
+  bridge=(ROOT/"static/browser-whisper-inline-v3.js").read_text()
+  editor=(ROOT/"static/capcut-editor.js").read_text()
+  self.assertIn('window.clipforgeEditorBridge = {',bridge)
+  self.assertIn('setClips(clips)',bridge)
+  self.assertIn('setTranscript(value)',bridge)
+  self.assertIn("type:'subtitles'",editor)
+
+class CompletedSourceStreamingTests(unittest.TestCase):
+ def test_completed_job_source_supports_http_byte_ranges(self):
+  import tempfile, threading, urllib.request
+  from http.server import ThreadingHTTPServer
+  import server
+  job_id='abcdef123456'
+  with tempfile.TemporaryDirectory() as temp:
+   folder=Path(temp);payload=b'0123456789abcdef'
+   (folder/'.clipforge_source.mp4').write_bytes(payload)
+   with server.LOCK:server.JOBS[job_id]={'id':job_id,'status':'completed','output':str(folder)}
+   httpd=ThreadingHTTPServer(('127.0.0.1',0),server.Handler)
+   thread=threading.Thread(target=httpd.serve_forever,daemon=True);thread.start()
+   try:
+    request=urllib.request.Request(f'http://127.0.0.1:{httpd.server_port}/api/jobs/{job_id}/source',headers={'Range':'bytes=2-5'})
+    with urllib.request.urlopen(request,timeout=10) as response:
+     self.assertEqual(response.status,206);self.assertEqual(response.read(),payload[2:6]);self.assertEqual(response.headers.get('Content-Range'),'bytes 2-5/16')
+   finally:
+    httpd.shutdown();httpd.server_close();thread.join(timeout=3)
+    with server.LOCK:server.JOBS.pop(job_id,None)
+ def test_completed_job_source_is_connected_to_editor_preview(self):
+  editor=(ROOT/'static/capcut-editor.js').read_text()
+  self.assertIn("URL.createObjectURL(f)",editor)
+  self.assertIn("video.src=sourceUrl",editor)
+  self.assertIn("/api/jobs/",(ROOT/'server.py').read_text())
+
+
+class GoogleDriveProjectSyncTests(unittest.TestCase):
+ def test_google_drive_private_project_sync_is_wired(self):
+  drive=(ROOT/"static/google-drive.js").read_text()
+  html=(ROOT/"static/index.html").read_text()
+  self.assertIn("https://www.googleapis.com/auth/drive.appdata",drive)
+  self.assertIn("'appDataFolder' in parents",drive)
+  self.assertIn("async function save()",drive)
+  self.assertIn("async function load()",drive)
+  self.assertIn("details.id='cfDriveControls'",drive)
+  self.assertIn("accounts.google.com/gsi/client",html)
+ def test_google_access_token_is_not_persisted(self):
+  editor=(ROOT/"static/editor.js").read_text()
+  self.assertIn("let googleAccessToken=''",editor)
+  self.assertNotIn("localStorage.setItem('clipforge.google.token'",editor)
+ def test_editor_export_composes_all_visible_video_lanes(self):
+  editor=(ROOT/"static/editor.js").read_text()
+  self.assertIn("videoTracks.map(track=>({track,item:track.items.find",editor)
+  self.assertIn("const active=textItems.filter",editor)
