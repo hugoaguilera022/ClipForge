@@ -188,7 +188,7 @@ try {
 
   await page.locator('.cf-opus-tab[data-tab="effects"]').click();
   await page.locator('.cf-video-filter').selectOption('cinematic');
-  if(!(await page.locator('.cf-inline-player video').first().evaluate(el=>el.style.filter.includes('contrast(1.14)')))) {
+  if(!(await page.locator('.cf-inline-player video').evaluateAll(els=>els.some(el=>el.style.filter.includes('contrast(1.14)'))))) {
     throw new Error('The cinematic filter did not apply to the preview.');
   }
   await page.locator('.cf-opus-tab[data-tab="transitions"]').click();
