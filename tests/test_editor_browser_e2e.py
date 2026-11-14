@@ -10,6 +10,8 @@ def test_real_browser_can_mount_and_operate_the_multitrack_editor():
     with sync_playwright() as p:
         browser = p.chromium.launch()
         page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        page_errors = []
+        page.on("pageerror", lambda error: page_errors.append(str(error)))
         page.set_content("""
           <input id="video" type="file">
           <section id="cfEditor"><div class="cf-opus-editor-slot"></div></section>
@@ -36,7 +38,9 @@ def test_real_browser_can_mount_and_operate_the_multitrack_editor():
         page.evaluate("""() => window.dispatchEvent(new CustomEvent(
           'clipforge:open-editor', {detail:{clip:{title:'Prueba E2E'}, index:0}}
         ))""")
-        page.locator("#cfNle").wait_for(state="visible")
+        page.wait_for_timeout(250)
+        assert page.locator("#cfNle").count() == 1, f"El editor no se montó. Errores JS: {page_errors}"
+        assert page.locator("#cfNle").is_visible(), f"El editor está oculto. Errores JS: {page_errors}"
         assert page.locator(".cf-nle-media").is_visible()
         assert page.locator(".cf-nle-center").is_visible()
         assert page.locator(".cf-nle-inspector").is_visible()
