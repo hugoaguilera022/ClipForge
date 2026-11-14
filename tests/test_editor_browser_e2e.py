@@ -256,6 +256,7 @@ def test_editor_keyboard_shortcuts_copy_paste_undo_duplicate_and_delete():
         assert blocks.count() == 3
         page.keyboard.press("Delete")
         assert blocks.count() == 2
+        blocks.first.click()
         page.keyboard.press("Control+x")
         assert blocks.count() == 1
         browser.close()
