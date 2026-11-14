@@ -8,16 +8,29 @@ function update(mutator){const b=bridge(),p=project(),tracks=clone(p.tracks||[])
 function status(m){const e=$('#cfNleStatus');if(e)e.textContent=m;}
  function animatedValues(item,time){
   const base={scale:Number(item.scale)||1,rotation:Number(item.rotation)||0,opacity:Number(item.opacity??1)};
-  const frames=(Array.isArray(item.keyframes)?item.keyframes:[]).filter(k=>Number.isFinite(Number(k.time))).slice().sort((a,b)=>a.time-b.time);
-  if(!frames.length)return base;
-  const local=Math.max(0,time-Number(item.start||0));
-  const points=[{time:0,...base},...frames].sort((a,b)=>a.time-b.time);
-  let left=points[0],right=points[points.length-1];
-  for(let n=0;n<points.length-1;n++){if(local>=points[n].time&&local<=points[n+1].time){left=points[n];right=points[n+1];break;}}
-  if(local<=points[0].time)return {scale:Number(points[0].scale??base.scale),rotation:Number(points[0].rotation??base.rotation),opacity:Number(points[0].opacity??base.opacity)};
-  if(local>=points.at(-1).time)return {scale:Number(points.at(-1).scale??base.scale),rotation:Number(points.at(-1).rotation??base.rotation),opacity:Number(points.at(-1).opacity??base.opacity)};
-  const span=Math.max(.0001,Number(right.time)-Number(left.time)),p=Math.max(0,Math.min(1,(local-Number(left.time))/span));
-  return Object.fromEntries(['scale','rotation','opacity'].map(k=>[k,Number(left[k]??base[k])+(Number(right[k]??base[k])-Number(left[k]??base[k]))*p]));
+  const local=Math.max(0,Number(time||0)-Number(item.start||0));
+  const byTime=new Map([[0,{time:0,...base}]]);
+  (Array.isArray(item.keyframes)?item.keyframes:[]).forEach(frame=>{
+   const at=Number(frame?.time);
+   if(!Number.isFinite(at)||at<0)return;
+   byTime.set(Number(at.toFixed(3)),{
+    time:Number(at.toFixed(3)),
+    scale:Number.isFinite(Number(frame.scale))?Number(frame.scale):base.scale,
+    rotation:Number.isFinite(Number(frame.rotation))?Number(frame.rotation):base.rotation,
+    opacity:Number.isFinite(Number(frame.opacity))?Number(frame.opacity):base.opacity
+   });
+  });
+  const points=[...byTime.values()].sort((a,b)=>a.time-b.time);
+  if(local<=points[0].time)return {scale:points[0].scale,rotation:points[0].rotation,opacity:points[0].opacity};
+  const last=points[points.length-1];
+  if(local>=last.time)return {scale:last.scale,rotation:last.rotation,opacity:last.opacity};
+  let rightIndex=points.findIndex(point=>point.time>=local);
+  if(rightIndex<=0)return {scale:last.scale,rotation:last.rotation,opacity:last.opacity};
+  const left=points[rightIndex-1],right=points[rightIndex];
+  const progress=Math.max(0,Math.min(1,(local-left.time)/Math.max(.0001,right.time-left.time)));
+  return Object.fromEntries(['scale','rotation','opacity'].map(key=>[
+   key,left[key]+(right[key]-left[key])*progress
+  ]));
  }
 function install(){
  const root=$('#cfNle');if(!root)return;

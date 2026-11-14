@@ -807,3 +807,43 @@ def test_subtitle_typography_controls_update_preview_and_project():
         assert item["outlineWidth"] == 3
         assert item["letterSpacing"] == 2
         browser.close()
+
+
+def test_transform_keyframe_at_clip_start_overrides_base_values():
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        page.set_content("""
+          <input id="video" type="file">
+          <section id="cfEditor"><div class="cf-opus-editor-slot"></div></section>
+          <script>
+            const project = {tracks:[{id:"v1",type:"video",name:"V1",items:[
+              {id:"c1",kind:"clip",title:"Clip",start:0,end:5,sourceStart:0}
+            ]}]};
+            window.clipforgeEditorBridge = {
+              getProject: () => project,
+              setTracks: (tracks) => { project.tracks = tracks; },
+              setProjectName: () => {}
+            };
+          </script>
+        """)
+        page.add_script_tag(path=str(STATIC / "capcut-editor.js"))
+        page.add_script_tag(path=str(STATIC / "capcut-editor-enhancements.js"))
+        page.evaluate("""() => window.dispatchEvent(new CustomEvent(
+          'clipforge:open-editor', {detail:{clip:{id:'c1',title:'Clip'},index:0}}
+        ))""")
+        page.locator(".cf-nle-block[data-type='video']").click()
+        page.locator("#cfNleInspector input[data-extra='scale']").fill("1.8")
+        page.locator("#cfNleInspector input[data-extra='rotation']").fill("15")
+        page.locator("#cfNleInspector input[data-extra='opacity']").fill("0.7")
+        page.get_by_role("button", name="＋ Añadir fotograma clave").click()
+        video = page.locator("#cfNleVideo")
+        page.wait_for_function("""() => {
+          const video = document.querySelector('#cfNleVideo');
+          return video && video.style.transform.includes('scale(1.8)');
+        }""")
+        transform = video.evaluate("(el) => el.style.transform")
+        opacity = float(video.evaluate("(el) => el.style.opacity"))
+        assert "rotate(15deg)" in transform, transform
+        assert abs(opacity - 0.7) < 0.02, opacity
+        browser.close()
