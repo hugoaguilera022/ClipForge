@@ -175,8 +175,8 @@ try {
   const subtitleCount=await subtitleRows.count();
   await page.locator('.cf-canonical-subtitle-editor .cf-subtitle-edit-actions button').filter({hasText:'Duplicar'}).click();
   await page.waitForFunction(n=>document.querySelectorAll('.cf-canonical-subtitle-row').length===n+1,subtitleCount);
-  await page.locator('.cf-subtitle-edit-actions button').filter({hasText:'Eliminar'}).click();
-  await page.waitForFunction(n=>document.querySelectorAll('.cf-subtitle-row-button').length===n,subtitleCount);
+  await page.locator('.cf-canonical-subtitle-editor .cf-subtitle-edit-actions button').filter({hasText:'Eliminar'}).click();
+  await page.waitForFunction(n=>document.querySelectorAll('.cf-canonical-subtitle-row').length===n,subtitleCount);
 
   await page.locator('.cf-opus-tab[data-tab="text"]').click();
   await page.locator('.cf-overlay-copy').fill('Texto de prueba editable');
