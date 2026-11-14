@@ -24,7 +24,7 @@ function decorateTracks(root){
   [['🔒','locked','Bloquear pista'],['♫','muted','Silenciar pista'],['◉','hidden','Ocultar pista']].forEach(([label,key,title])=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.title=title;b.className=t[key]?'is-on':'';b.onclick=e=>{e.stopPropagation();update(ts=>{const x=ts.find(z=>z.id===t.id);if(x)x[key]=!x[key];});};controls.append(b);});
   const up=document.createElement('button');up.textContent='↑';up.title='Subir pista';up.onclick=()=>update(ts=>{const n=ts.findIndex(x=>x.id===t.id);if(n>0)[ts[n-1],ts[n]]=[ts[n],ts[n-1]];});
   const down=document.createElement('button');down.textContent='↓';down.title='Bajar pista';down.onclick=()=>update(ts=>{const n=ts.findIndex(x=>x.id===t.id);if(n>=0&&n<ts.length-1)[ts[n+1],ts[n]]=[ts[n],ts[n+1]];});
-  controls.append(up,down);head.append(controls);
+  const rename=document.createElement('button');rename.textContent='✎';rename.title='Cambiar nombre de pista';rename.onclick=()=>{const n=prompt('Nombre de la pista',t.name);if(n?.trim())update(ts=>{const x=ts.find(z=>z.id===t.id);if(x)x.name=n.trim();});};const remove=document.createElement('button');remove.textContent='×';remove.title='Eliminar pista';remove.onclick=()=>{if(confirm('¿Eliminar la pista «'+t.name+'» y todos sus elementos?'))update(ts=>{const n=ts.findIndex(z=>z.id===t.id);if(n>=0)ts.splice(n,1);});};controls.append(up,down,rename,remove);head.append(controls);
  });
 }
 function decorateBlocks(root){
