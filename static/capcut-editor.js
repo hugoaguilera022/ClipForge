@@ -24,7 +24,7 @@ const say=m=>{const e=$('#cfNleStatus');if(e)e.textContent=m},fmt=n=>{const cent
 const total=()=>Math.max(30,...tracks.flatMap(t=>t.items.map(i=>Number(i.end)||0)));
 const sel=()=>{const t=tracks.find(x=>x.id===selected?.trackId),i=t?.items.find(x=>x.id===selected?.itemId);return t&&i?{t,i}:null};
 function checkpoint(){undoStack.push(JSON.stringify({tracks,selected,playhead}));if(undoStack.length>80)undoStack.shift();redoStack=[];}
-function snapCandidates(excludeId){return [0,playhead,...tracks.flatMap(t=>t.items.filter(i=>i.id!==excludeId).flatMap(i=>[Number(i.start),Number(i.end)]))].filter(Number.isFinite)}
+function snapCandidates(excludeId){const excluded=new Set(Array.isArray(excludeId)?excludeId:[excludeId]);return [0,playhead,...tracks.flatMap(t=>t.items.filter(i=>!excluded.has(i.id)).flatMap(i=>[Number(i.start),Number(i.end)]))].filter(Number.isFinite)}
 function snapTime(value,excludeId,threshold=.2){let nearest=value,best=Math.max(0,Number(threshold)||0);for(const point of snapCandidates(excludeId)){const distance=Math.abs(point-value);if(distance<=best){nearest=point;best=distance}}return nearest}
 function snapMoveDelta(start,end,excludeId,threshold=.2){let delta=0,best=Math.max(0,Number(threshold)||0);for(const point of snapCandidates(excludeId)){for(const edge of [start,end]){const candidate=point-edge,distance=Math.abs(candidate);if(distance<=best){delta=candidate;best=distance}}}return delta}
 window.clipforgeTimelineSnapTime=snapTime;
