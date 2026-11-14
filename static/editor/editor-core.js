@@ -33,7 +33,16 @@ function connectBridge(){
   const incoming=bridge.getProject();
   const clips=Array.isArray(incoming.clips)?incoming.clips:[];
   const transcript=incoming.transcript||null;
-  const tracks=Array.isArray(incoming.tracks)&&incoming.tracks.length?incoming.tracks:makeTracks(clips,transcript);
+  const tracks=Array.isArray(incoming.tracks)&&incoming.tracks.length?clone(incoming.tracks):makeTracks(clips,transcript);
+  // The legacy workspace may expose an initialized but empty lane array.
+  // Never let that mask the imported, timestamped transcript.
+  if(transcript?.segments?.length){
+    let subtitleTrack=tracks.find(track=>track.type==='subtitles');
+    if(!subtitleTrack){subtitleTrack={id:'track-s1',type:'subtitles',name:'S1 · Subtítulos',items:[]};tracks.push(subtitleTrack);}
+    if(!Array.isArray(subtitleTrack.items)||!subtitleTrack.items.length){
+      subtitleTrack.items=transcript.segments.filter(segment=>Number(segment.end)>Number(segment.start)&&String(segment.text||'').trim()).map((segment,index)=>({...clone(segment),id:String(segment.id||'subtitle-'+(index+1)),start:Number(segment.start),end:Number(segment.end),text:String(segment.text||''),words:Array.isArray(segment.words)?segment.words:[]}));
+    }
+  }
   store.hydrate({...incoming,clips,transcript,tracks});
   initialized=true;
   // The bridge remains the compatibility boundary for the existing Whisper and
