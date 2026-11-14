@@ -965,7 +965,7 @@ def test_inspector_edit_keeps_focus_and_undoes_as_one_operation():
         assert field.evaluate("(el) => el === document.activeElement")
         field.press("Tab")
         page.locator('[data-act="undo"]').click()
-        assert page.locator("#cfNleInspector input[data-k='start']").input_value() == "0", page.evaluate("() => ({lastAction:window.__cfLastAction, actArg:window.__cfActArg, branch:window.__cfUndoBranch, before:window.__cfUndoBefore, history:window.clipforgeUndoDebug?.()})")
+        assert page.locator("#cfNleInspector input[data-k='start']").input_value() == "0", page.evaluate("() => JSON.stringify({lastAction:window.__cfLastAction, actArg:window.__cfActArg, branch:window.__cfUndoBranch, before:window.__cfUndoBefore, stage:window.__cfUndoStage, history:window.clipforgeUndoDebug?.()})")
         browser.close()
 
 
