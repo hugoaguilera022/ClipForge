@@ -297,6 +297,39 @@ def test_right_click_clip_opens_context_menu_with_working_actions():
         browser.close()
 
 
+
+def test_context_menu_disables_trimming_on_locked_tracks():
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        page.set_content("""
+          <input id="video" type="file">
+          <section id="cfEditor"><div class="cf-opus-editor-slot"></div></section>
+          <script>
+            window.clipforgeEditorBridge = {
+              getProject: () => ({tracks:[{id:"v1",type:"video",name:"V1",locked:true,items:[
+                {id:"c1",kind:"clip",title:"Clip bloqueado",start:0,end:2}
+              ]}]}),
+              setTracks: () => {}, setProjectName: () => {}
+            };
+          </script>
+        """)
+        page.add_script_tag(path=str(STATIC / "capcut-editor.js"))
+        page.add_script_tag(path=str(STATIC / "capcut-editor-enhancements.js"))
+        page.evaluate("""() => window.dispatchEvent(new CustomEvent(
+          'clipforge:open-editor', {detail:{clip:{id:'c1',title:'Clip bloqueado'},index:0}}
+        ))""")
+        clip = page.locator(".cf-nle-block[data-type='video']").first
+        clip.wait_for()
+        clip.click(button="right")
+        menu = page.locator("#cfNleClipMenu")
+        assert menu.is_visible()
+        assert menu.get_by_role("menuitem", name="Recortar inicio hasta aquí").is_disabled()
+        assert menu.get_by_role("menuitem", name="Recortar final hasta aquí").is_disabled()
+        assert menu.get_by_role("menuitem", name="Ir al inicio del fragmento").is_enabled()
+        browser.close()
+
+
 def test_audio_track_renders_waveform_from_decoded_media_samples():
     with sync_playwright() as p:
         browser = p.chromium.launch()
