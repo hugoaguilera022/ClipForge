@@ -361,7 +361,7 @@
     if(heading)card.append(heading);
     card.append(layout);
     syncEditorGeometry();
-    window.addEventListener('resize',syncEditorGeometry,{passive:true});window.visualViewport?.addEventListener('resize',syncEditorGeometry,{passive:true});layout.__cfCleanup=()=>{window.removeEventListener('resize',syncEditorGeometry);window.visualViewport?.removeEventListener('resize',syncEditorGeometry);};requestAnimationFrame(syncEditorGeometry);
+    window.addEventListener('resize',syncEditorGeometry,{passive:true});window.visualViewport?.addEventListener('resize',syncEditorGeometry,{passive:true});layout.__cfCleanup=()=>{window.removeEventListener('resize',syncEditorGeometry);window.visualViewport?.removeEventListener('resize',syncEditorGeometry);subtitleEditor.__cfCleanup?.();audioPane.__cfCleanup?.();};requestAnimationFrame(syncEditorGeometry);
     const actions=document.createElement('div');actions.className='cf-opus-editor-actions';
     if(exportOne){exportOne.textContent='Exportar este clip MP4';actions.append(exportOne);}
     if(select)actions.append(select);
