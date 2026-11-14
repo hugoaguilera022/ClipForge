@@ -103,7 +103,7 @@ function syncVisualLayers(){
   if(!node||((image&&node.tagName!=='IMG')||(!image&&node.tagName!=='VIDEO'))){
    node?.remove();node=image?document.createElement('img'):document.createElement('video');
    node.dataset.clipforgeLayer=item.id;node.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none';
-   if(!image){node.playsInline=true;node.muted=true;node.preload='auto';}
+   if(!image){node.playsInline=true;node.muted=!!track.muted||!!item.muted;node.preload='auto';}
    visualLayerNodes.set(item.id,node);host.append(node);
   }
   const src=item.url||(item.assetId==='source'?base.currentSrc||base.src:'');
@@ -114,12 +114,12 @@ function syncVisualLayers(){
   style.opacity=String(Math.max(0,Math.min(1,Number(item.opacity??1))));
   style.transform='translate('+Number(item.positionX||0)+'%, '+Number(item.positionY||0)+'%) scale('+scale+') rotate('+Number(item.rotation||0)+'deg)';
   style.filter=({cinematic:'contrast(1.15) saturate(.85)',warm:'sepia(.2) saturate(1.2)',cool:'hue-rotate(12deg)',bw:'grayscale(1)'}[item.filterPreset]||'')+' brightness('+Number(item.brightness??100)+'%) contrast('+Number(item.contrast??100)+'%) saturate('+Number(item.saturation??100)+'%)';
-  if(!image){node.playbackRate=Math.max(.25,Math.min(4,Number(item.speed)||1));if(!base.paused&&node.paused)node.play().catch(()=>{});if(base.paused&&!node.paused)node.pause();}
+  if(!image){node.playbackRate=Math.max(.25,Math.min(4,Number(item.speed)||1));node.muted=!!track.muted||!!item.muted;const local=Math.max(0,time-Number(item.start)),remain=Math.max(0,Number(item.end)-time);let gain=Math.max(0,Math.min(1,Number(item.volume??1)));if(Number(item.fadeIn)>0)gain*=Math.min(1,local/Number(item.fadeIn));if(Number(item.fadeOut)>0)gain*=Math.min(1,remain/Number(item.fadeOut));node.volume=gain;if(!base.paused&&node.paused)node.play().catch(()=>{});if(base.paused&&!node.paused)node.pause();}
  });
  for(const [id,node] of visualLayerNodes){if(!wanted.has(id)){node.pause?.();node.remove();visualLayerNodes.delete(id);}}
 }
 function syncAudio(){
- syncVisualLayers();const p=project(),time=Number($('#cfNleSeek')?.value)||0,tracks=p.tracks||[],active=new Set();const vt=tracks.find(t=>t.type==='video'&&!t.hidden);const vv=$('#cfNleVideo');const activeVideoItem=vt?.items.find(i=>time>=Number(i.start)&&time<Number(i.end));if(vv)vv.muted=!!vt?.muted||!!activeVideoItem?.muted;applyVisualEffects(tracks,time);
+ syncVisualLayers();const p=project(),time=Number($('#cfNleSeek')?.value)||0,tracks=p.tracks||[],active=new Set();const vt=tracks.find(t=>t.type==='video'&&!t.hidden);const vv=$('#cfNleVideo');const activeVideoItem=vt?.items.find(i=>time>=Number(i.start)&&time<Number(i.end));if(vv){vv.muted=!!vt?.muted||!!activeVideoItem?.muted;let gain=Math.max(0,Math.min(1,Number(activeVideoItem?.volume??1)));const local=time-Number(activeVideoItem?.start||0),remain=Number(activeVideoItem?.end||time)-time;if(Number(activeVideoItem?.fadeIn)>0)gain*=Math.min(1,local/Number(activeVideoItem.fadeIn));if(Number(activeVideoItem?.fadeOut)>0)gain*=Math.min(1,remain/Number(activeVideoItem.fadeOut));vv.volume=gain;}applyVisualEffects(tracks,time);
  tracks.filter(t=>t.type==='audio'&&!t.hidden&&!t.muted).forEach(t=>t.items.forEach(i=>{
   if(i.muted||!i.url||time<Number(i.start)||time>=Number(i.end))return;
   active.add(i.id);let a=audioNodes.get(i.id);if(!a){a=new Audio(i.url);a.preload='auto';audioNodes.set(i.id,a);}
