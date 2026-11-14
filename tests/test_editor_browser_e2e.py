@@ -847,3 +847,49 @@ def test_transform_keyframe_at_clip_start_overrides_base_values():
         assert "rotate(15deg)" in transform, transform
         assert abs(opacity - 0.7) < 0.02, opacity
         browser.close()
+
+
+def test_video_position_and_color_adjustments_match_preview_and_project_state():
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        project = {"tracks": [{"id": "v1", "type": "video", "name": "V1", "items": [
+            {"id": "c1", "kind": "clip", "title": "Clip", "start": 0, "end": 5, "sourceStart": 0}
+        ]}]}
+        page.set_content("""
+          <input id="video" type="file">
+          <section id="cfEditor"><div class="cf-opus-editor-slot"></div></section>
+          <script>
+            const project = window.__project = {tracks:[{id:"v1",type:"video",name:"V1",items:[
+              {id:"c1",kind:"clip",title:"Clip",start:0,end:5,sourceStart:0}
+            ]}]};
+            window.clipforgeEditorBridge = {
+              getProject: () => project,
+              setTracks: (tracks) => { project.tracks = tracks; },
+              setProjectName: () => {}
+            };
+          </script>
+        """)
+        page.add_script_tag(path=str(STATIC / "capcut-editor.js"))
+        page.add_script_tag(path=str(STATIC / "capcut-editor-enhancements.js"))
+        page.evaluate("""() => window.dispatchEvent(new CustomEvent(
+          'clipforge:open-editor', {detail:{clip:{id:'c1',title:'Clip'},index:0}}
+        ))""")
+        page.locator(".cf-nle-block[data-type='video']").click()
+        for key, value in {"positionX": "12", "positionY": "-8", "brightness": "125", "contrast": "110", "saturation": "140"}.items():
+            page.locator(f"#cfNleInspector input[data-extra='{key}']").fill(value)
+        video = page.locator("#cfNleVideo")
+        page.wait_for_function("""() => {
+          const video = document.querySelector('#cfNleVideo');
+          return video && video.style.transform.includes('translate(12%, -8%)') &&
+            video.style.filter.includes('brightness(125%)') &&
+            video.style.filter.includes('contrast(110%)') &&
+            video.style.filter.includes('saturate(140%)');
+        }""")
+        state = page.evaluate("""() => window.__project.tracks[0].items[0]""")
+        assert state["positionX"] == 12
+        assert state["positionY"] == -8
+        assert state["brightness"] == 125
+        assert state["contrast"] == 110
+        assert state["saturation"] == 140
+        browser.close()
