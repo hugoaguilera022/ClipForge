@@ -205,7 +205,7 @@
     const getSubtitleItems=()=>window.clipforgeProjectStore?.project?.tracks?.filter(t=>t.type==='subtitles').flatMap(t=>t.items)||[];
     const renderSubtitleRows=()=>{
       const items=getSubtitleItems();subtitleList.replaceChildren();
-      items.forEach(item=>{const row=document.createElement('button');row.type='button';row.className='cf-subtitle-row-button'+(item.id===activeSubtitleId?' is-active':'');row.dataset.subtitleId=item.id;const time=document.createElement('span');time.textContent=Number(item.start).toFixed(2)+'s';const copy=document.createElement('span');copy.textContent=item.text||'(Subtítulo vacío)';row.append(time,copy);subtitleList.append(row);});
+      items.forEach(item=>{const row=document.createElement('button');row.type='button';row.className='cf-subtitle-row-button cf-canonical-subtitle-row'+(item.id===activeSubtitleId?' is-active':'');row.dataset.subtitleId=item.id;const time=document.createElement('span');time.textContent=Number(item.start).toFixed(2)+'s';const copy=document.createElement('span');copy.textContent=item.text||'(Subtítulo vacío)';row.append(time,copy);subtitleList.append(row);});
       subtitleEditor.querySelector('.cf-subtitle-empty').hidden=items.length>0;
       if(!items.some(item=>item.id===activeSubtitleId)){activeSubtitleId=items[0]?.id||null;}
       subtitleForm.hidden=!activeSubtitleId;
