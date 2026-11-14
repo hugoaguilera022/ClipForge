@@ -597,7 +597,7 @@ class Handler(BaseHTTPRequestHandler):
      meta_path=OUTPUTS/jid/Path(args[3]).stem/'youtube_source_stats.json'
      if meta_path.parent.exists():
       meta_path.write_text(json.dumps(source_meta,ensure_ascii=False,indent=2),encoding='utf-8')
-      log='Metadatos públicos de YouTube guardados en youtube_source_stats.json.\n'+log
+      log='Metadatos públicos de YouTube guardados en youtube_source_stats.json.\\n'+log
    except LeaseLostError as exc:
     success=False; lease_lost=True; log=str(exc)
    except Exception as exc:
@@ -621,7 +621,7 @@ class Handler(BaseHTTPRequestHandler):
     JOBS[jid]['output']=str(actual_output) if success and actual_output.is_dir() else None
     if success and JOBS[jid]['output'] is None:
      JOBS[jid]['status']='failed'
-     JOBS[jid]['log'] += "\nERROR: el motor terminó sin crear la carpeta de salida esperada."
+     JOBS[jid]['log'] += "\\nERROR: el motor terminó sin crear la carpeta de salida esperada."
     if JOBS[jid]['status']=='failed' and not lease_lost:
      shutil.rmtree(OUTPUTS/jid,ignore_errors=True)
     if worker_id:
