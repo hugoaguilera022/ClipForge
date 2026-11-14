@@ -713,7 +713,7 @@ class GoogleDriveProjectSyncTests(unittest.TestCase):
   self.assertIn("'appDataFolder' in parents",drive)
   self.assertIn("async function save()",drive)
   self.assertIn("async function load()",drive)
-  self.assertIn('id="cfDriveControls"',drive)
+  self.assertIn("box.id='cfDriveControls'",drive)
   self.assertIn("accounts.google.com/gsi/client",html)
  def test_google_access_token_is_not_persisted(self):
   editor=(ROOT/"static/editor.js").read_text()
