@@ -198,6 +198,13 @@
         const defaults={scale:1,rotation:0,opacity:1,volume:1,speed:1,x:0,y:0};
         body.append(makeField(({scale:'Escala',rotation:'Rotación',opacity:'Opacidad',volume:'Volumen',speed:'Velocidad',x:'Posición X',y:'Posición Y'})[key],item[key]??defaults[key],'number',v=>mutateItem(item,{[key]:Number(v)})));
       });
+    }else if(track.type==='text'||track.type==='subtitles'){
+      body.append(makeField('Tamaño de letra',item.fontSize??56,'number',v=>mutateItem(item,{fontSize:Math.max(8,Math.min(160,Number(v)))})));
+      body.append(makeField('Color del texto',item.color||'#ffffff','color',v=>mutateItem(item,{color:v})));
+      body.append(makeField('Color del contorno',item.outlineColor||'#000000','color',v=>mutateItem(item,{outlineColor:v})));
+      body.append(makeField('Posición horizontal (0–1)',item.x??0.5,'number',v=>mutateItem(item,{x:Math.max(0,Math.min(1,Number(v)))})));
+      body.append(makeField('Posición vertical (0–1)',item.y??0.82,'number',v=>mutateItem(item,{y:Math.max(0,Math.min(1,Number(v)))})));
+      body.append(makeField('Opacidad (0–1)',item.opacity??1,'number',v=>mutateItem(item,{opacity:Math.max(0,Math.min(1,Number(v)))})));
     }
   }
   function makeSelectField(label,value,options,onChange){
