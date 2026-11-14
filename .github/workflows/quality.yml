@@ -1,4 +1,4 @@
-name: ClipForge quality checks # browser editor regression suite
+name: ClipForge quality checks # browser editor regression suite · subtitle import hydration
 
 on:
   push:
