@@ -167,14 +167,14 @@ try {
   const subtitleRows=page.locator('.cf-canonical-subtitle-row');
   if(await subtitleRows.count()<1)throw new Error('The subtitle editor did not load the imported timestamped transcript.');
   await subtitleRows.first().click();
-  await page.locator('.cf-subtitle-single-editor textarea').fill('Prueba uno corregida');
-  await page.locator('.cf-subtitle-single-editor button').first().click();
+  await page.locator('.cf-canonical-subtitle-editor .cf-subtitle-single-editor textarea').fill('Prueba uno corregida');
+  await page.locator('.cf-canonical-subtitle-editor .cf-subtitle-single-editor button').first().click();
   if(!(await subtitleRows.first().innerText()).includes('Prueba uno corregida')) {
     throw new Error('Editing a subtitle did not update its visible transcript row.');
   }
   const subtitleCount=await subtitleRows.count();
-  await page.locator('.cf-subtitle-edit-actions button').filter({hasText:'Duplicar'}).click();
-  await page.waitForFunction(n=>document.querySelectorAll('.cf-subtitle-row-button').length===n+1,subtitleCount);
+  await page.locator('.cf-canonical-subtitle-editor .cf-subtitle-edit-actions button').filter({hasText:'Duplicar'}).click();
+  await page.waitForFunction(n=>document.querySelectorAll('.cf-canonical-subtitle-row').length===n+1,subtitleCount);
   await page.locator('.cf-subtitle-edit-actions button').filter({hasText:'Eliminar'}).click();
   await page.waitForFunction(n=>document.querySelectorAll('.cf-subtitle-row-button').length===n,subtitleCount);
 
