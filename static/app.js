@@ -5,7 +5,35 @@ async function loadHealth(){
   const r=await fetch('/api/health');const d=await r.json();
   $('#health').textContent=d.ffmpeg&&d.ffprobe?(d.faster_whisper?'Faster-Whisper local disponible':(d.whisper_cpp?'whisper.cpp local disponible':(d.native_speech?'Apple Speech disponible como alternativa local':(d.whisper?'Whisper clásico disponible':'Se instalará whisper.cpp como alternativa local'))))+(d.yt_dlp?' · URL YouTube activa':' · falta yt-dlp para URLs'):'Falta FFmpeg/FFprobe';
   $('#health').classList.toggle('ok',d.ffmpeg&&d.ffprobe);
- }catch{$('#health').textContent='Servidor desconectado'}
+ }catch{
+  $('#health').textContent='Modo navegador · gratuito';
+  document.body.dataset.browserOnly='true';
+  const upload=document.querySelector('.upload');
+  if(upload){
+   upload.querySelector('h2').textContent='Vídeo de origen';
+   upload.querySelector('.tag').textContent='Procesamiento en tu navegador';
+   const note=document.createElement('p');note.className='browser-only-note';note.textContent='Selecciona aquí el vídeo que quieres analizar. Después, baja al Motor 01 para transcribirlo, elegir cuatro momentos y exportarlos en vertical. No se necesita instalar nada ni subir el vídeo a un servidor.';
+   upload.querySelector('.section-head').after(note);
+   // Static hosting has no Python API. Hide every control that would
+   // otherwise submit to missing server endpoints; keep only the local file
+   // picker and the independent browser transcription/editor/export workflow.
+   const serverOnlySelectors=[
+    '.publish','.channel-panel','.inbox-panel','.history-panel',
+    '.url-source','.source-divider','.transcript-drop','.form-grid',
+    '.upload form > .check','.upload form > .hint','#submit',
+    '.browser-auto-generate'
+   ];
+   serverOnlySelectors.forEach(selector=>{
+    document.querySelectorAll(selector).forEach(element=>{element.hidden=true;});
+   });
+   const filename=document.querySelector('#filename');
+   if(filename)filename.textContent='MP4, MOV, MKV, WEBM y otros formatos compatibles';
+   const directUrl=document.querySelector('.browser-url-import');
+   if(directUrl)directUrl.hidden=false;
+  }
+  window.clipforgeModeReady=true;
+  window.dispatchEvent(new Event('clipforge:mode-ready'));
+ }
 }
 async function loadPlatforms(){
  try{
@@ -13,10 +41,10 @@ async function loadPlatforms(){
   $('#platforms').innerHTML=platforms.map(p=>`<div class="platform"><span class="ico">${({youtube:'▶',instagram:'◎',facebook:'f',tiktok:'♪',x:'X'})[p.id]}</span><div><b>${esc(p.name)}</b><small>${esc(p.free)}</small></div><span class="state">Pendiente</span></div>`).join('');
  }catch{$('#platforms').textContent='No se pudo cargar el estado de las plataformas.'}
 }
-$('#video').addEventListener('change',e=>$('#filename').textContent=e.target.files[0]?.name||'MP4, MOV, MKV o WEBM · máximo 512 MB');
-$('#transcript').addEventListener('change',e=>$('#transcriptname').textContent=e.target.files[0]?.name||'SRT o VTT · permite trabajar sin instalar Whisper');
+$('#video').addEventListener('change',e=>$('#filename').textContent=e.target.files[0]?.name||'MP4, MOV, MKV, WEBM, AVI, M4V y más · máximo 512 MB');
+$('#transcript')?.addEventListener('change',e=>$('#transcriptname').textContent=e.target.files[0]?.name||'SRT o VTT · permite trabajar sin instalar Whisper');
 $('#jobForm').addEventListener('submit',async e=>{
- e.preventDefault();const form=e.currentTarget;const file=$('#video').files[0];const url=$('#video_url').value.trim();if(!file&&!url){alert('Pega una URL de YouTube o selecciona un vídeo.');return;}
+ e.preventDefault();if(document.body.dataset.browserOnly==='true'){const out=$('#jobResult');out.classList.remove('hidden');out.textContent='Estás usando ClipForge en modo navegador independiente. No se necesita el servidor Python: utiliza “Transcribir archivo seleccionado” y después “Exportar clips MP4 en este navegador”.';document.querySelector('#browserEngine')?.scrollIntoView({behavior:'smooth',block:'start'});return;}const form=e.currentTarget;const file=$('#video').files[0];const url=$('#video_url').value.trim();if(!file&&!url){alert('Pega una URL de YouTube o selecciona un vídeo.');return;}
  if(file&&file.size>512*1024*1024){alert('El vídeo supera el límite de 512 MB.');return;}const button=$('#submit'),out=$('#jobResult');button.disabled=true;button.textContent=url?'Analizando URL…':'Subiendo vídeo…';out.classList.remove('hidden');out.textContent='Preparando trabajo…';
  const data=new FormData(form);
  try{
@@ -74,7 +102,12 @@ async function loadJobHistory(){
 }
 $('#refreshJobs')?.addEventListener('click',loadJobHistory);
 
-loadHealth();loadPlatforms();loadJobHistory();
+loadHealth().then(()=>{
+ if(document.body.dataset.browserOnly!=='true'){
+  loadPlatforms();loadJobHistory();loadChannels();loadInbox();
+  setInterval(loadInbox,20000);
+ }
+});
 
 async function loadChannels(){
  const list=$('#channelList'); if(!list)return;
@@ -101,7 +134,6 @@ $('#channelList')?.addEventListener('click',async e=>{
  const button=e.target.closest('.remove-channel');if(!button)return;button.disabled=true;
  try{const r=await fetch('/api/channels/'+encodeURIComponent(button.dataset.id),{method:'DELETE'});if(!r.ok)throw Error('No se pudo eliminar');await loadChannels();}catch(err){$('#channelStatus').textContent=err.message;button.disabled=false;}
 });
-loadChannels();
 
 $('#jobHistory')?.addEventListener('click',async e=>{
  const button=e.target.closest('.retry-job');if(!button)return;
@@ -123,5 +155,3 @@ $('#scanInbox')?.addEventListener('click',async()=>{
  try{const r=await fetch('/api/inbox/scan',{method:'POST'});const d=await r.json();if(!r.ok)throw Error(d.error||'Error de entrada');s.textContent=`Importados: ${d.imported?.length||0} · esperando: ${d.waiting||0} · errores: ${d.errors?.length||0}`;await loadInbox();await loadJobHistory();}
  catch(e){s.textContent=e.message;}finally{b.disabled=false;}
 });
-loadInbox();
-setInterval(loadInbox,20000);

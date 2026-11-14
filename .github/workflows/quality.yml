@@ -29,10 +29,12 @@ jobs:
           cache: pip
           cache-dependency-path: requirements-dev.txt
 
-      - name: Install FFmpeg
+      - name: Ensure FFmpeg is available
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends ffmpeg
+          if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v ffprobe >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends ffmpeg
+          fi
           ffmpeg -version
           ffprobe -version
 
@@ -41,6 +43,9 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements-dev.txt
 
+      - name: Install headless Chromium for browser regression tests
+        run: python -m playwright install --with-deps chromium
+
       - name: Compile Python modules
         run: |
           python -m compileall -q             server.py clipforge.py channel_monitor.py diarization.py             job_store.py project_store.py worker.py
@@ -48,17 +53,30 @@ jobs:
       - name: Check critical Python errors
         run: ruff check --select E9,F63,F7,F82 --output-format=github .
 
+      - name: Validate JavaScript syntax
+        run: |
+          node --check static/app.js
+          node --check static/editor.js
+          node --check static/sw.js
+          node --check static/workspace-ui-v4.js
+          node --check static/capcut-editor.js
+          node --check static/capcut-editor-enhancements.js
+          node --check static/browser-whisper-inline-v3.js
+          node --check static/browser-export.js
+          node --check static/browser-url.js
+          node --check static/google-drive.js
+
+
       - name: Run automated tests with coverage
         env:
           PYTHONPATH: .
         run: |
           pytest -q tests/ --cov=clipforge --cov=server --cov-report=term-missing --cov-report=xml
 
-      - name: Validate JavaScript syntax
-        run: |
-          node --check static/app.js
-          node --check static/editor.js
-          node --check static/sw.js
+      - name: Run real Chromium editor regression test
+        env:
+          PYTHONPATH: .
+        run: pytest -q tests/test_editor_browser_e2e.py
 
       - name: Generate and inspect a real media fixture
         run: |
