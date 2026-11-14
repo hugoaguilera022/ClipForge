@@ -210,3 +210,54 @@ def test_timeline_playhead_continues_when_video_crosses_clip_boundary():
             f"El cabezal se congeló al pasar al segundo clip. Errores JS: {page_errors}"
         )
         browser.close()
+
+
+def test_editor_keyboard_shortcuts_copy_paste_undo_duplicate_and_delete():
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        page.set_content("""
+          <input id="video" type="file">
+          <section id="cfEditor"><div class="cf-opus-editor-slot"></div></section>
+          <script>
+            window.clipforgeEditorBridge = {
+              getProject: () => ({tracks:[{
+                id:"v1",type:"video",name:"V1 · Vídeo",items:[
+                  {id:"c1",kind:"clip",title:"Clip uno",start:0,end:2}
+                ]
+              }]}),
+              setTracks: () => {}, setProjectName: () => {}
+            };
+          </script>
+        """)
+        page.add_script_tag(path=str(STATIC / "capcut-editor.js"))
+        page.add_script_tag(path=str(STATIC / "capcut-editor-enhancements.js"))
+        page.evaluate("""() => window.dispatchEvent(new CustomEvent(
+          'clipforge:open-editor', {detail:{clip:{id:'c1',title:'Clip uno'},index:0}}
+        ))""")
+        page.wait_for_function(
+            "() => document.querySelectorAll(\".cf-nle-block[data-type='video']\").length === 1",
+            timeout=10000,
+        )
+        blocks = page.locator(".cf-nle-block[data-type='video']")
+        blocks.first.click()
+        page.keyboard.press("Control+c")
+        page.locator("#cfNleSeek").evaluate("""el => {
+          el.value = '5';
+          el.dispatchEvent(new Event('input', {bubbles:true}));
+        }""")
+        page.keyboard.press("Control+v")
+        assert blocks.count() == 2
+        page.keyboard.press("Control+z")
+        assert blocks.count() == 1
+        page.keyboard.press("Control+Shift+z")
+        assert blocks.count() == 2
+        page.keyboard.press("d")
+        assert blocks.count() == 3
+        page.keyboard.press("Delete")
+        assert blocks.count() == 2
+        blocks.first.dispatch_event("click")
+        assert blocks.first.get_attribute("class").find("selected") >= 0
+        page.keyboard.press("Control+x")
+        assert blocks.count() == 1
+        browser.close()
