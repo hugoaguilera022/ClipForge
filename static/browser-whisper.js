@@ -4,6 +4,7 @@ const output = document.querySelector('#browserTranscript');
 const download = document.querySelector('#downloadBrowserTranscript');
 const saveProjectButton = document.querySelector('#saveBrowserProject');
 let transcriptData = null;
+let externalSourceLabel = '';
 let asr = null;
 let importedProjectPendingSource = false;
 const say = (message) => { if (status) status.textContent = message; };
@@ -491,11 +492,18 @@ window.clipforgeEditorBridge = {
   getProject() {
     return {
       schema: 'clipforge-project-v2',
-      source: transcriptData?.source || document.querySelector('#video')?.files?.[0]?.name || '',
+      source: transcriptData?.source || externalSourceLabel || document.querySelector('#video')?.files?.[0]?.name || '',
       transcript: transcriptData ? JSON.parse(JSON.stringify(transcriptData)) : null,
       clips: editableCandidates.map((clip, i) => ({...clip, id:String(clip.id || `clip-${i+1}`)})),
       tracks: []
     };
+  },
+  loadJob(job) {
+    externalSourceLabel = String(job?.youtube_metadata?.title || job?.source || 'Vídeo procesado');
+    editableCandidates = (Array.isArray(job?.clips) ? job.clips : []).map((clip, i) => ({...clip, id:String(clip.id || `clip-${i+1}`), title:clip.title || clip.file || `Clip ${i+1}`, start:Number(clip.start)||0, end:Number(clip.end)||0, duration:Number(clip.duration)||Math.max(0,(Number(clip.end)||0)-(Number(clip.start)||0))})).filter(clip=>clip.end>clip.start);
+    const duration = Math.max(0, ...editableCandidates.map(clip => Number(clip.end) || 0));
+    showClipCandidates([], duration, editableCandidates);
+    window.dispatchEvent(new CustomEvent('clipforge:clips-updated'));
   },
   setClips(clips) {
     editableCandidates = Array.isArray(clips) ? clips.map((clip, i) => ({...clip, id:String(clip.id || `clip-${i+1}`)})) : [];
