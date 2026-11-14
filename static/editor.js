@@ -397,5 +397,5 @@
     ensureWorkspace();deriveDuration();render();refreshProjects();updateHistoryButtons();
     if(state.clips.length)say(state.clips.length+' clips listos. Selecciona un clip para editar.');
   }
-  window.clipforgeEditor = {getProject:()=>clone(state),addTrack,undo,redo,saveProject,select:(trackId,itemId)=>{const t=state.tracks.find(x=>x.id===trackId),i=t?.items.find(x=>x.id===itemId);if(t&&i)selectItem(t,i);}};
+  window.clipforgeEditor = {getProject:()=>clone(state),addTrack,undo,redo,saveProject,loadSource:(url,label='Vídeo original')=>{if(!previewVideo||!url)return false;if(sourceUrl?.startsWith('blob:'))URL.revokeObjectURL(sourceUrl);sourceUrl=null;state.source=String(label);previewVideo.src=String(url);previewVideo.load();persistLocal();say('Vídeo original del trabajo cargado en el editor.');return true;},select:(trackId,itemId)=>{const t=state.tracks.find(x=>x.id===trackId),i=t?.items.find(x=>x.id===itemId);if(t&&i)selectItem(t,i);}};
 })();
