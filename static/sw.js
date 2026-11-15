@@ -1,4 +1,4 @@
-// Invalidates legacy caches that could retain the pre-workspace app.js and editor scripts.
+// Invalidates legacy caches including clipforge-web-v144 and older app/editor bundles.
 const CACHE='clipforge-web-v173';
 const FILES=[
  '/',
