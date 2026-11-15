@@ -283,7 +283,7 @@
         playerEl.style.setProperty('width','min(100%,'+(width<=650?'280px':width<1200?'300px':'340px')+')','important');
         playerEl.style.setProperty('min-width','0','important');
         playerEl.style.setProperty('margin','0','important');
-        const video=playerEl.querySelector('video');
+        const video=playerEl.querySelector('video:not(#cfNleVideo)');
         if(video){video.style.setProperty('display','block','important');video.style.setProperty('width','100%','important');video.style.setProperty('max-width','100%','important');video.style.setProperty('height','auto','important');video.style.setProperty('max-height','min(40vh,360px)','important');video.style.setProperty('min-height','0','important');video.style.setProperty('aspect-ratio','9 / 16','important');video.style.setProperty('object-fit','contain','important');video.style.setProperty('box-sizing','border-box','important');}
       }
       inspector.style.setProperty('width','100%','important');
