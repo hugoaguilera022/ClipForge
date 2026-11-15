@@ -7,8 +7,13 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
 });
 
 function mountAuth() {
-  const host = document.querySelector('.cf-top-actions') || document.querySelector('header');
-  if (!host || document.getElementById('cfAuth')) return false;
+  const host = document.querySelector('.cf-opus-nav-right') || document.querySelector('.cf-top-actions') || document.querySelector('header');
+  if (!host) return false;
+  const existing = document.getElementById('cfAuth');
+  if (existing) {
+    if (existing.parentElement !== host) host.appendChild(existing);
+    return true;
+  }
   const root = document.createElement('div');
   root.id = 'cfAuth';
   root.className = 'cf-auth';
