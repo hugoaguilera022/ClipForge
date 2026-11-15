@@ -1,5 +1,5 @@
 (()=>{'use strict';
-const $=(s,r=document)=>r.querySelector(s);
+const $=(s,r=document)=>r?.querySelector(s)||null;
 const fmt=n=>{n=Math.max(0,Number(n)||0);const m=Math.floor(n/60),s=Math.floor(n%60);return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')};
 let activeClip=null,observer=null;
 function project(){return window.clipforgeEditorBridge?.getProject?.()||window.clipforgeEditor?.getProject?.()||{}}
