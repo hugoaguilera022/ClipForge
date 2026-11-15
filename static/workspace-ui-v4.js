@@ -150,6 +150,7 @@
 
   const auto=app.querySelector('.cf-opus-auto');auto?.addEventListener('click',()=>transcribe?.click());
   let activeCard=null,activeIndex=-1;const originalCardNodes=new WeakMap();
+  let autoOpenedGeneration=false;
   const results=$('#cfResults'),editorScreen=$('#cfEditor'),resultSlot=app.querySelector('.cf-opus-candidates-slot'),editorSlot=app.querySelector('.cf-opus-editor-slot');
   // Keep batch export reachable from the results screen; the legacy export panel
   // remains visually hidden inside the workspace shell, so expose its action here.
@@ -341,8 +342,17 @@
     const count=candidates.querySelectorAll('.candidate-card').length;
     const pill=results.querySelector('.cf-opus-result-pill');if(pill)pill.textContent=count+' clips · 9:16';
     syncBatchExportButton();
+    const progress=$('#cfProductionStatus');if(progress)progress.textContent='Tus '+count+' clips están listos. Abriendo el editor multipista…';
+    if(count>=4&&!autoOpenedGeneration){
+      autoOpenedGeneration=true;
+      const first=candidates.querySelector('.candidate-card');
+      const clips=window.clipforgeEditorBridge?.getProject?.().clips||[];
+      const detail={card:first,clip:clips[0]||{title:'Proyecto con '+count+' clips'},index:0,source:'generation',allClips:true};
+      setStage('editor');
+      queueMicrotask(()=>window.dispatchEvent(new CustomEvent('clipforge:open-editor',{detail})));
+      return;
+    }
     setStage('results');
-    const progress=$('#cfProductionStatus');if(progress)progress.textContent='Tus cuatro clips están listos. Abre cualquiera para ajustar el montaje y los subtítulos.';
   }
   window.addEventListener('clipforge:transcription-progress',e=>{
     const msg=String(e.detail?.message||'');const p=$('#cfProductionStatus');if(p&&msg)p.textContent=msg;
@@ -354,7 +364,7 @@
     // Saved-project and recovery actions may open the NLE without a rendered
     // candidate card. Provide a lightweight host so the editor can still open.
     if(!card){card=document.createElement('article');card.className='candidate-card cf-nle-placeholder-card';const heading=document.createElement('strong');heading.textContent=e.detail?.clip?.title||'Proyecto editable';card.append(heading);candidateList?.append(card);}
-    if(activeCard===card){setStage('editor');queueMicrotask(()=>window.dispatchEvent(new CustomEvent('clipforge:editor-open-request',{detail:e.detail||{}})));return;}
+    if(activeCard===card){setStage('editor');queueMicrotask(()=>{const payload={detail:e.detail||{}};if(typeof window.clipforgeOpenNle==='function')window.clipforgeOpenNle(payload);else window.dispatchEvent(new CustomEvent('clipforge:editor-open-request',{detail:e.detail||{}}));});return;}
     if(activeCard){
       const previous=activeCard,previousIndex=activeIndex;
       restoreCard(previous);
@@ -379,7 +389,7 @@
     // Mount only after this handler has finished replacing the editor slot.
     // Otherwise the earlier open-editor listener mounts the NLE first and
     // replaceChildren() below this point detaches it from the visible workspace.
-    queueMicrotask(()=>window.dispatchEvent(new CustomEvent('clipforge:editor-open-request',{detail:e.detail||{}})));
+    queueMicrotask(()=>{const payload={detail:e.detail||{}};if(typeof window.clipforgeOpenNle==='function')window.clipforgeOpenNle(payload);else window.dispatchEvent(new CustomEvent('clipforge:editor-open-request',{detail:e.detail||{}}));});
   });
   if(candidates?.querySelector('.candidate-card'))reveal();
   $('#browserExportClips')?.addEventListener('click',()=>{const p=$('#cfProductionStatus');if(p)p.textContent='Preparando la exportación de tus clips…';});
