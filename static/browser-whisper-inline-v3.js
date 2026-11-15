@@ -1418,7 +1418,15 @@ async function selectEditorialSemanticFallback(candidates, limit = 4, onProgress
     return {...c,promotional,ai_editorial_score:Math.max(0,Math.min(100,score)),score};
   });
   try {
-    onProgress('Sin WebGPU: descargando el modelo semántico multilingüe ligero para comparar los temas con CPU/WASM…');
+    // On devices without WebGPU, avoid downloading and running a second transformer
+    // model on CPU after Whisper. That was leaving production stuck at "100%".
+    // The transparent local editorial fallback already scores dialogue, hooks,
+    // Q&A, audio/visual evidence and topic diversity without another model download.
+    if(!navigator.gpu){
+      onProgress('Selección local rápida: comparando diálogo, remates, diversidad y evidencia audiovisual…');
+      return selectEditorialFallback(source,limit);
+    }
+    onProgress('Comparando la diversidad semántica con el modelo ligero…');
     const selected=await semanticRerankCandidates(prepared,limit,onProgress);
     if(selected.length!==Math.min(4,prepared.length))throw new Error('El modelo semántico no devolvió cuatro candidatos.');
     return selected.map((clip,index)=>({...clip,title:clip.title||`Momento ${index+1}`,
