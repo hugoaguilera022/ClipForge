@@ -169,7 +169,6 @@
     whisperStatus.textContent='Selecciona un vídeo para empezar. El análisis y la transcripción se mostrarán aquí.';
     whisperStatus.hidden=false;
     whisperStatus.classList.remove('cf-opus-internal');
-    uploadRow?.after(whisperStatus);
   }
 
   const auto=app.querySelector('.cf-opus-auto');auto?.addEventListener('click',()=>transcribe?.click());
