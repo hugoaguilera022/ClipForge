@@ -1226,7 +1226,7 @@ def test_timeline_mp4_export_control_remains_visible_and_clickable():
         page.set_content("""
           <input id="video" type="file">
           <section id="cfEditor"><div class="cf-opus-editor-slot"></div></section>
-          <button id="browserExportClips" hidden></button>
+          <button id="browserExportClips"></button>
           <script>
             window.clipforgeEditorBridge = {
               getProject: () => ({tracks:[{id:"v1",type:"video",name:"V1",items:[
@@ -1247,4 +1247,43 @@ def test_timeline_mp4_export_control_remains_visible_and_clickable():
         assert export.is_visible()
         assert export.is_enabled()
         assert export.evaluate("(el) => getComputedStyle(el).display") != "none"
+        browser.close()
+
+
+
+def test_timeline_export_button_dispatches_to_browser_mp4_exporter():
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        page.set_content("""
+          <input id="video" type="file">
+          <section id="cfEditor"><div class="cf-opus-editor-slot"></div></section>
+          <button id="browserExportClips"></button>
+          <script>
+            window.__exportButtonClicks = 0;
+            document.querySelector("#browserExportClips").addEventListener(
+              "click", () => window.__exportButtonClicks++
+            );
+            window.clipforgeEditorBridge = {
+              getProject: () => ({tracks:[{id:"v1",type:"video",name:"V1",items:[
+                {id:"c1",kind:"clip",title:"Clip uno",start:0,end:2}
+              ]}]}),
+              setTracks: () => {}, setProjectName: () => {}
+            };
+          </script>
+        """)
+        page.add_script_tag(path=str(STATIC / "capcut-editor.js"))
+        page.add_script_tag(path=str(STATIC / "capcut-editor-enhancements.js"))
+        page.evaluate("""() => window.dispatchEvent(new CustomEvent(
+          'clipforge:open-editor', {detail:{clip:{id:'c1',title:'Clip uno'},index:0}}
+        ))""")
+        export = page.locator("#cfNleExport")
+        export.wait_for(state="visible", timeout=10000)
+        assert export.evaluate("(el) => typeof el.onclick") == "function"
+        page.evaluate("""() => {
+          window.__timelineExportCalls = 0;
+          window.clipforgeExportTimeline = () => { window.__timelineExportCalls++; };
+        }""")
+        export.click()
+        assert page.evaluate("window.__timelineExportCalls") == 1
         browser.close()
