@@ -131,6 +131,23 @@
   if(languageLabel)asrOptions.append(languageLabel);if(modelLabel)asrOptions.append(modelLabel);
   asrOptions.setAttribute('aria-label','Ajustes de transcripción');
   const uploadRow=app.querySelector('.cf-opus-upload-row');if(uploadRow)uploadRow.after(asrOptions);
+  // Simplify production: one action, two settings and one live status. Remove
+  // the repeated marketing/demo blocks and resource estimates from the main flow.
+  app.querySelector('.cf-opus-announcement')?.remove();
+  app.querySelector('.cf-opus-showcase')?.remove();
+  app.querySelector('.cf-opus-footer')?.remove();
+  app.querySelector('.cf-opus-trust')?.remove();
+  app.querySelector('.cf-opus-auto')?.remove();
+  if(capacityPanel){capacityPanel.hidden=true;capacityPanel.setAttribute('aria-hidden','true');}
+  const productionStatus=$('#cfProductionStatus');
+  if(productionStatus){productionStatus.hidden=true;productionStatus.setAttribute('aria-hidden','true');}
+  if(whisperStatus){
+    whisperStatus.textContent='Selecciona un vídeo para empezar. El análisis y la transcripción se mostrarán aquí.';
+    whisperStatus.hidden=false;
+    whisperStatus.classList.remove('cf-opus-internal');
+    uploadRow?.after(whisperStatus);
+  }
+
   const auto=app.querySelector('.cf-opus-auto');auto?.addEventListener('click',()=>transcribe?.click());
   let activeCard=null,activeIndex=-1;const originalCardNodes=new WeakMap();
   const results=$('#cfResults'),editorScreen=$('#cfEditor'),resultSlot=app.querySelector('.cf-opus-candidates-slot'),editorSlot=app.querySelector('.cf-opus-editor-slot');
