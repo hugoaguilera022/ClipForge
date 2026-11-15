@@ -108,3 +108,58 @@ body:has(#cfNle) #cfNle .cf-nle-timeline{padding:8px 13px 13px!important;gap:7px
 @media(max-width:1350px){body:has(#cfNle) #cfNle>.cf-nle-work{grid-template-columns:220px 290px minmax(300px,1fr) 360px!important}}
 @media(max-width:1050px){body:has(#cfNle) #cfNle>.cf-nle-work{grid-template-columns:190px minmax(250px,1fr) 330px!important;grid-template-areas:"sidebar preview inspector" "clips clips clips"!important}.cf-ref2-clips{max-height:160px!important}}
 @media(max-width:760px){body:has(#cfNle) #cfNle>.cf-nle-work{grid-template-columns:minmax(0,1fr)!important;grid-template-areas:"preview" "clips" "sidebar" "inspector"!important}.cf-ref2-sidebar{min-height:250px}}
+
+
+/* Reference screenshot v4 — rebuild the workspace as the supplied CapCut-style editor. */
+html:has(#cfNle),body:has(#cfNle){height:100%!important;overflow:hidden!important}
+body:has(#cfNle) .cf-opus-editor-slot{height:100vh!important;display:grid!important;grid-template-rows:44px minmax(0,1fr)!important;overflow:hidden!important}
+body:has(#cfNle) .cf-ref2-nav{height:44px!important;min-height:44px!important;grid-template-columns:170px 1fr 230px!important;padding:0 18px!important}
+body:has(#cfNle) .cf-ref2-brand-icon{width:25px!important;height:27px!important;font-size:16px!important}
+body:has(#cfNle) .cf-ref2-brand b{font-size:17px!important}
+body:has(#cfNle) .cf-ref2-links{gap:12px!important}
+body:has(#cfNle) .cf-ref2-links a{font-size:11px!important;padding:7px 10px!important}
+body:has(#cfNle) .cf-ref2-account{font-size:10px!important;gap:8px!important}
+body:has(#cfNle) .cf-ref2-meter{width:100px!important}
+body:has(#cfNle) #cfNle{height:auto!important;min-height:0!important;max-height:none!important;width:100%!important;grid-template-columns:minmax(0,1fr)!important;grid-template-rows:minmax(0,1fr) 38px 22px minmax(155px,24vh)!important;overflow:hidden!important}
+body:has(#cfNle) #cfNle>.cf-nle-head{display:none!important}
+body:has(#cfNle) #cfNle>.cf-nle-work{display:grid!important;grid-template-columns:154px minmax(0,1fr) 326px!important;grid-template-rows:minmax(0,1fr)!important;grid-template-areas:"sidebar preview inspector"!important;gap:0!important;min-height:0!important;overflow:hidden!important}
+body:has(#cfNle) #cfNle .cf-nle-media{grid-area:sidebar!important;display:flex!important;min-width:0!important;overflow:auto!important;padding:9px!important;background:#0d111c!important}
+body:has(#cfNle) #cfNle .cf-ref2-sidebar{width:100%!important;min-height:100%!important}
+body:has(#cfNle) #cfNle .cf-ref2-source-card{min-height:45px!important;padding:6px!important;margin-bottom:8px!important}
+body:has(#cfNle) #cfNle .cf-ref2-source-thumb{width:28px!important;height:28px!important;flex-basis:28px!important}
+body:has(#cfNle) #cfNle .cf-ref2-checks{gap:7px!important;padding:4px 2px 9px!important;margin-bottom:8px!important;font-size:9px!important}
+body:has(#cfNle) #cfNle .cf-ref2-checks i{width:13px!important;height:13px!important}
+body:has(#cfNle) #cfNle .cf-ref2-sidebar-active{font-size:9px!important;padding:8px 6px!important;margin-bottom:10px!important}
+body:has(#cfNle) #cfNle .cf-ref2-project-label{font-size:10px!important}
+body:has(#cfNle) #cfNle .cf-ref2-side-link{font-size:9px!important;padding:7px 4px!important}
+body:has(#cfNle) #cfNle .cf-ref2-project-card{padding:7px!important}
+body:has(#cfNle) #cfNle .cf-ref2-clips{display:none!important}
+body:has(#cfNle) #cfNle .cf-nle-center{grid-area:preview!important;display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;grid-template-rows:minmax(0,1fr)!important;align-items:stretch!important;justify-items:stretch!important;gap:0!important;min-width:0!important;min-height:0!important;padding:0!important;background:#090c15!important;overflow:hidden!important}
+body:has(#cfNle) #cfNle .cf-nle-monitor{grid-column:1!important;grid-row:1!important;align-self:center!important;justify-self:center!important;width:auto!important;height:min(60vh,460px)!important;max-height:460px!important;max-width:90%!important;aspect-ratio:9/16!important;border:2px solid #a84aff!important}
+body:has(#cfNle) #cfNle .cf-nle-transport{grid-column:1!important;grid-row:1!important;align-self:end!important;justify-self:center!important;width:min(92%,490px)!important;margin-bottom:10px!important}
+body:has(#cfNle) #cfNle .cf-nle-inspector{grid-area:inspector!important;min-width:0!important;max-height:none!important;overflow:auto!important;border-left:1px solid #292d40!important;padding:10px!important;background:#101421!important}
+body:has(#cfNle) #cfNle .cf-inspector-tabs{grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:2px!important;padding:3px!important;margin-bottom:10px!important}
+body:has(#cfNle) #cfNle .cf-inspector-tabs button{font-size:10px!important;padding:8px 1px!important}
+body:has(#cfNle) #cfNle .cf-inspector-section h3{font-size:13px!important;margin:7px 0 10px!important}
+body:has(#cfNle) #cfNle .cf-inspector-section label{font-size:10px!important;margin:9px 0!important}
+body:has(#cfNle) #cfNle .cf-nle-tools{height:38px!important;min-height:38px!important;grid-row:2!important;padding:4px 10px!important;gap:5px!important}
+body:has(#cfNle) #cfNle .cf-nle-tools button{font-size:10px!important;padding:5px 8px!important}
+body:has(#cfNle) #cfNle .cf-nle-ruler{height:22px!important;min-height:22px!important;grid-row:3!important;margin-left:145px!important;font-size:9px!important}
+body:has(#cfNle) #cfNle .cf-nle-timeline{grid-row:4!important;min-height:0!important;max-height:none!important;overflow:auto!important;padding:5px 8px!important;gap:5px!important}
+body:has(#cfNle) #cfNle .cf-nle-track{min-height:34px!important}
+body:has(#cfNle) #cfNle .cf-nle-track-head{min-width:145px!important;font-size:10px!important;padding:5px 8px!important}
+body:has(#cfNle) #cfNle .cf-nle-lane{min-height:32px!important}
+body:has(#cfNle) #cfNle .cf-nle-block{height:25px!important;top:3px!important;font-size:10px!important}
+@media(max-width:1050px){
+ body:has(#cfNle) #cfNle>.cf-nle-work{grid-template-columns:130px minmax(0,1fr) 285px!important}
+ body:has(#cfNle) #cfNle .cf-nle-center{grid-template-columns:minmax(0,1fr)!important}
+ body:has(#cfNle) #cfNle .cf-nle-monitor{height:min(53vh,390px)!important}
+}
+@media(max-width:760px){
+ body:has(#cfNle) .cf-ref2-nav{grid-template-columns:1fr auto!important}
+ body:has(#cfNle) .cf-ref2-links{display:none!important}
+ body:has(#cfNle) #cfNle>.cf-nle-work{grid-template-columns:minmax(0,1fr)!important;grid-template-rows:auto minmax(300px,1fr) 230px!important;grid-template-areas:"sidebar" "preview" "inspector"!important;overflow:auto!important}
+ body:has(#cfNle) #cfNle .cf-nle-media{max-height:130px!important}
+ body:has(#cfNle) #cfNle .cf-nle-center{min-height:310px!important}
+ body:has(#cfNle) #cfNle .cf-nle-inspector{min-height:220px!important}
+}
