@@ -1794,9 +1794,8 @@ function startAutomaticClipExport(){
   const cards=panel?.querySelectorAll('.candidate-card').length||0;
   if(cards!==4){say(`Se han preparado ${cards} clips. ClipForge mostrará la pantalla de resultados cuando haya cuatro candidatos válidos.`);return;}
   panel.hidden=false;
-  document.body.classList.add('cf-stage-results');
-  document.body.classList.remove('cf-stage-editor');
-  say('Los cuatro clips están listos. Selecciona uno para abrir su editor.');
+  say('Los cuatro clips están listos. Abriendo el editor multipista…');
+  window.dispatchEvent(new CustomEvent('clipforge:clips-updated'));
 }
 
 function attachTranscriptToJobForm(vtt) {
