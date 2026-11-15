@@ -2522,3 +2522,21 @@ body.cf-opus-body #browserWhisperStatus:before{
  content:"";display:block;flex:0 0 7px;width:7px;height:7px;border-radius:50%;
  background:#a65cff;box-shadow:0 0 12px #a65cff88;
 }
+
+/* Stage visibility is explicit: the editor must own the viewport once opened */
+body.cf-opus-body.cf-opus-stage-editor .cf-opus-nav{display:none!important}
+body.cf-opus-body.cf-opus-stage-editor #cfEditor{display:block!important;visibility:visible!important}
+body.cf-opus-body.cf-opus-stage-editor .cf-opus-editor-slot{
+ display:flex!important;visibility:visible!important;opacity:1!important;
+ width:100%!important;max-width:none!important;min-width:0!important;
+ min-height:calc(100vh - 74px)!important;overflow:visible!important;
+}
+body.cf-opus-body.cf-opus-stage-editor .cf-opus-editor-slot>.cf-nle{
+ display:flex!important;visibility:visible!important;opacity:1!important;
+ position:relative!important;flex-direction:column!important;
+ width:100%!important;max-width:none!important;min-width:0!important;
+ min-height:calc(100vh - 140px)!important;height:auto!important;
+}
+body.cf-opus-body.cf-opus-stage-editor .cf-opus-editor-slot>.cf-nle .cf-nle-work{
+ display:grid!important;visibility:visible!important;opacity:1!important;
+}
