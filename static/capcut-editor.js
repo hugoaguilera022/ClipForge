@@ -318,5 +318,6 @@ async function importFiles(files){let imported=0,relinked=0,storageFailures=[];f
 function renderAssets(){const e=$('#cfNleAssets');e.replaceChildren();assets.forEach(a=>{const b=document.createElement('button');b.className='cf-nle-asset';b.textContent=(a.type==='audio'?'♫ ':a.type==='image'?'▧ ':'▶ ')+a.name;b.onclick=()=>{const t=tracks.find(x=>x.type===(a.type==='image'?'video':a.type));const i={id:uid(),kind:a.type,assetId:a.id,url:a.url,title:a.name,start:playhead,end:playhead+a.duration,sourceStart:0};t.items.push(i);selected={trackId:t.id,itemId:i.id};render();persist()};e.append(b)})}
 document.addEventListener('pointerdown',e=>{if(!e.target.closest?.('#cfNleClipMenu'))closeClipMenu();});document.addEventListener('keydown',e=>{if(e.key==='Escape')closeClipMenu();});window.addEventListener('resize',closeClipMenu);window.addEventListener('scroll',closeClipMenu,true);window.clipforgeOpenNle=open;
 window.addEventListener('clipforge:editor-open-request',open);
+window.addEventListener('clipforge:open-editor',open);
 window.addEventListener('clipforge:clips-updated',()=>{if(root&&!root.hidden){seed();render();persist()}});window.addEventListener('clipforge:cloud-saved',e=>say('Proyecto «'+(e.detail?.name||projectName)+'» guardado en Google Drive.'));
 })();
