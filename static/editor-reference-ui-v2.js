@@ -12,11 +12,11 @@ function lockReferenceLayout(){
  const root=$('#cfNle'),work=$('.cf-nle-work',root);if(!root||!work)return;
  root.style.setProperty('display','grid','important');
  root.style.setProperty('grid-template-columns','minmax(0,1fr)','important');
- root.style.setProperty('grid-template-rows','minmax(0,1fr) 38px 22px minmax(155px,24vh)','important');
+ root.style.setProperty('grid-template-rows','minmax(0,1fr) 56px 42px minmax(210px,24vh)','important');
  root.style.setProperty('height','calc(100vh - 44px)','important');
  root.style.setProperty('min-height','0','important');
  work.style.setProperty('display','grid','important');
- work.style.setProperty('grid-template-columns','154px 238px minmax(360px,1fr) 326px','important');
+ work.style.setProperty('grid-template-columns','minmax(250px,16.5%) minmax(320px,21.5%) minmax(400px,1fr) minmax(380px,28%)','important');
  work.style.setProperty('grid-template-areas','"sidebar clips preview inspector"','important');
  work.style.setProperty('grid-template-rows','minmax(0,1fr)','important');
  const media=$('.cf-nle-media',work),center=$('.cf-nle-center',work),inspector=$('.cf-nle-inspector',work),panel=$('.cf-ref2-clips',work);
@@ -26,7 +26,7 @@ function lockReferenceLayout(){
  if(panel){panel.style.setProperty('display','flex','important');panel.style.setProperty('grid-area','clips','important');panel.style.setProperty('flex-direction','column','important');}
  const timeline=$('.cf-nle-timeline',root);if(timeline)timeline.style.setProperty('min-height','0','important');
 }
-function mount(){const root=$('#cfNle');if(!root)return false;const slot=root.parentElement;if(!slot)return false;makeNav(slot);const work=$('.cf-nle-work',root);if(!work)return false;makePanel(work);work.style.gridTemplateColumns='154px 238px minmax(360px,1fr) 326px';work.style.gridTemplateAreas='"sidebar clips preview inspector"';renderClips();const back=$('#cfNleBack');if(back)back.style.display='none';return true}
+function mount(){const root=$('#cfNle');if(!root)return false;const slot=root.parentElement;if(!slot)return false;makeNav(slot);const work=$('.cf-nle-work',root);if(!work)return false;makePanel(work);work.style.gridTemplateColumns='minmax(250px,16.5%) minmax(320px,21.5%) minmax(400px,1fr) minmax(380px,28%)';work.style.gridTemplateAreas='"sidebar clips preview inspector"';renderClips();const back=$('#cfNleBack');if(back)back.style.display='none';return true}
 function start(){if(!mount())return;window.addEventListener('clipforge:clips-updated',()=>{renderClips();lockReferenceLayout()});window.addEventListener('clipforge:nle-changed',renderClips);window.addEventListener('clipforge:editor-ready',renderClips);window.addEventListener('clipforge:open-editor',renderClips);renderClips()}
 window.addEventListener('clipforge:editor-ready',start);window.addEventListener('clipforge:open-editor',start);window.addEventListener('clipforge:editor-visible',start);window.addEventListener('clipforge:clips-updated',start);if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
