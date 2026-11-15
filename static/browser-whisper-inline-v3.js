@@ -329,6 +329,8 @@ async function transcribeAudioInChunks(asr, audio, onProgress = () => {}, timest
       if (!text || !Number.isFinite(localStart) || !Number.isFinite(localEnd)) continue;
       localStart = Math.max(0, localStart);
       localEnd = Math.min((endSample-startSample)/sampleRate, Math.max(localStart, localEnd));
+      if (rawStart == null) { window.__cfTimingDiagnostics = (window.__cfTimingDiagnostics||{missingStart:0,missingEnd:0,invalid:0}); window.__cfTimingDiagnostics.missingStart++; continue; }
+      if (rawEnd == null && nextStart == null) { window.__cfTimingDiagnostics = (window.__cfTimingDiagnostics||{missingStart:0,missingEnd:0,invalid:0}); window.__cfTimingDiagnostics.missingEnd++; continue; }
       const absoluteStart = Math.max(0, offset + localStart);
       const absoluteEnd = Math.min(totalSeconds, offset + localEnd);
       if (absoluteEnd <= absoluteStart) continue;
