@@ -108,3 +108,11 @@ body:has(#cfNle) #cfNle .cf-nle-timeline{padding:8px 13px 13px!important;gap:7px
 @media(max-width:1350px){body:has(#cfNle) #cfNle>.cf-nle-work{grid-template-columns:220px 290px minmax(300px,1fr) 360px!important}}
 @media(max-width:1050px){body:has(#cfNle) #cfNle>.cf-nle-work{grid-template-columns:190px minmax(250px,1fr) 330px!important;grid-template-areas:"sidebar preview inspector" "clips clips clips"!important}.cf-ref2-clips{max-height:160px!important}}
 @media(max-width:760px){body:has(#cfNle) #cfNle>.cf-nle-work{grid-template-columns:minmax(0,1fr)!important;grid-template-areas:"preview" "clips" "sidebar" "inspector"!important}.cf-ref2-sidebar{min-height:250px}}
+
+/* Reference polish: real generated clip thumbnails and clear active project navigation. */
+.cf-ref2-thumb{position:relative!important;isolation:isolate!important;background:#171b2a!important}
+.cf-ref2-thumb img{display:block!important;width:100%!important;height:100%!important;object-fit:cover!important;position:absolute!important;inset:0!important}
+.cf-ref2-thumb-number{z-index:1!important}
+.cf-ref2-side-link.active{background:#21172f!important;color:#fff!important;box-shadow:inset 2px 0 #a84cff!important}
+.cf-ref2-side-link[data-side-action="export"]:focus-visible,.cf-ref2-side-link[data-side-action="subtitles"]:focus-visible,.cf-ref2-side-link[data-side-action="format"]:focus-visible{outline:2px solid #a84cff!important;outline-offset:2px!important}
+@media(min-width:1500px){body:has(#cfNle) #cfNle>.cf-nle-work{grid-template-columns:275px 360px minmax(400px,1fr) 462px!important}}
