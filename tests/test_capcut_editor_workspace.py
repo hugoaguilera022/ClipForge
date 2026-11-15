@@ -90,8 +90,10 @@ def test_editor_mount_is_requested_after_workspace_replaces_editor_slot():
     core = (STATIC / "capcut-editor.js").read_text(encoding="utf-8")
     workspace = (STATIC / "workspace-ui-v4.js").read_text(encoding="utf-8")
     assert "window.addEventListener('clipforge:editor-open-request',open)" in core
-    assert "queueMicrotask(()=>window.dispatchEvent(new CustomEvent('clipforge:editor-open-request'" in workspace
-    assert workspace.index("editorSlot.replaceChildren()") < workspace.index("clipforge:editor-open-request")
+    assert "queueMicrotask(()=>window.dispatchEvent(new CustomEvent('clipforge:open-editor'" in workspace
+    assert "async function openEditorSurface(detail={})" in workspace
+    assert "window.clipforgeOpenNle==='function'" in workspace
+    assert workspace.index("editorSlot.replaceChildren()") < workspace.index("clipforge:open-editor")
 
 
 def test_timeline_ruler_and_tracks_use_separate_grid_rows():
