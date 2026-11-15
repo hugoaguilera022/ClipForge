@@ -1287,3 +1287,41 @@ def test_timeline_export_button_dispatches_to_browser_mp4_exporter():
         export.click()
         assert page.evaluate("window.__timelineExportCalls") == 1
         browser.close()
+
+
+def test_keyframe_cannot_be_added_outside_selected_clip_bounds():
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        page.set_content("""
+          <input id="video" type="file">
+          <section id="cfEditor"><div class="cf-opus-editor-slot"></div></section>
+          <script>
+            const project = {tracks:[{id:"v1",type:"video",name:"V1",items:[
+              {id:"c1",kind:"clip",title:"Clip",start:2,end:5,sourceStart:0}
+            ]}]};
+            window.clipforgeEditorBridge = {
+              getProject: () => project,
+              setTracks: (tracks) => { project.tracks = tracks; },
+              setProjectName: () => {}
+            };
+          </script>
+        """)
+        page.add_script_tag(path=str(STATIC / "capcut-editor.js"))
+        page.add_script_tag(path=str(STATIC / "capcut-editor-enhancements.js"))
+        page.evaluate("""() => window.dispatchEvent(new CustomEvent(
+          'clipforge:open-editor', {detail:{clip:{id:'c1',title:'Clip'},index:0}}
+        ))""")
+        block = page.locator(".cf-nle-block[data-type='video']")
+        block.wait_for()
+        block.click()
+        page.locator("#cfNleSeek").evaluate("el => { el.value='8'; el.dispatchEvent(new Event('input',{bubbles:true})); }")
+        page.get_by_role("button", name="＋ Añadir fotograma clave").click()
+        assert page.evaluate("() => window.clipforgeEditorBridge.getProject().tracks[0].items[0].keyframes || []") == []
+        assert "dentro del clip" in page.locator("#cfNleStatus").inner_text()
+        page.locator("#cfNleSeek").evaluate("el => { el.value='3'; el.dispatchEvent(new Event('input',{bubbles:true})); }")
+        page.get_by_role("button", name="＋ Añadir fotograma clave").click()
+        frames = page.evaluate("() => window.clipforgeEditorBridge.getProject().tracks[0].items[0].keyframes")
+        assert len(frames) == 1
+        assert frames[0]["time"] == 1
+        browser.close()

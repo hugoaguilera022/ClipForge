@@ -1263,15 +1263,28 @@ function buildEditorialCandidatePool(segments, videoDuration, audioSamples = nul
   return pool;
 }
 
+function compactEditorialText(value, limit=220) {
+  const text=String(value||'').replace(/\s+/g,' ').trim();
+  if(text.length<=limit)return text;
+  const head=Math.ceil(limit*.42),tail=Math.floor(limit*.28),middle=limit-head-tail-9;
+  const from=Math.max(head,Math.floor((text.length-middle)/2));
+  return text.slice(0,head)+' …'+text.slice(from,from+middle)+'… '+text.slice(-tail);
+}
 async function askEditorialModel(engine, pool, count, onProgress, phase) {
   // The 0.6B judge is reliable with short choices and IDs, not long rubrics.
   const shortlist=pool.map((clip,index)=>({
     id:index+1,start:Number(clip.start.toFixed(1)),end:Number(clip.end.toFixed(1)),
-    transcript:String(clip.text||'').replace(/\s+/g,' ').slice(0,115)
+    dialogue:compactEditorialText(clip.text,220),
+    before:compactEditorialText(clip.context_before,65),
+    after:compactEditorialText(clip.context_after,65),
+    audio:clip.media_evidence?.audio_activity??null,
+    peaks:clip.media_evidence?.audio_dynamic_peaks??null,
+    visual:clip.media_evidence?.visual_change??null
   }));
   const prompt=[
     'Eres editor audiovisual. Compara el contenido, no la viralidad.',
-    'Prioriza importancia real: información nueva, explicación, ejemplo, decisión, conflicto, revelación, consecuencia o conclusión. No confundas gritos, risas o palabras llamativas con importancia.',
+    'Prioriza información nueva, explicación, ejemplo, decisión, conflicto, revelación, consecuencia o conclusión. No confundas gritos, risas o palabras llamativas con importancia.',
+    'Lee inicio, parte central y final del diálogo. before y after son SOLO contexto; nunca amplíes el intervalo start/end.',
     'Descarta frases incompletas, repeticiones, ASR ininteligible y cortes que dependan de contexto externo.',
     'Elige exactamente '+count+' IDs distintos y no solapados. No inventes hechos ni cambies tiempos.',
     'Responde SOLO JSON compacto con esta forma: {"selected":[{"id":1}]}',
@@ -1381,11 +1394,13 @@ async function aiEditorialSelect(candidates, limit = 4, onProgress = () => {}) {
     'Votación final: comparando los últimos '+working.length+' momentos y eligiendo los cuatro mejores…');
   const auditInput=firstVote.map((clip,index)=>({
     id:index+1,start:Number(clip.start.toFixed(1)),end:Number(clip.end.toFixed(1)),
-    transcript:String(clip.text||'').replace(/\s+/g,' ').slice(0,115)
+    dialogue:compactEditorialText(clip.text,220),
+    before:compactEditorialText(clip.context_before,65),
+    after:compactEditorialText(clip.context_after,65)
   }));
   const auditPrompt=[
-    'Auditor editorial: revisa estos cuatro finalistas y descarta los que no aporten contenido importante.',
-    'Importancia: información nueva, explicación, ejemplo, decisión, conflicto, revelación, consecuencia o conclusión. Rechaza frases incompletas, repetidas o incomprensibles.',
+    'Auditor editorial: revisa estos cuatro finalistas y descarta los que no aporten contenido importante. Lee el diálogo completo abreviado, no solo su inicio.',
+    'Importancia: información nueva, explicación, ejemplo, decisión, conflicto, revelación, consecuencia o conclusión. Rechaza frases incompletas, repetidas o incomprensibles. before/after son contexto y no amplían el corte.',
     'Elige exactamente cuatro IDs distintos y no solapados. Para cada uno incluye evidence: cita literal de al menos cuatro palabras del transcript. No inventes citas.',
     'Responde SOLO JSON: {"selected":[{"id":1,"evidence":"cita literal"}]}',
     'FINALISTAS: '+JSON.stringify(auditInput)
