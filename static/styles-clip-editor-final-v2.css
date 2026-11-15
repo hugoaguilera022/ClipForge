@@ -2540,3 +2540,40 @@ body.cf-opus-body.cf-opus-stage-editor .cf-opus-editor-slot>.cf-nle{
 body.cf-opus-body.cf-opus-stage-editor .cf-opus-editor-slot>.cf-nle .cf-nle-work{
  display:grid!important;visibility:visible!important;opacity:1!important;
 }
+
+
+/* Final ASR control normalization: keep native selects in the same dark/purple design system. */
+body.cf-opus-body .cf-opus-asr-options,
+body.cf-opus-body .cf-opus-asr-options *{
+  color-scheme:dark!important;
+}
+body.cf-opus-body .cf-opus-asr-options label{
+  color:#bcb5c8!important;
+  font:600 11px/1.4 Inter,ui-sans-serif,system-ui,sans-serif!important;
+}
+body.cf-opus-body .cf-opus-asr-options select{
+  appearance:none!important;
+  -webkit-appearance:none!important;
+  min-height:42px!important;
+  width:100%!important;
+  padding:10px 36px 10px 12px!important;
+  border:1px solid #393344!important;
+  border-radius:10px!important;
+  background-color:#17141e!important;
+  color:#f4efff!important;
+  font:500 12px/1.4 Inter,ui-sans-serif,system-ui,sans-serif!important;
+  box-shadow:inset 0 1px 0 #ffffff08!important;
+}
+body.cf-opus-body .cf-opus-asr-options select:hover{
+  border-color:#695080!important;
+}
+body.cf-opus-body .cf-opus-asr-options select:focus-visible{
+  outline:2px solid #9b69dc!important;
+  outline-offset:2px!important;
+  border-color:#9b69dc!important;
+  box-shadow:0 0 0 3px #9b69dc22!important;
+}
+body.cf-opus-body .cf-opus-asr-options option{
+  background:#17141e!important;
+  color:#f4efff!important;
+}
