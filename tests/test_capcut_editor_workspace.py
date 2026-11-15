@@ -74,3 +74,8 @@ def test_app_registers_versioned_service_worker_path():
 def test_vertical_editor_preview_fills_canvas_like_mp4_export():
     editor = (STATIC / "capcut-editor.js").read_text(encoding="utf-8")
     assert ".cf-nle-monitor video,.cf-nle-monitor img{width:100%;height:100%;object-fit:cover}" in editor
+
+
+def test_workspace_geometry_does_not_override_timeline_preview_crop():
+    workspace = (STATIC / "workspace-ui-v4.js").read_text(encoding="utf-8")
+    assert "querySelector('video:not(#cfNleVideo)')" in workspace
