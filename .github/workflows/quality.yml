@@ -71,12 +71,12 @@ jobs:
         env:
           PYTHONPATH: .
         run: |
-          pytest -q tests/ --cov=clipforge --cov=server --cov-report=term-missing --cov-report=xml
+          timeout 10m pytest -vv --maxfail=1 --durations=20 tests/ --cov=clipforge --cov=server --cov-report=term-missing --cov-report=xml
 
       - name: Run real Chromium editor regression test
         env:
           PYTHONPATH: .
-        run: pytest -q tests/test_editor_browser_e2e.py
+        run: timeout 7m pytest -vv --maxfail=1 --durations=20 tests/test_editor_browser_e2e.py
 
       - name: Generate and inspect a real media fixture
         run: |
