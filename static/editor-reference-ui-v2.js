@@ -11,3 +11,22 @@ function mount(){const root=$('#cfNle');if(!root)return false;const slot=root.pa
 function start(){if(!mount())return;window.addEventListener('clipforge:clips-updated',renderClips);window.addEventListener('clipforge:nle-changed',renderClips);window.addEventListener('clipforge:editor-ready',renderClips);window.addEventListener('clipforge:open-editor',renderClips);renderClips()}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{const wait=new MutationObserver(()=>{if(start())wait.disconnect()});wait.observe(document.body,{childList:true,subtree:true});start()});else{const wait=new MutationObserver(()=>{if(start())wait.disconnect()});wait.observe(document.body,{childList:true,subtree:true});start()}
 })();
+/* Reference v3: left navigation, source/project cards and frame thumbnails. */
+(()=>{'use strict';
+ const $=(s,r=document)=>r.querySelector(s);
+ const fmt=n=>{n=Math.max(0,Number(n)||0);return String(Math.floor(n/60)).padStart(2,'0')+':'+String(Math.floor(n%60)).padStart(2,'0')};
+ function decorate(){
+  const root=$('#cfNle'),media=$('.cf-nle-media',root),work=$('.cf-nle-work',root);if(!root||!media||!work)return false;
+  if(!$('.cf-ref2-sidebar',media)){
+   const side=document.createElement('div');side.className='cf-ref2-sidebar';
+   side.innerHTML='<div class="cf-ref2-source-card"><div class="cf-ref2-source-thumb">▶</div><div class="cf-ref2-source-meta"><b>Vídeo del proyecto</b><small>Fuente original · 3:33</small></div></div><div class="cf-ref2-checks"><div><i>✓</i> Transcripción completa</div><div><i>✓</i> Momentos detectados</div><div><i>✓</i> Clips seleccionados</div></div><button class="cf-ref2-sidebar-active" type="button"><span>▣</span> Editor de clips</button><div class="cf-ref2-project-label">Proyecto</div><button class="cf-ref2-side-link" type="button"><span>▤</span> Subtítulos (SRT)</button><button class="cf-ref2-side-link" type="button"><span>⚙</span> Ajustes de formato</button><button class="cf-ref2-side-link" type="button"><span>⇧</span> Exportación</button><div class="cf-ref2-project-card"><b>Proyecto actual</b><strong>4 clips · 1080×1920</strong><span><i></i></span></div>';
+   media.prepend(side);
+   const file=$('#video'),name=$('#filename');if(file){file.addEventListener('change',()=>{const f=file.files?.[0];if(f){const b=$('.cf-ref2-source-meta b',side),sm=$('.cf-ref2-source-meta small',side);if(b)b.textContent=f.name;if(sm)sm.textContent='Vídeo original · '+(f.type||'vídeo');}})}
+  }
+  const nav=$('.cf-ref2-nav');if(nav){const brand=$('.cf-ref2-brand',nav);if(brand&&!brand.dataset.v3){brand.dataset.v3='1';brand.innerHTML='<span class="cf-ref2-brand-icon">▶</span><b>ClipForge</b><small>PRO</small>';}}
+  const items=[...clips()];const list=$('[data-list]',work);if(list){items.forEach(({item},i)=>{const b=list.children[i];if(!b)return;const thumb=$('.cf-ref2-thumb',b);if(thumb&&!thumb.dataset.frame){thumb.dataset.frame='pending';thumb.textContent=String(i+1).padStart(2,'0');thumb.classList.add('cf-ref2-thumb-number');}})}
+  return true;
+ }
+ function clips(){const p=window.clipforgeEditorBridge?.getProject?.()||window.clipforgeEditor?.getProject?.()||{},ts=window.clipforgeNleGetTracks?.()||p.tracks||[];return ts.filter(t=>t.type==='video').flatMap(t=>(t.items||[]).map(item=>({track:t,item}))).filter(x=>['clip','video'].includes(x.item.kind)||x.item.assetId==='source')}
+ const mo=new MutationObserver(()=>decorate());if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{mo.observe(document.body,{childList:true,subtree:true});decorate()});else{mo.observe(document.body,{childList:true,subtree:true});decorate()}
+})();
