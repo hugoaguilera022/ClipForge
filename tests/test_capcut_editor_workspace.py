@@ -99,3 +99,9 @@ def test_frame_accurate_core_is_loaded_before_editor_and_precached():
     worker = (STATIC / "sw-v173.js").read_text(encoding="utf-8")
     assert html.index('src="/timeline-core.js') < html.index('src="/capcut-editor.js')
     assert "'/timeline-core.js'" in worker
+
+
+def test_editor_routes_destructive_timeline_edits_through_frame_core():
+    core = (STATIC / "capcut-editor.js").read_text(encoding="utf-8")
+    assert "function applyFrameCommand(command)" in core
+    assert "type:'trim'" in core and "type:'split'" in core and "type:'delete'" in core
