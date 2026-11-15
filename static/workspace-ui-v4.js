@@ -75,7 +75,7 @@
     app.querySelector('.cf-opus-editor-slot').append(editor);
   }
   if(exportPanel){const h=exportPanel.querySelector('h3');if(h)h.textContent='Exportar clips';exportPanel.querySelector(':scope > p.hint')?.remove();if($('#browserExportClips'))$('#browserExportClips').textContent='Exportar los 4 clips';app.querySelector('.cf-opus-export-slot').append(exportPanel);}
-  const fileInput=$('#video'),sourceVideo=$('#cfSourcePreview'),empty=app.querySelector('.cf-opus-demo-empty');
+  const fileInput=$('#video'),empty=app.querySelector('.cf-opus-demo-empty');
   // First click must open the native file picker. Only after a file is selected
   // may the same primary action start Whisper; never swallow the user's upload click.
   if(transcribe && fileInput){
@@ -141,7 +141,6 @@
   previewPanel.innerHTML='<div class="cf-opus-source-preview-head"><div><span class="cf-opus-kicker">VÍDEO ORIGINAL</span><strong id="cfSourceFileName">Vista previa del vídeo</strong></div><span id="cfSourceDuration">00:00</span></div>';
   const sourceFrame=document.createElement('div');sourceFrame.className='cf-opus-source-frame';
   const sourceVideo=$('#cfSourcePreview');
-  const empty=app.querySelector('.cf-opus-demo-empty');
   if(sourceVideo){sourceVideo.controls=true;sourceVideo.muted=true;sourceVideo.playsInline=true;sourceVideo.hidden=true;sourceFrame.append(sourceVideo);}
   previewPanel.append(sourceFrame);
   if(processingPanel)processingPanel.after(previewPanel);
