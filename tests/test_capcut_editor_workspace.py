@@ -84,3 +84,11 @@ def test_workspace_geometry_does_not_override_timeline_preview_crop():
 def test_video_inspector_uses_neutral_speed_and_transition_defaults():
     enhanced = (STATIC / "capcut-editor-enhancements.js").read_text(encoding="utf-8")
     assert "speed:1,transitionDuration:.5" in enhanced
+
+
+def test_editor_mount_is_requested_after_workspace_replaces_editor_slot():
+    core = (STATIC / "capcut-editor.js").read_text(encoding="utf-8")
+    workspace = (STATIC / "workspace-ui-v4.js").read_text(encoding="utf-8")
+    assert "window.addEventListener('clipforge:editor-open-request',open)" in core
+    assert "queueMicrotask(()=>window.dispatchEvent(new CustomEvent('clipforge:editor-open-request'" in workspace
+    assert workspace.index("editorSlot.replaceChildren()") < workspace.index("clipforge:editor-open-request")

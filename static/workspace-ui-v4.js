@@ -343,6 +343,10 @@
     // legacy candidate-card inspector/timeline beside it: that produced two
     // overlapping editors and duplicate controls in the same workspace.
     setStage('editor');
+    // Mount only after this handler has finished replacing the editor slot.
+    // Otherwise the earlier open-editor listener mounts the NLE first and
+    // replaceChildren() below this point detaches it from the visible workspace.
+    queueMicrotask(()=>window.dispatchEvent(new CustomEvent('clipforge:editor-open-request',{detail:e.detail||{}})));
   });
   if(candidates?.querySelector('.candidate-card'))reveal();
   $('#browserExportClips')?.addEventListener('click',()=>{const p=$('#cfProductionStatus');if(p)p.textContent='Preparando la exportación de tus clips…';});
