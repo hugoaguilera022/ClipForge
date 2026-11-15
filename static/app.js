@@ -36,10 +36,12 @@ async function loadHealth(){
  }
 }
 async function loadPlatforms(){
+ const host=$('#platforms');if(!host)return;
  try{
-  const r=await fetch('/api/platforms');const {platforms}=await r.json();
-  $('#platforms').innerHTML=platforms.map(p=>`<div class="platform"><span class="ico">${({youtube:'▶',instagram:'◎',facebook:'f',tiktok:'♪',x:'X'})[p.id]}</span><div><b>${esc(p.name)}</b><small>${esc(p.free)}</small></div><span class="state">Pendiente</span></div>`).join('');
- }catch{$('#platforms').textContent='No se pudo cargar el estado de las plataformas.'}
+  const r=await fetch('/api/platforms');if(!r.ok)throw Error('platforms_unavailable');
+  const {platforms=[]}=await r.json();if(!host.isConnected)return;
+  host.innerHTML=platforms.map(p=>`<div class="platform"><span class="ico">${({youtube:'▶',instagram:'◎',facebook:'f',tiktok:'♪',x:'X'})[p.id]}</span><div><b>${esc(p.name)}</b><small>${esc(p.free)}</small></div><span class="state">Pendiente</span></div>`).join('');
+ }catch{if(host.isConnected)host.textContent='No se pudo cargar el estado de las plataformas.'}
 }
 $('#video').addEventListener('change',e=>$('#filename').textContent=e.target.files[0]?.name||'MP4, MOV, MKV, WEBM, AVI, M4V y más · máximo 512 MB');
 $('#transcript')?.addEventListener('change',e=>$('#transcriptname').textContent=e.target.files[0]?.name||'SRT o VTT · permite trabajar sin instalar Whisper');
