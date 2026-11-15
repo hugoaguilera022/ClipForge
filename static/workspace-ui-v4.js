@@ -361,6 +361,15 @@
     setStage('results');
   }
   window.addEventListener('clipforge:new-project',()=>{autoOpenedGeneration=false;activeCard=null;activeIndex=-1;});
+  window.addEventListener('clipforge:cloud-loaded',e=>{
+    autoOpenedGeneration=true;
+    const clips=window.clipforgeEditorBridge?.getProject?.().clips||[];
+    const detail={clip:clips[0]||{title:e.detail?.name||'Proyecto guardado'},index:0,source:'google-drive',allClips:true};
+    setStage('editor');
+    const open=()=>window.dispatchEvent(new CustomEvent('clipforge:open-editor',{detail}));
+    if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',open,{once:true});
+    else queueMicrotask(open);
+  });
   window.addEventListener('clipforge:transcription-progress',e=>{
     const msg=String(e.detail?.message||'');const p=$('#cfProductionStatus');if(p&&msg)p.textContent=msg;
   });
