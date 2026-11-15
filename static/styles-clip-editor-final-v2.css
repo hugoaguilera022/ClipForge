@@ -2272,3 +2272,78 @@ body.cf-opus-body .cf-opus-nav .cf-drive-popover{
  body.cf-opus-body .cf-opus-nav-right{grid-column:2!important;grid-row:1!important}
  body.cf-opus-body .cf-opus-nav .cf-auth-button{min-width:0!important;font-size:11px!important}
 }
+
+
+/* 2026-11-15 clean production surface + correctly collapsed Drive menu */
+body.cf-opus-body .cf-opus-announcement,
+body.cf-opus-body .cf-opus-showcase,
+body.cf-opus-body .cf-opus-footer,
+body.cf-opus-body .cf-opus-trust,
+body.cf-opus-body .cf-opus-auto,
+body.cf-opus-body #videoCapacity,
+body.cf-opus-body #cfProductionStatus{display:none!important}
+body.cf-opus-body .cf-opus-main{max-width:1180px!important;padding:24px 28px 60px!important}
+body.cf-opus-body .cf-opus-hero{padding:44px 20px 28px!important;max-width:1080px!important}
+body.cf-opus-body .cf-opus-hero h1{font-size:clamp(34px,4.4vw,56px)!important;line-height:1.08!important;margin:10px auto 12px!important}
+body.cf-opus-body .cf-opus-hero>p{font-size:15px!important;max-width:700px!important}
+body.cf-opus-body .cf-opus-upload-row{width:min(100%,820px)!important;margin:28px auto 16px!important;justify-content:center!important}
+body.cf-opus-body .cf-opus-asr-options{width:min(100%,820px)!important;margin:0 auto 14px!important;padding:12px 14px!important}
+body.cf-opus-body #browserWhisperStatus{
+ display:block!important;width:min(100%,820px)!important;max-width:820px!important;
+ min-height:0!important;margin:12px auto 0!important;padding:11px 14px!important;
+ background:#111720!important;border:1px solid #303744!important;border-radius:10px!important;
+ color:#aeb9c8!important;font-size:12px!important;line-height:1.45!important;text-align:center!important;
+}
+body.cf-opus-body #cfTranscriptPanel{width:min(100%,900px)!important;margin:18px auto!important}
+body.cf-opus-body .cf-opus-nav{
+ grid-template-columns:max-content minmax(0,1fr) max-content!important;
+}
+body.cf-opus-body .cf-opus-nav>nav{justify-content:center!important}
+body.cf-opus-body .cf-opus-nav-right{gap:9px!important;min-width:0!important}
+body.cf-opus-body #cfAuth{
+ display:flex!important;align-items:center!important;justify-content:flex-end!important;
+ flex-wrap:nowrap!important;gap:8px!important;margin:0!important;padding:0!important;
+ min-width:0!important;max-width:none!important;
+}
+body.cf-opus-body #cfAuth .cf-auth-status{display:none!important}
+body.cf-opus-body #cfAuth .cf-auth-button{
+ display:inline-flex!important;align-items:center!important;justify-content:center!important;
+ height:38px!important;min-height:38px!important;min-width:0!important;width:auto!important;
+ padding:0 12px!important;font-size:11px!important;white-space:nowrap!important;
+}
+body.cf-opus-body #cfAuth .cf-auth-button[hidden],
+body.cf-opus-body #cfDriveControls[hidden],
+body.cf-opus-body .cf-drive-popover[hidden]{display:none!important}
+body.cf-opus-body #cfDriveControls{margin:0!important;z-index:500!important}
+body.cf-opus-body #cfDriveControls:not([open])>.cf-drive-popover{display:none!important}
+body.cf-opus-body #cfDriveControls[open]>.cf-drive-popover{display:grid!important}
+body.cf-opus-body #cfDriveControls>.cf-drive-popover{
+ position:absolute!important;top:calc(100% + 10px)!important;right:0!important;left:auto!important;
+ width:min(350px,calc(100vw - 24px))!important;max-width:calc(100vw - 24px)!important;
+ padding:14px!important;z-index:9999!important;background:#111923!important;
+ border:1px solid #303b4b!important;border-radius:14px!important;box-shadow:0 18px 50px #0009!important;
+}
+body.cf-opus-body #cfDriveControls .cf-drive-actions{display:flex!important;flex-direction:row!important;gap:8px!important;align-items:center!important}
+body.cf-opus-body #cfDriveControls .cf-drive-actions button,
+body.cf-opus-body #cfDriveControls #cfDriveOpenLast{
+ display:inline-flex!important;align-items:center!important;justify-content:center!important;
+ min-height:38px!important;padding:8px 11px!important;background:#202b3a!important;
+ border:1px solid #3a4658!important;border-radius:9px!important;color:#f7f9fc!important;
+ font-size:11px!important;font-weight:700!important;white-space:nowrap!important;
+}
+body.cf-opus-body #cfDriveControls #cfDriveOpenLast{width:100%!important;background:#27183a!important;border-color:#6d3ab0!important}
+body.cf-opus-body #cfDriveControls select{flex:1 1 auto!important;min-width:0!important;width:1px!important;height:38px!important;background:#0c121b!important;color:#f7f9fc!important;border:1px solid #3a4658!important;border-radius:9px!important}
+body.cf-opus-body #cfDriveStatus{display:block!important;color:#aab6c8!important;font-size:11px!important;line-height:1.45!important;white-space:normal!important}
+@media(max-width:900px){
+ body.cf-opus-body .cf-opus-nav{grid-template-columns:max-content minmax(0,1fr) max-content!important;padding:0 14px!important;gap:10px!important}
+ body.cf-opus-body .cf-opus-nav>nav{gap:12px!important}
+ body.cf-opus-body #cfAuth .cf-auth-button{padding:0 8px!important}
+}
+@media(max-width:650px){
+ body.cf-opus-body .cf-opus-main{padding:12px 12px 40px!important}
+ body.cf-opus-body .cf-opus-nav{grid-template-columns:minmax(0,1fr) max-content!important;min-height:64px!important;height:auto!important}
+ body.cf-opus-body .cf-opus-nav>nav{display:none!important}
+ body.cf-opus-body .cf-opus-nav-right{grid-column:2!important}
+ body.cf-opus-body #cfAuth .cf-auth-button{font-size:10px!important;padding:0 7px!important}
+ body.cf-opus-body .cf-opus-asr-options{grid-template-columns:1fr!important}
+}
