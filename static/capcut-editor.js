@@ -186,7 +186,45 @@ root.querySelectorAll('[data-track]').forEach(b=>b.onclick=()=>addTrack(b.datase
 document.addEventListener('click',e=>{const button=e.target?.closest?.('[data-act]');if(!button||!root?.contains(button))return;e.preventDefault();act(button.dataset.act)},true);
 video=$('#cfNleVideo');video.ontimeupdate=onTime;document.removeEventListener('keydown',editorKeydown);document.addEventListener('keydown',editorKeydown);
 }
-async function open(e){const slot=$('.cf-opus-editor-slot');if(!slot)return;try{const old=slot.querySelector('.cf-opus-editing-card');if(old)old.hidden=true;if(!root)mount();else if(!slot.contains(root))slot.append(root);if(!root)throw Error('No se pudo crear el espacio de edición.');root.hidden=false;seed();await restoreMedia();bridge();const name=$('#cfNleName');if(name)name.value=projectName;const f=$('#video')?.files?.[0];if(f){if(sourceUrl)URL.revokeObjectURL(sourceUrl);sourceUrl=URL.createObjectURL(f);saveMedia('source',f).catch(error=>{say('El vídeo está disponible en esta sesión, pero no se pudo guardar para futuras sesiones. Descarga una copia del proyecto y conserva el MP4 original. ('+(error?.message||'almacenamiento no disponible')+')');});if(video){video.src=sourceUrl;video.load()}}const c=e.detail?.clip;if(c){const t=tracks.find(x=>x.type==='video'),i=t?.items.find(x=>x.id===c.id)||t?.items[0];if(i)selected={trackId:t.id,itemId:i.id}}render();syncPreview();persist();window.dispatchEvent(new CustomEvent('clipforge:editor-ready'));}catch(error){console.error('ClipForge editor open failed:',error);const host=$('.cf-opus-editor-slot');if(root&&host&&!host.contains(root))host.append(root);if(root){root.hidden=false;const statusNode=root.querySelector('#cfNleStatus');if(statusNode)statusNode.textContent='Error al iniciar: '+(error?.message||error);const work=root.querySelector('.cf-nle-work');if(work&&!work.children.length){const alert=document.createElement('p');alert.className='cf-nle-open-error';alert.setAttribute('role','alert');alert.textContent='No se pudo iniciar el espacio de edición: '+(error?.message||error);work.append(alert)}}else if(host){const notice=document.createElement('p');notice.className='cf-nle-open-error';notice.setAttribute('role','alert');notice.textContent='No se pudo iniciar el editor: '+(error?.message||error);host.append(notice)}window.dispatchEvent(new CustomEvent('clipforge:editor-error',{detail:{message:String(error?.message||error)}}))}}
+async function open(e){
+ const slot=$('.cf-opus-editor-slot');if(!slot)return;
+ try{
+  const old=slot.querySelector('.cf-opus-editing-card');if(old)old.hidden=true;
+  if(!root)mount();else if(!slot.contains(root))slot.append(root);
+  if(!root)throw Error('No se pudo crear el espacio de edición.');
+  root.hidden=false;seed();bridge();
+  const name=$('#cfNleName');if(name)name.value=projectName;
+  const f=$('#video')?.files?.[0];
+  if(f){
+   if(sourceUrl)URL.revokeObjectURL(sourceUrl);
+   sourceUrl=URL.createObjectURL(f);
+   saveMedia('source',f).catch(error=>say('El vídeo está disponible en esta sesión, pero no se pudo guardar para futuras sesiones. ('+(error?.message||'almacenamiento no disponible')+')'));
+   if(video){video.src=sourceUrl;video.load();}
+  }
+  const c=e.detail?.clip;
+  if(c){const t=tracks.find(x=>x.type==='video'),i=t?.items.find(x=>x.id===c.id)||t?.items[0];if(i)selected={trackId:t.id,itemId:i.id};}
+  // Paint the editor immediately. IndexedDB recovery is deliberately non-blocking:
+  // a slow or blocked storage open must never leave the whole editor blank.
+  render();syncPreview();persist();
+  window.dispatchEvent(new CustomEvent('clipforge:editor-ready'));
+  restoreMedia().then(()=>{
+   if(root?.isConnected&&!root.hidden){renderAssets();render();syncPreview();persist();}
+  }).catch(error=>{console.warn('ClipForge media recovery deferred:',error);say('Editor listo. Algunos medios pueden necesitar volver a importarse.');});
+ }catch(error){
+  console.error('ClipForge editor open failed:',error);
+  const host=$('.cf-opus-editor-slot');
+  if(root&&host&&!host.contains(root))host.append(root);
+  if(root){
+   root.hidden=false;const statusNode=root.querySelector('#cfNleStatus');
+   if(statusNode)statusNode.textContent='Error al iniciar: '+(error?.message||error);
+   const work=root.querySelector('.cf-nle-work');
+   if(work){const alert=document.createElement('p');alert.className='cf-nle-open-error';alert.setAttribute('role','alert');alert.textContent='No se pudo iniciar el espacio de edición: '+(error?.message||error);work.prepend(alert);}
+  }else if(host){
+   const notice=document.createElement('p');notice.className='cf-nle-open-error';notice.setAttribute('role','alert');notice.textContent='No se pudo iniciar el editor: '+(error?.message||error);host.append(notice);
+  }
+  window.dispatchEvent(new CustomEvent('clipforge:editor-error',{detail:{message:String(error?.message||error)}}));
+ }
+}
 function render(options={}){if(!root||!root.isConnected)return;const d=total(),px=20*zoom;$('#cfNleTotal').textContent=fmt(d);$('#cfNleSeek').max=d;$('#cfNleSeek').value=Math.min(d,playhead);$('#cfNleTime').textContent=fmt(playhead);const ruler=$('#cfNleRuler'),tl=$('#cfNleTimeline');ruler.replaceChildren();tl.replaceChildren();const width=Math.max(500,d*px);ruler.style.width=width+'px';tl.style.minWidth=width+'px';for(let t=0;t<=d;t+=Math.max(5,Math.round(10/zoom))){const x=document.createElement('i');x.textContent=fmt(t);x.style.left=t*px+'px';ruler.append(x)}
 tracks.forEach(t=>{const row=document.createElement('div');row.className='cf-nle-track';const h=document.createElement('div');h.className='cf-nle-track-head';h.textContent=t.name+' · '+t.items.length;const lane=document.createElement('div');lane.className='cf-nle-lane';lane.style.width=width+'px';lane.onclick=e=>{if(e.target===lane){playhead=Math.max(0,(e.clientX-lane.getBoundingClientRect().left)/px);syncPreview();render()}};t.items.forEach(i=>{const b=document.createElement('div');b.className='cf-nle-block'+((selectedItems.has(i.id)||selected?.itemId===i.id)?' selected':'');b.dataset.type=t.type;b.dataset.itemId=i.id;b.dataset.trackId=t.id;b.style.left=Number(i.start)*px+'px';b.style.width=Math.max(24,(Number(i.end)-Number(i.start))*px)+'px';b.textContent=i.title||i.text||t.name;b.onclick=e=>{e.stopPropagation();if(e.ctrlKey||e.metaKey){if(selectedItems.has(i.id))selectedItems.delete(i.id);else selectedItems.add(i.id);selected={trackId:t.id,itemId:i.id};}else{selectedItems.clear();selectedItems.add(i.id);selected={trackId:t.id,itemId:i.id};}playhead=i.start;render();syncPreview()};b.oncontextmenu=e=>{e.preventDefault();e.stopPropagation();selected={trackId:t.id,itemId:i.id};showClipMenu(e.clientX,e.clientY,t.id,i.id);render();syncPreview()};b.onpointerdown=e=>{if(t.locked||e.button!==0)return;const ids=selectedItems.has(i.id)?new Set(selectedItems):new Set([i.id]),group=[];for(const track of tracks){for(const item of track.items){if(ids.has(item.id)){if(track.locked)return;group.push({track,item,start:Number(item.start),end:Number(item.end)});}}}if(!group.length)return;const minStart=Math.min(...group.map(x=>x.start)),maxEnd=Math.max(...group.map(x=>x.end)),x=e.clientX;let moved=false;b.setPointerCapture?.(e.pointerId);const move=ev=>{const dx=ev.clientX-x;if(Math.abs(dx)<3)return;if(!moved){moved=true;checkpoint()}const rawDelta=dx/px,threshold=8/px,snap=window.clipforgeTimelineSnapMove,delta=Math.max(-minStart,rawDelta+(typeof snap==='function'?snap(minStart+rawDelta,maxEnd+rawDelta,[...ids],threshold):0));for(const entry of group){entry.item.start=entry.start+delta;entry.item.end=entry.end+delta;const node=root.querySelector('.cf-nle-block[data-item-id="'+CSS.escape(entry.item.id)+'"]');if(node)node.style.left=entry.item.start*px+'px';}};const stop=()=>{b.removeEventListener('pointermove',move);b.removeEventListener('pointerup',stop);b.removeEventListener('pointercancel',stop);if(moved){persist();render()}};b.addEventListener('pointermove',move);b.addEventListener('pointerup',stop,{once:true});b.addEventListener('pointercancel',stop,{once:true})};lane.append(b)});const ph=document.createElement('div');ph.className='cf-nle-playhead';ph.style.left=playhead*px+'px';lane.append(ph);row.append(h,lane);tl.append(row)});if(!options.skipInspector)renderInspector();overlay()}
 function renderInspector(){
