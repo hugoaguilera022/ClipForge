@@ -13,7 +13,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 })();
 /* Reference v3: left navigation, source/project cards and frame thumbnails. */
 (()=>{'use strict';
- const $=(s,r=document)=>r.querySelector(s);
+ const $=(s,r=document)=>r?.querySelector(s)||null;
  const fmt=n=>{n=Math.max(0,Number(n)||0);return String(Math.floor(n/60)).padStart(2,'0')+':'+String(Math.floor(n%60)).padStart(2,'0')};
  function decorate(){
   const root=$('#cfNle'),media=$('.cf-nle-media',root),work=$('.cf-nle-work',root);if(!root||!media||!work)return false;
