@@ -61,6 +61,7 @@ jobs:
           node --check static/workspace-ui-v4.js
           node --check static/capcut-editor.js
           node --check static/capcut-editor-enhancements.js
+          node --check static/editor-reference-ui-v2.js
           node --check static/browser-whisper-inline-v3.js
           node --check static/browser-export.js
           node --check static/browser-url.js
