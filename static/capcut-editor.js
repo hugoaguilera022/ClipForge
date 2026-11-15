@@ -101,7 +101,7 @@ const ux=document.createElement('style');ux.id='cf-capcut-pro-layout';ux.textCon
 :root{--cf-purple:#8b4cf6;--cf-purple2:#a56bff;--cf-bg:#0d1018;--cf-panel:#151a25;--cf-line:#293244;--cf-muted:#98a4b7}
 body:has(#cfNle){overflow:hidden}
 .cf-opus-editor-slot{display:block!important;width:100%!important;min-width:0!important;margin:0!important;padding:0!important}
-.cf-opus-editor-slot>.cf-nle{height:calc(100vh - 108px)!important;min-height:620px!important;max-height:none!important;border:0!important;border-radius:0!important;background:var(--cf-bg)!important;display:grid!important;grid-template-rows:48px minmax(280px,1fr) 46px minmax(170px,29vh)!important;overflow:hidden!important}
+.cf-opus-editor-slot>.cf-nle{height:calc(100vh - 108px)!important;min-height:620px!important;max-height:none!important;border:0!important;border-radius:0!important;background:var(--cf-bg)!important;display:grid!important;grid-template-rows:48px minmax(280px,1fr) 46px 22px minmax(170px,29vh)!important;overflow:hidden!important}
 .cf-nle-head{grid-row:1;min-height:48px!important;height:48px!important;padding:5px 12px!important;flex-wrap:nowrap!important;background:#111520!important;border-bottom:1px solid var(--cf-line)!important;gap:9px!important}
 .cf-nle-head>b{font-size:14px!important;white-space:nowrap}
 .cf-nle-head label{font-size:11px!important;white-space:nowrap}
@@ -121,7 +121,7 @@ body:has(#cfNle){overflow:hidden}
 .cf-nle-tools button{flex:0 0 auto!important;padding:6px 9px!important;font-size:11px!important}
 .cf-nle-tools span{flex:1 0 8px!important}
 .cf-nle-ruler{grid-row:4;align-self:start!important;height:22px!important;margin-left:150px!important}
-.cf-nle-timeline{grid-row:4;align-self:stretch!important;max-height:none!important;height:100%!important;min-height:0!important;padding:25px 10px 8px!important;overflow:auto!important;background:#0e131c!important;gap:5px!important}
+.cf-nle-timeline{grid-row:5;align-self:stretch!important;max-height:none!important;height:100%!important;min-height:0!important;padding:25px 10px 8px!important;overflow:auto!important;background:#0e131c!important;gap:5px!important}
 .cf-nle-track{grid-template-columns:140px max-content!important;min-height:46px!important;background:#111824!important;border:1px solid #252f40!important}
 .cf-nle-track-head{position:sticky!important;left:0!important;z-index:5!important;background:#171e2b!important;display:flex!important;align-items:center!important;gap:7px!important}
 .cf-nle-block{height:34px!important;top:5px!important;border-radius:5px!important;font-size:10px!important}
@@ -147,7 +147,7 @@ body:has(#cfNle){overflow:hidden}
 .cf-nle-inspector .cf-inspector-section[hidden]{display:none!important}
 @media(max-height:800px){.cf-opus-editor-slot>.cf-nle{height:calc(100vh - 90px)!important;min-height:560px!important}}
 
-.cf-opus-editor-slot>.cf-nle{height:calc(100vh - 90px)!important;min-height:620px!important;grid-template-rows:48px minmax(300px,1fr) 46px minmax(190px,30vh)!important}
+.cf-opus-editor-slot>.cf-nle{height:calc(100vh - 90px)!important;min-height:620px!important;grid-template-rows:48px minmax(300px,1fr) 46px 22px minmax(190px,30vh)!important}
 .cf-nle-work{grid-template-columns:190px minmax(300px,1fr) 320px!important}
 .cf-nle-inspector{padding:12px!important;background:#111622!important}
 .cf-nle-inspector .cf-inspector-tabs{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:4px!important;position:sticky;top:-12px;z-index:5;background:#111622;padding:4px 0 10px!important;border-bottom:1px solid #293244}
@@ -171,7 +171,7 @@ body:has(#cfNle){overflow:hidden}
 .cf-nle-inspector .cf-inspector-section[data-section=style]{display:grid;grid-template-columns:1fr 1fr;gap:2px 10px}
 .cf-nle-inspector .cf-inspector-section[data-section=style] h3{grid-column:1/-1}
 .cf-nle-inspector .cf-inspector-section[data-section=style] label:has([data-k=fontFamily]),.cf-nle-inspector .cf-inspector-section[data-section=style] label:has([data-k=fontWeight]),.cf-nle-inspector .cf-inspector-section[data-section=style] label:has([data-k=textAlign]){grid-column:1/-1}
-@media(max-height:820px){.cf-opus-editor-slot>.cf-nle{height:calc(100vh - 80px)!important;min-height:560px!important;grid-template-rows:44px minmax(260px,1fr) 42px minmax(170px,28vh)!important}.cf-nle-work{grid-template-columns:170px minmax(260px,1fr) 290px!important}.cf-nle-inspector .cf-subtitle-list{max-height:25vh}}
+@media(max-height:820px){.cf-opus-editor-slot>.cf-nle{height:calc(100vh - 80px)!important;min-height:560px!important;grid-template-rows:44px minmax(260px,1fr) 42px 22px minmax(170px,28vh)!important}.cf-nle-work{grid-template-columns:170px minmax(260px,1fr) 290px!important}.cf-nle-inspector .cf-subtitle-list{max-height:25vh}}
 @media(max-width:900px){.cf-nle-work{grid-template-columns:145px minmax(220px,1fr) 260px!important}}
 `;document.head.append(ux);
 slot.append(root);
