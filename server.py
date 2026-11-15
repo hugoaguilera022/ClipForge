@@ -205,6 +205,70 @@ def persist_job_locked(jid:str, worker_id:str|None=None)->None:
  else:
   persist_jobs_locked()
 
+
+EXPORT_LOCK=threading.Lock()
+EXPORT_WORKERS=set()
+EXPORT_SEMAPHORE=threading.Semaphore(1)
+
+def _editor_export_paths(export_id):
+ folder=OUTPUTS/'editor_exports'
+ return folder,folder/f'{export_id}.webm',folder/f'{export_id}.mp4',folder/f'{export_id}.partial.mp4',folder/f'{export_id}.status.json'
+
+def _write_editor_export_state(export_id,status,message=''):
+ folder,source,target,partial,state_path=_editor_export_paths(export_id)
+ folder.mkdir(parents=True,exist_ok=True)
+ state={'id':export_id,'status':status}
+ if message: state['message']=str(message)[-1200:]
+ temp=state_path.with_suffix('.status.tmp')
+ temp.write_text(json.dumps(state,ensure_ascii=False),encoding='utf-8')
+ temp.replace(state_path)
+ return state
+
+def _read_editor_export_state(export_id):
+ folder,source,target,partial,state_path=_editor_export_paths(export_id)
+ try:
+  value=json.loads(state_path.read_text(encoding='utf-8'))
+  return value if isinstance(value,dict) else {}
+ except (OSError,ValueError):
+  return {}
+
+def _start_editor_export(export_id):
+ folder,source,target,partial,state_path=_editor_export_paths(export_id)
+ folder.mkdir(parents=True,exist_ok=True)
+ with EXPORT_LOCK:
+  if target.is_file():
+   _write_editor_export_state(export_id,'ready')
+   return
+  if not source.is_file():
+   _write_editor_export_state(export_id,'failed','El vídeo temporal de la exportación no está disponible.')
+   return
+  if export_id in EXPORT_WORKERS:return
+  EXPORT_WORKERS.add(export_id)
+  _write_editor_export_state(export_id,'processing')
+ def run():
+  try:
+   with EXPORT_SEMAPHORE:
+    partial.unlink(missing_ok=True)
+    command=[shutil.which('ffmpeg') or 'ffmpeg','-hide_banner','-loglevel','error','-y',
+     '-filter_threads','1','-filter_complex_threads','1','-threads','1','-i',str(source),
+     '-map','0:v:0','-map','0:a:0?','-c:v','libx264','-preset','ultrafast','-crf','20','-threads:v','1',
+     '-pix_fmt','yuv420p','-c:a','aac','-b:a','192k','-threads:a','1','-movflags','+faststart',str(partial)]
+    result=subprocess.run(command,capture_output=True,text=True,timeout=3600)
+   if result.returncode or not partial.is_file() or partial.stat().st_size<1024:
+    raise RuntimeError((result.stderr or 'FFmpeg no pudo convertir la exportación.')[-1200:])
+   partial.replace(target)
+   source.unlink(missing_ok=True)
+   _write_editor_export_state(export_id,'ready')
+  except subprocess.TimeoutExpired:
+   partial.unlink(missing_ok=True);source.unlink(missing_ok=True)
+   _write_editor_export_state(export_id,'failed','La conversión ha superado el límite de una hora.')
+  except Exception as exc:
+   partial.unlink(missing_ok=True);source.unlink(missing_ok=True)
+   _write_editor_export_state(export_id,'failed',str(exc))
+  finally:
+   with EXPORT_LOCK:EXPORT_WORKERS.discard(export_id)
+ threading.Thread(target=run,daemon=True,name=f'editor-export-{export_id}').start()
+
 class Handler(BaseHTTPRequestHandler):
  def log_message(self, fmt, *args): print('[web]',fmt%args)
  def send(self, code, body, ctype='application/json; charset=utf-8'):
@@ -313,11 +377,28 @@ class Handler(BaseHTTPRequestHandler):
     return self.json(404,{'error':'preview_not_found'})
    ctype='video/mp4' if target.suffix.lower()=='.mp4' else 'application/x-subrip; charset=utf-8'
    return self.send(200,target.read_bytes(),ctype)
+  if path.startswith('/api/editor/export/') and path.endswith('/status'):
+   parts=path.strip('/').split('/')
+   if len(parts)!=5:return self.json(404,{'error':'export_not_found'})
+   export_id=parts[-2]
+   if not re.fullmatch(r'[a-f0-9]{16}',export_id):return self.json(404,{'error':'export_not_found'})
+   folder,source,target,partial,state_path=_editor_export_paths(export_id)
+   state=_read_editor_export_state(export_id)
+   if target.is_file():state=_write_editor_export_state(export_id,'ready')
+   elif source.is_file() and state.get('status')!='failed':
+    _start_editor_export(export_id);state=_read_editor_export_state(export_id)
+   elif state.get('status')!='failed':
+    state=_write_editor_export_state(export_id,'failed','No se encontró el archivo temporal de exportación.')
+   state['download_url']=f'/api/editor/export/{export_id}' if state.get('status')=='ready' else None
+   code=200 if state.get('status')=='ready' else 500 if state.get('status')=='failed' else 202
+   return self.json(code,state)
   if path.startswith('/api/editor/export/'):
    export_id=path.rsplit('/',1)[-1]
    if not re.fullmatch(r'[a-f0-9]{16}',export_id): return self.json(404,{'error':'export_not_found'})
-   target=OUTPUTS/'editor_exports'/f'{export_id}.mp4'
-   if not target.is_file(): return self.json(404,{'error':'export_not_found'})
+   folder,source,target,partial,state_path=_editor_export_paths(export_id)
+   if not target.is_file():
+    if source.is_file():return self.json(202,{'ok':True,'status':'processing','status_url':f'/api/editor/export/{export_id}/status'})
+    return self.json(404,{'error':'export_not_found'})
    data=target.read_bytes()
    self.send_response(200); self.send_header('Content-Type','video/mp4'); self.send_header('Content-Disposition',f'attachment; filename=clipforge_{export_id}.mp4'); self.send_header('Content-Length',str(len(data))); self.send_header('X-Content-Type-Options','nosniff'); self.end_headers(); self.wfile.write(data); return
   if path.startswith('/api/download/'):
@@ -473,21 +554,17 @@ class Handler(BaseHTTPRequestHandler):
    if not part: return self.json(400,{'error':'video_required'})
    payload=part.get_payload(decode=True) or b''
    if not payload: return self.json(400,{'error':'empty_video'})
-   export_id=uuid.uuid4().hex[:16]; folder=OUTPUTS/'editor_exports'; folder.mkdir(parents=True,exist_ok=True)
-   source=folder/f'{export_id}.webm'; target=folder/f'{export_id}.mp4'
+   export_id=uuid.uuid4().hex[:16]
+   folder,source,target,partial,state_path=_editor_export_paths(export_id)
    try:
+    folder.mkdir(parents=True,exist_ok=True)
     source.write_bytes(payload)
-    result=subprocess.run([shutil.which('ffmpeg') or 'ffmpeg','-hide_banner','-loglevel','error','-y','-i',str(source),'-map','0:v:0','-map','0:a:0?','-c:v','libx264','-preset','veryfast','-crf','20','-pix_fmt','yuv420p','-c:a','aac','-b:a','192k','-movflags','+faststart',str(target)],capture_output=True,text=True,timeout=3600)
-    if result.returncode or not target.is_file() or target.stat().st_size<1024:
-     target.unlink(missing_ok=True)
-     raise RuntimeError((result.stderr or 'FFmpeg no pudo convertir la exportación.')[-1200:])
-    source.unlink(missing_ok=True)
-    return self.json(201,{'ok':True,'id':export_id,'download_url':f'/api/editor/export/{export_id}'})
-   except subprocess.TimeoutExpired:
-    source.unlink(missing_ok=True); target.unlink(missing_ok=True)
-    return self.json(504,{'error':'export_timeout','message':'La conversión ha superado el límite de una hora.'})
+    _write_editor_export_state(export_id,'processing')
+    _start_editor_export(export_id)
+    return self.json(202,{'ok':True,'id':export_id,'status':'processing','status_url':f'/api/editor/export/{export_id}/status','download_url':f'/api/editor/export/{export_id}'})
    except Exception as exc:
-    source.unlink(missing_ok=True); target.unlink(missing_ok=True)
+    source.unlink(missing_ok=True);partial.unlink(missing_ok=True)
+    _write_editor_export_state(export_id,'failed',str(exc))
     return self.json(500,{'error':'export_failed','message':str(exc)[-1200:]})
   if path!='/api/jobs': return self.json(404,{'error':'not_found'})
   ctype=self.headers.get('Content-Type','')
