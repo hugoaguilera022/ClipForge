@@ -2003,7 +2003,7 @@ runButton?.addEventListener('click', async () => {
       segments: speakerSegments
     };
     if (output) output.value = transcriptData.segments.length
-      ? transcriptData.segments.map(s => `[${s.start.toFixed(2)}–${s.end.toFixed(2)}] ${s.speaker_label ? '['+s.speaker_label+'] ' : ''}${s.text}`).join('\  paintSubtitle();\nn')
+      ? transcriptData.segments.map(s => `[${s.start.toFixed(2)}–${s.end.toFixed(2)}] ${s.speaker_label ? '['+s.speaker_label+'] ' : ''}${s.text}`).join('\n')
       : (result.text || 'El modelo no devolvió texto temporizado.');
     window.dispatchEvent(new CustomEvent('clipforge:transcript-ready',{detail:{segments:transcriptData.segments.length,words:transcriptWordCount,timedWords:timedWordCount,language:transcriptData.language,model:activeModelId}}));
     if (transcriptData.segments.length) {
