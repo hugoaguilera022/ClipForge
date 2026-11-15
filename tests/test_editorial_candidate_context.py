@@ -20,4 +20,4 @@ def test_editorial_judge_is_told_that_context_does_not_extend_the_clip():
 
 def test_editorial_bundle_cache_bust_changes_with_candidate_context_logic():
     html = (ROOT / "static/index.html").read_text(encoding="utf-8")
-    assert "/browser-whisper-inline-v3.js?v=20261115-editorial-context1" in html
+    assert "/browser-whisper-inline-v3.js?v=20261115-base-default1" in html
