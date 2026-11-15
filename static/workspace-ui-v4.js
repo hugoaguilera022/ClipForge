@@ -201,16 +201,19 @@
     document.body.classList.toggle('cf-opus-stage-editor',stage==='editor');
     if(stage==='results'){
       results.hidden=false;editorScreen.hidden=true;exportSlot.hidden=true;
-      app.querySelector('.cf-opus-hero').hidden=true;app.querySelector('.cf-opus-showcase').hidden=true;
-      app.querySelector('.cf-opus-footer').hidden=true;
+      app.querySelector('.cf-opus-hero')?.setAttribute('hidden','');
+      app.querySelector('.cf-opus-showcase')?.setAttribute('hidden','');
+      app.querySelector('.cf-opus-footer')?.setAttribute('hidden','');
     }else if(stage==='editor'){
       results.hidden=true;editorScreen.hidden=false;exportSlot.hidden=true;
-      app.querySelector('.cf-opus-hero').hidden=true;app.querySelector('.cf-opus-showcase').hidden=true;
-      app.querySelector('.cf-opus-footer').hidden=true;
+      app.querySelector('.cf-opus-hero')?.setAttribute('hidden','');
+      app.querySelector('.cf-opus-showcase')?.setAttribute('hidden','');
+      app.querySelector('.cf-opus-footer')?.setAttribute('hidden','');
     }else{
       results.hidden=true;editorScreen.hidden=true;exportSlot.hidden=true;
-      app.querySelector('.cf-opus-hero').hidden=false;app.querySelector('.cf-opus-showcase').hidden=false;
-      app.querySelector('.cf-opus-footer').hidden=false;
+      app.querySelector('.cf-opus-hero')?.removeAttribute('hidden');
+      app.querySelector('.cf-opus-showcase')?.removeAttribute('hidden');
+      app.querySelector('.cf-opus-footer')?.removeAttribute('hidden');
     }
     window.scrollTo({top:0,behavior:'instant'});
   }
