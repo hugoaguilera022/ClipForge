@@ -616,7 +616,9 @@ class EditorWorkspaceAndExportTests(unittest.TestCase):
   self.assertIn("path=='/api/editor/export'",server)
   self.assertIn("libx264",server)
   self.assertIn("'video/mp4'",server)
-  self.assertIn("export_timeout",server)
+  self.assertIn("'status_url':",server)
+  self.assertIn("'-threads:v','1'",server)
+  self.assertIn("'ultrafast'",server)
  def test_editor_projects_have_browser_persistence_fallback(self):
   editor=(ROOT/"static/editor.js").read_text()
   self.assertIn("clipforge.editor.projects",editor)
@@ -625,7 +627,7 @@ class EditorWorkspaceAndExportTests(unittest.TestCase):
 
 class EditorExportHttpIntegrationTests(unittest.TestCase):
  def test_editor_export_endpoint_returns_a_real_h264_mp4(self):
-  import json, shutil, subprocess, tempfile, threading, urllib.request
+  import json, shutil, subprocess, tempfile, threading, time, urllib.request
   from http.server import ThreadingHTTPServer
   import server
   ffmpeg=shutil.which("ffmpeg"); ffprobe=shutil.which("ffprobe")
@@ -641,9 +643,17 @@ class EditorExportHttpIntegrationTests(unittest.TestCase):
     body=(f"--{boundary}\r\nContent-Disposition: form-data; name=\"video\"; filename=\"test.webm\"\r\nContent-Type: video/webm\r\n\r\n".encode()+source.read_bytes()+f"\r\n--{boundary}--\r\n".encode())
     request=urllib.request.Request(f"http://127.0.0.1:{httpd.server_port}/api/editor/export",data=body,headers={"Content-Type":f"multipart/form-data; boundary={boundary}"},method="POST")
     with urllib.request.urlopen(request,timeout=30) as response:
-     self.assertEqual(response.status,201);result=json.loads(response.read())
-    self.assertTrue(result.get("ok"));export_id=result["id"]
-    with urllib.request.urlopen(f"http://127.0.0.1:{httpd.server_port}"+result["download_url"],timeout=30) as response:
+     self.assertEqual(response.status,202);result=json.loads(response.read())
+    self.assertTrue(result.get("ok"));self.assertEqual(result.get("status"),"processing");export_id=result["id"]
+    deadline=time.monotonic()+30
+    while True:
+     with urllib.request.urlopen(f"http://127.0.0.1:{httpd.server_port}"+result["status_url"],timeout=10) as response:
+      state=json.loads(response.read())
+     if state.get("status")=="ready":break
+     if state.get("status")=="failed":self.fail(state.get("message","La exportación falló"))
+     if time.monotonic()>=deadline:self.fail("La exportación asíncrona no terminó a tiempo")
+     time.sleep(.1)
+    with urllib.request.urlopen(f"http://127.0.0.1:{httpd.server_port}"+(state.get("download_url") or result["download_url"]),timeout=30) as response:
      mp4=response.read();self.assertEqual(response.headers.get_content_type(),"video/mp4")
     target=Path(temp)/"result.mp4";target.write_bytes(mp4)
     probe=subprocess.run([ffprobe,"-v","error","-show_entries","stream=codec_name,codec_type","-of","json",str(target)],capture_output=True,text=True,check=True)
@@ -652,7 +662,9 @@ class EditorExportHttpIntegrationTests(unittest.TestCase):
     self.assertTrue(any(x.get("codec_type")=="audio" and x.get("codec_name")=="aac" for x in streams))
    finally:
     httpd.shutdown();httpd.server_close();thread.join(timeout=3)
-    if export_id:(server.OUTPUTS/"editor_exports"/f"{export_id}.mp4").unlink(missing_ok=True)
+    if export_id:
+     _,source_file,target_file,partial_file,state_file=server._editor_export_paths(export_id)
+     for item in (source_file,target_file,partial_file,state_file):item.unlink(missing_ok=True)
  def test_health_and_root_support_head_requests(self):
   import threading, urllib.request
   from http.server import ThreadingHTTPServer
