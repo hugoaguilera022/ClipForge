@@ -62,3 +62,10 @@ def test_service_worker_invalidates_old_workspace_and_caches_current_editor():
     assert "clipforge-web-v173" in worker
     assert "'/capcut-editor-enhancements.js'" in worker
     assert "'/workspace-ui-v4.js'" in worker
+
+
+def test_app_registers_versioned_service_worker_path():
+    app = (STATIC / "app.js").read_text(encoding="utf-8")
+    worker = (STATIC / "sw-v173.js").read_text(encoding="utf-8")
+    assert "navigator.serviceWorker.register('/sw-v173.js')" in app
+    assert "clipforge-web-v173" in worker
