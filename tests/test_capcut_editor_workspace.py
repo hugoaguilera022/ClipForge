@@ -69,3 +69,8 @@ def test_app_registers_versioned_service_worker_path():
     worker = (STATIC / "sw-v173.js").read_text(encoding="utf-8")
     assert "navigator.serviceWorker.register('/sw-v173.js')" in app
     assert "clipforge-web-v173" in worker
+
+
+def test_vertical_editor_preview_fills_canvas_like_mp4_export():
+    editor = (STATIC / "capcut-editor.js").read_text(encoding="utf-8")
+    assert ".cf-nle-monitor video,.cf-nle-monitor img{width:100%;height:100%;object-fit:cover}" in editor
