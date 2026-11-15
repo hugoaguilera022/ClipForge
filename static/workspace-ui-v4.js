@@ -354,6 +354,7 @@
     }
     setStage('results');
   }
+  window.addEventListener('clipforge:new-project',()=>{autoOpenedGeneration=false;activeCard=null;activeIndex=-1;});
   window.addEventListener('clipforge:transcription-progress',e=>{
     const msg=String(e.detail?.message||'');const p=$('#cfProductionStatus');if(p&&msg)p.textContent=msg;
   });
