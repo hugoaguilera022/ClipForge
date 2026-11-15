@@ -93,7 +93,7 @@ $('#jobResult').addEventListener('click',async e=>{
  }catch(err){status.textContent='Error: '+err.message;}
  finally{button.disabled=false;}
 });
-if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
+if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('/sw-v173.js').catch(()=>{}));
 
 async function loadJobHistory(){
  const box=$('#jobHistory'); if(!box)return;
