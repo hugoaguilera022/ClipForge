@@ -92,3 +92,16 @@ def test_editor_mount_is_requested_after_workspace_replaces_editor_slot():
     assert "window.addEventListener('clipforge:editor-open-request',open)" in core
     assert "queueMicrotask(()=>window.dispatchEvent(new CustomEvent('clipforge:editor-open-request'" in workspace
     assert workspace.index("editorSlot.replaceChildren()") < workspace.index("clipforge:editor-open-request")
+
+
+def test_frame_accurate_core_is_loaded_before_editor_and_precached():
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    worker = (STATIC / "sw-v173.js").read_text(encoding="utf-8")
+    assert html.index('src="/timeline-core.js') < html.index('src="/capcut-editor.js')
+    assert "'/timeline-core.js'" in worker
+
+
+def test_editor_routes_destructive_timeline_edits_through_frame_core():
+    core = (STATIC / "capcut-editor.js").read_text(encoding="utf-8")
+    assert "function applyFrameCommand(command)" in core
+    assert "type:'trim'" in core and "type:'split'" in core and "type:'delete'" in core

@@ -5,7 +5,7 @@ const FILES=[
  '/styles.css','/styles-clip-editor-final-v2.css',
  '/app.js','/browser-whisper.js','/browser-whisper-inline-v3.js',
  '/browser-export.js','/browser-url.js','/editor.js',
- '/workspace-ui-v4.js','/capcut-editor.js','/capcut-editor-enhancements.js',
+ '/workspace-ui-v4.js','/timeline-core.js','/capcut-editor.js','/capcut-editor-enhancements.js',
  '/auth.js','/google-drive.js','/manifest.webmanifest'
 ];
 self.addEventListener('install',event=>{
