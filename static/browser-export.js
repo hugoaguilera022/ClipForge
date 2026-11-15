@@ -245,6 +245,7 @@ async function drawVisualOverlays(ctx,layers,sourceTime,width,height){
     const presets={cinematic:'contrast(1.14) saturate(.82)',warm:'sepia(.16) saturate(1.2)',cool:'hue-rotate(12deg) saturate(.9)',bw:'grayscale(1) contrast(1.08)'};
     const filters=[presets[item.filterPreset]||'',item.brightness&&item.brightness!==100?'brightness('+item.brightness+'%)':'',item.contrast&&item.contrast!==100?'contrast('+item.contrast+'%)':'',item.saturation&&item.saturation!==100?'saturate('+item.saturation+'%)':''].filter(Boolean);
     ctx.save();ctx.globalAlpha*=opacity;ctx.filter=filters.join(' ')||'none';
+    const wipeIn=item.transitionIn==='wipe'?Math.min(1,Math.max(0,local/transitionDuration)):1,wipeOut=item.transitionOut==='wipe'?Math.min(1,Math.max(0,(duration-local)/transitionDuration)):1;const wipeReveal=Math.min(wipeIn,wipeOut);if(wipeReveal<1){ctx.beginPath();ctx.rect(0,0,width*wipeReveal,height);ctx.clip();}
     ctx.translate(x,y);ctx.rotate((Number(item.rotation)||0)*Math.PI/180);
     ctx.drawImage(media,-drawWidth/2,-drawHeight/2,drawWidth,drawHeight);
     ctx.restore();
@@ -403,6 +404,7 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
             }
           }
         }
+        const sourceTransition=clip.transitions||{},sourceTransitionDuration=Math.max(.05,Math.min(3,Number(sourceTransition.duration)||.5));const sourceWipeIn=sourceTransition.in==='wipe'?Math.min(1,Math.max(0,stamp/sourceTransitionDuration)):1,sourceWipeOut=sourceTransition.out==='wipe'?Math.min(1,Math.max(0,(clip.end-clip.start-stamp)/sourceTransitionDuration)):1;ctx.save();const sourceWipeReveal=Math.min(sourceWipeIn,sourceWipeOut);if(sourceWipeReveal<1){ctx.beginPath();ctx.rect(0,0,canvas.width*sourceWipeReveal,canvas.height);ctx.clip();}
         if(settings.cropMode==='center'&&sourceCanvas){
           const cropWidth=Math.min(sourceCanvas.width,sourceCanvas.height*9/16);
           const left=Math.max(0,(sourceCanvas.width-cropWidth)/2);
@@ -422,6 +424,7 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
           ctx.save();ctx.filter='blur(24px)';sample.drawWithFit(ctx,{fit:'cover'});ctx.restore();
           sample.drawWithFit(ctx,{fit:'contain'});
         }
+        ctx.restore();
         ctx.restore();
         // Mediabunny normalizes timestamps to zero after trim; captions keep source-video times.
         const local=clip.start+stamp;
