@@ -92,3 +92,19 @@ def test_editor_mount_is_requested_after_workspace_replaces_editor_slot():
     assert "window.addEventListener('clipforge:editor-open-request',open)" in core
     assert "queueMicrotask(()=>window.dispatchEvent(new CustomEvent('clipforge:editor-open-request'" in workspace
     assert workspace.index("editorSlot.replaceChildren()") < workspace.index("clipforge:editor-open-request")
+
+
+def test_timeline_ruler_and_tracks_use_separate_grid_rows():
+    editor = (STATIC / "capcut-editor.js").read_text(encoding="utf-8")
+    assert "grid-template-rows:48px minmax(280px,1fr) 46px 22px minmax(170px,29vh)!important" in editor
+    assert ".cf-nle-ruler{grid-row:4" in editor
+    assert ".cf-nle-timeline{grid-row:5" in editor
+    assert "grid-template-rows:44px minmax(260px,1fr) 42px 22px minmax(170px,28vh)!important" in editor
+
+
+def test_reference_editor_ui_observers_and_event_handlers_are_installed_once():
+    reference = (STATIC / "editor-reference-ui-v2.js").read_text(encoding="utf-8")
+    assert "let started=false;function start()" in reference
+    assert "if(started)return true" in reference
+    assert "if(start())wait.disconnect()" in reference
+    assert "if(decorate())mo.disconnect()" in reference
