@@ -321,7 +321,7 @@
     // Saved-project and recovery actions may open the NLE without a rendered
     // candidate card. Provide a lightweight host so the editor can still open.
     if(!card){card=document.createElement('article');card.className='candidate-card cf-nle-placeholder-card';const heading=document.createElement('strong');heading.textContent=e.detail?.clip?.title||'Proyecto editable';card.append(heading);candidateList?.append(card);}
-    if(activeCard===card)return;
+    if(activeCard===card){setStage('editor');queueMicrotask(()=>window.dispatchEvent(new CustomEvent('clipforge:editor-open-request',{detail:e.detail||{}})));return;}
     if(activeCard){
       const previous=activeCard,previousIndex=activeIndex;
       restoreCard(previous);
