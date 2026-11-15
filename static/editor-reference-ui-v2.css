@@ -163,3 +163,21 @@ body:has(#cfNle) #cfNle .cf-nle-block{height:25px!important;top:3px!important;fo
  body:has(#cfNle) #cfNle .cf-nle-center{min-height:310px!important}
  body:has(#cfNle) #cfNle .cf-nle-inspector{min-height:220px!important}
 }
+
+/* Four-panel desktop editor: project rail, generated clips, portrait monitor and inspector. */
+body:has(#cfNle) #cfNle>.cf-nle-work{grid-template-columns:275px 360px minmax(400px,1fr) 462px!important;grid-template-areas:"sidebar clips preview inspector"!important;grid-template-rows:minmax(0,1fr)!important}
+body:has(#cfNle) #cfNle .cf-ref2-clips{grid-area:clips!important;display:flex!important;flex-direction:column!important;min-width:0!important;max-height:none!important;overflow:auto!important;padding:16px 14px!important;background:#0d111c!important;border-right:1px solid #252a3c!important}
+body:has(#cfNle) #cfNle .cf-ref2-clip{grid-template-columns:78px minmax(0,1fr) 18px!important;min-height:76px!important}
+body:has(#cfNle) #cfNle .cf-ref2-thumb{width:78px!important;height:58px!important;position:relative!important;overflow:hidden!important}
+body:has(#cfNle) #cfNle .cf-ref2-thumb img{display:block!important;position:absolute!important;inset:0!important;width:100%!important;height:100%!important;object-fit:cover!important}
+body:has(#cfNle) #cfNle .cf-ref2-side-link.active{background:#21172f!important;color:#fff!important;box-shadow:inset 2px 0 #a84cff!important}
+@media(max-width:1180px){
+ body:has(#cfNle) #cfNle>.cf-nle-work{grid-template-columns:190px minmax(280px,1fr) 330px!important;grid-template-areas:"sidebar preview inspector" "clips clips clips"!important;grid-template-rows:minmax(0,1fr) 170px!important}
+ body:has(#cfNle) #cfNle .cf-ref2-clips{flex-direction:row!important;max-height:170px!important;gap:8px!important}
+ body:has(#cfNle) #cfNle .cf-ref2-clips h2{min-width:100%!important}
+}
+@media(max-width:760px){
+ body:has(#cfNle) #cfNle>.cf-nle-work{grid-template-columns:minmax(0,1fr)!important;grid-template-areas:"sidebar" "preview" "clips" "inspector"!important;grid-template-rows:auto minmax(300px,1fr) 190px 230px!important;overflow:auto!important}
+ body:has(#cfNle) #cfNle .cf-ref2-clips{flex-direction:column!important;max-height:190px!important}
+ body:has(#cfNle) #cfNle .cf-nle-media{max-height:220px!important}
+}
