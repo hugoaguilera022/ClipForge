@@ -79,3 +79,8 @@ def test_vertical_editor_preview_fills_canvas_like_mp4_export():
 def test_workspace_geometry_does_not_override_timeline_preview_crop():
     workspace = (STATIC / "workspace-ui-v4.js").read_text(encoding="utf-8")
     assert "querySelector('video:not(#cfNleVideo)')" in workspace
+
+
+def test_video_inspector_uses_neutral_speed_and_transition_defaults():
+    enhanced = (STATIC / "capcut-editor-enhancements.js").read_text(encoding="utf-8")
+    assert "speed:1,transitionDuration:.5" in enhanced
