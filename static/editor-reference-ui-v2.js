@@ -13,7 +13,7 @@ function lockReferenceLayout(){
  root.style.setProperty('display','grid','important');
  root.style.setProperty('grid-template-columns','minmax(0,1fr)','important');
  root.style.setProperty('grid-template-rows','minmax(0,1fr) 56px 42px minmax(210px,24vh)','important');
- root.style.setProperty('height','calc(100vh - 44px)','important');
+ root.style.setProperty('height','calc(100vh - 74px)','important');
  root.style.setProperty('min-height','0','important');
  work.style.setProperty('display','grid','important');
  work.style.setProperty('grid-template-columns','minmax(250px,16.5%) minmax(320px,21.5%) minmax(400px,1fr) minmax(380px,28%)','important');
