@@ -49,3 +49,9 @@ def test_word_level_whisper_timestamps_still_produce_four_editorial_windows():
     assert len(candidates) >= 4
     assert all(18 <= item["duration"] <= 45 for item in candidates)
     assert all(item["text"] for item in candidates)
+
+
+def test_visual_seek_listener_is_registered_before_changing_current_time():
+    js = (ROOT / "static/browser-whisper-inline-v3.js").read_text(encoding="utf-8")
+    assert "const seeked=wait('seeked');video.currentTime=" in js
+    assert "sourceDuration>600?30:sourceDuration>180?15:5" in js

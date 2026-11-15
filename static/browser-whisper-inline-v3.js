@@ -444,7 +444,7 @@ function makeVtt(segments) {
    if(video.readyState<2)await Promise.race([wait('loadeddata'),new Promise((_,reject)=>setTimeout(()=>reject(new Error('Tiempo agotado decodificando el primer fotograma.')),15000))]);
    const samples=[]; let previous=null;
    for(let t=0;t<duration;t+=stepSeconds){
-    if(t>0){video.currentTime=Math.min(t,Math.max(0,duration-.05));await Promise.race([wait('seeked'),new Promise((_,reject)=>setTimeout(()=>reject(new Error('Tiempo agotado analizando fotogramas.')),5000))]);}
+    if(t>0){const seeked=wait('seeked');video.currentTime=Math.min(t,Math.max(0,duration-.05));await Promise.race([seeked,new Promise((_,reject)=>setTimeout(()=>reject(new Error('Tiempo agotado analizando fotogramas.')),5000))]);}
     try{ctx.drawImage(video,0,0,64,36);}catch{continue;}
     const data=ctx.getImageData(0,0,64,36).data;const gray=new Uint8Array(64*36);
     for(let i=0,j=0;i<data.length;i+=4,j++)gray[j]=(data[i]*.299+data[i+1]*.587+data[i+2]*.114)|0;
@@ -1994,7 +1994,7 @@ runButton?.addEventListener('click', async () => {
     const chunks = result.chunks || [];
     say('Analizando cambios visuales del vídeo localmente para complementar la transcripción…');
     const sourceDuration=audio.length/16000;
-    const visualStep=sourceDuration>1800?45:sourceDuration>600?15:5;
+    const visualStep=sourceDuration>1800?45:sourceDuration>600?30:sourceDuration>180?15:5;
     say(`Analizando cambios visuales cada ${visualStep} segundos para adaptar el proceso a un vídeo de ${Math.round(sourceDuration/60)} minutos…`);
     const visualSamples = await captureVisualActivity(file,sourceDuration,visualStep);
     let diarizationTurns = [];
