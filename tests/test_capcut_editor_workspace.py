@@ -49,3 +49,9 @@ def test_timeline_export_includes_audio_mix_and_captions():
     assert "createMediaStreamDestination" in enhanced
     assert "const texts=items.filter(x=>(x.track.type==='text'||x.track.type==='subtitles')" in enhanced
     assert "fadeIn" in enhanced and "fadeOut" in enhanced
+
+
+def test_legacy_platform_panel_is_optional_after_workspace_redesign():
+    app = (STATIC / "app.js").read_text(encoding="utf-8")
+    assert "const host=$('#platforms');if(!host)return;" in app
+    assert "if(host.isConnected)" in app
