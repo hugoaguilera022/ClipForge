@@ -20,17 +20,19 @@ function lockReferenceLayout(){
  root.style.setProperty('height','calc(100vh - 74px)','important');
  root.style.setProperty('min-height','0','important');
  work.style.setProperty('display','grid','important');
- work.style.setProperty('grid-template-columns','275px 360px minmax(400px,1fr) 462px','important');
- work.style.setProperty('grid-template-areas','"sidebar clips preview inspector"','important');
+ const compact=window.innerWidth<=1180;
+ work.style.setProperty('grid-template-columns',compact?'190px minmax(280px,1fr) 330px':'275px 360px minmax(400px,1fr) 462px','important');
+ work.style.setProperty('grid-template-areas',compact?'"sidebar preview inspector" "clips clips clips"':'"sidebar clips preview inspector"','important');
  work.style.setProperty('grid-template-rows','minmax(0,1fr)','important');
  const media=$('.cf-nle-media',work),center=$('.cf-nle-center',work),inspector=$('.cf-nle-inspector',work),panel=$('.cf-ref2-clips',work);
  if(media)media.style.setProperty('grid-area','sidebar','important');
- if(panel){panel.style.setProperty('grid-area','clips','important');panel.style.setProperty('display','flex','important');panel.style.setProperty('flex-direction','column','important');panel.style.setProperty('min-width','0','important');panel.style.setProperty('overflow','auto','important');}
+ if(panel){panel.style.setProperty('grid-area','clips','important');panel.style.setProperty('display','flex','important');panel.style.setProperty('flex-direction',compact?'row':'column','important');panel.style.setProperty('max-height',compact?'170px':'none','important');panel.style.setProperty('min-width','0','important');panel.style.setProperty('overflow','auto','important');}
  if(center)center.style.setProperty('grid-area','preview','important');
  if(inspector)inspector.style.setProperty('grid-area','inspector','important');
  const timeline=$('.cf-nle-timeline',root);if(timeline)timeline.style.setProperty('min-height','0','important');
 }
 window.clipforgeLockReferenceLayout=lockReferenceLayout;
+window.addEventListener('resize',lockReferenceLayout);
 function mount(){const root=$('#cfNle');if(!root)return false;const slot=root.parentElement;if(!slot)return false;makeNav(slot);const work=$('.cf-nle-work',root);if(!work)return false;makePanel(work);work.style.gridTemplateColumns='275px 360px minmax(400px,1fr) 462px';work.style.gridTemplateAreas='"sidebar clips preview inspector"';renderClips();lockReferenceLayout();const back=$('#cfNleBack');if(back)back.style.display='none';return true}
 function start(){if(!mount())return;window.addEventListener('clipforge:clips-updated',()=>{renderClips();lockReferenceLayout()});window.addEventListener('clipforge:nle-changed',renderClips);window.addEventListener('clipforge:editor-ready',renderClips);window.addEventListener('clipforge:open-editor',renderClips);renderClips()}
 window.addEventListener('clipforge:editor-ready',start);window.addEventListener('clipforge:open-editor',start);window.addEventListener('clipforge:editor-visible',start);window.addEventListener('clipforge:clips-updated',start);if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
