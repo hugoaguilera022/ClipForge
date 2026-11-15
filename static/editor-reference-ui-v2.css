@@ -163,3 +163,17 @@ body:has(#cfNle) #cfNle .cf-nle-block{height:25px!important;top:3px!important;fo
  body:has(#cfNle) #cfNle .cf-nle-center{min-height:310px!important}
  body:has(#cfNle) #cfNle .cf-nle-inspector{min-height:220px!important}
 }
+
+/* Reference match v6: balanced four-column workspace and full-height timeline controls. */
+@media(min-width:1351px){body:has(#cfNle) #cfNle>.cf-nle-work{grid-template-columns:minmax(250px,16.5%) minmax(320px,21.5%) minmax(400px,1fr) minmax(380px,28%)!important;grid-template-areas:"sidebar clips preview inspector"!important}body:has(#cfNle) #cfNle .cf-nle-monitor{height:min(54vh,500px)!important;max-height:500px!important}}
+body:has(#cfNle) #cfNle{grid-template-rows:minmax(0,1fr) 56px 42px minmax(210px,24vh)!important}
+body:has(#cfNle) #cfNle .cf-nle-tools{height:56px!important;min-height:56px!important;align-items:center!important;padding:7px 18px!important;gap:8px!important}
+body:has(#cfNle) #cfNle .cf-nle-tools button{font-size:12px!important;padding:8px 11px!important}
+body:has(#cfNle) #cfNle .cf-nle-ruler{height:42px!important;min-height:42px!important;font-size:11px!important}
+body:has(#cfNle) #cfNle .cf-nle-track{min-height:52px!important}
+body:has(#cfNle) #cfNle .cf-nle-track-head{min-width:155px!important;font-size:12px!important;padding:9px 11px!important}
+body:has(#cfNle) #cfNle .cf-nle-lane{min-height:48px!important}
+body:has(#cfNle) #cfNle .cf-nle-block{height:36px!important;top:6px!important;font-size:12px!important}
+body:has(#cfNle) #cfNle .cf-ref2-clips{padding:18px 15px!important}
+body:has(#cfNle) #cfNle .cf-ref2-clip{min-height:76px!important;grid-template-columns:78px minmax(0,1fr) 18px!important}
+@media(max-width:1350px) and (min-width:1051px){body:has(#cfNle) #cfNle>.cf-nle-work{grid-template-columns:220px 290px minmax(300px,1fr) 360px!important;grid-template-areas:"sidebar clips preview inspector"!important}}
