@@ -1,8 +1,13 @@
-// Invalidates legacy cache versions including clipforge-web-v144.
-// Replaces clipforge-web-v144 with the fixed native macOS speech callback handling.
-// Replaces clipforge-web-v144 and v127 with updated animated-caption fallback.
-const CACHE='clipforge-web-v172';
-const FILES=['/','/styles.css','/app.js','/browser-whisper.js','/editor.js','/manifest.webmanifest'];
+// Invalidates legacy caches that could retain the pre-workspace app.js and editor scripts.
+const CACHE='clipforge-web-v173';
+const FILES=[
+ '/',
+ '/styles.css','/styles-clip-editor-final-v2.css',
+ '/app.js','/browser-whisper.js','/browser-whisper-inline-v3.js',
+ '/browser-export.js','/browser-url.js','/editor.js',
+ '/workspace-ui-v4.js','/capcut-editor.js','/capcut-editor-enhancements.js',
+ '/auth.js','/google-drive.js','/manifest.webmanifest'
+];
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(FILES)).then(()=>self.skipWaiting()));
 });
