@@ -222,8 +222,25 @@ async function exportTimeline(){
   const blob=await finished;if(blob.size<2048)throw Error('La grabación ha quedado vacía.');
   status('Convirtiendo a MP4 con FFmpeg…');
   const form=new FormData();form.append('video',blob,'clipforge-timeline.'+(mime.includes('mp4')?'mp4':'webm'));
-  const response=await fetch('/api/editor/export',{method:'POST',body:form});const result=await response.json();if(!response.ok||!result.download_url)throw Error(result.message||result.error||'No se pudo convertir el MP4.');
-  const a=document.createElement('a');a.href=result.download_url;a.download=(String(p.projectName||'ClipForge').replace(/[^a-z0-9_-]/gi,'_')||'ClipForge')+'.mp4';document.body.append(a);a.click();a.remove();status('MP4 exportado correctamente.');
+  const response=await fetch('/api/editor/export',{method:'POST',body:form});
+  const result=await response.json().catch(()=>null);
+  if(!response.ok||!result?.download_url)throw Error(result?.message||result?.error||'El servidor no pudo iniciar la exportación MP4 (HTTP '+response.status+').');
+  let downloadUrl=result.download_url;
+  if(result.status_url){
+   status('Vídeo recibido. Preparando el MP4…');
+   const started=Date.now();let ready=false;
+   while(Date.now()-started<600000){
+    await new Promise(resolve=>setTimeout(resolve,1000));
+    const check=await fetch(result.status_url,{cache:'no-store'});
+    const state=await check.json().catch(()=>null);
+    if(state?.status==='ready'){downloadUrl=state.download_url||downloadUrl;ready=true;break;}
+    if(state?.status==='failed')throw Error(state.message||'No se pudo convertir el vídeo a MP4.');
+    if(!check.ok&&check.status!==202)throw Error(state?.message||state?.error||'Error consultando la conversión MP4 (HTTP '+check.status+').');
+    status('Convirtiendo a MP4… '+format((Date.now()-started)/1000));
+   }
+   if(!ready)throw Error('La conversión sigue en proceso. Vuelve a pulsar Exportar dentro de unos segundos.');
+  }
+  const a=document.createElement('a');a.href=downloadUrl;a.download=(String(p.projectName||'ClipForge').replace(/[^a-z0-9_-]/gi,'_')||'ClipForge')+'.mp4';document.body.append(a);a.click();a.remove();status('MP4 exportado correctamente.');
  }catch(e){stop();status('Error de exportación: '+e.message);console.error(e);}
  finally{if(button)button.disabled=false;if(ac)ac.close().catch(()=>{});}
 }
