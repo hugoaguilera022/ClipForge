@@ -1008,9 +1008,8 @@ function initFreeAIProviderSettings(){
 }
 initFreeAIProviderSettings();
 async function loadLocalEditorialJudge(onProgress=()=>{}){
- if(!navigator.gpu)throw new Error('No hay WebGPU para el modelo local Qwen3.');
- const adapter=await navigator.gpu.requestAdapter({powerPreference:'high-performance'});
- if(!adapter)throw new Error('No se ha encontrado una GPU compatible con WebGPU.');
+ let adapter=null;try{adapter=await navigator.gpu?.requestAdapter({powerPreference:'high-performance'});}catch{}
+ if(!adapter)throw new Error('No hay un adaptador WebGPU compatible; se activará la selección semántica CPU/WASM.');
  if(!editorialEnginePromise){
   editorialEnginePromise=(async()=>{
    // Use the compact 0.6B model by default: it has a materially lower
@@ -1080,13 +1079,13 @@ async function updateVideoCapacity(file) {
   el('capacityRam').textContent=formatCapacityGb(estimate.systemRamGb)+' recomendados';
   el('capacityGpu').textContent=formatCapacityGb(estimate.gpuRamGb)+' recomendados';
   el('capacityDisk').textContent=formatCapacityGb(estimate.freeDiskGb)+' libres';
-  el('capacityModel').textContent=('Qwen3 local 0.6B')+' + '+estimate.asrLabel.replace('Whisper ','');
+  el('capacityModel').textContent=('Qwen3 GPU / MiniLM CPU')+' + '+estimate.asrLabel.replace('Whisper ','');
   const length=duration?(duration/60).toFixed(1).replace('.',',')+' min':'duración no detectada';
   const status=el('capacityStatus'),summary=el('capacitySummary');
-  if(!adapter){status.textContent='No compatible con selección IA';status.dataset.level='bad';summary.textContent='Vídeo: '+length+' · '+Math.round(file.size/1048576)+' MB. No se detecta WebGPU; la selección editorial generativa no podrá ejecutarse en este navegador. Usa Chrome o Edge actualizado con WebGPU, o configura un proveedor IA gratuito.';}
+  if(!adapter){status.textContent='Selección semántica CPU/WASM';status.dataset.level='warn';summary.textContent='Vídeo: '+length+' · '+Math.round(file.size/1048576)+' MB. No se detecta WebGPU: Qwen3 generativo no estará disponible, pero ClipForge comparará los momentos con MiniLM multilingüe en CPU/WASM sin subir el vídeo. Si el modelo semántico no se puede descargar, se usará el respaldo heurístico.';}
   else if(estimate.ramFit===false){status.textContent='Capacidad posiblemente insuficiente';status.dataset.level='warn';summary.textContent='Vídeo: '+length+' · '+Math.round(file.size/1048576)+' MB. El navegador declara '+estimate.deviceMemoryGb+' GB de RAM; se recomiendan '+formatCapacityGb(estimate.systemRamGb)+'.';}
   else{status.textContent=estimate.ramFit===null?'GPU compatible · RAM no verificable':'Requisitos estimados';status.dataset.level='ok';summary.textContent='Vídeo: '+length+' · '+Math.round(file.size/1048576)+' MB. '+(estimate.ramFit===true?'La memoria declarada parece suficiente.':'WebGPU disponible; evita otras aplicaciones pesadas durante el análisis.');}
-  el('capacityDetails').textContent='Para Whisper '+estimate.asrLabel.replace('Whisper ','')+' + Qwen3-0.6B: RAM '+formatCapacityGb(estimate.systemRamGb)+', memoria gráfica '+formatCapacityGb(estimate.gpuRamGb)+', caché de modelos '+formatCapacityGb(estimate.cacheGb)+' y espacio libre recomendado '+formatCapacityGb(estimate.freeDiskGb)+'. '+(estimate.deviceMemoryGb===null?'Este navegador no permite consultar la RAM del dispositivo.':'RAM declarada por el navegador: '+estimate.deviceMemoryGb+' GB (aproximada).')+' El audio temporal ocupa unos '+estimate.audioWorkingSetMb+' MB. No se puede consultar con precisión la VRAM ni el espacio libre real.';
+  el('capacityDetails').textContent='Para Whisper '+estimate.asrLabel.replace('Whisper ','')+' + MiniLM CPU/WASM (o Qwen3-0.6B si hay GPU): RAM '+formatCapacityGb(estimate.systemRamGb)+', memoria gráfica '+formatCapacityGb(estimate.gpuRamGb)+', caché de modelos '+formatCapacityGb(estimate.cacheGb)+' y espacio libre recomendado '+formatCapacityGb(estimate.freeDiskGb)+'. '+(estimate.deviceMemoryGb===null?'Este navegador no permite consultar la RAM del dispositivo.':'RAM declarada por el navegador: '+estimate.deviceMemoryGb+' GB (aproximada).')+' El audio temporal ocupa unos '+estimate.audioWorkingSetMb+' MB. No se puede consultar con precisión la VRAM ni el espacio libre real.';
   el('videoCapacity').dataset.level=estimate.status;
 }
 window.clipforgeUpdateVideoCapacity = updateVideoCapacity;
@@ -1364,6 +1363,57 @@ function selectEditorialFallback(candidates, limit = 4) {
   });
 }
 
+async function selectEditorialSemanticFallback(candidates, limit = 4, onProgress = () => {}) {
+  const source=(Array.isArray(candidates)?candidates:[]).filter(c=>
+    c&&Number.isFinite(Number(c.start))&&Number.isFinite(Number(c.end))&&Number(c.end)>Number(c.start)&&String(c.text||'').trim()
+  );
+  const maxSemanticCandidates=32;
+  const ordered=source.slice().sort((a,b)=>Number(a.start)-Number(b.start));
+  const bounded=ordered.length<=maxSemanticCandidates?ordered:Array.from({length:maxSemanticCandidates},(_,i)=>ordered[Math.min(ordered.length-1,Math.floor((i+.5)*ordered.length/maxSemanticCandidates))]);
+  const cues=/\b(porque|entonces|resulta|imagina|descubr|decid|problema|soluci|importante|primero|despu[eé]s|finalmente|nunca|siempre|verdad|mentira|historia|pas[oó]|ocurri[oó]|aprend[ií]|conclusi[oó]n|elimin|gan|perd|cambi|mejor|peor|ejemplo|raz[oó]n|significa|consiste|pregunta|respuesta|diferencia|recuerda|f[ií]jate|atenci[oó]n)\w*/i;
+  const weak=/\b(eh|em|mmm|vale|bueno|pues|nada|claro|s[ií]s[ií]|jajaja|risas)\b/gi;
+  const prepared=bounded.map(c=>{
+    const text=String(c.text||'').replace(/\s+/g,' ').trim();
+    const words=text.toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g,'').match(/[a-z0-9]{3,}/g)||[];
+    const unique=new Set(words).size,duration=Number(c.end)-Number(c.start),e=c.media_evidence||{};
+    const closure=/[.!?…]["'”’)]?$/.test(text)?1:0;
+    const density=unique/Math.max(1,words.length),weakCount=(text.match(weak)||[]).length;
+    const signals=c.editorial_signals||{};
+    const sourceScore=Number.isFinite(Number(c.score))?Math.max(0,Math.min(100,Number(c.score))):0;
+    const promotional=Boolean(c.promotional)||/\b(suscr[ií]bete|s[ií]guenos|dale like|regalamos|sorteo|papeletas extras|iphone(?:\s*\d+)?|patrocinado|c[oó]digo de descuento|link en la descripci[oó]n|giveaway|subscribe|sponsored)\b/i.test(text);
+    const intro=/\b(bienvenidos|formato nuevo|nueva temporada|arrancamos con|contin[uú]a el v[ií]deo|antes de que continu[eú]is)\b/i.test(text);
+    const hook=/^(?:¿|¡|no me digas|madre m[ií]a|incre[ií]ble|imagina|resulta que|la verdad|nunca|jam[aá]s|te juro|what|who|how|why)\b/i.test(text);
+    const payoff=/\b(al final|resulta que|en realidad|de repente|por eso|lo has inventado|no es as[ií]|ah[ií] va|viva|funcion[oó]|aprend[ií]|te lo dije)\b/i.test(text);
+    const conversationBonus=(signals.complete_conversation_beat?12:0)+(signals.short_answer_followup?10:0)+
+      (signals.multi_turn_exchange?6:0)+(signals.dialogue_progression?5:0);
+    const weakStructure=(signals.weak_opening?12:0)+(signals.transition_only?18:0)+
+      (signals.new_scene_tail?18:0)+(signals.unanswered_ending?8:0);
+    const textScore=closure*5+(cues.test(text)?7:0)+(/[?¿]/.test(text)?3:0)+
+      (unique>=16?Math.min(6,unique*.18):0)+density*5+
+      Math.min(4,Number(e.audio_activity||0)*4)+Math.min(3,Number(e.audio_dynamic_peaks||0)*3)+
+      Math.min(3,Number(e.visual_change||0)*6)+Math.max(0,4-Math.abs(duration-30)/7)-
+      weakCount*1.5-(words.length<18?10:0)-(words.length<28?5:0);
+    // Keep the richer transcript-window score: it already models Q&A, reactions,
+    // hooks, payoff, dialogue turns, scene transitions and sponsored segments.
+    const score=sourceScore*.72+textScore+conversationBonus+(hook?5:0)+(payoff?6:0)-
+      (promotional?75:0)-(intro?8:0)-weakStructure;
+    return {...c,promotional,ai_editorial_score:Math.max(0,Math.min(100,score)),score};
+  });
+  try {
+    onProgress('Sin WebGPU: descargando el modelo semántico multilingüe ligero para comparar los temas con CPU/WASM…');
+    const selected=await semanticRerankCandidates(prepared,limit,onProgress);
+    if(selected.length!==Math.min(4,prepared.length))throw new Error('El modelo semántico no devolvió cuatro candidatos.');
+    return selected.map((clip,index)=>({...clip,title:clip.title||`Momento ${index+1}`,
+      selection_method:'local_semantic_fallback',ai_editorial_rank:index+1,
+      ai_editorial_reason:'Puntuación del selector de diálogo (gancho, pregunta-respuesta, reacción, remate y continuidad), penalización de autopromoción/relleno y diversidad semántica mediante MiniLM CPU/WASM; no es Qwen generativo ni predice viralidad.',
+      ai_editorial_audit_verdict:'not_run_semantic_fallback',selected:true}));
+  } catch(error) {
+    console.warn('[ClipForge] El reranking semántico CPU/WASM no ha podido completarse; se conserva el selector heurístico.',error);
+    onProgress('El modelo semántico no está disponible; usando el selector heurístico local sin subir el vídeo…');
+    return selectEditorialFallback(source,limit);
+  }
+}
+
 async function aiEditorialSelect(candidates, limit = 4, onProgress = () => {}) {
   limit=4;
   const pool=(Array.isArray(candidates)?candidates:[]).filter(c=>
@@ -1438,6 +1488,7 @@ async function semanticRerankCandidates(candidates, limit = 4, onProgress = () =
     'Xenova/paraphrase-multilingual-MiniLM-L12-v2',
     {
       dtype: 'q8',
+      device: 'wasm',
       progress_callback: progress => {
         if (progress.status === 'progress') onProgress(`Descargando modelo semántico gratuito: ${progress.file || ''} · ${Math.round(progress.progress || 0)}%`);
         else if (progress.status) onProgress(`Modelo semántico: ${progress.status}`);
@@ -1715,7 +1766,7 @@ function showClipCandidates(words,duration,restoredCandidates=null,audioSamples=
   card.addEventListener('click',event=>{if(event.target.closest('button,input,textarea,select,label'))return;openThis();});
   card.append(heading,player,timeline,subtitlePanel,openClip,exportSingle,selectLabel);list.append(card);
  });
- const info=document.createElement('p');info.textContent=editableCandidates.every(c=>c.selection_method==='local_generative_editor'||c.selection_method==='remote_generative_editor')?'Selección editorial realizada por un modelo generativo. Cada clip incluye evidencia textual que justifica su importancia y supera una segunda pasada de auditoría; revisa el resultado antes de exportar.':'Candidatos de respaldo sin selección editorial generativa confirmada.';list.append(info);
+ const info=document.createElement('p');info.textContent=editableCandidates.every(c=>c.selection_method==='local_generative_editor'||c.selection_method==='remote_generative_editor')?'Selección editorial realizada por un modelo generativo. Cada clip incluye evidencia textual que justifica su importancia y supera una segunda pasada de auditoría; revisa el resultado antes de exportar.':(editableCandidates.every(c=>c.selection_method==='local_semantic_fallback')?'Selección local con embeddings semánticos y puntuación editorial transparente; no generativa.':'Candidatos de respaldo sin selección editorial generativa confirmada.');list.append(info);
  sync();
  window.dispatchEvent(new CustomEvent('clipforge:clips-updated'));
 }
@@ -1987,7 +2038,7 @@ runButton?.addEventListener('click', async () => {
           } catch (editorError) {
             console.warn('[ClipForge] El modelo editorial no ha podido completar la selección; activando selector local de continuidad.',editorError);
             say('El modelo generativo no ha respondido correctamente. Seleccionando cuatro momentos mediante análisis local de transcripción, diversidad y audio para abrir el editor…');
-            candidatePool = selectEditorialFallback(candidatePool, requested);
+            candidatePool = await selectEditorialSemanticFallback(candidatePool, requested, say);
           }
         } catch (editorError) {
           console.error('No se pudieron preparar cuatro momentos editables.',editorError);
@@ -1996,7 +2047,7 @@ runButton?.addEventListener('click', async () => {
         }
       }
       if (!Array.isArray(candidatePool) || candidatePool.length !== 4 ||
-          !candidatePool.every(item => ['local_generative_editor','remote_generative_editor','local_editorial_fallback'].includes(item.selection_method))) {
+          !candidatePool.every(item => ['local_generative_editor','remote_generative_editor','local_editorial_fallback','local_semantic_fallback'].includes(item.selection_method))) {
         say('No se han podido validar cuatro momentos editables. La transcripción se conserva.');
         return;
       }
