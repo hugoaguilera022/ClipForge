@@ -28,5 +28,5 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   return true;
  }
  function clips(){const p=window.clipforgeEditorBridge?.getProject?.()||window.clipforgeEditor?.getProject?.()||{},ts=window.clipforgeNleGetTracks?.()||p.tracks||[];return ts.filter(t=>t.type==='video').flatMap(t=>(t.items||[]).map(item=>({track:t,item}))).filter(x=>['clip','video'].includes(x.item.kind)||x.item.assetId==='source')}
- const mo=new MutationObserver(()=>decorate());if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{mo.observe(document.body,{childList:true,subtree:true});decorate()});else{mo.observe(document.body,{childList:true,subtree:true});decorate()}
+ const run=()=>decorate();window.addEventListener('clipforge:editor-ready',run);window.addEventListener('clipforge:open-editor',run);window.addEventListener('clipforge:editor-visible',run);window.addEventListener('clipforge:clips-updated',run);if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',run,{once:true});else run();
 })();
