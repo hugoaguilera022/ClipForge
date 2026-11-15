@@ -55,3 +55,10 @@ def test_legacy_platform_panel_is_optional_after_workspace_redesign():
     app = (STATIC / "app.js").read_text(encoding="utf-8")
     assert "const host=$('#platforms');if(!host)return;" in app
     assert "if(host.isConnected)" in app
+
+
+def test_service_worker_invalidates_old_workspace_and_caches_current_editor():
+    worker = (STATIC / "sw.js").read_text(encoding="utf-8")
+    assert "clipforge-web-v173" in worker
+    assert "'/capcut-editor-enhancements.js'" in worker
+    assert "'/workspace-ui-v4.js'" in worker
