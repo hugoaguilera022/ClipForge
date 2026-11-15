@@ -617,7 +617,7 @@ class EditorWorkspaceAndExportTests(unittest.TestCase):
   self.assertIn("libx264",server)
   self.assertIn("'video/mp4'",server)
   self.assertIn("'status_url':",server)
-  self.assertIn("'threads:v','1'",server)
+  self.assertIn("'-threads:v','1'",server)
   self.assertIn("'ultrafast'",server)
  def test_editor_projects_have_browser_persistence_fallback(self):
   editor=(ROOT/"static/editor.js").read_text()
