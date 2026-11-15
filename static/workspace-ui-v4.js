@@ -56,22 +56,6 @@
   const health=header?.querySelector('#health');if(health)app.querySelector('#cfHealthSlot').append(health);header?.remove();
   if(drop)app.querySelector('.cf-opus-drop-slot').append(drop);
   if(transcribe){transcribe.textContent='Generar mis 4 clips';app.querySelector('.cf-opus-primary-action').append(transcribe);}
-  // First click must open the native file picker. Only after a file is selected
-  // may the same primary action start Whisper; never swallow the user's upload click.
-  if(transcribe && fileInput){
-    transcribe.type='button';
-    transcribe.addEventListener('click',event=>{
-      if(!fileInput.files?.length){
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        fileInput.click();
-      }
-    },true);
-    transcribe.textContent='Seleccionar vídeo';
-    fileInput.addEventListener('change',()=>{
-      if(fileInput.files?.length)transcribe.textContent='Generar mis 4 clips';
-    });
-  }
   const trustRow=app.querySelector('.cf-opus-trust');
   if(capacityPanel&&trustRow){capacityPanel.hidden=false;capacityPanel.removeAttribute('aria-hidden');trustRow.after(capacityPanel);}
   // Keep ASR output attached after replacing the original main container.
@@ -92,6 +76,22 @@
   }
   if(exportPanel){const h=exportPanel.querySelector('h3');if(h)h.textContent='Exportar clips';exportPanel.querySelector(':scope > p.hint')?.remove();if($('#browserExportClips'))$('#browserExportClips').textContent='Exportar los 4 clips';app.querySelector('.cf-opus-export-slot').append(exportPanel);}
   const fileInput=$('#video'),sourceVideo=$('#cfSourcePreview'),empty=app.querySelector('.cf-opus-demo-empty');
+  // First click must open the native file picker. Only after a file is selected
+  // may the same primary action start Whisper; never swallow the user's upload click.
+  if(transcribe && fileInput){
+    transcribe.type='button';
+    transcribe.addEventListener('click',event=>{
+      if(!fileInput.files?.length){
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        fileInput.click();
+      }
+    },true);
+    transcribe.textContent='Seleccionar vídeo';
+    fileInput.addEventListener('change',()=>{
+      if(fileInput.files?.length)transcribe.textContent='Generar mis 4 clips';
+    });
+  }
   fileInput?.addEventListener('change',()=>{
     const file=fileInput.files?.[0];if(!file)return;
     if(sourceVideo){sourceVideo.src=URL.createObjectURL(file);sourceVideo.hidden=false;sourceVideo.load();sourceVideo.play().catch(()=>{});}
