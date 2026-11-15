@@ -92,3 +92,24 @@ def test_editor_mount_is_requested_after_workspace_replaces_editor_slot():
     assert "window.addEventListener('clipforge:editor-open-request',open)" in core
     assert "queueMicrotask(()=>window.dispatchEvent(new CustomEvent('clipforge:editor-open-request'" in workspace
     assert workspace.index("editorSlot.replaceChildren()") < workspace.index("clipforge:editor-open-request")
+
+
+def test_reference_editor_shows_generated_clips_and_wires_sidebar_actions():
+    reference = (STATIC / "editor-reference-ui-v2.js").read_text(encoding="utf-8")
+    styles = (STATIC / "editor-reference-ui-v2.css").read_text(encoding="utf-8")
+    assert 'data-side-action="subtitles"' in reference
+    assert 'data-side-action="format"' in reference
+    assert 'data-side-action="export"' in reference
+    assert "clipforge:reference-sidebar-mounted" in reference
+    assert "thumbnailCache" in reference and "canvas.toDataURL" in reference
+    assert "grid-template-areas','\"sidebar clips preview inspector\"'" in reference
+    assert ".cf-ref2-thumb img" in styles
+    assert "grid-template-areas:\"sidebar clips preview inspector\"" in styles
+
+
+def test_reference_editor_orders_video_subtitles_and_audio_tracks():
+    core = (STATIC / "capcut-editor.js").read_text(encoding="utf-8")
+    video = core.index("type:'video',name:'V1 · Vídeo'")
+    subtitles = core.index("type:'subtitles',name:'T1 · Subtítulos'")
+    audio = core.index("type:'audio',name:'A1 · Audio'")
+    assert video < subtitles < audio
