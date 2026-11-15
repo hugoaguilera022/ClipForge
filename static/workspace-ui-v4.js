@@ -375,13 +375,10 @@
     activeCard=card;activeIndex=Number(e.detail?.index)||0;
     window.__cfActiveClipVideo=card.querySelector('video');
     const title=editorScreen.querySelector('.cf-opus-section-head h2');if(title)title.textContent=card.querySelector(':scope > strong')?.textContent||'Editar clip';
-    const backHolder=editorScreen.querySelector('.cf-opus-section-head');
-    const oldBack=backHolder.querySelector('.cf-opus-back');oldBack?.remove();
-    const topBack=document.createElement('button');topBack.type='button';topBack.className='cf-opus-back';topBack.textContent='← Todos los clips';topBack.addEventListener('click',()=>{const list=$('#browserCandidateList');restoreCard(card);const nodes=[...list.children];const next=nodes[Math.min(activeIndex,nodes.length)]||null;list.insertBefore(card,next);activeCard=null;setStage('results');});
+    editorScreen.querySelector('.cf-opus-section-head .cf-opus-back')?.remove();
     editorSlot.replaceChildren();
     const appNav=document.createElement('div');appNav.className='cf-editor-appnav';appNav.innerHTML='<a class="cf-editor-logo" href="#cfCreate"><span>▶</span> ClipForge <b>PRO</b></a><nav><a href="#cfCreate">Inicio</a><a href="#cfCreate">Nuevo proyecto</a><a class="active" href="#cfEditor">Editor</a><a href="#cfResults">Proyectos</a></nav><div class="cf-editor-account"><span>PROYECTO EN CURSO</span><b>9:16</b></div>';
     const editorBar=document.createElement('div');editorBar.className='cf-editor-topbar';editorBar.innerHTML='<div class="cf-editor-format"><span>Formato</span><b>9:16</b></div>';
-    editorBar.prepend(topBack);
     editorSlot.append(editorBar);
     // The CapCut-style NLE is the single editing surface. Do not mount the
     // legacy candidate-card inspector/timeline beside it: that produced two
