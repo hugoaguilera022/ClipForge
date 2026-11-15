@@ -98,8 +98,9 @@ function drawKaraokeCaption(ctx,cues,sourceTime,width,height,settings={}){
   ctx.restore();
 }
 
+function drawTimelineSubtitles(ctx,items,sourceTime,width,height){ctx.save();items.forEach(item=>{const size=Math.max(18,Math.min(150,Number(item.fontSize)||42))*3,weight=String(item.fontWeight||'900'),font=item.fontFamily||'Poppins',text=String(item.text||'').trim().slice(0,180);ctx.font=weight+' '+size+'px '+font+',sans-serif';ctx.textAlign=item.textAlign||'center';ctx.textBaseline='middle';const x=Math.max(0,Math.min(1,Number(item.x??.5)))*width,y=Math.max(0,Math.min(1,Number(item.y??.82)))*height,maxWidth=width*.9;const words=text.split(/\\s+/),lines=[];let line='';for(const word of words){const next=line?line+' '+word:word;if(line&&ctx.measureText(next).width>maxWidth){lines.push(line);line=word}else line=next}if(line)lines.push(line);const shown=lines.slice(0,3),lh=size*1.12,pad=size*.12,boxW=Math.min(maxWidth,Math.max(...shown.map(v=>ctx.measureText(v).width)))+pad*2,boxH=shown.length*lh+pad*2;if(item.backgroundColor&&item.backgroundColor!=='#00000000'&&item.backgroundColor!=='transparent'){ctx.fillStyle=item.backgroundColor;ctx.fillRect(x-boxW/2,y-boxH/2,boxW,boxH)}ctx.lineJoin='round';ctx.strokeStyle=item.outlineColor||'#000';ctx.lineWidth=Math.max(0,Number(item.outlineWidth)||0)*3;ctx.fillStyle=item.color||'#fff';shown.forEach((lineText,n)=>{const yy=y+(n-(shown.length-1)/2)*lh;if(ctx.lineWidth)ctx.strokeText(lineText,x,yy,maxWidth);ctx.fillText(lineText,x,yy,maxWidth)})});ctx.restore()}
 async function buildTimelineAudioMix(file,clip,tracks,sourceAudioTrack,onProgress=()=>{},AudioBufferSink=null){
-  const sourceMuted=(tracks||[]).some(track=>track?.type==='video'&&track.muted&&(track.items||[]).some(item=>item.kind==='clip'||item.assetId==='source'));
+  const sourceItems=(tracks||[]).filter(track=>track?.type==='video').flatMap(track=>(track.items||[]).filter(item=>item.kind==='clip'||item.assetId==='source').map(item=>({track,item})));const sourceItem=sourceItems.find(({item})=>Number(item.start)<=clip.start+.05&&Number(item.end)>=clip.end-.05)?.item||sourceItems.find(({item})=>Number(item.end)>clip.start&&Number(item.start)<clip.end)?.item;const sourceTrackMuted=sourceItems.some(({track})=>track.muted);const sourceMuted=sourceTrackMuted||!!sourceItem?.muted||Number(sourceItem?.volume??1)<=0;
   const audioTracks=(tracks||[]).filter(track=>track?.type==='audio'&&!track.muted&&!track.hidden);
   const items=audioTracks.flatMap(track=>(track.items||[])
     .filter(item=>item&&item.kind==='audio'&&!item.muted&&Number.isFinite(Number(item.start))&&Number.isFinite(Number(item.end))&&Number(item.end)>Number(item.start))
@@ -151,7 +152,7 @@ async function buildTimelineAudioMix(file,clip,tracks,sourceAudioTrack,onProgres
       }else{
         let original;
         try{original=await decode(file);}catch(error){throw new Error('No se pudo decodificar el audio original para mezclarlo con la música: '+error.message);}
-        schedule(original,0,clip.start,Math.min(duration,original.duration-clip.start),1,0,0);
+        schedule(original,0,clip.start,Math.min(duration,original.duration-clip.start),Math.max(0,Math.min(1,Number(sourceItem?.volume??1))),sourceItem?.fadeIn,sourceItem?.fadeOut);
       }
     }
     for(let index=0;index<items.length;index++){
@@ -426,7 +427,8 @@ async function exportOne(file,clip,segments,tracks,index,total,settings={}){
         const local=clip.start+stamp;
         await drawVisualOverlays(ctx,visualOverlays,local,canvas.width,canvas.height);
         drawTextLayers(ctx,tracks,local,canvas.width,canvas.height);
-        drawKaraokeCaption(ctx,cues,local,canvas.width,canvas.height,settings);
+        const timelineSubtitles=(tracks||[]).filter(t=>t.type==='subtitles'&&!t.hidden).flatMap(t=>t.items||[]).filter(item=>Number(item.start)<=local&&Number(item.end)>local&&String(item.text||'').trim());
+        if(timelineSubtitles.length)drawTimelineSubtitles(ctx,timelineSubtitles,local,canvas.width,canvas.height);else drawKaraokeCaption(ctx,cues,local,canvas.width,canvas.height,settings);
         return canvas;
       },
       processedWidth:1080,processedHeight:1920
