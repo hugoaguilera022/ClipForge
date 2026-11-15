@@ -94,7 +94,7 @@
   }
   fileInput?.addEventListener('change',()=>{
     const file=fileInput.files?.[0];if(!file)return;
-    if(sourceVideo){sourceVideo.src=URL.createObjectURL(file);sourceVideo.hidden=false;sourceVideo.load();sourceVideo.play().catch(()=>{});}
+    updateSourcePreview(file);
     if(empty)empty.hidden=true;
     const filename=$('#filename');if(filename)filename.textContent=file.name;
     // Selecting a source is the primary action in this one-screen workflow:
@@ -130,7 +130,32 @@
   const languageLabel=language?.closest('label'),modelLabel=model?.closest('label');
   if(languageLabel)asrOptions.append(languageLabel);if(modelLabel)asrOptions.append(modelLabel);
   asrOptions.setAttribute('aria-label','Ajustes de transcripción');
-  const uploadRow=app.querySelector('.cf-opus-upload-row');if(uploadRow)uploadRow.after(asrOptions);
+  const uploadRow=app.querySelector('.cf-opus-upload-row');
+  const processingPanel=document.createElement('section');processingPanel.className='cf-opus-processing-panel';
+  processingPanel.setAttribute('aria-label','Estado y ajustes del análisis');
+  if(whisperStatus){whisperStatus.className='cf-opus-processing-status';whisperStatus.setAttribute('role','status');}
+  if(whisperStatus)processingPanel.append(whisperStatus);
+  processingPanel.append(asrOptions);
+  if(uploadRow)uploadRow.after(processingPanel);
+  const previewPanel=document.createElement('section');previewPanel.className='cf-opus-source-preview';previewPanel.hidden=true;
+  previewPanel.innerHTML='<div class="cf-opus-source-preview-head"><div><span class="cf-opus-kicker">VÍDEO ORIGINAL</span><strong id="cfSourceFileName">Vista previa del vídeo</strong></div><span id="cfSourceDuration">00:00</span></div>';
+  const sourceFrame=document.createElement('div');sourceFrame.className='cf-opus-source-frame';
+  const sourceVideo=$('#cfSourcePreview');
+  const empty=app.querySelector('.cf-opus-demo-empty');
+  if(sourceVideo){sourceVideo.controls=true;sourceVideo.muted=true;sourceVideo.playsInline=true;sourceVideo.hidden=true;sourceFrame.append(sourceVideo);}
+  previewPanel.append(sourceFrame);
+  if(processingPanel)processingPanel.after(previewPanel);
+  const previewUrl={current:''};
+  const updateSourcePreview=file=>{
+    if(!file||!sourceVideo)return;
+    if(previewUrl.current)URL.revokeObjectURL(previewUrl.current);
+    previewUrl.current=URL.createObjectURL(file);
+    sourceVideo.src=previewUrl.current;sourceVideo.hidden=false;sourceVideo.load();
+    previewPanel.hidden=false;
+    const name=$('#cfSourceFileName',previewPanel);if(name)name.textContent=file.name;
+    const duration=$('#cfSourceDuration',previewPanel);
+    sourceVideo.onloadedmetadata=()=>{if(duration){const d=Number(sourceVideo.duration)||0;duration.textContent=String(Math.floor(d/60)).padStart(2,'0')+':'+String(Math.floor(d%60)).padStart(2,'0');}};
+  };
   // Simplify production: one action, two settings and one live status. Remove
   // the repeated marketing/demo blocks and resource estimates from the main flow.
   app.querySelector('.cf-opus-announcement')?.remove();
@@ -374,47 +399,44 @@
     const msg=String(e.detail?.message||'');const p=$('#cfProductionStatus');if(p&&msg)p.textContent=msg;
   });
   window.addEventListener('clipforge:clips-updated',reveal);
-  window.addEventListener('clipforge:open-editor',e=>{
-    let card=e.detail?.card;
-    const candidateList=$('#browserCandidateList');
-    // Saved-project and recovery actions may open the NLE without a rendered
-    // candidate card. Provide a lightweight host so the editor can still open.
-    if(!card){card=document.createElement('article');card.className='candidate-card cf-nle-placeholder-card';const heading=document.createElement('strong');heading.textContent=e.detail?.clip?.title||'Proyecto editable';card.append(heading);candidateList?.append(card);}
-    if(activeCard===card){setStage('editor');const payload={detail:e.detail||{}};
-      const openNle=()=>{
-        if(typeof window.clipforgeOpenNle==='function')window.clipforgeOpenNle(payload);
-        else window.dispatchEvent(new CustomEvent('clipforge:editor-open-request',{detail:e.detail||{}}));
-      };
-      if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',openNle,{once:true});
-      else queueMicrotask(openNle);return;}
-    if(activeCard){
-      const previous=activeCard,previousIndex=activeIndex;
-      restoreCard(previous);
-      const anchor=candidateList?.children?.[previousIndex]||null;
-      candidateList?.insertBefore(previous,anchor);
-    }
-    activeCard=card;activeIndex=Number(e.detail?.index)||0;
-    window.__cfActiveClipVideo=card.querySelector('video');
-    const title=editorScreen.querySelector('.cf-opus-section-head h2');if(title)title.textContent=card.querySelector(':scope > strong')?.textContent||'Editar clip';
-    editorScreen.querySelector('.cf-opus-section-head .cf-opus-back')?.remove();
-    editorSlot.replaceChildren();
-    const appNav=document.createElement('div');appNav.className='cf-editor-appnav';appNav.innerHTML='<a class="cf-editor-logo" href="#cfCreate"><span>▶</span> ClipForge <b>PRO</b></a><nav><a href="#cfCreate">Inicio</a><a href="#cfCreate">Nuevo proyecto</a><a class="active" href="#cfEditor">Editor</a><a href="#cfResults">Proyectos</a></nav><div class="cf-editor-account"><span>PROYECTO EN CURSO</span><b>9:16</b></div>';
-    const editorBar=document.createElement('div');editorBar.className='cf-editor-topbar';editorBar.innerHTML='<div class="cf-editor-format"><span>Formato</span><b>9:16</b></div>';
-    editorSlot.append(editorBar);
-    // The CapCut-style NLE is the single editing surface. Do not mount the
-    // legacy candidate-card inspector/timeline beside it: that produced two
-    // overlapping editors and duplicate controls in the same workspace.
+  async function openEditorSurface(detail={}){
     setStage('editor');
-    // Mount only after this handler has finished replacing the editor slot.
-    // Otherwise the earlier open-editor listener mounts the NLE first and
-    // replaceChildren() below this point detaches it from the visible workspace.
-    const payload={detail:e.detail||{}};
-      const openNle=()=>{
-        if(typeof window.clipforgeOpenNle==='function')window.clipforgeOpenNle(payload);
-        else window.dispatchEvent(new CustomEvent('clipforge:editor-open-request',{detail:e.detail||{}}));
-      };
-      if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',openNle,{once:true});
-      else queueMicrotask(openNle);
+    editorScreen.hidden=false;results.hidden=true;
+    editorSlot.replaceChildren();
+    const editorBar=document.createElement('div');editorBar.className='cf-editor-topbar';
+    editorBar.innerHTML='<div class="cf-editor-format"><span>PROYECTO</span><b>Editor multipista · 9:16</b></div><span class="cf-editor-open-state">Cargando editor…</span>';
+    editorSlot.append(editorBar);
+    const payload={detail:{...detail,allClips:true}};
+    let lastError=null;
+    for(let attempt=0;attempt<12;attempt++){
+      setStage('editor');editorScreen.hidden=false;
+      try{
+        if(typeof window.clipforgeOpenNle==='function')await window.clipforgeOpenNle(payload);
+        else window.dispatchEvent(new CustomEvent('clipforge:editor-open-request',{detail:payload.detail}));
+      }catch(error){lastError=error;console.error('ClipForge direct editor mount:',error);}
+      await new Promise(resolve=>setTimeout(resolve,120));
+      const nle=editorSlot.querySelector('#cfNle');
+      const status=nle?.querySelector('#cfNleStatus')?.textContent||'';
+      if(nle&&!/^Error al iniciar/.test(status)){
+        nle.hidden=false;nle.style.setProperty('display','flex','important');
+        setStage('editor');editorScreen.hidden=false;
+        const state=editorBar.querySelector('.cf-editor-open-state');if(state)state.textContent='4 clips · Proyecto editable';
+        window.dispatchEvent(new CustomEvent('clipforge:editor-visible'));
+        return true;
+      }
+      lastError=lastError|| (status?Error(status):Error('El editor multipista no se ha montado.'));
+    }
+    const state=editorBar.querySelector('.cf-editor-open-state');if(state)state.textContent='No se pudo iniciar el editor';
+    let alert=editorSlot.querySelector('.cf-editor-open-error');
+    if(!alert){alert=document.createElement('div');alert.className='cf-editor-open-error';alert.setAttribute('role','alert');editorSlot.append(alert);}
+    alert.textContent='ClipForge no pudo iniciar el editor: '+(lastError?.message||'error de montaje')+'. Recarga la página y vuelve a abrir el proyecto.';
+    console.error('ClipForge editor did not become visible',lastError);
+    return false;
+  }
+  window.addEventListener('clipforge:open-editor',e=>{
+    const card=e.detail?.card||candidates?.querySelector('.candidate-card');
+    if(card){activeCard=card;activeIndex=Number(e.detail?.index)||0;window.__cfActiveClipVideo=card.querySelector('video');}
+    openEditorSurface(e.detail||{});
   });
   if(candidates?.querySelector('.candidate-card'))reveal();
   $('#browserExportClips')?.addEventListener('click',()=>{const p=$('#cfProductionStatus');if(p)p.textContent='Preparando la exportación de tus clips…';});
