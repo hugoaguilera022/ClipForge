@@ -380,8 +380,9 @@
       const first=candidates.querySelector('.candidate-card');
       const clips=window.clipforgeEditorBridge?.getProject?.().clips||[];
       const detail={card:first,clip:clips[0]||{title:'Proyecto con '+count+' clips'},index:0,source:'generation',allClips:true};
-      setStage('editor');
-      queueMicrotask(()=>window.dispatchEvent(new CustomEvent('clipforge:open-editor',{detail})));
+      // Open the multipista editor directly. Do not route through the
+      // legacy clip-picker/results screen after the four candidates are ready.
+      void openEditorSurface(detail);
       return;
     }
     setStage('results');
