@@ -1325,3 +1325,29 @@ def test_keyframe_cannot_be_added_outside_selected_clip_bounds():
         assert len(frames) == 1
         assert frames[0]["time"] == 1
         browser.close()
+
+
+def test_frame_accurate_timeline_core_moves_trims_splits_and_undoes():
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page()
+        page.add_script_tag(path=str(STATIC / "timeline-core.js"))
+        result = page.evaluate("""() => {
+          const core = window.ClipForgeTimelineCore;
+          const initial = {settings:{fps:30},tracks:[{id:'v1',type:'video',items:[
+            {id:'a',start:1,end:4,sourceStart:10}, {id:'b',start:5,end:7}
+          ]}]};
+          const history = core.createHistory(initial);
+          history.dispatch({type:'move',ids:['a'],deltaFrames:15});
+          const moved = history.getState().tracks[0].items[0];
+          history.dispatch({type:'trim',itemId:'a',edge:'start',frame:75});
+          const trimmed = history.getState().tracks[0].items[0];
+          history.dispatch({type:'split',itemId:'a',frame:90,newId:'a-right'});
+          const split = history.getState().tracks[0].items;
+          const splitOk = split.length===3 && split[0].endFrame===90 && split[2].startFrame===90;
+          history.undo(); const undoOk = history.getState().tracks[0].items.length===2;
+          history.redo(); const redoOk = history.getState().tracks[0].items.length===3;
+          return {fps:core.DEFAULT_FPS,frameRoundTrip:core.secondsToFrame(core.frameToSeconds(75,30),30)===75,quantized:core.quantizeSeconds(1.01,30)===1,moved:moved.startFrame===45&&moved.endFrame===135,trimmed:trimmed.startFrame===75&&trimmed.sourceStart===11,splitOk,undoOk,redoOk};
+        }""")
+        assert result == {"fps":30,"frameRoundTrip":True,"quantized":True,"moved":True,"trimmed":True,"splitOk":True,"undoOk":True,"redoOk":True}
+        browser.close()
