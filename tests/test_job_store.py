@@ -97,6 +97,9 @@ def test_save_many_does_not_overwrite_lease_columns(tmp_path):
         row = db.execute('SELECT lease_owner,lease_until FROM jobs WHERE id=?', ('job',)).fetchone()
     assert row['lease_owner'] == 'worker-a'
     assert row['lease_until'] == 700
+    # A stale server snapshot must not roll back the worker's processing state.
+    assert store.get('job')['status'] == 'processing'
+    assert store.get('job')['worker_id'] == 'worker-a'
 
 
 def test_stale_worker_cannot_update_claim_after_recovery(tmp_path):
@@ -141,3 +144,52 @@ def test_progress_update_preserves_latest_heartbeat_expiry(tmp_path):
     job['log'] = 'progress after heartbeat'
     assert store.update_claim(job, 'worker-a')
     assert store.get('heartbeat')['lease_until'] == renewed
+
+
+
+def test_bulk_snapshot_cannot_requeue_a_completed_worker_job(tmp_path):
+    store = JobStore(tmp_path / 'jobs.sqlite3')
+    store.upsert({'id': 'active', 'status': 'queued', 'created': 1, 'log': 'queued'})
+    claimed = store.claim_next('worker-a', lease_seconds=600)
+    assert claimed
+    claimed['status'] = 'completed'
+    claimed['log'] = 'done'
+    assert store.finish_claim(claimed, 'worker-a') is True
+
+    # The HTTP process still has the old queued snapshot when another upload arrives.
+    store.save_many({
+        'active': {'id': 'active', 'status': 'queued', 'created': 1, 'log': 'old snapshot'},
+        'new': {'id': 'new', 'status': 'queued', 'created': 2, 'log': 'new upload'},
+    })
+    assert store.get('active')['status'] == 'completed'
+    assert store.get('active')['log'] == 'done'
+    assert store.get('new')['status'] == 'queued'
+
+
+def test_explicit_upsert_can_requeue_failed_job_for_retry(tmp_path):
+    store = JobStore(tmp_path / 'jobs.sqlite3')
+    store.upsert({'id': 'retry', 'status': 'failed', 'created': 1, 'log': 'failed'})
+    retry = {'id': 'retry', 'status': 'queued', 'created': 1, 'log': 'retry requested'}
+    store.upsert(retry)
+    assert store.get('retry') == retry
+
+
+def test_bulk_snapshot_cannot_requeue_a_processing_job_or_clear_its_lease(tmp_path):
+    store = JobStore(tmp_path / 'jobs.sqlite3')
+    store.upsert({'id': 'active', 'status': 'queued', 'created': 1, 'log': 'queued'})
+    claimed = store.claim_next('worker-a', lease_seconds=600)
+    assert claimed and claimed['worker_id'] == 'worker-a'
+
+    # Simulate the HTTP server enqueueing a second job with its old in-memory copy.
+    store.save_many({
+        'active': {'id': 'active', 'status': 'queued', 'created': 1, 'log': 'stale queued snapshot'},
+        'new': {'id': 'new', 'status': 'queued', 'created': 2, 'log': 'new upload'},
+    })
+    current = store.get('active')
+    assert current['status'] == 'processing'
+    assert current['worker_id'] == 'worker-a'
+    with store._connect() as db:
+        row = db.execute('SELECT lease_owner, lease_until FROM jobs WHERE id=?', ('active',)).fetchone()
+    assert row['lease_owner'] == 'worker-a'
+    assert row['lease_until'] == claimed['lease_until']
+    assert store.get('new')['status'] == 'queued'
