@@ -36,6 +36,9 @@ def test_final_mp4_export_uses_full_timeline_composition():
     assert "canvas.captureStream(30)" in enhanced
     assert "new MediaRecorder" in enhanced
     assert "fetch('/api/editor/export'" in enhanced
+    assert "result.status_url" in enhanced
+    assert "state?.status==='ready'" in enhanced
+    assert "Convirtiendo a MP4" in enhanced
     assert "drawImage(el" in enhanced
     assert "TRANSFORMACIÓN Y EFECTOS" not in enhanced or "outlineWidth" in enhanced
 
