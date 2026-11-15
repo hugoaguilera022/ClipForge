@@ -110,3 +110,15 @@ def test_reference_editor_ui_observers_and_event_handlers_are_installed_once():
     assert "if(started)return true" in reference
     assert "if(start())wait.disconnect()" in reference
     assert "if(decorate())mo.disconnect()" in reference
+
+
+def test_workspace_source_preview_and_asr_controls_stay_in_the_clipforge_design_system():
+    workspace = (STATIC / "workspace-ui-v4.js").read_text(encoding="utf-8")
+    styles = (STATIC / "styles-clip-editor-final-v2.css").read_text(encoding="utf-8")
+    assert "previewPanel.hidden=false" in workspace
+    assert "sourceVideo.src=previewUrl.current" in workspace
+    assert "asrOptions.append(languageLabel)" in workspace
+    assert "asrOptions.append(modelLabel)" in workspace
+    assert "color-scheme:dark!important" in styles
+    assert "background-color:#17141e!important" in styles
+    assert "border-color:#9b69dc!important" in styles
