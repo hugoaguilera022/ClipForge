@@ -1159,12 +1159,19 @@ function buildEditorialCandidatePool(segments, videoDuration, audioSamples = nul
     .sort((a,b)=>a.start-b.start);
   if(clean.length<4||!Number.isFinite(videoDuration)||videoDuration<18)return [];
   const boundary=i=>i===0||/[.!?…]["'”’)]?$/.test(clean[i-1].text)||clean[i].start-clean[i-1].end>.72;
-  const starts=[];
+  let starts=[];
   let next=clean[0].start;
   for(let i=0;i<clean.length;i++){
     if(clean[i].start+0.01<next||!boundary(i))continue;
     starts.push(i);
     next=clean[i].start+3.8;
+  }
+  if(starts.length<4){
+    starts=[];let cursor=clean[0].start;
+    for(let i=0;i<clean.length;i++){
+      if(clean[i].start+0.01<cursor)continue;
+      starts.push(i);cursor=clean[i].start+3.8;
+    }
   }
   const audioProfile=[];
   if(audioSamples&&audioSamples.length){
@@ -1190,6 +1197,15 @@ function buildEditorialCandidatePool(segments, videoDuration, audioSamples = nul
       if(duration<18)continue;
       const naturalEnd=/[.!?…]["'”’)]?$/.test(clean[j].text)||j===clean.length-1||(j+1<clean.length&&clean[j+1].start-clean[j].end>.72);
       if(naturalEnd)possible.push(j);
+    }
+    // Whisper word-timestamp models often emit one word per segment and do
+    // not preserve sentence punctuation. If no natural sentence/gap ending
+    // exists in this 18–45 s window, use the nearest real word boundary rather
+    // than discarding the whole dialogue window.
+    if(!possible.length){
+      for(let j=si;j<clean.length&&clean[j].end-start<=45;j++){
+        if(clean[j].end-start>=18)possible.push(j);
+      }
     }
     if(!possible.length)continue;
     const durationTargets=[22,30,40];
