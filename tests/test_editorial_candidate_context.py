@@ -30,7 +30,7 @@ def test_word_level_whisper_timestamps_still_produce_four_editorial_windows():
 
     js = (ROOT / "static/browser-whisper-inline-v3.js").read_text(encoding="utf-8")
     start = js.index("function buildEditorialCandidatePool(")
-    end = js.index("\\nfunction compactEditorialText", start)
+    end = js.index("function compactEditorialText", start)
     function_source = js[start:end]
     transcript = [
         {"start": i * 0.51, "end": i * 0.51 + 0.4, "text": f"palabra{i}"}
