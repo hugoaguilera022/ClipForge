@@ -122,3 +122,22 @@ def test_workspace_source_preview_and_asr_controls_stay_in_the_clipforge_design_
     assert "color-scheme:dark!important" in styles
     assert "background-color:#17141e!important" in styles
     assert "border-color:#9b69dc!important" in styles
+
+
+def test_reference_editor_sidebar_actions_and_real_clip_thumbnails():
+    reference = (STATIC / "editor-reference-ui-v2.js").read_text(encoding="utf-8")
+    styles = (STATIC / "editor-reference-ui-v2.css").read_text(encoding="utf-8")
+    assert 'data-side-action="subtitles"' in reference
+    assert 'data-side-action="format"' in reference
+    assert 'data-side-action="export"' in reference
+    assert "clipforge:reference-sidebar-mounted" in reference
+    assert "thumbnailCache" in reference and "canvas.toDataURL" in reference
+    assert ".cf-ref2-thumb img" in styles
+
+
+def test_reference_editor_starts_with_video_subtitles_and_audio_tracks():
+    core = (STATIC / "capcut-editor.js").read_text(encoding="utf-8")
+    video = core.index("type:'video',name:'V1 · Vídeo'")
+    subtitles = core.index("type:'subtitles',name:'T1 · Subtítulos'")
+    audio = core.index("type:'audio',name:'A1 · Audio'")
+    assert video < subtitles < audio
