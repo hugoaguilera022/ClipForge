@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """ClipForge Web local-first server. Standard library only; no paid API."""
 from __future__ import annotations
-import math, platform
+import math, platform, tempfile
 import json, os, re, subprocess, sys, threading, uuid, shutil, zipfile, io, importlib.util, time, queue, selectors, codecs
 from email.parser import BytesParser
 from email.policy import default
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse, unquote
+from urllib.parse import urlparse, unquote, quote
 import mimetypes
 import channel_monitor
 from project_store import ProjectError, load_project, list_projects, save_project
@@ -22,6 +22,26 @@ JOB_STORE=JobStore(DATA/'jobs.sqlite3')
 def job_store_for_registry()->JobStore:
  return JOB_STORE if JOBS_FILE == DATA/'jobs.json' else JobStore(JOBS_FILE.with_suffix('.sqlite3'))
 LOCK=threading.RLock(); ENGINE=threading.Semaphore(1)
+YOUTUBE_DOWNLOADS=threading.BoundedSemaphore(2)
+YOUTUBE_RATE_LOCK=threading.Lock()
+YOUTUBE_RATE={}
+YOUTUBE_MAX_BYTES=512*1024*1024
+YOUTUBE_MAX_DURATION=6*60*60
+
+def youtube_download_allowed(client:str)->bool:
+ now=time.time()
+ with YOUTUBE_RATE_LOCK:
+  recent=[stamp for stamp in YOUTUBE_RATE.get(client,[]) if now-stamp<600]
+  if len(recent)>=3:
+   YOUTUBE_RATE[client]=recent
+   return False
+  recent.append(now)
+  YOUTUBE_RATE[client]=recent
+  return True
+
+def safe_youtube_filename(value:str)->str:
+ name=re.sub(r'[^A-Za-z0-9._-]+','_',str(value or 'clipforge-youtube'))
+ return (name.strip('._-')[:120] or 'clipforge-youtube')+'.mp4'
 ACTIVE_WORKER_ID=None
 
 def load_job_registry()->dict:
@@ -461,6 +481,58 @@ class Handler(BaseHTTPRequestHandler):
   return self.json(404,{'error':'not_found'})
  def do_POST(self):
   path=urlparse(self.path).path
+  if path=='/api/youtube/download':
+   origin=self.headers.get('Origin','')
+   host=self.headers.get('Host','')
+   if origin and urlparse(origin).netloc!=host:return self.json(403,{'error':'origin_not_allowed'})
+   try:
+    length=int(self.headers.get('Content-Length','0'))
+    if length<1 or length>16384:return self.json(413,{'error':'invalid_request_size'})
+    payload=json.loads(self.rfile.read(length))
+    if payload.get('rights_confirmed') is not True:return self.json(400,{'error':'rights_confirmation_required','message':'Confirma que tienes autorización para descargar y editar este vídeo.'})
+    video_url=str(payload.get('url') or '').strip()
+    if not valid_video_url(video_url):return self.json(400,{'error':'invalid_youtube_url'})
+   except (ValueError,TypeError,json.JSONDecodeError) as exc:return self.json(400,{'error':'invalid_request','message':str(exc)[:240]})
+   client=(self.headers.get('X-Forwarded-For','').split(',')[0].strip() or self.client_address[0])[:80]
+   if not youtube_download_allowed(client):return self.json(429,{'error':'youtube_import_rate_limited','message':'Has alcanzado el límite temporal de importaciones. Espera unos minutos.'})
+   if not YOUTUBE_DOWNLOADS.acquire(blocking=False):return self.json(429,{'error':'youtube_import_busy','message':'Hay dos importaciones en curso. Vuelve a intentarlo en unos minutos.'})
+   try:
+    cmd=yt_dlp_command()
+    if not cmd:return self.json(503,{'error':'yt_dlp_unavailable'})
+    with tempfile.TemporaryDirectory(prefix='clipforge-youtube-') as folder:
+     output=str(Path(folder)/'source.%(ext)s')
+     args=cmd+['--no-warnings','--no-progress','--no-playlist','--max-filesize',str(YOUTUBE_MAX_BYTES),'--match-filter',f'duration <= {YOUTUBE_MAX_DURATION}','-f','bv*[ext=mp4][height<=1080]+ba[ext=m4a]/b[ext=mp4][height<=1080]/best[ext=mp4]','--merge-output-format','mp4','-o',output,video_url]
+     try:result=subprocess.run(args,capture_output=True,text=True,timeout=1800)
+     except subprocess.TimeoutExpired:return self.json(504,{'error':'youtube_import_timeout','message':'La importación superó el tiempo máximo permitido.'})
+     if result.returncode:
+      detail=(result.stderr or result.stdout or '')[-800:]
+      if 'max-filesize' in detail.lower() or 'file is larger' in detail.lower():return self.json(413,{'error':'youtube_video_too_large','message':'El vídeo supera el límite de 512 MB.'})
+      return self.json(400,{'error':'youtube_download_failed','message':'No se pudo descargar este vídeo. Puede ser privado, estar restringido o no estar disponible.'})
+     candidates=[p for p in Path(folder).iterdir() if p.is_file() and p.suffix.lower()=='.mp4' and not p.name.endswith('.part')]
+     if not candidates:return self.json(502,{'error':'youtube_mp4_missing'})
+     source=max(candidates,key=lambda p:p.stat().st_size)
+     size=source.stat().st_size
+     if size<=0:return self.json(502,{'error':'youtube_empty_file'})
+     if size>YOUTUBE_MAX_BYTES:return self.json(413,{'error':'youtube_video_too_large'})
+     name=safe_youtube_filename(source.stem)
+     self.send_response(200)
+     self.send_header('Content-Type','video/mp4')
+     self.send_header('Content-Length',str(size))
+     self.send_header('Content-Disposition',"attachment; filename*=UTF-8''"+quote(name))
+     self.send_header('Cache-Control','no-store')
+     self.send_header('X-Content-Type-Options','nosniff')
+     self.end_headers()
+     with source.open('rb') as stream:
+      while True:
+       chunk=stream.read(1024*1024)
+       if not chunk:break
+       self.wfile.write(chunk)
+     return
+   except (BrokenPipeError,ConnectionResetError):return
+   except Exception as exc:
+    print('ClipForge YouTube import failed:',str(exc)[:500],flush=True)
+    return self.json(500,{'error':'youtube_import_failed','message':'La importación ha fallado. Inténtalo con otro enlace compatible.'})
+   finally:YOUTUBE_DOWNLOADS.release()
   if path=='/api/projects':
    length=int(self.headers.get('Content-Length','0'))
    if length<=0 or length>20*1024*1024: return self.json(413,{'error':'invalid_project_size','max_bytes':20*1024*1024})
