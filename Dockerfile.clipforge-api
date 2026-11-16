@@ -7,8 +7,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ffmpeg ca-certificates \
+    && apt-get install -y --no-install-recommends ffmpeg ca-certificates curl unzip \
     && rm -rf /var/lib/apt/lists/*
+
+# yt-dlp uses Deno for supported YouTube JavaScript challenge solving.
+RUN curl -fsSL https://deno.land/install.sh | sh
+ENV PATH="/root/.deno/bin:${PATH}"
 
 COPY requirements.txt ./
 RUN pip install --no-cache-dir --upgrade pip \
