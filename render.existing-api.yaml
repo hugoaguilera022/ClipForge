@@ -1,0 +1,15 @@
+# Consolidate the existing API service into the single public ClipForge Studio.
+# Existing Render environment variables are intentionally omitted: Render preserves
+# them on adopted services, so current AI/OAuth credentials are not copied or exposed.
+services:
+  - type: web
+    name: clipforge-api-hugo
+    runtime: docker
+    repo: https://github.com/hugoaguilera022/ClipForge
+    branch: codex/clipforge-single-web-integration
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./Dockerfile.clipforge-api
+    dockerContext: .
+    autoDeployTrigger: off
+    healthCheckPath: /api/health
