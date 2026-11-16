@@ -51,6 +51,15 @@ Do not delete, archive, rename, or repoint existing repositories or Render servi
 - production cutover is verified,
 - rollback instructions are tested.
 
-## Current blockers
-- Render workspace selection needs user confirmation: the screenshot shows an **Autotube** workspace, while the connected Render workspace listing currently returns **hugo's workspace**. Confirm whether these are the same intended workspace before any Render mutation.
-- The available GitHub integration does not expose repository creation/rename in the current tool set. This audit branch is a safe staging point; create/rename operations should be performed only when an authorized supported action is available.
+## Verified follow-up findings (2026-11-16)
+
+- The Render workspace **ClipForge** is accessible and selected for the read-only audit. Workspace ID: `tea-dasrcurbc2fs73a12d90`.
+- The six relevant Render services and their current branch/auto-deploy settings are recorded in `docs/CLIPFORGE_STUDIO_CODEX_HANDOFF.md`.
+- ClipForge API and frontend services currently deploy from `codex/clipforge-editor-stabilization`; the importer pair and preview use `integrated-web-final`; AutoTube deploys from `main`.
+- PR #71 currently changes documentation only. It has three commits and is still a draft.
+- PR #71 quality run `43867292221` failed: 233 tests passed and two tests failed in `tests/test_editorial_candidate_context.py`. Details and required remediation are in the Codex handoff.
+- ClipForge project and job persistence are file/SQLite-backed. Render's service detail response showed no attached persistent disk; durability on redeploy must be resolved before multi-user production cutover.
+- AutoTube's YouTube connection is currently process-global and stored as one encrypted Supabase `youtube_connections` row with ID `default`. This must not become the ClipForge multi-user auth design.
+- The two YouTube importer services share the same repository, branch and Dockerfile, but remain unproven duplicates; no service has been changed.
+
+See `docs/CLIPFORGE_STUDIO_CODEX_HANDOFF.md` for route families, service IDs, test failures, integration sequence and non-negotiable safeguards.
