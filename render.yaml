@@ -1,18 +1,14 @@
-# ClipForge Studio — one public Render web service.
-# The Python backend serves static/, /api/*, previews and exports on one origin.
-# Keep legacy services until this single service passes full browser/media tests.
+# ClipForge Studio — adopt and deploy the existing production API as the only public web app.
+# The Python server serves the frontend, API, previews, imports and exports on one origin.
 services:
   - type: web
-    name: clipforge-studio
+    name: clipforge-api-hugo
     runtime: docker
     repo: https://github.com/hugoaguilera022/ClipForge
-    branch: codex/clipforge-single-web-integration
+    branch: codex/clipforge-single-service-no-autotube
     plan: free
     region: frankfurt
     dockerfilePath: ./Dockerfile.clipforge-api
     dockerContext: .
-    autoDeployTrigger: off
+    autoDeployTrigger: commit
     healthCheckPath: /api/health
-    envVars:
-      - key: CLIPFORGE_HOST
-        value: 0.0.0.0
