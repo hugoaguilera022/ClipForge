@@ -43,8 +43,6 @@ def youtube_download_allowed(client:str)->bool:
 def safe_youtube_filename(value:str)->str:
  name=re.sub(r'[^A-Za-z0-9._-]+','_',str(value or 'clipforge-youtube'))
  return (name.strip('._-')[:120] or 'clipforge-youtube')+'.mp4'
-def _autotube_url():
- return str(os.environ.get('AUTOTUBE_BASE_URL','https://autotube-usm1.onrender.com')).rstrip('/')
 
 ACTIVE_WORKER_ID=None
 
