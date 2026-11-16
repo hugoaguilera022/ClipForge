@@ -9,6 +9,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, unquote, quote
 import mimetypes
+import urllib.request, urllib.error
 import channel_monitor
 from project_store import ProjectError, load_project, list_projects, save_project
 
@@ -42,6 +43,17 @@ def youtube_download_allowed(client:str)->bool:
 def safe_youtube_filename(value:str)->str:
  name=re.sub(r'[^A-Za-z0-9._-]+','_',str(value or 'clipforge-youtube'))
  return (name.strip('._-')[:120] or 'clipforge-youtube')+'.mp4'
+AUTOTUBE_PROXY_PATHS={
+ '/api/youtube/auth','/api/youtube/callback','/api/youtube/profile',
+ '/api/youtube/upload','/api/youtube/analytics','/api/youtube/automation-config',
+ '/api/youtube/disconnect'
+}
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+ def redirect_request(self,req,fp,code,msg,headers,newurl):return None
+
+def _autotube_url():
+ return str(os.environ.get('AUTOTUBE_BASE_URL','https://autotube-usm1.onrender.com')).rstrip('/')
+
 ACTIVE_WORKER_ID=None
 
 def load_job_registry()->dict:
@@ -296,6 +308,43 @@ class Handler(BaseHTTPRequestHandler):
   data=body if isinstance(body,bytes) else body.encode()
   self.send_response(code); self.send_header('Content-Type',ctype); self.send_header('Content-Length',str(len(data))); self.send_header('X-Content-Type-Options','nosniff'); self.end_headers(); self.wfile.write(data)
  def json(self, code, obj): self.send(code,json.dumps(obj,ensure_ascii=False), 'application/json; charset=utf-8')
+ def _proxy_autotube(self,method):
+  path=urlparse(self.path).path
+  if path not in AUTOTUBE_PROXY_PATHS:return False
+  body=None
+  headers={'Accept':self.headers.get('Accept','application/json, text/html;q=0.9, */*;q=0.8')}
+  if method=='POST':
+   try:length=int(self.headers.get('Content-Length','0'))
+   except ValueError:length=0
+   if length>120*1024*1024:
+    self.json(413,{'ok':False,'error':'youtube_upload_too_large','message':'El archivo supera el límite de 120 MB.'})
+    return True
+   if length:
+    body=self.rfile.read(length)
+   headers['Content-Type']=self.headers.get('Content-Type','application/json')
+  request=urllib.request.Request(_autotube_url()+self.path,data=body,headers=headers,method=method)
+  opener=urllib.request.build_opener(_NoRedirect)
+  try:
+   response=opener.open(request,timeout=300)
+  except urllib.error.HTTPError as exc:
+   response=exc
+  except Exception as exc:
+   self.json(502,{'ok':False,'error':'youtube_provider_unavailable','message':'El servicio de publicación de YouTube no responde.'})
+   print('AutoTube proxy error:',str(exc)[:300],flush=True)
+   return True
+  try:
+   payload=response.read()
+   self.send_response(response.code)
+   for key in ('Content-Type','Location','Cache-Control','Set-Cookie','Content-Disposition'):
+    value=response.headers.get(key)
+    if value:self.send_header(key,value)
+   self.send_header('Content-Length',str(len(payload)))
+   self.send_header('X-Content-Type-Options','nosniff')
+   self.end_headers()
+   if method!='HEAD' and payload:self.wfile.write(payload)
+  finally:
+   response.close()
+  return True
  def _static_target(self,path):
   # Serve only files contained in the published static directory.
   relative=unquote(path).lstrip('/') or 'index.html'
@@ -318,6 +367,7 @@ class Handler(BaseHTTPRequestHandler):
   self.send_response(code); self.send_header('Content-Type',ctype); self.send_header('Content-Length',str(length)); self.send_header('X-Content-Type-Options','nosniff'); self.end_headers()
  def do_GET(self):
   path=urlparse(self.path).path
+  if self._proxy_autotube('GET'):return
   if path=='/api/health':
    mlx_available=importlib.util.find_spec('mlx_whisper') is not None
    faster_available=importlib.util.find_spec('faster_whisper') is not None
@@ -481,6 +531,7 @@ class Handler(BaseHTTPRequestHandler):
   return self.json(404,{'error':'not_found'})
  def do_POST(self):
   path=urlparse(self.path).path
+  if self._proxy_autotube('POST'):return
   if path=='/api/youtube/download':
    origin=self.headers.get('Origin','')
    host=self.headers.get('Host','')
