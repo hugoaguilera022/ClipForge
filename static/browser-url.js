@@ -35,10 +35,9 @@ loadButton?.addEventListener('click',async()=>{
 });
 
 
-// YouTube pages are not directly readable by browser fetch because of CORS.
-// A tiny, temporary importer downloads only an explicitly authorized video;
-// transcription, selection, editing and MP4 export remain local in this browser.
-const YOUTUBE_INGEST_API = 'https://clipforge-youtube-importer.onrender.com';
+// YouTube import is served by the same ClipForge origin as the editor.
+// No separate importer hostname or cross-origin request is required.
+const YOUTUBE_INGEST_API = '';
 const youtubeInput = document.querySelector('#browserYoutubeUrl');
 const youtubeButton = document.querySelector('#loadBrowserYoutube');
 const youtubeRights = document.querySelector('#browserYoutubeRights');
@@ -48,9 +47,9 @@ youtubeButton?.addEventListener('click', async () => {
   if (!url) { if (youtubeStatus) youtubeStatus.textContent = 'Pega primero un enlace de YouTube.'; return; }
   if (!youtubeRights?.checked) { if (youtubeStatus) youtubeStatus.textContent = 'Confirma que tienes autorización para descargar y editar este vídeo.'; return; }
   youtubeButton.disabled = true;
-  if (youtubeStatus) youtubeStatus.textContent = 'Conectando con el importador gratuito de YouTube…';
+  if (youtubeStatus) youtubeStatus.textContent = 'Conectando con el importador integrado de ClipForge…';
   try {
-    const response = await fetch(`${YOUTUBE_INGEST_API}/api/youtube/download`, {
+    const response = await fetch('/api/youtube/download', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({url, rights_confirmed: true})

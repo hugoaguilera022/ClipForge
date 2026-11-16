@@ -65,6 +65,7 @@ jobs:
           node --check static/browser-export.js
           node --check static/browser-url.js
           node --check static/google-drive.js
+          node --check static/youtube-publish.js
 
 
       - name: Run automated tests with coverage

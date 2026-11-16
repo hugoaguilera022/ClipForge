@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """ClipForge Web local-first server. Standard library only; no paid API."""
 from __future__ import annotations
-import math, platform
+import math, platform, tempfile
 import json, os, re, subprocess, sys, threading, uuid, shutil, zipfile, io, importlib.util, time, queue, selectors, codecs
 from email.parser import BytesParser
 from email.policy import default
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urlparse, unquote, quote
+import mimetypes
+import urllib.request, urllib.error
 import channel_monitor
 from project_store import ProjectError, load_project, list_projects, save_project
 
@@ -21,6 +23,37 @@ JOB_STORE=JobStore(DATA/'jobs.sqlite3')
 def job_store_for_registry()->JobStore:
  return JOB_STORE if JOBS_FILE == DATA/'jobs.json' else JobStore(JOBS_FILE.with_suffix('.sqlite3'))
 LOCK=threading.RLock(); ENGINE=threading.Semaphore(1)
+YOUTUBE_DOWNLOADS=threading.BoundedSemaphore(2)
+YOUTUBE_RATE_LOCK=threading.Lock()
+YOUTUBE_RATE={}
+YOUTUBE_MAX_BYTES=512*1024*1024
+YOUTUBE_MAX_DURATION=6*60*60
+
+def youtube_download_allowed(client:str)->bool:
+ now=time.time()
+ with YOUTUBE_RATE_LOCK:
+  recent=[stamp for stamp in YOUTUBE_RATE.get(client,[]) if now-stamp<600]
+  if len(recent)>=3:
+   YOUTUBE_RATE[client]=recent
+   return False
+  recent.append(now)
+  YOUTUBE_RATE[client]=recent
+  return True
+
+def safe_youtube_filename(value:str)->str:
+ name=re.sub(r'[^A-Za-z0-9._-]+','_',str(value or 'clipforge-youtube'))
+ return (name.strip('._-')[:120] or 'clipforge-youtube')+'.mp4'
+AUTOTUBE_PROXY_PATHS={
+ '/api/youtube/auth','/api/youtube/callback','/api/youtube/profile',
+ '/api/youtube/upload','/api/youtube/analytics','/api/youtube/automation-config',
+ '/api/youtube/disconnect'
+}
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+ def redirect_request(self,req,fp,code,msg,headers,newurl):return None
+
+def _autotube_url():
+ return str(os.environ.get('AUTOTUBE_BASE_URL','https://autotube-usm1.onrender.com')).rstrip('/')
+
 ACTIVE_WORKER_ID=None
 
 def load_job_registry()->dict:
@@ -275,17 +308,117 @@ class Handler(BaseHTTPRequestHandler):
   data=body if isinstance(body,bytes) else body.encode()
   self.send_response(code); self.send_header('Content-Type',ctype); self.send_header('Content-Length',str(len(data))); self.send_header('X-Content-Type-Options','nosniff'); self.end_headers(); self.wfile.write(data)
  def json(self, code, obj): self.send(code,json.dumps(obj,ensure_ascii=False), 'application/json; charset=utf-8')
+ def _require_clipforge_admin(self):
+  header=self.headers.get('Authorization','')
+  token=header[7:].strip() if header.lower().startswith('bearer ') else ''
+  if not token:
+   self.json(401,{'ok':False,'error':'login_required','message':'Inicia sesión con tu cuenta autorizada de ClipForge.'})
+   return False
+  allowed_email=str(os.environ.get('CLIPFORGE_ADMIN_EMAIL','')).strip().lower()
+  if not allowed_email:
+   self.json(503,{'ok':False,'error':'admin_not_configured','message':'La cuenta administradora de ClipForge aún no está configurada.'})
+   return False
+  supabase_url=str(os.environ.get('SUPABASE_URL','https://zmqfjrstuhthtrshcfwa.supabase.co')).rstrip('/')
+  publishable_key='sb_publishable_Izh4bHRXLj5f4aW4P-z0gA_1pUv7L4H'
+  request=urllib.request.Request(supabase_url+'/auth/v1/user',headers={'apikey':publishable_key,'Authorization':'Bearer '+token,'Accept':'application/json'})
+  try:
+   with urllib.request.urlopen(request,timeout=12) as response:
+    user=json.loads(response.read() or b'{}')
+  except Exception:
+   self.json(401,{'ok':False,'error':'invalid_session','message':'La sesión de ClipForge ha caducado. Vuelve a iniciar sesión.'})
+   return False
+  email=str(user.get('email','')).strip().lower()
+  if not email or email!=allowed_email or not user.get('email_confirmed_at'):
+   self.json(403,{'ok':False,'error':'not_authorized','message':'Esta cuenta no tiene permisos para gestionar el canal de YouTube conectado.'})
+   return False
+  return True
+ def _create_youtube_auth_url(self):
+  internal_token=str(os.environ.get('CLIPFORGE_INTERNAL_TOKEN','')).strip()
+  if not internal_token:
+   return self.json(503,{'ok':False,'error':'youtube_provider_not_configured'})
+  request=urllib.request.Request(_autotube_url()+'/api/youtube/auth',headers={'Accept':'text/html','X-ClipForge-Internal-Token':internal_token})
+  try:
+   response=urllib.request.build_opener(_NoRedirect).open(request,timeout=20)
+  except urllib.error.HTTPError as exc:
+   response=exc
+  except Exception:
+   self.json(502,{'ok':False,'error':'youtube_provider_unavailable'})
+   return
+  try:
+   location=response.headers.get('Location')
+   if response.code in (301,302,303,307,308) and location:
+    return self.json(200,{'ok':True,'url':location})
+   raw=response.read()
+   message=raw.decode('utf-8','replace')[:500] if raw else 'No se pudo iniciar OAuth de YouTube.'
+   return self.json(response.code if response.code>=400 else 502,{'ok':False,'error':'youtube_oauth_start_failed','message':message})
+  finally:
+   response.close()
+ def _proxy_autotube(self,method):
+  path=urlparse(self.path).path
+  if path not in AUTOTUBE_PROXY_PATHS:return False
+  if path!='/api/youtube/callback' and not self._require_clipforge_admin():return True
+  body=None
+  headers={'Accept':self.headers.get('Accept','application/json, text/html;q=0.9, */*;q=0.8')}
+  internal_token=str(os.environ.get('CLIPFORGE_INTERNAL_TOKEN','')).strip()
+  if not internal_token:
+   self.json(503,{'ok':False,'error':'youtube_provider_not_configured'})
+   return True
+  headers['X-ClipForge-Internal-Token']=internal_token
+  if method=='POST':
+   try:length=int(self.headers.get('Content-Length','0'))
+   except ValueError:length=0
+   if length>120*1024*1024:
+    self.json(413,{'ok':False,'error':'youtube_upload_too_large','message':'El archivo supera el límite de 120 MB.'})
+    return True
+   if length:
+    body=self.rfile.read(length)
+   headers['Content-Type']=self.headers.get('Content-Type','application/json')
+  request=urllib.request.Request(_autotube_url()+self.path,data=body,headers=headers,method=method)
+  opener=urllib.request.build_opener(_NoRedirect)
+  try:
+   response=opener.open(request,timeout=300)
+  except urllib.error.HTTPError as exc:
+   response=exc
+  except Exception as exc:
+   self.json(502,{'ok':False,'error':'youtube_provider_unavailable','message':'El servicio de publicación de YouTube no responde.'})
+   print('AutoTube proxy error:',str(exc)[:300],flush=True)
+   return True
+  try:
+   payload=response.read()
+   self.send_response(response.code)
+   for key in ('Content-Type','Location','Cache-Control','Set-Cookie','Content-Disposition'):
+    value=response.headers.get(key)
+    if value:self.send_header(key,value)
+   self.send_header('Content-Length',str(len(payload)))
+   self.send_header('X-Content-Type-Options','nosniff')
+   self.end_headers()
+   if method!='HEAD' and payload:self.wfile.write(payload)
+  finally:
+   response.close()
+  return True
+ def _static_target(self,path):
+  # Serve only files contained in the published static directory.
+  relative=unquote(path).lstrip('/') or 'index.html'
+  root=STATIC.resolve()
+  target=(root/relative).resolve()
+  if target!=root and root not in target.parents:return None
+  return target if target.is_file() else None
  def do_HEAD(self):
   path=urlparse(self.path).path
-  if path in {'/','/index.html'}:
-   code=200; ctype='text/html; charset=utf-8'
-  elif path=='/api/health':
-   code=200; ctype='application/json; charset=utf-8'
+  if path.startswith('/api/'):
+   code=200 if path=='/api/health' else 404
+   ctype='application/json; charset=utf-8'
+   length=0
   else:
-   code=404; ctype='application/json; charset=utf-8'
-  self.send_response(code); self.send_header('Content-Type',ctype); self.send_header('Content-Length','0'); self.send_header('X-Content-Type-Options','nosniff'); self.end_headers()
+   target=self._static_target(path)
+   code=200 if target else 404
+   ctype=(mimetypes.guess_type(str(target))[0] if target else None) or 'application/octet-stream'
+   if ctype.startswith('text/') or ctype in {'application/javascript','application/json'}:ctype+='; charset=utf-8'
+   length=target.stat().st_size if target else 0
+  self.send_response(code); self.send_header('Content-Type',ctype); self.send_header('Content-Length',str(length)); self.send_header('X-Content-Type-Options','nosniff'); self.end_headers()
  def do_GET(self):
   path=urlparse(self.path).path
+  if self._proxy_autotube('GET'):return
   if path=='/api/health':
    mlx_available=importlib.util.find_spec('mlx_whisper') is not None
    faster_available=importlib.util.find_spec('faster_whisper') is not None
@@ -427,11 +560,11 @@ class Handler(BaseHTTPRequestHandler):
     except Exception: public['story_profile']=None
     public['download_url']=f'/api/download/{jid}'
    return self.json(200,public)
-  if path=='/' or path=='/index.html': return self.send(200,(STATIC/'index.html').read_bytes(),'text/html; charset=utf-8')
-  name=path.lstrip('/')
-  if name in {'app.js','browser-whisper.js','editor.js','styles.css','manifest.webmanifest','sw.js'}:
-   types={'app.js':'text/javascript','browser-whisper.js':'text/javascript','editor.js':'text/javascript','styles.css':'text/css','manifest.webmanifest':'application/manifest+json','sw.js':'text/javascript'}
-   return self.send(200,(STATIC/name).read_bytes(),types[name])
+  target=self._static_target(path)
+  if target:
+   ctype=mimetypes.guess_type(str(target))[0] or 'application/octet-stream'
+   if ctype.startswith('text/') or ctype in {'application/javascript','application/json'}:ctype+='; charset=utf-8'
+   return self.send(200,target.read_bytes(),ctype)
   return self.json(404,{'error':'not_found'})
  def do_DELETE(self):
   path=urlparse(self.path).path
@@ -449,6 +582,62 @@ class Handler(BaseHTTPRequestHandler):
   return self.json(404,{'error':'not_found'})
  def do_POST(self):
   path=urlparse(self.path).path
+  if path=='/api/youtube/auth-url':
+   if not self._require_clipforge_admin():return
+   return self._create_youtube_auth_url()
+  if self._proxy_autotube('POST'):return
+  if path=='/api/youtube/download':
+   origin=self.headers.get('Origin','')
+   host=self.headers.get('Host','')
+   if origin and urlparse(origin).netloc!=host:return self.json(403,{'error':'origin_not_allowed'})
+   try:
+    length=int(self.headers.get('Content-Length','0'))
+    if length<1 or length>16384:return self.json(413,{'error':'invalid_request_size'})
+    payload=json.loads(self.rfile.read(length))
+    if payload.get('rights_confirmed') is not True:return self.json(400,{'error':'rights_confirmation_required','message':'Confirma que tienes autorización para descargar y editar este vídeo.'})
+    video_url=str(payload.get('url') or '').strip()
+    if not valid_video_url(video_url):return self.json(400,{'error':'invalid_youtube_url'})
+   except (ValueError,TypeError,json.JSONDecodeError) as exc:return self.json(400,{'error':'invalid_request','message':str(exc)[:240]})
+   client=(self.headers.get('X-Forwarded-For','').split(',')[0].strip() or self.client_address[0])[:80]
+   if not youtube_download_allowed(client):return self.json(429,{'error':'youtube_import_rate_limited','message':'Has alcanzado el límite temporal de importaciones. Espera unos minutos.'})
+   if not YOUTUBE_DOWNLOADS.acquire(blocking=False):return self.json(429,{'error':'youtube_import_busy','message':'Hay dos importaciones en curso. Vuelve a intentarlo en unos minutos.'})
+   try:
+    cmd=yt_dlp_command()
+    if not cmd:return self.json(503,{'error':'yt_dlp_unavailable'})
+    with tempfile.TemporaryDirectory(prefix='clipforge-youtube-') as folder:
+     output=str(Path(folder)/'source.%(ext)s')
+     args=cmd+['--no-warnings','--no-progress','--no-playlist','--max-filesize',str(YOUTUBE_MAX_BYTES),'--match-filter',f'duration <= {YOUTUBE_MAX_DURATION}','-f','bv*[ext=mp4][height<=1080]+ba[ext=m4a]/b[ext=mp4][height<=1080]/best[ext=mp4]','--merge-output-format','mp4','-o',output,video_url]
+     try:result=subprocess.run(args,capture_output=True,text=True,timeout=1800)
+     except subprocess.TimeoutExpired:return self.json(504,{'error':'youtube_import_timeout','message':'La importación superó el tiempo máximo permitido.'})
+     if result.returncode:
+      detail=(result.stderr or result.stdout or '')[-800:]
+      if 'max-filesize' in detail.lower() or 'file is larger' in detail.lower():return self.json(413,{'error':'youtube_video_too_large','message':'El vídeo supera el límite de 512 MB.'})
+      return self.json(400,{'error':'youtube_download_failed','message':'No se pudo descargar este vídeo. Puede ser privado, estar restringido o no estar disponible.'})
+     candidates=[p for p in Path(folder).iterdir() if p.is_file() and p.suffix.lower()=='.mp4' and not p.name.endswith('.part')]
+     if not candidates:return self.json(502,{'error':'youtube_mp4_missing'})
+     source=max(candidates,key=lambda p:p.stat().st_size)
+     size=source.stat().st_size
+     if size<=0:return self.json(502,{'error':'youtube_empty_file'})
+     if size>YOUTUBE_MAX_BYTES:return self.json(413,{'error':'youtube_video_too_large'})
+     name=safe_youtube_filename(source.stem)
+     self.send_response(200)
+     self.send_header('Content-Type','video/mp4')
+     self.send_header('Content-Length',str(size))
+     self.send_header('Content-Disposition',"attachment; filename*=UTF-8''"+quote(name))
+     self.send_header('Cache-Control','no-store')
+     self.send_header('X-Content-Type-Options','nosniff')
+     self.end_headers()
+     with source.open('rb') as stream:
+      while True:
+       chunk=stream.read(1024*1024)
+       if not chunk:break
+       self.wfile.write(chunk)
+     return
+   except (BrokenPipeError,ConnectionResetError):return
+   except Exception as exc:
+    print('ClipForge YouTube import failed:',str(exc)[:500],flush=True)
+    return self.json(500,{'error':'youtube_import_failed','message':'La importación ha fallado. Inténtalo con otro enlace compatible.'})
+   finally:YOUTUBE_DOWNLOADS.release()
   if path=='/api/projects':
    length=int(self.headers.get('Content-Length','0'))
    if length<=0 or length>20*1024*1024: return self.json(413,{'error':'invalid_project_size','max_bytes':20*1024*1024})
