@@ -7,7 +7,8 @@ from email.parser import BytesParser
 from email.policy import default
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urlparse, unquote
+import mimetypes
 import channel_monitor
 from project_store import ProjectError, load_project, list_projects, save_project
 
@@ -275,15 +276,26 @@ class Handler(BaseHTTPRequestHandler):
   data=body if isinstance(body,bytes) else body.encode()
   self.send_response(code); self.send_header('Content-Type',ctype); self.send_header('Content-Length',str(len(data))); self.send_header('X-Content-Type-Options','nosniff'); self.end_headers(); self.wfile.write(data)
  def json(self, code, obj): self.send(code,json.dumps(obj,ensure_ascii=False), 'application/json; charset=utf-8')
+ def _static_target(self,path):
+  # Serve only files contained in the published static directory.
+  relative=unquote(path).lstrip('/') or 'index.html'
+  root=STATIC.resolve()
+  target=(root/relative).resolve()
+  if target!=root and root not in target.parents:return None
+  return target if target.is_file() else None
  def do_HEAD(self):
   path=urlparse(self.path).path
-  if path in {'/','/index.html'}:
-   code=200; ctype='text/html; charset=utf-8'
-  elif path=='/api/health':
-   code=200; ctype='application/json; charset=utf-8'
+  if path.startswith('/api/'):
+   code=200 if path=='/api/health' else 404
+   ctype='application/json; charset=utf-8'
+   length=0
   else:
-   code=404; ctype='application/json; charset=utf-8'
-  self.send_response(code); self.send_header('Content-Type',ctype); self.send_header('Content-Length','0'); self.send_header('X-Content-Type-Options','nosniff'); self.end_headers()
+   target=self._static_target(path)
+   code=200 if target else 404
+   ctype=(mimetypes.guess_type(str(target))[0] if target else None) or 'application/octet-stream'
+   if ctype.startswith('text/') or ctype in {'application/javascript','application/json'}:ctype+='; charset=utf-8'
+   length=target.stat().st_size if target else 0
+  self.send_response(code); self.send_header('Content-Type',ctype); self.send_header('Content-Length',str(length)); self.send_header('X-Content-Type-Options','nosniff'); self.end_headers()
  def do_GET(self):
   path=urlparse(self.path).path
   if path=='/api/health':
@@ -427,11 +439,11 @@ class Handler(BaseHTTPRequestHandler):
     except Exception: public['story_profile']=None
     public['download_url']=f'/api/download/{jid}'
    return self.json(200,public)
-  if path=='/' or path=='/index.html': return self.send(200,(STATIC/'index.html').read_bytes(),'text/html; charset=utf-8')
-  name=path.lstrip('/')
-  if name in {'app.js','browser-whisper.js','editor.js','styles.css','manifest.webmanifest','sw.js'}:
-   types={'app.js':'text/javascript','browser-whisper.js':'text/javascript','editor.js':'text/javascript','styles.css':'text/css','manifest.webmanifest':'application/manifest+json','sw.js':'text/javascript'}
-   return self.send(200,(STATIC/name).read_bytes(),types[name])
+  target=self._static_target(path)
+  if target:
+   ctype=mimetypes.guess_type(str(target))[0] or 'application/octet-stream'
+   if ctype.startswith('text/') or ctype in {'application/javascript','application/json'}:ctype+='; charset=utf-8'
+   return self.send(200,target.read_bytes(),ctype)
   return self.json(404,{'error':'not_found'})
  def do_DELETE(self):
   path=urlparse(self.path).path
