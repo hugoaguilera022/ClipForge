@@ -333,7 +333,10 @@ class Handler(BaseHTTPRequestHandler):
    return False
   return True
  def _create_youtube_auth_url(self):
-  request=urllib.request.Request(_autotube_url()+'/api/youtube/auth',headers={'Accept':'text/html'})
+  internal_token=str(os.environ.get('CLIPFORGE_INTERNAL_TOKEN','')).strip()
+  if not internal_token:
+   return self.json(503,{'ok':False,'error':'youtube_provider_not_configured'})
+  request=urllib.request.Request(_autotube_url()+'/api/youtube/auth',headers={'Accept':'text/html','X-ClipForge-Internal-Token':internal_token})
   try:
    response=urllib.request.build_opener(_NoRedirect).open(request,timeout=20)
   except urllib.error.HTTPError as exc:
@@ -356,6 +359,11 @@ class Handler(BaseHTTPRequestHandler):
   if path!='/api/youtube/callback' and not self._require_clipforge_admin():return True
   body=None
   headers={'Accept':self.headers.get('Accept','application/json, text/html;q=0.9, */*;q=0.8')}
+  internal_token=str(os.environ.get('CLIPFORGE_INTERNAL_TOKEN','')).strip()
+  if not internal_token:
+   self.json(503,{'ok':False,'error':'youtube_provider_not_configured'})
+   return True
+  headers['X-ClipForge-Internal-Token']=internal_token
   if method=='POST':
    try:length=int(self.headers.get('Content-Length','0'))
    except ValueError:length=0
