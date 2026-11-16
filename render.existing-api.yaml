@@ -11,5 +11,5 @@ services:
     region: frankfurt
     dockerfilePath: ./Dockerfile.clipforge-api
     dockerContext: .
-    autoDeployTrigger: off
+    autoDeployTrigger: commit
     healthCheckPath: /api/health
