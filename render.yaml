@@ -1,27 +1,76 @@
-services:
-  - type: static
-    name: clipforge-final
-    repo: https://github.com/hugoaguilera022/ClipForge
-    branch: codex/clipforge-editor-stabilization
-    buildCommand: echo "ClipForge static frontend ready"
-    staticPublishPath: static
-    autoDeploy: false
-    routes:
-      - type: rewrite
-        source: /api/*
-        destination: https://clipforge-api-hugo.onrender.com/api/*
+projects:
+  - name: ClipForge Studio
+    environments:
+      - name: production
+        services:
+          # Main ClipForge frontend. Keep the existing production branch and API rewrite.
+          - type: web
+            runtime: static
+            name: clipforge-final
+            repo: https://github.com/hugoaguilera022/ClipForge
+            branch: codex/clipforge-editor-stabilization
+            buildCommand: echo "ClipForge static frontend ready"
+            staticPublishPath: static
+            autoDeployTrigger: off
+            routes:
+              - type: rewrite
+                source: /api/*
+                destination: https://clipforge-api-hugo.onrender.com/api/*
 
-  - type: web
-    name: clipforge-api-hugo
-    runtime: docker
-    repo: https://github.com/hugoaguilera022/ClipForge
-    branch: codex/clipforge-editor-stabilization
-    plan: free
-    region: frankfurt
-    dockerfilePath: ./Dockerfile.clipforge-api
-    dockerContext: .
-    autoDeploy: false
-    healthCheckPath: /api/health
-    envVars:
-      - key: CLIPFORGE_HOST
-        value: 0.0.0.0
+          # Main ClipForge API.
+          - type: web
+            name: clipforge-api-hugo
+            runtime: docker
+            repo: https://github.com/hugoaguilera022/ClipForge
+            branch: codex/clipforge-editor-stabilization
+            plan: free
+            region: frankfurt
+            dockerfilePath: ./Dockerfile.clipforge-api
+            dockerContext: .
+            autoDeployTrigger: off
+            healthCheckPath: /api/health
+
+          # Existing YouTube importer services are retained separately until traffic/dependency audit proves one redundant.
+          - type: web
+            name: clipforge-youtube-importer
+            runtime: docker
+            repo: https://github.com/hugoaguilera022/ClipForge
+            branch: integrated-web-final
+            plan: free
+            region: frankfurt
+            dockerfilePath: ./Dockerfile.youtube-proxy
+            dockerContext: .
+            autoDeployTrigger: off
+
+          - type: web
+            name: clipforge-youtube-ingest
+            runtime: docker
+            repo: https://github.com/hugoaguilera022/ClipForge
+            branch: integrated-web-final
+            plan: free
+            region: frankfurt
+            dockerfilePath: ./Dockerfile.youtube-proxy
+            dockerContext: .
+            autoDeployTrigger: commit
+
+          # Existing ClipForge preview frontend.
+          - type: web
+            runtime: static
+            name: clipforge-preview
+            repo: https://github.com/hugoaguilera022/ClipForge
+            branch: integrated-web-final
+            buildCommand: echo 'ClipForge static browser app ready'
+            staticPublishPath: static
+            autoDeployTrigger: commit
+
+          # AutoTube remains on its own repository and main branch, but is grouped in this Render project.
+          - type: web
+            name: autotube
+            runtime: node
+            repo: https://github.com/hugoaguilera022/autotube
+            branch: main
+            plan: free
+            region: frankfurt
+            buildCommand: npm install
+            startCommand: npm start
+            autoDeployTrigger: commit
