@@ -25,7 +25,7 @@ function mountAuth() {
     root.querySelector('.cf-auth-status').textContent = 'Redirigiendo a Google…';
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: 'https://clipforge-final.onrender.com', queryParams: { access_type: 'offline', prompt: 'consent' } }
+      options: { redirectTo: window.location.origin, queryParams: { access_type: 'offline', prompt: 'consent' } }
     });
     if (error) {
       root.querySelector('.cf-auth-status').textContent = 'No se pudo iniciar sesión: ' + error.message;
