@@ -10,9 +10,25 @@
   let poller = null;
   let connected = false;
 
+  async function authHeaders() {
+    const client = window.clipforgeSupabase;
+    if (!client) return null;
+    const {data} = await client.auth.getSession();
+    const token = data?.session?.access_token;
+    return token ? {Authorization:'Bearer ' + token} : null;
+  }
+
   async function refreshProfile() {
     try {
-      const response = await fetch('/api/youtube/profile', {cache:'no-store'});
+      const headers = await authHeaders();
+      if (!headers) {
+        connected = false;
+        status.textContent = 'Inicia sesión con tu cuenta de Google para gestionar YouTube.';
+        connect.textContent = 'Inicia sesión primero';
+        form.hidden = true;
+        return false;
+      }
+      const response = await fetch('/api/youtube/profile', {cache:'no-store',headers});
       const data = await response.json();
       connected = response.ok && data.connected === true;
       status.textContent = connected
@@ -40,9 +56,22 @@
       await refreshProfile();
       return;
     }
-    popup = window.open('/api/youtube/auth', 'clipforge-youtube-oauth', 'popup,width=620,height=760');
+    const headers = await authHeaders();
+    if (!headers) { status.textContent = 'Inicia sesión con tu cuenta autorizada antes de conectar YouTube.'; return; }
+    popup = window.open('about:blank', 'clipforge-youtube-oauth', 'popup,width=620,height=760');
     if (!popup) {
       status.textContent = 'El navegador ha bloqueado la ventana. Permite las ventanas emergentes para ClipForge.';
+      return;
+    }
+    status.textContent = 'Preparando conexión segura con Google…';
+    try {
+      const response = await fetch('/api/youtube/auth-url', {method:'POST',headers});
+      const data = await response.json();
+      if (!response.ok || !data.ok || !data.url) throw new Error(data.message || data.error || 'No se pudo iniciar OAuth.');
+      popup.location.href = data.url;
+    } catch (error) {
+      try { popup.close(); } catch (_) {}
+      status.textContent = 'No se pudo iniciar la conexión: ' + error.message;
       return;
     }
     status.textContent = 'Completa la autorización de Google en la ventana emergente…';
@@ -77,7 +106,9 @@
     body.append('description', $('#youtubeDescription').value.trim());
     body.append('visibility', $('#youtubeVisibility').value);
     try {
-      const response = await fetch('/api/youtube/upload', {method:'POST', body});
+      const headers = await authHeaders();
+      if (!headers) throw new Error('Inicia sesión con tu cuenta autorizada antes de publicar.');
+      const response = await fetch('/api/youtube/upload', {method:'POST',headers, body});
       const data = await response.json();
       if (!response.ok || !data.ok) throw new Error(data.error || 'No se pudo publicar el vídeo.');
       result.textContent = 'Vídeo publicado correctamente: ' + (data.watchUrl || data.videoId);
@@ -99,5 +130,6 @@
     }
   });
 
-  refreshProfile();
+  window.addEventListener('clipforge:session', () => refreshProfile());
+  setTimeout(() => refreshProfile(), 1200);
 })();
