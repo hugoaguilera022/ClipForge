@@ -5,7 +5,7 @@ services:
     name: clipforge-api-hugo
     runtime: docker
     repo: https://github.com/hugoaguilera022/ClipForge
-    branch: codex/clipforge-single-service-no-autotube
+    branch: codex/clipforge-single-web-integration
     plan: free
     region: frankfurt
     dockerfilePath: ./Dockerfile.clipforge-api
