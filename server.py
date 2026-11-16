@@ -308,9 +308,52 @@ class Handler(BaseHTTPRequestHandler):
   data=body if isinstance(body,bytes) else body.encode()
   self.send_response(code); self.send_header('Content-Type',ctype); self.send_header('Content-Length',str(len(data))); self.send_header('X-Content-Type-Options','nosniff'); self.end_headers(); self.wfile.write(data)
  def json(self, code, obj): self.send(code,json.dumps(obj,ensure_ascii=False), 'application/json; charset=utf-8')
+ def _require_clipforge_admin(self):
+  header=self.headers.get('Authorization','')
+  token=header[7:].strip() if header.lower().startswith('bearer ') else ''
+  if not token:
+   self.json(401,{'ok':False,'error':'login_required','message':'Inicia sesión con tu cuenta autorizada de ClipForge.'})
+   return False
+  allowed_email=str(os.environ.get('CLIPFORGE_ADMIN_EMAIL','')).strip().lower()
+  if not allowed_email:
+   self.json(503,{'ok':False,'error':'admin_not_configured','message':'La cuenta administradora de ClipForge aún no está configurada.'})
+   return False
+  supabase_url=str(os.environ.get('SUPABASE_URL','https://zmqfjrstuhthtrshcfwa.supabase.co')).rstrip('/')
+  publishable_key='sb_publishable_Izh4bHRXLj5f4aW4P-z0gA_1pUv7L4H'
+  request=urllib.request.Request(supabase_url+'/auth/v1/user',headers={'apikey':publishable_key,'Authorization':'Bearer '+token,'Accept':'application/json'})
+  try:
+   with urllib.request.urlopen(request,timeout=12) as response:
+    user=json.loads(response.read() or b'{}')
+  except Exception:
+   self.json(401,{'ok':False,'error':'invalid_session','message':'La sesión de ClipForge ha caducado. Vuelve a iniciar sesión.'})
+   return False
+  email=str(user.get('email','')).strip().lower()
+  if not email or email!=allowed_email or not user.get('email_confirmed_at'):
+   self.json(403,{'ok':False,'error':'not_authorized','message':'Esta cuenta no tiene permisos para gestionar el canal de YouTube conectado.'})
+   return False
+  return True
+ def _create_youtube_auth_url(self):
+  request=urllib.request.Request(_autotube_url()+'/api/youtube/auth',headers={'Accept':'text/html'})
+  try:
+   response=urllib.request.build_opener(_NoRedirect).open(request,timeout=20)
+  except urllib.error.HTTPError as exc:
+   response=exc
+  except Exception:
+   self.json(502,{'ok':False,'error':'youtube_provider_unavailable'})
+   return
+  try:
+   location=response.headers.get('Location')
+   if response.code in (301,302,303,307,308) and location:
+    return self.json(200,{'ok':True,'url':location})
+   raw=response.read()
+   message=raw.decode('utf-8','replace')[:500] if raw else 'No se pudo iniciar OAuth de YouTube.'
+   return self.json(response.code if response.code>=400 else 502,{'ok':False,'error':'youtube_oauth_start_failed','message':message})
+  finally:
+   response.close()
  def _proxy_autotube(self,method):
   path=urlparse(self.path).path
   if path not in AUTOTUBE_PROXY_PATHS:return False
+  if path!='/api/youtube/callback' and not self._require_clipforge_admin():return True
   body=None
   headers={'Accept':self.headers.get('Accept','application/json, text/html;q=0.9, */*;q=0.8')}
   if method=='POST':
@@ -531,6 +574,9 @@ class Handler(BaseHTTPRequestHandler):
   return self.json(404,{'error':'not_found'})
  def do_POST(self):
   path=urlparse(self.path).path
+  if path=='/api/youtube/auth-url':
+   if not self._require_clipforge_admin():return
+   return self._create_youtube_auth_url()
   if self._proxy_autotube('POST'):return
   if path=='/api/youtube/download':
    origin=self.headers.get('Origin','')
