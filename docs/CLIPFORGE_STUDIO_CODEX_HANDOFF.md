@@ -70,7 +70,7 @@ Failing tests:
 1. `tests/test_editorial_candidate_context.py::test_editorial_bundle_cache_bust_changes_with_candidate_context_logic` — expects `/browser-whisper-inline-v3.js?v=20261115-editorial-context1` in `static/index.html`, but the current HTML contains a different/missing version string.
 2. `tests/test_editorial_candidate_context.py::test_word_level_whisper_timestamps_still_produce_four_editorial_windows` — the Node subprocess invoked by the test exits non-zero. Re-run this test alone and capture stderr to identify whether the embedded JS harness or candidate-window logic is at fault.
 
-These failures pre-date any code integration in this audit branch: PR #71 currently adds documentation only. Fix the underlying regression on the working branch, update the test only if its expectation is demonstrably obsolete, then rerun the full quality workflow. Do not hide, skip, weaken or delete the tests.
+The two failures were inspected and corrected on the working branch (commit `dcee381f676d9152c14e3a40486c5b8aff460084`): the HTML now uses the expected cache-busting version for the updated module, and the test's Node harness now inserts a real newline instead of a literal backslash-n outside the JavaScript function. A new quality run (`43868002047`) was queued for this commit at 12:35 UTC and must complete green before integration proceeds. Do not hide, skip, weaken or delete the tests.
 
 ## Integration sequence for Codex
 
