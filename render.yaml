@@ -1,26 +1,12 @@
-# ClipForge Studio: one user-facing website with same-origin API routing.
-# Keep the static web URL as the public entry point. The API remains a backend
-# service; browser requests to /api/* are rewritten to it by Render.
-# Auxiliary importer/preview services are retired only after end-to-end checks.
+# ClipForge Studio — one public Render web service.
+# The Python backend serves static/, /api/*, previews and exports on one origin.
+# Keep legacy services until this single service passes full browser/media tests.
 services:
   - type: web
-    name: clipforge-final
-    runtime: static
-    repo: https://github.com/hugoaguilera022/ClipForge
-    branch: codex/clipforge-editor-stabilization
-    buildCommand: echo "ClipForge static frontend ready"
-    staticPublishPath: static
-    autoDeployTrigger: off
-    routes:
-      - type: rewrite
-        source: /api/*
-        destination: https://clipforge-api-hugo.onrender.com/api/*
-
-  - type: web
-    name: clipforge-api-hugo
+    name: clipforge-studio
     runtime: docker
     repo: https://github.com/hugoaguilera022/ClipForge
-    branch: codex/clipforge-editor-stabilization
+    branch: codex/clipforge-single-web-integration
     plan: free
     region: frankfurt
     dockerfilePath: ./Dockerfile.clipforge-api
