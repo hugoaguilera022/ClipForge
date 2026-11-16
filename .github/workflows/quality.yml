@@ -65,7 +65,6 @@ jobs:
           node --check static/browser-export.js
           node --check static/browser-url.js
           node --check static/google-drive.js
-          node --check static/youtube-publish.js
 
 
       - name: Run automated tests with coverage
@@ -98,3 +97,10 @@ jobs:
             test-output/
           if-no-files-found: warn
           retention-days: 7
+
+      - name: Ensure ClipForge has no AutoTube runtime dependency
+        run: |
+          if grep -RniE 'AUTOTUBE_BASE_URL|CLIPFORGE_INTERNAL_TOKEN|_proxy_autotube|autotube-usm1|youtube-publish.js' server.py static; then
+            echo 'Unexpected AutoTube runtime dependency found.'
+            exit 1
+          fi
