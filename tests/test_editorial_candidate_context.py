@@ -38,7 +38,7 @@ def test_word_level_whisper_timestamps_still_produce_four_editorial_windows():
     ]
     script = (
         function_source
-        + "\\nconst result=buildEditorialCandidatePool(" + json.dumps(transcript)
+        + "\nconst result=buildEditorialCandidatePool(" + json.dumps(transcript)
         + ",460.0,null,[],16000);"
         + "process.stdout.write(JSON.stringify(result));"
     )
